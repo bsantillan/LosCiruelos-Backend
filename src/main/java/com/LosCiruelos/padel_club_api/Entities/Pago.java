@@ -1,55 +1,65 @@
-package Grupo11.Seminario.Entities;
+package com.LosCiruelos.padel_club_api.Entities;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import Grupo11.Seminario.Entities.Enum.EstadoPago;
-import jakarta.persistence.CascadeType;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
+import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import lombok.Data;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Entity(name = "Pago")
-@Data
+@Entity
+@Table(name = "pagos")
+@Getter
+@Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Pago {
-    
-    // Se define el ID como autoincremental
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
-    @Column(nullable = true, name = "fecha")
-    private LocalDate fecha;
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "reserva_id")
+    private Reserva reserva;
 
-    @Column(nullable = true, name = "hora")
-    private LocalTime hora;
-
-    @Column(nullable = false, name = "metodo")
-    private String metodo;
-
-    @Column(nullable = false, name = "motivo")
-    private String motivo;
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal monto;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, name = "estado")
+    @Column(nullable = false)
     private EstadoPago estado;
 
-    @Column(nullable = false, name = "monto")
-    private Float monto;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentProvider provider;
 
-    @Column(nullable = false, name = "descuento")
-    private Float descuento;
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
 
-    @ManyToOne(cascade = CascadeType.ALL)
-    @JoinColumn(nullable = false, name = "cuenta_id")
-    private Cuenta cuenta;
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
 
+    @Column(name = "external_payment_id")
+    private String externalPaymentId;
+
+    @Column(name = "preference_id")
+    private String preferenceId;
 }

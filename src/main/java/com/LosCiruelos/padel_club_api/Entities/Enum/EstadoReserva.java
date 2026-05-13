@@ -1,8 +1,9 @@
-package Grupo11.Seminario.Entities.Enum;
+package com.LosCiruelos.padel_club_api.Entities.Enum;
 
 public enum EstadoReserva {
-    Seniada,
-    Pagada,
-    Cancelada, 
-    Pendiente
+    PENDIENTE,
+    CONFIRMADA,
+    CANCELADA,
+    EXPIRADA,
+    COMPLETADA
 }
