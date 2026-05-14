@@ -57,7 +57,7 @@ public class AuthController {
         String email = body.get("email");
         String tipo_codigo = body.get("tipo_codigo");
         if (TokenType.valueOf(tipo_codigo) == TokenType.VERIFY_EMAIL) {
-            verificationService.reenviarVerificacion(email);
+            verificationService.reenviarTokenVerificacion(email);
         } else {
             passwordResetService.reenviarVerificacion(email);
         }

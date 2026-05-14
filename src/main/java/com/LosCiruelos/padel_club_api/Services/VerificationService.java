@@ -13,6 +13,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.CuentaVerificadaException;
 import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.Repository.VerificationTokenRepository;
+import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,7 @@ public class VerificationService {
 
     private final UsuarioRepository usuarioRepository;
     private final VerificationTokenRepository tokenRepository;
-    private final SenGridService emailService;
+    private final EmailServiceFactory emailServiceFactory;
 
     @Transactional
     public void enviarTokenVerificacion(String email) {
@@ -41,7 +42,7 @@ public class VerificationService {
 
         tokenRepository.save(token);
 
-        emailService.sendVerificationEmail(
+        emailServiceFactory.getService().sendVerificationEmail(
                 usuario.getEmail(),
                 Map.of("nombre", usuario.getNombre(), "codigo", token.getToken()));
     }
@@ -75,7 +76,7 @@ public class VerificationService {
     }
 
     @Transactional
-    public void reenviarVerificacion(String email) {
+    public void reenviarTokenVerificacion(String email) {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 

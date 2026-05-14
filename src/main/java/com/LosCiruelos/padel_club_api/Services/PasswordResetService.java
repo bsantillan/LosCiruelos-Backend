@@ -16,6 +16,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
 import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.Repository.VerificationTokenRepository;
 import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
+import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,6 +27,7 @@ public class PasswordResetService {
         private final UsuarioRepository usuarioRepository;
         private final VerificationTokenRepository tokenRepository;
         private final PasswordEncoder passwordEncoder;
+        private final EmailServiceFactory emailServiceFactory;
 
         @Transactional
         public void enviarResetPassword(String email) {
@@ -43,7 +45,7 @@ public class PasswordResetService {
 
                 tokenRepository.save(token);
 
-                emailService.sendResetPasswordEmail(
+                emailServiceFactory.getService().sendResetPasswordEmail(
                                 usuario.getEmail(),
                                 Map.of("nombre", usuario.getNombre(), "codigo", token.getToken()));
         }
