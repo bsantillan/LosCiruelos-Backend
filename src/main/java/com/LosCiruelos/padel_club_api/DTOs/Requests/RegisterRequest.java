@@ -3,6 +3,7 @@ package com.LosCiruelos.padel_club_api.DTOs.Requests;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -27,4 +28,8 @@ public class RegisterRequest {
 
     @NotNull(message = "Debes aceptar los términos y condiciones")
     private Boolean termsAccepted;
+
+    @NotBlank(message = "El telefono es obligatorio")
+    @Pattern(regexp = "^\\+?[0-9]{8,15}$", message = "Teléfono inválido")
+    private String telefono;
 }

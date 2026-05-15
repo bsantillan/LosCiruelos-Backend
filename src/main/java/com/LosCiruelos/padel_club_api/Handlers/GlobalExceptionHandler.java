@@ -101,9 +101,17 @@ public class GlobalExceptionHandler {
         }
 
         @ExceptionHandler(Exception.class)
-        public ResponseEntity<Map<String, String>> handleOtrasExceptions(Exception ex) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                                .body(Map.of("error", "Ocurrio un error inesperado"));
+        public ResponseEntity<Map<String, Object>> handleOtrasExceptions(Exception ex) {
+
+                ex.printStackTrace();
+
+                Map<String, Object> body = new HashMap<>();
+                body.put("timestamp", Instant.now().toString());
+                body.put("error", ex.getMessage());
+
+                return ResponseEntity
+                                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body(body);
         }
 
         @ExceptionHandler(MethodArgumentNotValidException.class)

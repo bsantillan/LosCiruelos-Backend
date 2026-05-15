@@ -2,6 +2,7 @@ package com.LosCiruelos.padel_club_api.Services;
 
 import java.time.LocalDateTime;
 
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -9,8 +10,10 @@ import com.LosCiruelos.padel_club_api.DTOs.Requests.LoginRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.RegisterRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.GoogleUser;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.LoginResponse;
+import com.LosCiruelos.padel_club_api.Entities.RefreshToken;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
+import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailNoVerificadoException;
@@ -21,9 +24,12 @@ import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.Security.GoogleTokenVerifier;
 import com.LosCiruelos.padel_club_api.Security.JWTUtil;
 import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
+import com.LosCiruelos.padel_club_api.Security.UsuarioPrincipal;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -67,11 +73,19 @@ public class AuthService {
                 .passwordHash(passwordEncoder.encode(reg_rq.getPassword()))
                 .termsAccepted(reg_rq.getTermsAccepted())
                 .termsAcceptedAt(LocalDateTime.now())
+                .rol(Role.CLIENT)
+                .telefono(reg_rq.getTelefono())
                 .provider(AuthProvider.LOCAL)
                 .build();
         usuarioRepository.save(usuario_nuevo);
 
-        verificationService.enviarTokenVerificacion(usuario_nuevo.getEmail());
+        try {
+            verificationService.enviarToken(usuario_nuevo.getEmail());
+        } catch (Exception e) {
+            log.error("No se pudo enviar email de verificación a {}: {}",
+                    usuario_nuevo.getEmail(), e.getMessage());
+            // No relanzás la excepción, el registro fue exitoso
+        }
     }
 
     public LoginResponse login(LoginRequest log_rq) {
@@ -116,20 +130,33 @@ public class AuthService {
             LoginResponse response = new LoginResponse();
             response.setAccessToken(jwtUtil.generateToken(usuario.getEmail()));
             response.setRefreshToken(jwtUtil.createRefreshToken(usuario).getToken());
+            response.setId(usuario.getId());
+            response.setApellido(usuario.getApellido());
+            response.setEmail(usuario.getEmail());
+            response.setNombre(usuario.getNombre());
             return response;
         } catch (Exception ex) {
             throw new CredencialesInvalidasException("Token de google invalido");
         }
     }
 
-    public String refreshToken(String token) {
-
+    public LoginResponse refreshToken(String token) {
         if (!jwtUtil.validateRefreshToken(token)) {
             throw new CredencialesInvalidasException("Token invalido");
         }
 
-        Usuario usuario = jwtUtil.getUsuarioFromToken(token);
-        return (jwtUtil.generateToken(usuario.getEmail()));
+        RefreshToken nuevoRefreshToken = jwtUtil.rotateRefreshToken(token);
+        Usuario usuario = nuevoRefreshToken.getUsuario();
+
+        LoginResponse response = new LoginResponse();
+        response.setAccessToken(jwtUtil.generateToken(usuario.getEmail()));
+        response.setRefreshToken(nuevoRefreshToken.getToken());
+        response.setId(usuario.getId());
+        response.setNombre(usuario.getNombre());
+        response.setApellido(usuario.getApellido());
+        response.setEmail(usuario.getEmail());
+
+        return response;
     }
 
     public void logout(String refreshToken) {
@@ -137,7 +164,17 @@ public class AuthService {
         if (!jwtUtil.validateRefreshToken(refreshToken)) {
             throw new CredencialesInvalidasException("Token inválido");
         }
-        Usuario usuario = jwtUtil.getUsuarioFromToken(refreshToken);
-        jwtUtil.deleteRefreshToken(usuario);
+        Usuario usuarioDelRefresh = jwtUtil.getUsuarioFromToken(refreshToken);
+
+        UsuarioPrincipal principal = (UsuarioPrincipal) SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getPrincipal();
+
+        if (!usuarioDelRefresh.getEmail().equals(principal.getUsername())) {
+            throw new CredencialesInvalidasException("Token no pertenece al usuario");
+        }
+
+        jwtUtil.deleteRefreshToken(refreshToken);
     }
 }

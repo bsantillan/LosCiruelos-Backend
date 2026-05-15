@@ -26,8 +26,8 @@ public class JWTFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+            HttpServletResponse response,
+            FilterChain filterChain) throws ServletException, IOException {
 
         String authHeader = request.getHeader("Authorization");
 
@@ -38,32 +38,33 @@ public class JWTFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7);
 
-        if (!jwtUtil.validateRefreshToken(token)) {
+        if (!jwtUtil.validateAccessToken(token)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String email = jwtUtil.recuperarMail(token);
+        try {
+            String email = jwtUtil.recuperarMail(token);
 
-        if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
+                Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
 
-            if (usuario != null && usuario.getEnabled()) {
+                if (usuario != null && usuario.getEnabled()) {
 
-                // 🔑 Envolver en UsuarioPrincipal para que lleve las authorities
-                UsuarioPrincipal principal = new UsuarioPrincipal(usuario);
+                    UsuarioPrincipal principal = new UsuarioPrincipal(usuario);
 
-                UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(
-                        principal,
-                        null,
-                        principal.getAuthorities()  // ← roles van aquí
-                    );
+                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                            principal,
+                            null,
+                            principal.getAuthorities());
 
-                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(auth);
+                    auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
             }
+        } catch (Exception e) {
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);

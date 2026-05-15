@@ -27,7 +27,7 @@ public class VerificationService {
     private final EmailServiceFactory emailServiceFactory;
 
     @Transactional
-    public void enviarTokenVerificacion(String email) {
+    public void enviarToken(String email) {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
@@ -48,7 +48,7 @@ public class VerificationService {
     }
 
     @Transactional
-    public void verificarEmail(String email, String codigo) {
+    public void verificarToken(String email, String codigo) {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
@@ -76,7 +76,7 @@ public class VerificationService {
     }
 
     @Transactional
-    public void reenviarTokenVerificacion(String email) {
+    public void reenviarToken(String email) {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
@@ -86,6 +86,6 @@ public class VerificationService {
 
         tokenRepository.deleteByUsuarioAndType(usuario, TokenType.VERIFY_EMAIL);
 
-        enviarTokenVerificacion(email);
+        enviarToken(email);
     }
 }

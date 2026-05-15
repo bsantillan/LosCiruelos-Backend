@@ -30,7 +30,7 @@ public class PasswordResetService {
         private final EmailServiceFactory emailServiceFactory;
 
         @Transactional
-        public void enviarResetPassword(String email) {
+        public void enviarToken(String email) {
                 Usuario usuario = usuarioRepository.findByEmail(email)
                                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
@@ -51,7 +51,7 @@ public class PasswordResetService {
         }
 
         @Transactional
-        public void verificarEmail(String email, String codigo) {
+        public void verificarToken(String email, String codigo) {
                 Usuario usuario = usuarioRepository.findByEmail(email)
                                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
@@ -71,13 +71,13 @@ public class PasswordResetService {
         }
 
         @Transactional
-        public void reenviarVerificacion(String email) {
+        public void reenviarToken(String email) {
                 Usuario usuario = usuarioRepository.findByEmail(email)
                                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
                 tokenRepository.deleteByUsuarioAndType(usuario, TokenType.RESET_PASSWORD);
 
-                enviarResetPassword(email);
+                enviarToken(email);
         }
 
         public void resetPassword(String email, String nuevaPassword) {
