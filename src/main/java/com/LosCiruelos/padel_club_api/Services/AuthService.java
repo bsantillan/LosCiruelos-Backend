@@ -1,7 +1,5 @@
 package com.LosCiruelos.padel_club_api.Services;
 
-import java.time.LocalDateTime;
-
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,8 +18,6 @@ import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailNoVerificadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
 import com.LosCiruelos.padel_club_api.Exceptions.TerminosNoAceptadosException;
-import com.LosCiruelos.padel_club_api.Repository.ClienteProfileRepository;
-import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.Security.GoogleTokenVerifier;
 import com.LosCiruelos.padel_club_api.Security.JWTUtil;
 import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
@@ -35,28 +31,43 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UsuarioRepository usuarioRepository;
-    private final ClienteProfileRepository clienteProfileRepository;
+    private final UsuarioService usuarioService;
+    private final ClienteProfileService clienteProfileService;
     private final PasswordEncoder passwordEncoder;
     private final JWTUtil jwtUtil;
     private final GoogleTokenVerifier googleTokenVerifier;
     private final VerificationService verificationService;
 
-    private String capitalizar(String texto) {
-        if (texto == null || texto.isEmpty())
-            return texto;
-        return texto.substring(0, 1).toUpperCase() + texto.substring(1).toLowerCase();
+    private LoginResponse buildLoginResponse(Usuario usuario, boolean perfilCompleto) {
+        LoginResponse response = new LoginResponse();
+        response.setAccessToken(jwtUtil.generateToken(usuario.getEmail()));
+        response.setRefreshToken(jwtUtil.createRefreshToken(usuario).getToken());
+        response.setId(usuario.getId());
+        response.setNombre(usuario.getNombre());
+        response.setApellido(usuario.getApellido());
+        response.setEmail(usuario.getEmail());
+        response.setPerfilCompleto(perfilCompleto);
+        response.setRol(usuario.getRol());
+        return response;
+    }
+
+    private Boolean esPerfilCompleto(ClienteProfile clienteProfile) {
+        if (clienteProfile == null)
+            return false;
+
+        Usuario usuario = clienteProfile.getUsuario();
+        return usuario.getTelefono() != null
+                && usuario.getNombre() != null
+                && usuario.getApellido() != null
+                && clienteProfile.getCategoria() != null
+                && clienteProfile.getPosicion() != null;
     }
 
     public void register(RegisterRequest reg_rq) {
-        Usuario usuario = usuarioRepository.findByEmail(reg_rq.getEmail()).orElse(null);
+        Usuario usuario = usuarioService.findByEmail(reg_rq.getEmail());
 
         if (usuario != null) {
-            if (usuario.getEmailVerificado()) {
-                throw new EmailEnUsoException();
-            } else {
-                throw new EmailNoVerificadoException("Este email ya está registrado");
-            }
+            throw new EmailEnUsoException();
         }
 
         if (!PasswordValidator.esValida(reg_rq.getPassword())) {
@@ -67,26 +78,17 @@ public class AuthService {
             throw new TerminosNoAceptadosException();
         }
 
-        Usuario usuario_nuevo = Usuario.builder()
-                .email(reg_rq.getEmail())
-                .nombre(capitalizar(reg_rq.getNombre()))
-                .apellido(capitalizar(reg_rq.getApellido()))
-                .passwordHash(passwordEncoder.encode(reg_rq.getPassword()))
-                .termsAccepted(reg_rq.getTermsAccepted())
-                .termsAcceptedAt(LocalDateTime.now())
-                .rol(Role.CLIENTE)
-                .telefono(reg_rq.getTelefono())
-                .provider(AuthProvider.LOCAL)
-                .build();
-        usuarioRepository.save(usuario_nuevo);
+        Usuario usuario_nuevo = usuarioService.crearUsuario(
+                reg_rq.getEmail(),
+                reg_rq.getNombre(),
+                reg_rq.getApellido(),
+                reg_rq.getTelefono(),
+                reg_rq.getPassword(),
+                Role.CLIENTE,
+                AuthProvider.LOCAL,
+                reg_rq.getTermsAccepted());
 
-        ClienteProfile clienteProfile = ClienteProfile.builder()
-                .categoria(reg_rq.getCategoria())
-                .posicion(reg_rq.getPosicion())
-                .usuario(usuario_nuevo)
-                .build();
-
-        clienteProfileRepository.save(clienteProfile);
+        clienteProfileService.crearClienteProfile(usuario_nuevo, reg_rq.getCategoria(), reg_rq.getPosicion());
 
         try {
             verificationService.enviarToken(usuario_nuevo.getEmail());
@@ -97,8 +99,9 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest log_rq) {
-        Usuario usuario = usuarioRepository.findByEmail(log_rq.getEmail())
-                .orElseThrow(() -> new CredencialesInvalidasException("Email o contraseña incorrectos"));
+        Usuario usuario = usuarioService.findByEmailOrThrow(
+                log_rq.getEmail(),
+                new CredencialesInvalidasException("Email o contraseña incorrectos"));
 
         if (!passwordEncoder.matches(log_rq.getPassword(), usuario.getPasswordHash())) {
             throw new CredencialesInvalidasException("Email o contraseña incorrectos");
@@ -110,63 +113,30 @@ public class AuthService {
 
         jwtUtil.deleteAllRefreshTokens(usuario);
 
-        LoginResponse response = new LoginResponse();
-        response.setAccessToken(jwtUtil.generateToken(usuario.getEmail()));
-        response.setRefreshToken(jwtUtil.createRefreshToken(usuario).getToken());
-        response.setId(usuario.getId());
-        response.setApellido(usuario.getApellido());
-        response.setNombre(usuario.getNombre());
-        response.setEmail(usuario.getEmail());
-        response.setPerfilCompleto(true);
-        response.setRol(usuario.getRol());
-
-        return response;
+        return this.buildLoginResponse(usuario, true);
     }
 
     public LoginResponse loginWithGoogle(String idToken) {
         try {
             GoogleUser googleUser = googleTokenVerifier.verify(idToken);
-            Usuario usuarioGuardado = usuarioRepository.findByEmail(googleUser.getEmail())
-                    .orElseGet(() -> {
-                        Usuario usuarioNuevo = usuarioRepository.save(Usuario.builder()
-                                .email(googleUser.getEmail())
-                                .nombre(googleUser.getFirstName())
-                                .apellido(googleUser.getLastName())
-                                .provider(AuthProvider.GOOGLE)
-                                .termsAccepted(true)
-                                .termsAcceptedAt(LocalDateTime.now())
-                                .emailVerificado(true)
-                                .rol(Role.CLIENTE)
-                                .enabled(true)
-                                .build());
-                        clienteProfileRepository.save(ClienteProfile.builder()
-                                .usuario(usuarioNuevo)
-                                .build());
 
-                        return usuarioNuevo;
-                    });
+            Usuario usuarioGuardado = usuarioService.findByEmail(googleUser.getEmail());
+            ClienteProfile perfil = usuarioGuardado != null
+                    ? clienteProfileService.findByUsuario(usuarioGuardado)
+                    : null;
+
+            if (usuarioGuardado == null) {
+                usuarioGuardado = usuarioService.crearUsuario(
+                        googleUser.getEmail(), googleUser.getFirstName(), googleUser.getLastName(),
+                        null, null, Role.CLIENTE, AuthProvider.GOOGLE, true);
+
+                perfil = clienteProfileService.crearClienteProfile(usuarioGuardado, null, null);
+            }
+
             jwtUtil.deleteAllRefreshTokens(usuarioGuardado);
 
-            ClienteProfile perfil = clienteProfileRepository.findByUsuario(usuarioGuardado)
-                    .orElse(null);
+            return this.buildLoginResponse(usuarioGuardado, esPerfilCompleto(perfil));
 
-            boolean perfilCompleto = usuarioGuardado.getTelefono() != null
-                    && usuarioGuardado.getNombre() != null
-                    && usuarioGuardado.getApellido() != null
-                    && perfil.getCategoria() != null
-                    && perfil.getPosicion() != null;
-
-            LoginResponse response = new LoginResponse();
-            response.setAccessToken(jwtUtil.generateToken(usuarioGuardado.getEmail()));
-            response.setRefreshToken(jwtUtil.createRefreshToken(usuarioGuardado).getToken());
-            response.setId(usuarioGuardado.getId());
-            response.setApellido(usuarioGuardado.getApellido());
-            response.setEmail(usuarioGuardado.getEmail());
-            response.setNombre(usuarioGuardado.getNombre());
-            response.setPerfilCompleto(perfilCompleto);
-            response.setRol(usuarioGuardado.getRol());
-
-            return response;
         } catch (CredencialesInvalidasException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -182,17 +152,9 @@ public class AuthService {
 
         RefreshToken nuevoRefreshToken = jwtUtil.rotateRefreshToken(token);
         Usuario usuario = nuevoRefreshToken.getUsuario();
+        ClienteProfile perfil = clienteProfileService.findByUsuario(usuario);
 
-        LoginResponse response = new LoginResponse();
-        response.setAccessToken(jwtUtil.generateToken(usuario.getEmail()));
-        response.setRefreshToken(nuevoRefreshToken.getToken());
-        response.setId(usuario.getId());
-        response.setNombre(usuario.getNombre());
-        response.setApellido(usuario.getApellido());
-        response.setEmail(usuario.getEmail());
-        response.setRol(usuario.getRol());
-
-        return response;
+        return this.buildLoginResponse(usuario, esPerfilCompleto(perfil));
     }
 
     public void logout(String refreshToken) {
