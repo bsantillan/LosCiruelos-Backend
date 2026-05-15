@@ -10,4 +10,5 @@ public class LoginResponse {
     private String nombre;
     private String apellido;
     private String email;
+    private Boolean perfilCompleto;
 }

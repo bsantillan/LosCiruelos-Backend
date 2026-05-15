@@ -117,6 +117,11 @@ public class JWTUtil {
     }
 
     @Transactional
+    public void deleteAllRefreshTokens(Usuario usuario) {
+        refreshTokenRepository.deleteByUsuario(usuario);
+    }
+
+    @Transactional
     public RefreshToken rotateRefreshToken(String oldToken) {
         RefreshToken old = refreshTokenRepository.findByToken(oldToken)
                 .orElseThrow(() -> new RuntimeException("Refresh token inválido"));

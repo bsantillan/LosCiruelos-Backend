@@ -1,6 +1,7 @@
 package com.LosCiruelos.padel_club_api.Entities;
 
 import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
+import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -25,4 +26,6 @@ public class ClienteProfile {
     @Column(length = 20)
     private Categoria categoria;
 
+    @Column(length = 10)
+    private Posicion posicion;
 }

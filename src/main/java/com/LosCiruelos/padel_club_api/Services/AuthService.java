@@ -10,6 +10,7 @@ import com.LosCiruelos.padel_club_api.DTOs.Requests.LoginRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.RegisterRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.GoogleUser;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.LoginResponse;
+import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
 import com.LosCiruelos.padel_club_api.Entities.RefreshToken;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
@@ -19,7 +20,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailNoVerificadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
 import com.LosCiruelos.padel_club_api.Exceptions.TerminosNoAceptadosException;
-import com.LosCiruelos.padel_club_api.Repository.RefreshTokenRepository;
+import com.LosCiruelos.padel_club_api.Repository.ClienteProfileRepository;
 import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.Security.GoogleTokenVerifier;
 import com.LosCiruelos.padel_club_api.Security.JWTUtil;
@@ -34,8 +35,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final RefreshTokenRepository refreshTokenRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ClienteProfileRepository clienteProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JWTUtil jwtUtil;
     private final GoogleTokenVerifier googleTokenVerifier;
@@ -79,12 +80,19 @@ public class AuthService {
                 .build();
         usuarioRepository.save(usuario_nuevo);
 
+        ClienteProfile clienteProfile = ClienteProfile.builder()
+                .categoria(reg_rq.getCategoria())
+                .posicion(reg_rq.getPosicion())
+                .usuario(usuario_nuevo)
+                .build();
+
+        clienteProfileRepository.save(clienteProfile);
+
         try {
             verificationService.enviarToken(usuario_nuevo.getEmail());
         } catch (Exception e) {
             log.error("No se pudo enviar email de verificación a {}: {}",
                     usuario_nuevo.getEmail(), e.getMessage());
-            // No relanzás la excepción, el registro fue exitoso
         }
     }
 
@@ -100,7 +108,7 @@ public class AuthService {
             throw new EmailNoVerificadoException("Tenés que verificar tu email");
         }
 
-        refreshTokenRepository.deleteByUsuario(usuario);
+        jwtUtil.deleteAllRefreshTokens(usuario);
 
         LoginResponse response = new LoginResponse();
         response.setAccessToken(jwtUtil.generateToken(usuario.getEmail()));
@@ -109,6 +117,7 @@ public class AuthService {
         response.setApellido(usuario.getApellido());
         response.setNombre(usuario.getNombre());
         response.setEmail(usuario.getEmail());
+        response.setPerfilCompleto(true);
 
         return response;
     }
@@ -116,27 +125,47 @@ public class AuthService {
     public LoginResponse loginWithGoogle(String idToken) {
         try {
             GoogleUser googleUser = googleTokenVerifier.verify(idToken);
-            Usuario usuario = usuarioRepository.findByEmail(googleUser.getEmail())
-                    .orElseGet(() -> usuarioRepository.save(Usuario.builder()
-                            .email(googleUser.getEmail())
-                            .nombre(googleUser.getFirstName())
-                            .apellido(googleUser.getLastName())
-                            .provider(AuthProvider.GOOGLE)
-                            .termsAccepted(true)
-                            .termsAcceptedAt(LocalDateTime.now())
-                            .emailVerificado(true)
-                            .enabled(true)
-                            .build()));
+            Usuario usuarioGuardado = usuarioRepository.findByEmail(googleUser.getEmail())
+                    .orElseGet(() -> {
+                        Usuario usuarioNuevo = usuarioRepository.save(Usuario.builder()
+                                .email(googleUser.getEmail())
+                                .nombre(googleUser.getFirstName())
+                                .apellido(googleUser.getLastName())
+                                .provider(AuthProvider.GOOGLE)
+                                .termsAccepted(true)
+                                .termsAcceptedAt(LocalDateTime.now())
+                                .emailVerificado(true)
+                                .rol(Role.CLIENT)
+                                .enabled(true)
+                                .build());
+                        clienteProfileRepository.save(ClienteProfile.builder()
+                                .usuario(usuarioNuevo)
+                                .build());
+
+                        return usuarioNuevo;
+                    });
+            jwtUtil.deleteAllRefreshTokens(usuarioGuardado);
+
+            ClienteProfile perfil = clienteProfileRepository.findByUsuario(usuarioGuardado)
+                    .orElse(null);
+
+            boolean perfilCompleto = usuarioGuardado.getTelefono() != null
+                    && perfil.getCategoria() != null
+                    && perfil.getPosicion() != null;
+
             LoginResponse response = new LoginResponse();
-            response.setAccessToken(jwtUtil.generateToken(usuario.getEmail()));
-            response.setRefreshToken(jwtUtil.createRefreshToken(usuario).getToken());
-            response.setId(usuario.getId());
-            response.setApellido(usuario.getApellido());
-            response.setEmail(usuario.getEmail());
-            response.setNombre(usuario.getNombre());
+            response.setAccessToken(jwtUtil.generateToken(usuarioGuardado.getEmail()));
+            response.setRefreshToken(jwtUtil.createRefreshToken(usuarioGuardado).getToken());
+            response.setId(usuarioGuardado.getId());
+            response.setApellido(usuarioGuardado.getApellido());
+            response.setEmail(usuarioGuardado.getEmail());
+            response.setNombre(usuarioGuardado.getNombre());
+            response.setPerfilCompleto(perfilCompleto);
             return response;
+        } catch (CredencialesInvalidasException ex) {
+            throw ex;
         } catch (Exception ex) {
-            throw new CredencialesInvalidasException("Token de google invalido");
+            throw new CredencialesInvalidasException("Token de Google inválido");
         }
     }
 

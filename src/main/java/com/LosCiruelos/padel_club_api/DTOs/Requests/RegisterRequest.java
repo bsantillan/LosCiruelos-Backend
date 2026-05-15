@@ -1,5 +1,8 @@
 package com.LosCiruelos.padel_club_api.DTOs.Requests;
 
+import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
+import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -32,4 +35,10 @@ public class RegisterRequest {
     @NotBlank(message = "El telefono es obligatorio")
     @Pattern(regexp = "^\\+?[0-9]{8,15}$", message = "Teléfono inválido")
     private String telefono;
+
+    @NotNull(message = "La categoria es obligatoria")
+    private Categoria categoria;
+
+    @NotNull(message = "La posicion es obligatoria")
+    private Posicion posicion;
 }
