@@ -48,6 +48,8 @@ public class SecurityConfig {
                         // ADMIN y EMPLEADO
                         .requestMatchers("/gestion/**").hasAnyRole("ADMIN", "EMPLEADO")
 
+                        .requestMatchers("/profesores/**").hasAnyRole("ADMIN", "PROFESOR")
+
                         // Cualquier usuario autenticado (CLIENTE, EMPLEADO, ADMIN)
                         .requestMatchers("/reservas/**").authenticated()
 

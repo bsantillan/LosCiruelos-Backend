@@ -35,10 +35,10 @@ public class Usuario {
     // DATOS PERSONALES
     // =========================
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = true, length = 50)
     private String nombre;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = true, length = 50)
     private String apellido;
 
     @Column(nullable = false, unique = true, length = 100)

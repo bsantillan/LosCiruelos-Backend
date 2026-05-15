@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.DTOs.Responses;
 
+import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
+
 import lombok.Data;
 
 @Data
@@ -11,4 +13,5 @@ public class LoginResponse {
     private String apellido;
     private String email;
     private Boolean perfilCompleto;
+    private Role rol;
 }

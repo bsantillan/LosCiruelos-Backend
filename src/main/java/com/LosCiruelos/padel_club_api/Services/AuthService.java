@@ -74,7 +74,7 @@ public class AuthService {
                 .passwordHash(passwordEncoder.encode(reg_rq.getPassword()))
                 .termsAccepted(reg_rq.getTermsAccepted())
                 .termsAcceptedAt(LocalDateTime.now())
-                .rol(Role.CLIENT)
+                .rol(Role.CLIENTE)
                 .telefono(reg_rq.getTelefono())
                 .provider(AuthProvider.LOCAL)
                 .build();
@@ -118,6 +118,7 @@ public class AuthService {
         response.setNombre(usuario.getNombre());
         response.setEmail(usuario.getEmail());
         response.setPerfilCompleto(true);
+        response.setRol(usuario.getRol());
 
         return response;
     }
@@ -135,7 +136,7 @@ public class AuthService {
                                 .termsAccepted(true)
                                 .termsAcceptedAt(LocalDateTime.now())
                                 .emailVerificado(true)
-                                .rol(Role.CLIENT)
+                                .rol(Role.CLIENTE)
                                 .enabled(true)
                                 .build());
                         clienteProfileRepository.save(ClienteProfile.builder()
@@ -150,6 +151,8 @@ public class AuthService {
                     .orElse(null);
 
             boolean perfilCompleto = usuarioGuardado.getTelefono() != null
+                    && usuarioGuardado.getNombre() != null
+                    && usuarioGuardado.getApellido() != null
                     && perfil.getCategoria() != null
                     && perfil.getPosicion() != null;
 
@@ -161,10 +164,13 @@ public class AuthService {
             response.setEmail(usuarioGuardado.getEmail());
             response.setNombre(usuarioGuardado.getNombre());
             response.setPerfilCompleto(perfilCompleto);
+            response.setRol(usuarioGuardado.getRol());
+
             return response;
         } catch (CredencialesInvalidasException ex) {
             throw ex;
         } catch (Exception ex) {
+            log.error("Error en loginWithGoogle: {}", ex.getMessage(), ex);
             throw new CredencialesInvalidasException("Token de Google inválido");
         }
     }
@@ -184,6 +190,7 @@ public class AuthService {
         response.setNombre(usuario.getNombre());
         response.setApellido(usuario.getApellido());
         response.setEmail(usuario.getEmail());
+        response.setRol(usuario.getRol());
 
         return response;
     }
