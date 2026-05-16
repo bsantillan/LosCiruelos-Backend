@@ -51,6 +51,14 @@ public class PerfilService {
                 new CredencialesInvalidasException("Usuario no encontrado"));
         usuario = usuarioService.updateUsuario(usuario, per_rq.getNombre(), per_rq.getApellido(), per_rq.getTelefono());
 
+        if (per_rq.getCategoria() != null && usuario.getRol() != Role.CLIENTE) {
+            throw new RuntimeException("Solo los usuarios con rol CLIENTE pueden actualizar la categoría");
+        }
+
+        if (per_rq.getPosicion() != null && usuario.getRol() != Role.CLIENTE) {
+            throw new RuntimeException("Solo los usuarios con rol CLIENTE pueden actualizar la posición");
+        }
+
         ClienteProfile perfil = null;
 
         if (usuario.getRol() == Role.CLIENTE) {
