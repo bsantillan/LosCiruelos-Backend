@@ -33,11 +33,11 @@ public class PerfilController {
 
     @PutMapping()
     public ResponseEntity<PerfilResponse> updatePerfil(
-            @RequestBody PerfilRequest perfilDTO,
+            @RequestBody PerfilRequest per_rq,
             Authentication authentication) {
         UsuarioPrincipal principal = (UsuarioPrincipal) authentication.getPrincipal();
 
-        return ResponseEntity.ok(perfilService.updatePerfil(perfilDTO, principal.getUsername()));
+        return ResponseEntity.ok(perfilService.updatePerfil(per_rq, principal.getUsername()));
     }
 
     @DeleteMapping("/desactivar")
