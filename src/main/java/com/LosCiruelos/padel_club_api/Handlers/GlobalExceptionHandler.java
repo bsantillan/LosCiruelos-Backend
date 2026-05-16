@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 
 import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.Exceptions.CuentaDesactivadaException;
 import com.LosCiruelos.padel_club_api.Exceptions.CuentaVerificadaException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailNoVerificadoException;
@@ -32,6 +33,16 @@ public class GlobalExceptionHandler {
                 body.put("errors", Map.of(
                                 "email", ex.getMessage()));
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        }
+
+        @ExceptionHandler(CuentaDesactivadaException.class)
+        public ResponseEntity<Map<String, Object>> handleCuentaDesactivada(CuentaDesactivadaException ex) {
+                Map<String, Object> body = new HashMap<>();
+                body.put("timestamp", Instant.now().toString());
+                body.put("error", ex.getMessage());
+                return ResponseEntity
+                                .status(HttpStatus.FORBIDDEN)
+                                .body(body);
         }
 
         @ExceptionHandler(PasswordInvalidaException.class)
