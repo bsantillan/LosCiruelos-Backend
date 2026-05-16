@@ -38,10 +38,10 @@ public class AuthService {
     private final GoogleTokenVerifier googleTokenVerifier;
     private final VerificationService verificationService;
 
-    private LoginResponse buildLoginResponse(Usuario usuario, boolean perfilCompleto) {
+    private LoginResponse buildLoginResponse(Usuario usuario, boolean perfilCompleto, String refreshToken) {
         LoginResponse response = new LoginResponse();
         response.setAccessToken(jwtUtil.generateToken(usuario.getEmail()));
-        response.setRefreshToken(jwtUtil.createRefreshToken(usuario).getToken());
+        response.setRefreshToken(refreshToken);
         response.setId(usuario.getId());
         response.setNombre(usuario.getNombre());
         response.setApellido(usuario.getApellido());
@@ -113,7 +113,7 @@ public class AuthService {
 
         jwtUtil.deleteAllRefreshTokens(usuario);
 
-        return this.buildLoginResponse(usuario, true);
+        return this.buildLoginResponse(usuario, true, jwtUtil.createRefreshToken(usuario).getToken());
     }
 
     public LoginResponse loginWithGoogle(String idToken) {
@@ -135,7 +135,7 @@ public class AuthService {
 
             jwtUtil.deleteAllRefreshTokens(usuarioGuardado);
 
-            return this.buildLoginResponse(usuarioGuardado, esPerfilCompleto(perfil));
+            return this.buildLoginResponse(usuarioGuardado, esPerfilCompleto(perfil), jwtUtil.createRefreshToken(usuarioGuardado).getToken());
 
         } catch (CredencialesInvalidasException ex) {
             throw ex;
@@ -154,7 +154,7 @@ public class AuthService {
         Usuario usuario = nuevoRefreshToken.getUsuario();
         ClienteProfile perfil = clienteProfileService.findByUsuario(usuario);
 
-        return this.buildLoginResponse(usuario, esPerfilCompleto(perfil));
+        return this.buildLoginResponse(usuario, esPerfilCompleto(perfil), nuevoRefreshToken.getToken());
     }
 
     public void logout(String refreshToken) {
