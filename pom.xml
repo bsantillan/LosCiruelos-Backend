@@ -215,6 +215,7 @@
 					<!-- Falla si coverage es bajo -->
 					<execution>
 						<id>check</id>
+						<phase>verify</phase>
 						<goals>
 							<goal>check</goal>
 						</goals>
