@@ -14,6 +14,7 @@ import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.Exceptions.CuentaDesactivadaException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailNoVerificadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
@@ -111,6 +112,10 @@ public class AuthService {
             throw new EmailNoVerificadoException("Tenés que verificar tu email");
         }
 
+        if (!usuario.getEnabled()) {
+            throw new CuentaDesactivadaException();
+        }
+
         jwtUtil.deleteAllRefreshTokens(usuario);
 
         return this.buildLoginResponse(usuario, true, jwtUtil.createRefreshToken(usuario).getToken());
@@ -131,11 +136,14 @@ public class AuthService {
                         null, null, Role.CLIENTE, AuthProvider.GOOGLE, true);
 
                 perfil = clienteProfileService.crearClienteProfile(usuarioGuardado, null, null);
+            } else if (!usuarioGuardado.getEnabled()) {
+                throw new CuentaDesactivadaException();
             }
 
             jwtUtil.deleteAllRefreshTokens(usuarioGuardado);
 
-            return this.buildLoginResponse(usuarioGuardado, esPerfilCompleto(perfil), jwtUtil.createRefreshToken(usuarioGuardado).getToken());
+            return this.buildLoginResponse(usuarioGuardado, esPerfilCompleto(perfil),
+                    jwtUtil.createRefreshToken(usuarioGuardado).getToken());
 
         } catch (CredencialesInvalidasException ex) {
             throw ex;

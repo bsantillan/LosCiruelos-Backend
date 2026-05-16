@@ -28,4 +28,10 @@ public class ClienteProfileService {
     public ClienteProfile findByUsuario(Usuario user) {
         return clienteProfileRepository.findByUsuario(user).orElse(null);
     }
+
+    public ClienteProfile updateClienteProfile(ClienteProfile perfil, Categoria categoria, Posicion posicion) {
+        perfil.setCategoria(categoria);
+        perfil.setPosicion(posicion);
+        return clienteProfileRepository.save(perfil);
+    }
 }

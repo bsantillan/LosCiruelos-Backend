@@ -27,6 +27,18 @@ public class UsuarioService {
         return usuarioRepository.findByEmail(email).orElseThrow(() -> ex);
     }
 
+    public Usuario updateUsuario(Usuario user, String nombre, String apellido, String telefono) {
+        user.setNombre(capitalizar(nombre));
+        user.setApellido(capitalizar(apellido));
+        user.setTelefono(telefono);
+        return usuarioRepository.save(user);
+    }
+
+    public void desactivarUsuario(Usuario usuario) {
+        usuario.setEnabled(false);
+        usuarioRepository.save(usuario);
+    }
+
     public Usuario crearUsuario(String email, String nombre, String apellido,
             String telefono, String password, Role rol, AuthProvider provider, Boolean termsAccepted) {
         return usuarioRepository.save(Usuario.builder()
