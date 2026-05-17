@@ -17,7 +17,7 @@ public class ClienteProfileService {
     private final ClienteProfileRepository clienteProfileRepository;
 
     public ClienteProfile crearClienteProfile(Usuario user, Categoria categoria, Posicion posicion) {
-        
+
         return clienteProfileRepository.save(ClienteProfile.builder()
                 .categoria(categoria)
                 .posicion(posicion)
@@ -33,5 +33,15 @@ public class ClienteProfileService {
         perfil.setCategoria(categoria);
         perfil.setPosicion(posicion);
         return clienteProfileRepository.save(perfil);
+    }
+
+    public ClienteProfile updateCategoria(ClienteProfile perfil, Categoria categoria) {
+        perfil.setCategoria(categoria);
+        return clienteProfileRepository.save(perfil);
+    }
+
+    public void eliminarPorUsuario(Usuario usuario) {
+        clienteProfileRepository.findByUsuario(usuario)
+                .ifPresent(clienteProfileRepository::delete);
     }
 }

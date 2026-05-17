@@ -26,13 +26,13 @@ public class GmailEmailService implements EmailService {
         String codigo = (String) data.get("codigo");
 
         String html = """
-            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px;">
-                <h2>Hola, %s</h2>
-                <p>Tu código de verificación es:</p>
-                <h1 style="letter-spacing: 8px; color: #4CAF50;">%s</h1>
-                <p>Expira en 24 horas.</p>
-            </div>
-            """.formatted(nombre, codigo);
+                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px;">
+                    <h2>Hola, %s</h2>
+                    <p>Tu código de verificación es:</p>
+                    <h1 style="letter-spacing: 8px; color: #4CAF50;">%s</h1>
+                    <p>Expira en 24 horas.</p>
+                </div>
+                """.formatted(nombre, codigo);
 
         enviarEmail(to, "Verificá tu cuenta - Los Ciruelos Padel", html);
     }
@@ -43,16 +43,37 @@ public class GmailEmailService implements EmailService {
         String codigo = (String) data.get("codigo");
 
         String html = """
-            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px;">
-                <h2>Hola, %s</h2>
-                <p>Tu código para restablecer la contraseña es:</p>
-                <h1 style="letter-spacing: 8px; color: #f44336;">%s</h1>
-                <p>Expira en 15 minutos.</p>
-                <p>Si no lo pediste, ignorá este mail.</p>
-            </div>
-            """.formatted(nombre, codigo);
+                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px;">
+                    <h2>Hola, %s</h2>
+                    <p>Tu código para restablecer la contraseña es:</p>
+                    <h1 style="letter-spacing: 8px; color: #f44336;">%s</h1>
+                    <p>Expira en 15 minutos.</p>
+                    <p>Si no lo pediste, ignorá este mail.</p>
+                </div>
+                """.formatted(nombre, codigo);
 
         enviarEmail(to, "Restablecer contraseña - Los Ciruelos Padel", html);
+    }
+
+    @Override
+    public void sendBienvenidaEmail(String to, Map<String, Object> data) {
+        String nombre = (String) data.get("nombre");
+        String password = (String) data.get("password");
+        String codigo = (String) data.get("codigo");
+
+        String html = """
+                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px;">
+                    <h2>Bienvenido/a %s a Los Ciruelos Padel</h2>
+                    <p>Tu cuenta fue creada por el administrador.</p>
+                    <p>Tu contraseña temporal es:</p>
+                    <h1 style="letter-spacing: 8px; color: #4CAF50;">%s</h1>
+                    <p>Tu código de verificación es:</p>
+                    <h1 style="letter-spacing: 8px; color: #2196F3;">%s</h1>
+                    <p>Verificá tu cuenta y cambiá tu contraseña una vez que ingreses.</p>
+                </div>
+                """.formatted(nombre, password, codigo);
+
+        enviarEmail(to, "Bienvenido/a a Los Ciruelos Padel", html);
     }
 
     private void enviarEmail(String to, String subject, String html) {

@@ -31,7 +31,7 @@ public class PerfilController {
         return ResponseEntity.ok(perfilService.getPerfil(principal.getUsername()));
     }
 
-    @PutMapping()
+    @PutMapping
     public ResponseEntity<PerfilResponse> updatePerfil(
             @RequestBody PerfilRequest per_rq,
             Authentication authentication) {

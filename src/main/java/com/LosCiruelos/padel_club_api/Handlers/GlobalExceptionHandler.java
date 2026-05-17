@@ -18,6 +18,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailNoVerificadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
 import com.LosCiruelos.padel_club_api.Exceptions.TerminosNoAceptadosException;
+import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -134,5 +135,21 @@ public class GlobalExceptionHandler {
                 body.put("status", 400);
                 body.put("errors", errors);
                 return ResponseEntity.badRequest().body(body);
+        }
+
+        @ExceptionHandler(UsuarioNotFoundException.class)
+        public ResponseEntity<Map<String, Object>> handleUsuarioNotFound(UsuarioNotFoundException ex) {
+                Map<String, Object> body = new HashMap<>();
+                body.put("timestamp", Instant.now().toString());
+                body.put("error", ex.getMessage());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+        }
+
+        @ExceptionHandler(IllegalArgumentException.class)
+        public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+                Map<String, Object> body = new HashMap<>();
+                body.put("timestamp", Instant.now().toString());
+                body.put("error", ex.getMessage());
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
         }
 }

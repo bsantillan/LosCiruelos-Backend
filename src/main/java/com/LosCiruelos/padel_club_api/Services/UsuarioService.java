@@ -1,7 +1,9 @@
 package com.LosCiruelos.padel_club_api.Services;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -40,7 +42,8 @@ public class UsuarioService {
     }
 
     public Usuario crearUsuario(String email, String nombre, String apellido,
-            String telefono, String password, Role rol, AuthProvider provider, Boolean termsAccepted) {
+            String telefono, String password, Role rol, AuthProvider provider,
+            Boolean termsAccepted, Boolean emailVerificado, Boolean enabled) {
         return usuarioRepository.save(Usuario.builder()
                 .email(email)
                 .nombre(capitalizar(nombre))
@@ -51,9 +54,22 @@ public class UsuarioService {
                 .provider(provider)
                 .termsAccepted(termsAccepted)
                 .termsAcceptedAt(LocalDateTime.now())
-                .emailVerificado(provider == AuthProvider.GOOGLE)
-                .enabled(provider == AuthProvider.GOOGLE)
+                .emailVerificado(emailVerificado)
+                .enabled(enabled)
                 .build());
+    }
+
+    public Usuario findByIdOrThrow(Long id) {
+        return usuarioRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+    }
+
+    public Usuario save(Usuario usuario) {
+        return usuarioRepository.save(usuario);
+    }
+
+    public List<Usuario> findAll(Specification<Usuario> spec) {
+        return usuarioRepository.findAll(spec);
     }
 
     private String capitalizar(String texto) {
