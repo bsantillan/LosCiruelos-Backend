@@ -2,7 +2,8 @@ package com.LosCiruelos.padel_club_api.Entities.Enum;
 
 public enum EstadoReserva {
     PENDIENTE,
-    CONFIRMADA,
+    SEÑADA,
+    PAGADA,
     CANCELADA,
     EXPIRADA,
     COMPLETADA
