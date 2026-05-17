@@ -87,7 +87,9 @@ public class AuthService {
                 reg_rq.getPassword(),
                 Role.CLIENTE,
                 AuthProvider.LOCAL,
-                reg_rq.getTermsAccepted());
+                reg_rq.getTermsAccepted(),
+                false,
+                false);
 
         clienteProfileService.crearClienteProfile(usuario_nuevo, reg_rq.getCategoria(), reg_rq.getPosicion());
 
@@ -133,7 +135,7 @@ public class AuthService {
             if (usuarioGuardado == null) {
                 usuarioGuardado = usuarioService.crearUsuario(
                         googleUser.getEmail(), googleUser.getFirstName(), googleUser.getLastName(),
-                        null, null, Role.CLIENTE, AuthProvider.GOOGLE, true);
+                        null, null, Role.CLIENTE, AuthProvider.GOOGLE, true, true, true);
 
                 perfil = clienteProfileService.crearClienteProfile(usuarioGuardado, null, null);
             } else if (!usuarioGuardado.getEnabled()) {

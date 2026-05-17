@@ -88,4 +88,28 @@ public class VerificationService {
 
         enviarToken(email);
     }
+
+    @Transactional
+    public void enviarBienvenida(String email, String passwordTemporal) {
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        tokenRepository.deleteByUsuarioAndType(usuario, TokenType.VERIFY_EMAIL);
+
+        VerificationToken token = VerificationToken.builder()
+                .usuario(usuario)
+                .token(VerificationToken.generarCodigo())
+                .type(TokenType.VERIFY_EMAIL)
+                .fechaExpiracion(Instant.now().plus(1, ChronoUnit.DAYS))
+                .build();
+
+        tokenRepository.save(token);
+
+        emailServiceFactory.getService().sendBienvenidaEmail(
+                usuario.getEmail(),
+                Map.of(
+                        "nombre", usuario.getNombre(),
+                        "password", passwordTemporal,
+                        "codigo", token.getToken()));
+    }
 }

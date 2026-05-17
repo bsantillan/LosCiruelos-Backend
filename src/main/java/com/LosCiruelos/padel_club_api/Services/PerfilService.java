@@ -8,6 +8,7 @@ import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -51,12 +52,8 @@ public class PerfilService {
                 new CredencialesInvalidasException("Usuario no encontrado"));
         usuario = usuarioService.updateUsuario(usuario, per_rq.getNombre(), per_rq.getApellido(), per_rq.getTelefono());
 
-        if (per_rq.getCategoria() != null && usuario.getRol() != Role.CLIENTE) {
-            throw new RuntimeException("Solo los usuarios con rol CLIENTE pueden actualizar la categoría");
-        }
-
         if (per_rq.getPosicion() != null && usuario.getRol() != Role.CLIENTE) {
-            throw new RuntimeException("Solo los usuarios con rol CLIENTE pueden actualizar la posición");
+            throw new IllegalArgumentException("Solo los usuarios con rol CLIENTE pueden actualizar la posición");
         }
 
         ClienteProfile perfil = null;
@@ -65,10 +62,10 @@ public class PerfilService {
             perfil = clienteProfileService.findByUsuario(usuario);
 
             if (perfil == null) {
-                throw new RuntimeException("Perfil de cliente no encontrado para el usuario: " + email);
+                throw new UsuarioNotFoundException("Perfil de cliente no encontrado para el usuario: " + email);
             }
 
-            perfil = clienteProfileService.updateClienteProfile(perfil, per_rq.getCategoria(), per_rq.getPosicion());
+            perfil = clienteProfileService.updateClienteProfile(perfil, perfil.getCategoria(), per_rq.getPosicion());
         }
         return this.buildPerfilResponse(usuario, perfil);
     }
