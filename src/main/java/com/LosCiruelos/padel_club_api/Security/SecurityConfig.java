@@ -40,6 +40,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/auth/logout").authenticated()
                         // Públicas
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/reservas/webhook").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
 
                         // Solo ADMIN

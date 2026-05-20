@@ -50,11 +50,11 @@ public class PerfilService {
         Usuario usuario = usuarioService.findByEmailOrThrow(
                 email,
                 new CredencialesInvalidasException("Usuario no encontrado"));
-        usuario = usuarioService.updateUsuario(usuario, per_rq.getNombre(), per_rq.getApellido(), per_rq.getTelefono());
-
         if (per_rq.getPosicion() != null && usuario.getRol() != Role.CLIENTE) {
             throw new IllegalArgumentException("Solo los usuarios con rol CLIENTE pueden actualizar la posición");
         }
+        
+        usuario = usuarioService.updateUsuario(usuario, per_rq.getNombre(), per_rq.getApellido(), per_rq.getTelefono());
 
         ClienteProfile perfil = null;
 

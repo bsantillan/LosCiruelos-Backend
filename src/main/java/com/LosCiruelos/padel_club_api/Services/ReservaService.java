@@ -41,6 +41,18 @@ public class ReservaService {
     private final ReservaRepository reservaRepository;
     private final CanchaService canchaService;
 
+    public Reserva findById(Long id) {
+        return reservaRepository.findById(id).orElse(null);
+    }
+
+    public Reserva findByIdOrThrow(Long id, RuntimeException ex) {
+        return reservaRepository.findById(id).orElseThrow(() -> ex);
+    }
+
+    public Reserva save(Reserva reserva) {
+        return reservaRepository.save(reserva);
+    }
+
     @Transactional
     public ReservaResponse crearReserva(CrearReservaRequest req, String email_solicitante) {
 
