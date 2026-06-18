@@ -49,8 +49,8 @@ public class SecurityConfig {
                         // ADMIN y EMPLEADO
                         .requestMatchers("/gestion/**").hasAnyRole("ADMIN", "EMPLEADO")
 
+                        // PROFESOR
                         .requestMatchers("/profesores/**").hasAnyRole("ADMIN", "PROFESOR")
-                        .requestMatchers(HttpMethod.DELETE, "/perfil/desactivar").hasRole("CLIENTE")
 
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));

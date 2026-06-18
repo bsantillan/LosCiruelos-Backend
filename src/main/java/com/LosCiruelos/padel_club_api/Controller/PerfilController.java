@@ -3,6 +3,7 @@ package com.LosCiruelos.padel_club_api.Controller;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,6 +42,7 @@ public class PerfilController {
     }
 
     @DeleteMapping("/desactivar")
+    @PreAuthorize("hasAnyRole('CLIENTE')")
     public ResponseEntity<?> desactivarPerfil(Authentication authentication, @RequestBody Map<String, String> request) {
         UsuarioPrincipal principal = (UsuarioPrincipal) authentication.getPrincipal();
         String refreshToken = request.get("refreshToken");

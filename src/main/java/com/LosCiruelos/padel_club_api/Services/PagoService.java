@@ -3,6 +3,7 @@ package com.LosCiruelos.padel_club_api.Services;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,22 @@ public class PagoService {
     private final PagoRepository pagoRepository;
     private final ConfiguracionService configuracionService;
 
+    public Pago findById(Long id) {
+        return pagoRepository.findById(id).orElse(null);
+    }
+
+    public List<Pago> findByReservaId(Long reservaId) {
+        return pagoRepository.findByReservaId(reservaId);
+    }
+
+    public Pago findByIdOrThrow(Long id, RuntimeException ex) {
+        return pagoRepository.findById(id).orElseThrow(() -> ex);
+    }
+
+    public Pago save(Pago pago) {
+        return pagoRepository.save(pago);
+    }
+
     @Transactional
     public PagoResponse iniciarPago(Long reservaId, Boolean pagarTotal) {
         Reserva reserva = reservaService.findByIdOrThrow(reservaId,
@@ -40,6 +57,10 @@ public class PagoService {
 
         if (reserva.getEstado() != EstadoReserva.PENDIENTE) {
             throw new ReservaException("Solo se puede pagar una reserva PENDIENTE.");
+        }
+
+        if (reserva.getExpiresAt() != null && reserva.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new ReservaException("El tiempo para pagar esta reserva expiró.");
         }
 
         boolean tienePagoPendiente = pagoRepository.findByReservaId(reservaId)
@@ -88,6 +109,13 @@ public class PagoService {
 
         switch (resultado.getEstado()) {
             case EstadoPagoExterno.APROBADO -> {
+                if (reserva.getEstado() == EstadoReserva.EXPIRADA) {
+                    pago.setEstado(EstadoPago.DEVUELTO);
+                    pagoRepository.save(pago);
+                    log.warn("Pago aprobado para reserva EXPIRADA #{} — el admin debe devolver el dinero",
+                            reserva.getId());
+                    return;
+                }
                 pago.setEstado(EstadoPago.APROBADO);
                 pago.setExternalPaymentId(paymentId);
                 pago.setPaidAt(LocalDateTime.now());

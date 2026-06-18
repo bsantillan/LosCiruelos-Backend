@@ -27,6 +27,7 @@ public class ReservaResponse {
     Long clienteId;
     String clienteNombre;
     LocalDateTime createdAt;
+    LocalDateTime expiresAt;
 
     public static ReservaResponse from(Reserva reserva) {
         ReservaResponse response = new ReservaResponse();
@@ -45,6 +46,7 @@ public class ReservaResponse {
         response.setClienteId(reserva.getCliente().getId());
         response.setClienteNombre(reserva.getCliente().getNombre() + " " + reserva.getCliente().getApellido());
         response.setCreatedAt(reserva.getCreatedAt());
+        response.setExpiresAt(reserva.getExpiresAt());
         return response;
     }
 }

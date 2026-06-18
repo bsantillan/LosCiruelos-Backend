@@ -10,8 +10,8 @@ import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.VerificationToken;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TokenType;
 import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
+import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.CuentaVerificadaException;
-import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.Repository.VerificationTokenRepository;
 import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
 
@@ -22,14 +22,15 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class VerificationService {
 
-    private final UsuarioRepository usuarioRepository;
+    private final UsuarioService usuarioService;
     private final VerificationTokenRepository tokenRepository;
     private final EmailServiceFactory emailServiceFactory;
 
     @Transactional
     public void enviarToken(String email) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        Usuario usuario = usuarioService.findByEmail(email);
+
+        if (usuario == null) return;
 
         tokenRepository.deleteByUsuarioAndType(usuario, TokenType.VERIFY_EMAIL);
 
@@ -49,8 +50,7 @@ public class VerificationService {
 
     @Transactional
     public void verificarToken(String email, String codigo) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        Usuario usuario = usuarioService.findByEmailOrThrow(email, new CredencialesInvalidasException("Usuario no encontrado"));
 
         if (usuario.getEmailVerificado()) {
             throw new CuentaVerificadaException();
@@ -70,29 +70,14 @@ public class VerificationService {
 
         usuario.setEmailVerificado(true);
         usuario.setEnabled(true);
-        usuarioRepository.save(usuario);
+        usuarioService.save(usuario);
 
         tokenRepository.delete(token);
     }
 
     @Transactional
-    public void reenviarToken(String email) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
-        if (usuario.getEmailVerificado()) {
-            throw new CuentaVerificadaException();
-        }
-
-        tokenRepository.deleteByUsuarioAndType(usuario, TokenType.VERIFY_EMAIL);
-
-        enviarToken(email);
-    }
-
-    @Transactional
     public void enviarBienvenida(String email, String passwordTemporal) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        Usuario usuario = usuarioService.findByEmailOrThrow(email, new CredencialesInvalidasException("Usuario no encontrado"));
 
         tokenRepository.deleteByUsuarioAndType(usuario, TokenType.VERIFY_EMAIL);
 

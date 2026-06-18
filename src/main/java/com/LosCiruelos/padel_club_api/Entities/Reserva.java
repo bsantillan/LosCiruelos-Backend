@@ -80,6 +80,9 @@ public class Reserva {
     @JoinColumn(name = "created_by_id")
     private Usuario createdBy;
 
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
     @Builder.Default
     @OneToMany(mappedBy = "reserva")
     private List<Pago> pagos = new ArrayList<>();;

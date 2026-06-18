@@ -52,18 +52,6 @@ public class AuthService {
         return response;
     }
 
-    private Boolean esPerfilCompleto(ClienteProfile clienteProfile) {
-        if (clienteProfile == null)
-            return false;
-
-        Usuario usuario = clienteProfile.getUsuario();
-        return usuario.getTelefono() != null
-                && usuario.getNombre() != null
-                && usuario.getApellido() != null
-                && clienteProfile.getCategoria() != null
-                && clienteProfile.getPosicion() != null;
-    }
-
     public void register(RegisterRequest reg_rq) {
         Usuario usuario = usuarioService.findByEmail(reg_rq.getEmail());
 
@@ -124,35 +112,36 @@ public class AuthService {
     }
 
     public LoginResponse loginWithGoogle(String idToken) {
-        try {
-            GoogleUser googleUser = googleTokenVerifier.verify(idToken);
+        GoogleUser googleUser = googleTokenVerifier.verify(idToken);
 
-            Usuario usuarioGuardado = usuarioService.findByEmail(googleUser.getEmail());
-            ClienteProfile perfil = usuarioGuardado != null
-                    ? clienteProfileService.findByUsuario(usuarioGuardado)
-                    : null;
+        Usuario usuarioGuardado = usuarioService.findByEmail(googleUser.getEmail());
+        ClienteProfile perfil = usuarioGuardado != null
+                ? clienteProfileService.findByUsuario(usuarioGuardado)
+                : null;
 
-            if (usuarioGuardado == null) {
-                usuarioGuardado = usuarioService.crearUsuario(
-                        googleUser.getEmail(), googleUser.getFirstName(), googleUser.getLastName(),
-                        null, null, Role.CLIENTE, AuthProvider.GOOGLE, true, true, true);
+        if (usuarioGuardado == null) {
+            usuarioGuardado = usuarioService.crearUsuario(
+                    googleUser.getEmail(), googleUser.getFirstName(), googleUser.getLastName(),
+                    null, null, Role.CLIENTE, AuthProvider.GOOGLE, true, true, true);
 
-                perfil = clienteProfileService.crearClienteProfile(usuarioGuardado, null, null);
-            } else if (!usuarioGuardado.getEnabled()) {
+            perfil = clienteProfileService.crearClienteProfile(usuarioGuardado, null, null);
+        } else {
+            // Usuario existente — sin importar el provider
+            if (!usuarioGuardado.getEnabled()) {
                 throw new CuentaDesactivadaException();
             }
 
-            jwtUtil.deleteAllRefreshTokens(usuarioGuardado);
-
-            return this.buildLoginResponse(usuarioGuardado, esPerfilCompleto(perfil),
-                    jwtUtil.createRefreshToken(usuarioGuardado).getToken());
-
-        } catch (CredencialesInvalidasException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Error en loginWithGoogle: {}", ex.getMessage(), ex);
-            throw new CredencialesInvalidasException("Token de Google inválido");
+            if (!usuarioGuardado.getEmailVerificado()) {
+                usuarioGuardado.setEmailVerificado(true);
+                usuarioGuardado.setEnabled(true);
+                usuarioService.save(usuarioGuardado);
+            }
         }
+
+        jwtUtil.deleteAllRefreshTokens(usuarioGuardado);
+
+        return this.buildLoginResponse(usuarioGuardado, clienteProfileService.esPerfilCompleto(perfil),
+                jwtUtil.createRefreshToken(usuarioGuardado).getToken());
     }
 
     public LoginResponse refreshToken(String token) {
@@ -164,7 +153,8 @@ public class AuthService {
         Usuario usuario = nuevoRefreshToken.getUsuario();
         ClienteProfile perfil = clienteProfileService.findByUsuario(usuario);
 
-        return this.buildLoginResponse(usuario, esPerfilCompleto(perfil), nuevoRefreshToken.getToken());
+        return this.buildLoginResponse(usuario, clienteProfileService.esPerfilCompleto(perfil),
+                nuevoRefreshToken.getToken());
     }
 
     public void logout(String refreshToken) {

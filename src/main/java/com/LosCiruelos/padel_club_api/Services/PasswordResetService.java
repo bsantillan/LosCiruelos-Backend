@@ -12,8 +12,8 @@ import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.VerificationToken;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TokenType;
 import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
+import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
-import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.Repository.VerificationTokenRepository;
 import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
 import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
@@ -24,22 +24,24 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PasswordResetService {
 
-        private final UsuarioRepository usuarioRepository;
+        private final UsuarioService usuarioService;
         private final VerificationTokenRepository tokenRepository;
         private final PasswordEncoder passwordEncoder;
         private final EmailServiceFactory emailServiceFactory;
 
         @Transactional
         public void enviarToken(String email) {
-                Usuario usuario = usuarioRepository.findByEmail(email)
-                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                Usuario usuario = usuarioService.findByEmail(email);
 
-                tokenRepository.deleteByUsuarioAndType(usuario, TokenType.RESET_PASSWORD);
+                if (usuario == null)
+                        return;
+
+                tokenRepository.deleteByUsuarioAndType(usuario, TokenType.PASSWORD_RESET);
 
                 VerificationToken token = VerificationToken.builder()
                                 .usuario(usuario)
                                 .token(VerificationToken.generarCodigo())
-                                .type(TokenType.RESET_PASSWORD)
+                                .type(TokenType.PASSWORD_RESET)
                                 .fechaExpiracion(Instant.now().plus(15, ChronoUnit.MINUTES))
                                 .build();
 
@@ -52,11 +54,11 @@ public class PasswordResetService {
 
         @Transactional
         public void verificarToken(String email, String codigo) {
-                Usuario usuario = usuarioRepository.findByEmail(email)
-                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                Usuario usuario = usuarioService.findByEmailOrThrow(email,
+                                new CredencialesInvalidasException("Usuario no encontrado"));
 
                 VerificationToken token = tokenRepository
-                                .findByUsuarioAndType(usuario, TokenType.RESET_PASSWORD)
+                                .findByUsuarioAndType(usuario, TokenType.PASSWORD_RESET)
                                 .orElseThrow(() -> new CodigoInvalidoException("Código invalido"));
 
                 if (token.esExpirado()) {
@@ -67,17 +69,8 @@ public class PasswordResetService {
                         throw new CodigoInvalidoException("Código inválido");
                 }
 
-                tokenRepository.delete(token);
-        }
-
-        @Transactional
-        public void reenviarToken(String email) {
-                Usuario usuario = usuarioRepository.findByEmail(email)
-                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
-                tokenRepository.deleteByUsuarioAndType(usuario, TokenType.RESET_PASSWORD);
-
-                enviarToken(email);
+                token.setVerificado(true);
+                tokenRepository.save(token);
         }
 
         public void resetPassword(String email, String nuevaPassword) {
@@ -85,10 +78,19 @@ public class PasswordResetService {
                 if (!PasswordValidator.esValida(nuevaPassword)) {
                         throw new PasswordInvalidaException();
                 }
-                Usuario usuario = usuarioRepository.findByEmail(email)
-                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                Usuario usuario = usuarioService.findByEmailOrThrow(email,
+                                new CredencialesInvalidasException("Usuario no encontrado"));
+
+                VerificationToken token = tokenRepository
+                                .findByUsuarioAndType(usuario, TokenType.PASSWORD_RESET)
+                                .orElseThrow(() -> new CredencialesInvalidasException("Flujo inválido"));
+
+                if (!token.getVerificado()) {
+                        throw new CredencialesInvalidasException("Flujo inválido");
+                }
 
                 usuario.setPasswordHash(passwordEncoder.encode(nuevaPassword));
-                usuarioRepository.save(usuario);
+                usuarioService.save(usuario);
+                tokenRepository.delete(token);
         }
 }

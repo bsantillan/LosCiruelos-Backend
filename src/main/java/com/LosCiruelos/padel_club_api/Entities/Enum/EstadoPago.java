@@ -5,5 +5,6 @@ public enum EstadoPago {
     APROBADO,       // pago confirmado
     RECHAZADO,      // pago rechazado o cancelado
     EN_PROCESO,     // en revisión por MP o esperando acreditación
-    DEVUELTO        // reembolsado o contracargo
+    DEVUELTO,       // reembolsado o contracargo
+    EXPIRADO      // nunca pagó y la reserva expiró
 }

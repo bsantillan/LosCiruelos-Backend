@@ -9,6 +9,7 @@ import java.time.LocalTime;
 import java.time.format.TextStyle;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,11 +17,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.CrearReservaRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Cancha;
+import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
+import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.ReservaRepository;
 
@@ -38,6 +42,7 @@ public class ReservaService {
 
     private final ConfiguracionService configuracionService;
     private final UsuarioService usuarioService;
+    private final ClienteProfileService clienteProfileService;
     private final ReservaRepository reservaRepository;
     private final CanchaService canchaService;
 
@@ -53,14 +58,28 @@ public class ReservaService {
         return reservaRepository.save(reserva);
     }
 
+    public List<Reserva> findByEstadoAndExpiresAtBefore(EstadoReserva estado, LocalDateTime fechaHora) {
+        return reservaRepository.findByEstadoAndExpiresAtBefore(estado, fechaHora);
+    }
+
     @Transactional
     public ReservaResponse crearReserva(CrearReservaRequest req, String email_solicitante) {
 
         Usuario solicitante = usuarioService.findByEmail(email_solicitante);
         Usuario cliente = resolverCliente(req.getClienteId(), solicitante);
 
+        ClienteProfile perfilCliente = clienteProfileService.findByUsuario(cliente);
+        if (!clienteProfileService.esPerfilCompleto(perfilCliente)) {
+            boolean esCliente = solicitante.getRol() == Role.CLIENTE;
+            String mensaje = esCliente
+                    ? "Debés completar tu perfil antes de reservar."
+                    : "El cliente %s %s debe completar su perfil antes de reservar."
+                            .formatted(cliente.getNombre(), cliente.getApellido());
+            throw new PerfilIncompletoException(mensaje);
+        }
+
         Configuracion config = configuracionService.obtener();
-        Cancha cancha = canchaService.obtenerCancha(req.getCanchaId());
+        Cancha cancha = canchaService.findByIdOrThrow(req.getCanchaId());
 
         if (req.getFechaReserva().isEqual(LocalDate.now())) {
             LocalTime ahora = LocalTime.now();
@@ -100,6 +119,44 @@ public class ReservaService {
                             .formatted(diaApertura.getDia(), diaApertura.getHorario_fin()));
         }
 
+        long minutosDesdeApertura = Duration.between(diaApertura.getHorario_inicio(), req.getHoraInicio()).toMinutes();
+        if (minutosDesdeApertura % 30 != 0) {
+            throw new ReservaException(
+                    "El horario de inicio debe coincidir con un slot válido (cada 30 minutos desde la apertura).");
+        }
+
+        Optional<Reserva> reservaExistente = reservaRepository
+                .findPendienteVigenteByClienteAndCanchaAndFechaAndHoraInicio(
+                        cliente.getId(), cancha.getId(),
+                        req.getFechaReserva(), req.getHoraInicio(), LocalDateTime.now());
+
+        if (reservaExistente.isPresent()) {
+            Reserva reserva = reservaExistente.get();
+
+            if (!reserva.getHoraFin().equals(req.getHoraFin())) {
+                long nuevaDuracion = Duration.between(
+                        req.getHoraInicio(), req.getHoraFin()).toMinutes();
+                reserva.setHoraFin(req.getHoraFin());
+                reserva.setMontoTotal(calcularMonto(nuevaDuracion, config));
+                reserva.setPelotas(req.getPelotas());
+                reserva.setPaletas(req.getPaletas());
+                reservaRepository.save(reserva);
+                log.info("Reserva #{} actualizada con nuevo horaFin", reserva.getId());
+            }
+            return ReservaResponse.from(reserva);
+        }
+
+        List<Reserva> pendientesSinPago = reservaRepository
+                .findPendientesSinPagoByClienteAndCanchaAndFecha(
+                        cliente.getId(), cancha.getId(),
+                        req.getFechaReserva(), LocalDateTime.now());
+
+        pendientesSinPago.forEach(r -> {
+            r.setEstado(EstadoReserva.CANCELADA);
+            reservaRepository.save(r);
+            log.info("Reserva #{} cancelada automáticamente — cliente eligió nuevo horario", r.getId());
+        });
+
         List<Reserva> solapadas = reservaRepository.findSolapadas(
                 cancha.getId(), req.getFechaReserva(),
                 req.getHoraInicio(), req.getHoraFin(),
@@ -123,6 +180,7 @@ public class ReservaService {
                 .paletas(req.getPaletas())
                 .estado(EstadoReserva.PENDIENTE)
                 .createdAt(LocalDateTime.now())
+                .expiresAt(LocalDateTime.now().plusMinutes(15))
                 .build();
 
         reserva = reservaRepository.save(reserva);
@@ -132,11 +190,31 @@ public class ReservaService {
         return ReservaResponse.from(reserva);
     }
 
+    @Transactional
+    public void cancelarReserva(Long id, String email) {
+        Reserva reserva = findByIdOrThrow(id, new ReservaException("Reserva no encontrada"));
+
+        if (reserva.getEstado() != EstadoReserva.PENDIENTE) {
+            throw new ReservaException(
+                    "Solo se pueden cancelar reservas PENDIENTE. Estado actual: "
+                            + reserva.getEstado());
+        }
+
+        reserva.setEstado(EstadoReserva.CANCELADA);
+        reservaRepository.save(reserva);
+
+        log.info("Reserva #{} cancelada por usuario {}", id, email);
+    }
+
     private DiaApertura obtenerDiaApertura(Configuracion config, LocalDate fecha) {
         String nombreDia = fecha.getDayOfWeek()
                 .getDisplayName(TextStyle.FULL, new Locale("es", "AR"));
         // Capitalizar primera letra para que coincida con "Lunes", "Martes", etc.
         nombreDia = nombreDia.substring(0, 1).toUpperCase() + nombreDia.substring(1);
+
+        log.info("Día calculado: '{}'", nombreDia); // ✅ agregás esto
+        log.info("Días en config: {}", config.getDias_apertura().stream()
+                .map(DiaApertura::getDia).toList()); // ✅ y esto
 
         final String diaFinal = nombreDia;
         return config.getDias_apertura().stream()
