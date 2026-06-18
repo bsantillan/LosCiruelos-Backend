@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.Entities;
 
+import java.time.LocalDateTime;
+
 import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
 
@@ -28,4 +30,7 @@ public class ClienteProfile {
 
     @Column(length = 10)
     private Posicion posicion;
+
+    @Column(name = "categoria_actualizada_at")
+    private LocalDateTime categoriaActualizadaAt;
 }
