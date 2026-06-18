@@ -40,6 +40,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/auth/logout").authenticated()
                         // Públicas
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/reservas/webhook").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
 
                         // Solo ADMIN
@@ -48,8 +49,8 @@ public class SecurityConfig {
                         // ADMIN y EMPLEADO
                         .requestMatchers("/gestion/**").hasAnyRole("ADMIN", "EMPLEADO")
 
+                        // PROFESOR
                         .requestMatchers("/profesores/**").hasAnyRole("ADMIN", "PROFESOR")
-                        .requestMatchers(HttpMethod.DELETE, "/perfil/desactivar").hasRole("CLIENTE")
 
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));

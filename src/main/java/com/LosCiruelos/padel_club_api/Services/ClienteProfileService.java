@@ -44,4 +44,16 @@ public class ClienteProfileService {
         clienteProfileRepository.findByUsuario(usuario)
                 .ifPresent(clienteProfileRepository::delete);
     }
+
+    public Boolean esPerfilCompleto(ClienteProfile clienteProfile) {
+        if (clienteProfile == null)
+            return false;
+
+        Usuario usuario = clienteProfile.getUsuario();
+        return usuario.getTelefono() != null
+                && usuario.getNombre() != null
+                && usuario.getApellido() != null
+                && clienteProfile.getCategoria() != null
+                && clienteProfile.getPosicion() != null;
+    }
 }

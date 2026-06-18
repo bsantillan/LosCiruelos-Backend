@@ -17,6 +17,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.CuentaVerificadaException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailNoVerificadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
+import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
 import com.LosCiruelos.padel_club_api.Exceptions.TerminosNoAceptadosException;
 import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
 
@@ -151,5 +152,13 @@ public class GlobalExceptionHandler {
                 body.put("timestamp", Instant.now().toString());
                 body.put("error", ex.getMessage());
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        }
+
+        @ExceptionHandler(PerfilIncompletoException.class)
+        public ResponseEntity<Map<String, Object>> handlePerfilIncompleto(PerfilIncompletoException ex) {
+                Map<String, Object> body = new HashMap<>();
+                body.put("timestamp", Instant.now().toString());
+                body.put("error", ex.getMessage());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
         }
 }

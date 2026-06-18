@@ -29,6 +29,7 @@ public class GoogleTokenVerifier {
         try {
             GoogleIdToken idToken = verifier.verify(idTokenString);
             if (idToken != null) {
+                System.out.print("ID TOKEN" + idToken);
                 GoogleIdToken.Payload payload = idToken.getPayload();
 
                 String firstName = (String) payload.get("given_name");

@@ -7,7 +7,6 @@ import com.LosCiruelos.padel_club_api.DTOs.Responses.PerfilResponse;
 import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
 
 import lombok.RequiredArgsConstructor;
@@ -34,9 +33,7 @@ public class PerfilService {
     }
 
     public PerfilResponse getPerfil(String email) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(
-                email,
-                new CredencialesInvalidasException("Usuario no encontrado"));
+        Usuario usuario = usuarioService.findByEmail(email);
 
         ClienteProfile perfil = null;
         if (usuario.getRol() == Role.CLIENTE) {
@@ -47,14 +44,12 @@ public class PerfilService {
     }
 
     public PerfilResponse updatePerfil(PerfilRequest per_rq, String email) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(
-                email,
-                new CredencialesInvalidasException("Usuario no encontrado"));
-        usuario = usuarioService.updateUsuario(usuario, per_rq.getNombre(), per_rq.getApellido(), per_rq.getTelefono());
-
+        Usuario usuario = usuarioService.findByEmail(email);
         if (per_rq.getPosicion() != null && usuario.getRol() != Role.CLIENTE) {
             throw new IllegalArgumentException("Solo los usuarios con rol CLIENTE pueden actualizar la posición");
         }
+        
+        usuario = usuarioService.updateUsuario(usuario, per_rq.getNombre(), per_rq.getApellido(), per_rq.getTelefono());
 
         ClienteProfile perfil = null;
 
@@ -71,9 +66,7 @@ public class PerfilService {
     }
 
     public void desactivarPerfil(String email, String refreshToken) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(
-                email,
-                new CredencialesInvalidasException("Usuario no encontrado"));
+        Usuario usuario = usuarioService.findByEmail(email);
         usuarioService.desactivarUsuario(usuario);
         authService.logout(refreshToken);
     }

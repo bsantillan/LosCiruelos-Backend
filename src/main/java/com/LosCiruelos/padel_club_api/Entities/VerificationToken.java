@@ -7,7 +7,6 @@ import java.time.Instant;
 
 import com.LosCiruelos.padel_club_api.Entities.Enum.TokenType;
 
-
 @Entity
 @Table(name = "VerificationTokens")
 @Getter
@@ -34,6 +33,10 @@ public class VerificationToken {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private TokenType type;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean verificado = false;
 
     public boolean esExpirado() {
         return fechaExpiracion.isBefore(Instant.now());
