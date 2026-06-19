@@ -1,6 +1,7 @@
 package com.LosCiruelos.padel_club_api.Services;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -24,6 +25,7 @@ public class PerfilService {
     private final UsuarioService usuarioService;
     private final AuthService authService;
     private final ClienteProfileService clienteProfileService;
+    private final ReservaService reservaService;
 
     private PerfilResponse buildPerfilResponse(Usuario usuario, ClienteProfile perfil) {
         PerfilResponse response = new PerfilResponse();
@@ -31,6 +33,10 @@ public class PerfilService {
         response.setApellido(usuario.getApellido());
         response.setEmail(usuario.getEmail());
         response.setTelefono(usuario.getTelefono());
+        response.setCantPartidos(reservaService.findByAll(usuario).size());
+
+        response.setCantDiasMiembro((int) ChronoUnit.DAYS.between(usuario.getTermsAcceptedAt(), LocalDateTime.now()));
+
         if (perfil != null) {
             response.setCategoria(perfil.getCategoria());
             response.setPosicion(perfil.getPosicion());
@@ -93,8 +99,10 @@ public class PerfilService {
                     ? LocalDateTime.now()
                     : perfil.getCategoriaActualizadaAt(); // no pisamos si ya tiene fecha
 
-            perfil = clienteProfileService.updateClienteProfile(perfil, per_rq.getCategoria(), per_rq.getPosicion(), nuevaCategoriaActualizadaAt);
+            perfil = clienteProfileService.updateClienteProfile(perfil, per_rq.getCategoria(), per_rq.getPosicion(),
+                    nuevaCategoriaActualizadaAt);
         }
+
         return this.buildPerfilResponse(usuario, perfil);
     }
 

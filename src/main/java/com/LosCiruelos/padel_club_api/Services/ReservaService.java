@@ -62,6 +62,10 @@ public class ReservaService {
         return reservaRepository.findByEstadoAndExpiresAtBefore(estado, fechaHora);
     }
 
+    public List<Reserva> findByAll(Usuario cliente){
+        return reservaRepository.findAllByCliente(cliente);
+    }
+
     @Transactional
     public ReservaResponse crearReserva(CrearReservaRequest req, String email_solicitante) {
 

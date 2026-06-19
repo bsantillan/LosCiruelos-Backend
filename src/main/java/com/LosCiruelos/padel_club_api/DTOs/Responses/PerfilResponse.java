@@ -15,5 +15,7 @@ public class PerfilResponse {
     private String telefono;
     private Categoria categoria;
     private Posicion posicion;
+    private Integer cantDiasMiembro;
+    private Integer cantPartidos;
     private LocalDateTime categoriaActualizadaAt;
 }

@@ -11,9 +11,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
+import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 
 public interface ReservaRepository extends JpaRepository<Reserva, Long> {
+
+  List<Reserva> findAllByCliente(Usuario cliente);
+
   /**
    * Busca reservas que se solapan con el horario solicitado para una cancha y
    * fecha dada.
