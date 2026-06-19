@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
 import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.CuentaDesactivadaException;
@@ -20,6 +21,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
 import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
 import com.LosCiruelos.padel_club_api.Exceptions.TerminosNoAceptadosException;
 import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
+import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -160,5 +162,17 @@ public class GlobalExceptionHandler {
                 body.put("timestamp", Instant.now().toString());
                 body.put("error", ex.getMessage());
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+        }
+
+        @ExceptionHandler(CategoriaException.class)
+        public ResponseEntity<Map<String, String>> handleCategoria(CategoriaException ex) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body(Map.of("error", ex.getMessage()));
+        }
+
+        @ExceptionHandler(ValidationException.class)
+        public ResponseEntity<Map<String, Object>> handleValidation(ValidationException ex) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(Map.of("errors", ex.getErrores()));
         }
 }
