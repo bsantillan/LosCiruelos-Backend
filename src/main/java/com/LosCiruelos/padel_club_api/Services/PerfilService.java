@@ -1,16 +1,20 @@
 package com.LosCiruelos.padel_club_api.Services;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
 import com.LosCiruelos.padel_club_api.DTOs.Requests.PerfilRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PerfilResponse;
 import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
+import com.LosCiruelos.padel_club_api.Entities.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
+import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
 import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
@@ -36,6 +40,19 @@ public class PerfilService {
         response.setCantPartidos(reservaService.findByAll(usuario).size());
 
         response.setCantDiasMiembro((int) ChronoUnit.DAYS.between(usuario.getTermsAcceptedAt(), LocalDateTime.now()));
+        response.setCantPartidosEsteMes(reservaService.countPartidosEsteMes(usuario.getId(), EstadoReserva.COMPLETADA));
+
+        Optional<Reserva> ultimaReserva = reservaService.ultimaReservaCompletada(usuario, EstadoReserva.COMPLETADA);
+        if (ultimaReserva.isPresent()) {
+            int dias = Math.toIntExact(
+                    ChronoUnit.DAYS.between(
+                            ultimaReserva.get().getFechaReserva(),
+                            LocalDate.now()));
+
+            response.setDiasDesdeUltimoPartido(dias);
+        } else {
+            response.setDiasDesdeUltimoPartido(0);
+        }
 
         if (perfil != null) {
             response.setCategoria(perfil.getCategoria());

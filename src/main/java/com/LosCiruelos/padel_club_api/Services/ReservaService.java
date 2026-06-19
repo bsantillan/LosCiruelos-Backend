@@ -62,8 +62,22 @@ public class ReservaService {
         return reservaRepository.findByEstadoAndExpiresAtBefore(estado, fechaHora);
     }
 
-    public List<Reserva> findByAll(Usuario cliente){
+    public List<Reserva> findByAll(Usuario cliente) {
         return reservaRepository.findAllByCliente(cliente);
+    }
+
+    public Long countPartidosEsteMes(Long cliente_id, EstadoReserva estado) {
+        LocalDate hoy = LocalDate.now();
+
+        return reservaRepository.countPartidosEsteMes(
+                cliente_id,
+                estado,
+                hoy.withDayOfMonth(1),
+                hoy.withDayOfMonth(hoy.lengthOfMonth()));
+    }
+
+    public Optional<Reserva> ultimaReservaCompletada(Usuario cliente, EstadoReserva estado) {
+        return reservaRepository.findFirstByClienteAndEstadoOrderByFechaReservaDescHoraInicioDesc(cliente, estado);
     }
 
     @Transactional

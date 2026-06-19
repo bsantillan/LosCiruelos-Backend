@@ -13,7 +13,7 @@ import lombok.Data;
 @Data
 public class ReservaResponse {
     Long id;
-    Integer canchaId;
+    Long canchaId;
     Integer canchaNumero;
     LocalDate fechaReserva;
     LocalTime horaInicio;

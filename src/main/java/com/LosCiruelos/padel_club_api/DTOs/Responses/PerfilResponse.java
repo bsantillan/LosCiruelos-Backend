@@ -17,5 +17,7 @@ public class PerfilResponse {
     private Posicion posicion;
     private Integer cantDiasMiembro;
     private Integer cantPartidos;
+    private Integer diasDesdeUltimoPartido;
+    private Long cantPartidosEsteMes;
     private LocalDateTime categoriaActualizadaAt;
 }

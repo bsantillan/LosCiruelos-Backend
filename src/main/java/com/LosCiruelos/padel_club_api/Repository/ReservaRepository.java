@@ -18,6 +18,22 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
   List<Reserva> findAllByCliente(Usuario cliente);
 
+  Optional<Reserva> findFirstByClienteAndEstadoOrderByFechaReservaDescHoraInicioDesc(Usuario cliente,
+      EstadoReserva estado);
+
+  @Query("""
+      SELECT COUNT(r)
+      FROM Reserva r
+      WHERE r.cliente.id = :clienteId
+        AND r.estado = :estado
+        AND r.fechaReserva BETWEEN :inicioMes AND :finMes
+      """)
+  Long countPartidosEsteMes(
+      @Param("clienteId") Long clienteId,
+      @Param("estado") EstadoReserva estado,
+      @Param("inicioMes") LocalDate inicioMes,
+      @Param("finMes") LocalDate finMes);
+
   /**
    * Busca reservas que se solapan con el horario solicitado para una cancha y
    * fecha dada.
@@ -34,7 +50,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         AND r.horaFin > :horaInicio
       """)
   List<Reserva> findSolapadas(
-      @Param("canchaId") Integer canchaId,
+      @Param("canchaId") Long canchaId,
       @Param("fecha") LocalDate fecha,
       @Param("horaInicio") LocalTime horaInicio,
       @Param("horaFin") LocalTime horaFin,
@@ -53,7 +69,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
       """)
   Optional<Reserva> findPendienteVigenteByClienteAndCanchaAndFechaAndHoraInicio(
       @Param("clienteId") Long clienteId,
-      @Param("canchaId") Integer canchaId,
+      @Param("canchaId") Long canchaId,
       @Param("fecha") LocalDate fecha,
       @Param("horaInicio") LocalTime horaInicio,
       @Param("ahora") LocalDateTime ahora);
@@ -75,7 +91,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
       """)
   List<Reserva> findPendientesSinPagoByClienteAndCanchaAndFecha(
       @Param("clienteId") Long clienteId,
-      @Param("canchaId") Integer canchaId,
+      @Param("canchaId") Long canchaId,
       @Param("fecha") LocalDate fecha,
       @Param("ahora") LocalDateTime ahora);
 }

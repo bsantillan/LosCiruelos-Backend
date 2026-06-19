@@ -31,7 +31,7 @@ public class DiaApertura {
     // Se define el ID como autoincremental
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     @Column(nullable = false, name = "dia", length = 10)
     private String dia;
