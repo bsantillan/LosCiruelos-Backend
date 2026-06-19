@@ -24,6 +24,7 @@ public class ClienteProfileService {
                 .categoria(categoria)
                 .posicion(posicion)
                 .usuario(user)
+                .categoriaActualizadaAt(categoria != null ? LocalDateTime.now() : null)
                 .build());
     }
 
