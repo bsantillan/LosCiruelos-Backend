@@ -34,6 +34,7 @@ public class PerfilService {
         if (perfil != null) {
             response.setCategoria(perfil.getCategoria());
             response.setPosicion(perfil.getPosicion());
+            response.setCategoriaActualizadaAt(perfil.getCategoriaActualizadaAt());
         }
         return response;
     }
