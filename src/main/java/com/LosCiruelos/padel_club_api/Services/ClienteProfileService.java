@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.Services;
 
+import java.time.LocalDateTime;
+
 import org.springframework.stereotype.Service;
 
 import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
@@ -29,9 +31,10 @@ public class ClienteProfileService {
         return clienteProfileRepository.findByUsuario(user).orElse(null);
     }
 
-    public ClienteProfile updateClienteProfile(ClienteProfile perfil, Categoria categoria, Posicion posicion) {
+    public ClienteProfile updateClienteProfile(ClienteProfile perfil, Categoria categoria, Posicion posicion, LocalDateTime categoriaActualizadaAt) {
         perfil.setCategoria(categoria);
         perfil.setPosicion(posicion);
+        perfil.setCategoriaActualizadaAt(categoriaActualizadaAt);
         return clienteProfileRepository.save(perfil);
     }
 

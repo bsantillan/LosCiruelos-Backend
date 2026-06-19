@@ -101,7 +101,7 @@ public class AdminService {
                         usuario, request.getCategoria(), request.getPosicion());
             } else {
                 perfil = clienteProfileService.updateClienteProfile(
-                        perfil, request.getCategoria(), request.getPosicion());
+                        perfil, request.getCategoria(), request.getPosicion(), perfil.getCategoriaActualizadaAt());
             }
         }
 

@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.DTOs.Requests;
 
+import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
 
 import jakarta.validation.constraints.NotBlank;
@@ -24,4 +25,5 @@ public class PerfilRequest {
 
     private Posicion posicion;
 
+    private Categoria categoria;
 }

@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.DTOs.Responses;
 
+import java.time.LocalDateTime;
+
 import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
 
@@ -13,4 +15,5 @@ public class PerfilResponse {
     private String telefono;
     private Categoria categoria;
     private Posicion posicion;
+    private LocalDateTime categoriaActualizadaAt;
 }
