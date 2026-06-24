@@ -19,40 +19,47 @@ import com.LosCiruelos.padel_club_api.Services.PagoService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/reservas")
+@RequestMapping("/pagos")
 @RequiredArgsConstructor
 public class PagoController {
 
     private final PagoService pagoService;
 
-    @PreAuthorize("hasAnyRole('CLIENTE')")
-    @PostMapping("/{id}/pagar")
+    @PreAuthorize("hasAnyRole('CLIENTE')") 
+    @PostMapping("/{reserva_id}/iniciar")
     public ResponseEntity<PagoResponse> iniciarPago(
-            @PathVariable Long id,
+            @PathVariable Long reserva_id,
             @RequestParam Boolean pagarTotal) {
-        return ResponseEntity.ok(pagoService.iniciarPago(id, pagarTotal));
+        return ResponseEntity.ok(pagoService.iniciarPago(reserva_id, pagarTotal));
     }
 
-    // Webhook de MP — notifica resultado del pago online
-    @PostMapping("/webhook")
-    public ResponseEntity<Void> webhook(
+    @PreAuthorize("hasAnyRole('CLIENTE')")
+    @PostMapping("/{reserva_id}/pago")
+    public ResponseEntity<PagoResponse> procesarPago(
+            @PathVariable Long reserva_id,
+            @RequestBody Map<String, Object> formData) {
+        return ResponseEntity.ok(pagoService.procesarPago(reserva_id, formData));
+    }
+
+    @PostMapping("/notificacion")
+    public ResponseEntity<Void> procesarNotificacion(
             @RequestParam String topic,
-            @RequestParam String id) {
-        pagoService.procesarWebhook(id, topic);
+            @RequestParam String payment_id) {
+        pagoService.procesarNotificacion(payment_id, topic);
         return ResponseEntity.ok().build();
     }
 
     // Empleado/Admin registra pago en efectivo
-    @PostMapping("/{id}/pagar-efectivo")
+    @PostMapping("/{reserva_id}/pago-efectivo")
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
     public ResponseEntity<PagoResponse> pagarEfectivo(
-            @PathVariable Long id,
-            @org.springframework.web.bind.annotation.RequestBody Map<String, BigDecimal> body) {
-        return ResponseEntity.ok(pagoService.registrarPagoManual(id, body.get("monto"), PaymentProvider.MANUAL));
+            @PathVariable Long reserva_id,
+            @RequestBody Map<String, BigDecimal> body) {
+        return ResponseEntity.ok(pagoService.registrarPagoManual(reserva_id, body.get("monto"), PaymentProvider.MANUAL));
     }
 
     // Empleado/Admin registra pago presencial con tarjeta/QR
-    @PostMapping("/{id}/pagar-presencial")
+    @PostMapping("/{id}/pago-presencial")
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
     public ResponseEntity<PagoResponse> pagarPresencial(
             @PathVariable Long id,

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,27 +77,69 @@ public class PagoService {
                         .multiply(BigDecimal.valueOf(config.getPorcentajeSeña() / 100))
                         .setScale(2, RoundingMode.HALF_UP);
 
-        String resultado = paymentServiceFactory.getService().iniciarPago(reserva, monto);
-
-        String[] partes = resultado.split("\\|");
-        String initPoint = partes[0];
-        String preferenceId = partes[1];
+        String preferenceId = paymentServiceFactory.getService().iniciarPago(reserva, monto);
 
         Pago pago = Pago.builder()
                 .reserva(reserva)
                 .monto(monto)
                 .estado(EstadoPago.PENDIENTE)
                 .provider(PaymentProvider.MERCADO_PAGO)
-                .preferenceId(preferenceId)
+                .paymentToken(preferenceId)
                 .createdAt(LocalDateTime.now())
                 .build();
 
         pago = pagoRepository.save(pago);
-        return PagoResponse.from(pago, initPoint);
+        return PagoResponse.from(pago);
     }
 
     @Transactional
-    public void procesarWebhook(String paymentId, String topic) {
+    public PagoResponse procesarPago(Long reservaId, Map<String, Object> formData) {
+        Reserva reserva = reservaService.findByIdOrThrow(reservaId,
+                new ReservaException("Reserva no encontrada: " + reservaId));
+
+        if (reserva.getExpiresAt() != null && reserva.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new ReservaException("El tiempo para pagar esta reserva expiró.");
+        }
+
+        // Buscar el pago pendiente que se creó en iniciarPago
+        Pago pago = pagoRepository.findByReservaId(reservaId).stream()
+                .filter(p -> p.getEstado() == EstadoPago.PENDIENTE)
+                .findFirst()
+                .orElseThrow(() -> new ReservaException("No se encontró un pago pendiente para esta reserva."));
+
+        // Le decimos a MP que cobre con el token de tarjeta que mandó el Brick
+        PaymentResult resultado = paymentServiceFactory.getService().procesarPago(formData);
+
+        // Actualizamos el pago con el resultado
+        pago.setExternalPaymentId(resultado.getPaymentId());
+
+        switch (resultado.getEstado()) {
+            case APROBADO -> {
+                pago.setEstado(EstadoPago.APROBADO);
+                pago.setPaidAt(LocalDateTime.now());
+                pagoRepository.save(pago);
+
+                reserva = reservaService.findById(reserva.getId());
+                reserva.setEstado(calcularEstadoReserva(reserva));
+                reservaService.save(reserva);
+            }
+            case RECHAZADO -> {
+                pago.setEstado(EstadoPago.RECHAZADO);
+                pagoRepository.save(pago);
+            }
+            case EN_PROCESO -> {
+                // Queda pendiente — el webhook lo resolverá después
+                pago.setEstado(EstadoPago.EN_PROCESO);
+                pagoRepository.save(pago);
+            }
+            default -> log.warn("Estado inesperado al procesar pago: {}", resultado.getEstado());
+        }
+
+        return PagoResponse.from(pago);
+    }
+
+    @Transactional
+    public void procesarNotificacion(String paymentId, String topic) {
         if (!"payment".equals(topic))
             return;
         PaymentResult resultado = paymentServiceFactory.getService().consultarPago(paymentId);

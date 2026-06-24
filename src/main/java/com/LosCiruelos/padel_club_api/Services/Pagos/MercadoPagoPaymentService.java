@@ -2,6 +2,7 @@ package com.LosCiruelos.padel_club_api.Services.Pagos;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
@@ -12,7 +13,8 @@ import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 
 import com.google.api.client.util.Value;
 import com.mercadopago.client.payment.PaymentClient;
-import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
+import com.mercadopago.client.payment.PaymentCreateRequest;
+import com.mercadopago.client.payment.PaymentPayerRequest;
 import com.mercadopago.client.preference.PreferenceClient;
 import com.mercadopago.client.preference.PreferenceItemRequest;
 import com.mercadopago.client.preference.PreferenceRequest;
@@ -50,24 +52,16 @@ public class MercadoPagoPaymentService implements PaymentService {
                     .currencyId("ARS")
                     .build();
 
-            PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
-                    .success(frontendUrl + "/reservas/pago-exitoso")
-                    .failure(frontendUrl + "/reservas/pago-fallido")
-                    .pending(frontendUrl + "/reservas/pago-pendiente")
-                    .build();
-
             PreferenceRequest preferenceRequest = PreferenceRequest.builder()
                     .items(List.of(item))
-                    .backUrls(backUrls)
                     .notificationUrl(webhookUrl)
                     .externalReference(reserva.getId().toString())
-                    .autoReturn("approved")
                     .build();
 
             PreferenceClient client = new PreferenceClient();
             Preference preference = client.create(preferenceRequest);
 
-            return preference.getInitPoint() + "|" + preference.getId();
+            return preference.getId();
 
         } catch (MPApiException e) {
             log.error("Error de API de MP: {} — {}", e.getStatusCode(), e.getApiResponse());
@@ -96,10 +90,52 @@ public class MercadoPagoPaymentService implements PaymentService {
             return new PaymentResult(
                     estado,
                     payment.getExternalReference(),
-                    payment.getTransactionAmount());
+                    payment.getTransactionAmount(),
+                    null);
         } catch (MPApiException | MPException e) {
             log.error("Error de MP al consultar pago: {}", e.getMessage());
             throw new ReservaException("Error al consultar el pago en Mercado Pago.");
+        }
+    }
+
+    @Override
+    public PaymentResult procesarPago(Map<String, Object> formData) {
+        try {
+            PaymentClient client = new PaymentClient();
+
+            PaymentCreateRequest createRequest = PaymentCreateRequest.builder()
+                    .transactionAmount(new BigDecimal(formData.get("transaction_amount").toString()))
+                    .token((String) formData.get("token"))
+                    .installments(Integer.valueOf(formData.get("installments").toString()))
+                    .paymentMethodId((String) formData.get("payment_method_id"))
+                    .payer(PaymentPayerRequest.builder()
+                            .email((String) ((Map<?, ?>) formData.get("payer")).get("email"))
+                            .build())
+                    .notificationUrl(webhookUrl)
+                    .build();
+
+            Payment payment = client.create(createRequest);
+
+            EstadoPagoExterno estado = switch (payment.getStatus()) {
+                case "approved" -> EstadoPagoExterno.APROBADO;
+                case "rejected", "cancelled" -> EstadoPagoExterno.RECHAZADO;
+                case "pending", "in_process" -> EstadoPagoExterno.EN_PROCESO;
+                case "refunded", "charged_back" -> EstadoPagoExterno.DEVUELTO;
+                default -> EstadoPagoExterno.EN_PROCESO;
+            };
+
+            return new PaymentResult(
+                    estado,
+                    payment.getExternalReference(),
+                    payment.getTransactionAmount(),
+                    payment.getId().toString());
+
+        } catch (MPApiException e) {
+            log.error("Error de API de MP al procesar pago Brick: {}", e.getStatusCode());
+            throw new ReservaException("Error al procesar el pago. Intentá de nuevo.");
+        } catch (MPException e) {
+            log.error("Error de MP al procesar pago Brick: {}", e.getMessage());
+            throw new ReservaException("Error al procesar el pago. Intentá de nuevo.");
         }
     }
 }

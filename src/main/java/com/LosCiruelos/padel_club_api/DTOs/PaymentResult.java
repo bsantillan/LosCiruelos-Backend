@@ -13,4 +13,5 @@ public class PaymentResult {
     private EstadoPagoExterno estado;
     private String externalReference;
     private BigDecimal monto;
+    private String paymentId;
 }

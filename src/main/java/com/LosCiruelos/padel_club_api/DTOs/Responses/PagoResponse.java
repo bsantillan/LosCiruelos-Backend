@@ -16,26 +16,20 @@ public class PagoResponse {
     BigDecimal monto;
     EstadoPago estado;
     PaymentProvider provider;
-    String initPoint; 
-    String preferenceId;
+    String paymentToken;
     LocalDateTime createdAt;
     LocalDateTime paidAt;
 
-    public static PagoResponse from(Pago pago, String initPoint) {
+    public static PagoResponse from(Pago pago) {
         PagoResponse response = new PagoResponse();
         response.setId(pago.getId());
         response.setReservaId(pago.getReserva().getId());
         response.setMonto(pago.getMonto());
         response.setEstado(pago.getEstado());
         response.setProvider(pago.getProvider());
-        response.setInitPoint(initPoint);
-        response.setPreferenceId(pago.getPreferenceId());
+        response.setPaymentToken(pago.getPaymentToken());
         response.setCreatedAt(pago.getCreatedAt());
         response.setPaidAt(pago.getPaidAt());
         return response;
-    }
-
-    public static PagoResponse from(Pago pago) {
-        return from(pago, null);
     }
 }

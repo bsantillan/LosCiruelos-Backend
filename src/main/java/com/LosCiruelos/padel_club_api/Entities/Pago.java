@@ -61,5 +61,5 @@ public class Pago {
     private String externalPaymentId;
 
     @Column(name = "preference_id")
-    private String preferenceId;
+    private String paymentToken;
 }
