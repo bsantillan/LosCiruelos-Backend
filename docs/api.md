@@ -207,7 +207,9 @@ Cada usuario elige si recibe los avisos por mail o por WhatsApp. Detalle de qué
 
 ---
 
-## Canchas — `/canchas` (autenticado)
+## Canchas — `/canchas` (público)
+
+Se pueden consultar sin iniciar sesión (un visitante ve los horarios libres y los precios); para reservar sí hace falta una cuenta con el perfil completo. Si se manda un token vencido o inválido, se responde igual, como visitante.
 
 ### `GET /canchas` → `200`
 ```json
@@ -344,7 +346,9 @@ Body de `POST /reservas`:
 
 ---
 
-## Productos — `/productos` (autenticado)
+## Productos — `/productos` (público)
+
+Catálogo y disponibilidad de pelotas y paletas: también sin iniciar sesión.
 
 | Método y ruta | Descripción |
 |---|---|

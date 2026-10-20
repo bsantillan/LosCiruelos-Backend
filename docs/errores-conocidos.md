@@ -65,6 +65,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 - **Avisos del cliente**: `GET/PUT /perfil/suscripciones` (recordatorios y promociones; las cancelaciones siempre).
 - **Avisos por WhatsApp o mail**: En el perfil, una sección de notificaciones (`GET/PUT /perfil/notificaciones`, `POST /perfil/telefono/codigo` y `/verificar`). Para el ADMIN, qué avisos recibe y un interruptor para desactivarlos todos (`GET/PUT /perfil/avisos` con `activos`, `POST /perfil/avisos/prueba`) y el recordatorio (`GET/PUT /admin/configuracion/avisos`). `PerfilResponse` y `UsuarioAdminResponse` suman `telefonoVerificado` y `canalNotificaciones`.
 - **Teléfonos**: se aceptan con espacios, guiones y paréntesis, y se devuelven normalizados (`5491123456789`). Un número que no es válido responde `400 errors.telefono`.
+- **Consultas públicas**: `GET /canchas`, `GET /canchas/{id}/disponibilidad`, `GET /productos` y `GET /productos/disponibilidad` ya no piden sesión: un visitante puede ver horarios libres y precios. Para reservar sigue haciendo falta iniciar sesión.
 - `DELETE /perfil/desactivar` ya no necesita body.
 - `pagarTotal` es opcional (por defecto `false` = seña). `iniciar` y `pago` también los pueden usar ADMIN y EMPLEADO.
 - Un usuario registrado y no verificado ahora tiene `enabled: true` en el listado del admin (la verificación se ve en `emailVerificado`).
