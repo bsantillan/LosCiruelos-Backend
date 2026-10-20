@@ -1,10 +1,11 @@
 package com.LosCiruelos.padel_club_api.Services;
 
-import java.util.Map;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.VerificationToken;
@@ -14,8 +15,8 @@ import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.CuentaVerificadaException;
 import com.LosCiruelos.padel_club_api.Repository.VerificationTokenRepository;
 import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
+import com.LosCiruelos.padel_club_api.Services.Email.EnvioPostCommit;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -29,72 +30,82 @@ public class VerificationService {
     @Transactional
     public void enviarToken(String email) {
         Usuario usuario = usuarioService.findByEmail(email);
+        if (usuario == null || usuario.getEmailVerificado()) {
+            return;
+        }
 
-        if (usuario == null) return;
-
-        tokenRepository.deleteByUsuarioAndType(usuario, TokenType.VERIFY_EMAIL);
-
-        VerificationToken token = VerificationToken.builder()
-                .usuario(usuario)
-                .token(VerificationToken.generarCodigo())
-                .type(TokenType.VERIFY_EMAIL)
-                .fechaExpiracion(Instant.now().plus(1, ChronoUnit.DAYS))
-                .build();
-
-        tokenRepository.save(token);
-
-        emailServiceFactory.getService().sendVerificationEmail(
-                usuario.getEmail(),
-                Map.of("nombre", usuario.getNombre(), "codigo", token.getToken()));
+        VerificationToken token = crearToken(usuario, TokenType.VERIFY_EMAIL, Instant.now().plus(1, ChronoUnit.DAYS));
+        Map<String, Object> datos = Map.of("nombre", nombre(usuario), "codigo", token.getToken());
+        EnvioPostCommit.ejecutar("verificación a " + usuario.getEmail(),
+                () -> emailServiceFactory.getService().sendVerificationEmail(usuario.getEmail(), datos));
     }
 
-    @Transactional
+    /**
+     * Los intentos fallidos se guardan aunque se lance la excepción (noRollbackFor);
+     * con 5 fallos el código queda inutilizable y hay que pedir otro.
+     */
+    @Transactional(noRollbackFor = CodigoInvalidoException.class)
     public void verificarToken(String email, String codigo) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(email, new CredencialesInvalidasException("Usuario no encontrado"));
+        Usuario usuario = usuarioService.findByEmailOrThrow(email,
+                new CredencialesInvalidasException("Usuario no encontrado"));
 
         if (usuario.getEmailVerificado()) {
             throw new CuentaVerificadaException();
         }
 
-        VerificationToken token = tokenRepository
-                .findByUsuarioAndType(usuario, TokenType.VERIFY_EMAIL)
-                .orElseThrow(() -> new CodigoInvalidoException("Código invalido"));
+        VerificationToken token = validarCodigo(tokenRepository, usuario, TokenType.VERIFY_EMAIL, codigo);
 
-        if (token.esExpirado()) {
-            throw new CodigoInvalidoException("Codigo inválido");
-        }
-
-        if (!token.esValido(codigo)) {
-            throw new CodigoInvalidoException("Código inválido");
-        }
-
+        // Solo marca el email como verificado: "enabled" es para cuentas desactivadas
         usuario.setEmailVerificado(true);
-        usuario.setEnabled(true);
         usuarioService.save(usuario);
-
         tokenRepository.delete(token);
     }
 
     @Transactional
     public void enviarBienvenida(String email, String passwordTemporal) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(email, new CredencialesInvalidasException("Usuario no encontrado"));
+        Usuario usuario = usuarioService.findByEmailOrThrow(email,
+                new CredencialesInvalidasException("Usuario no encontrado"));
 
-        tokenRepository.deleteByUsuarioAndType(usuario, TokenType.VERIFY_EMAIL);
+        VerificationToken token = crearToken(usuario, TokenType.VERIFY_EMAIL, Instant.now().plus(1, ChronoUnit.DAYS));
+        Map<String, Object> datos = Map.of(
+                "nombre", nombre(usuario),
+                "password", passwordTemporal,
+                "codigo", token.getToken());
+        EnvioPostCommit.ejecutar("bienvenida a " + usuario.getEmail(),
+                () -> emailServiceFactory.getService().sendBienvenidaEmail(usuario.getEmail(), datos));
+    }
 
-        VerificationToken token = VerificationToken.builder()
+    private VerificationToken crearToken(Usuario usuario, TokenType tipo, Instant expiracion) {
+        tokenRepository.deleteByUsuarioAndType(usuario, tipo);
+        return tokenRepository.save(VerificationToken.builder()
                 .usuario(usuario)
                 .token(VerificationToken.generarCodigo())
-                .type(TokenType.VERIFY_EMAIL)
-                .fechaExpiracion(Instant.now().plus(1, ChronoUnit.DAYS))
-                .build();
+                .type(tipo)
+                .fechaExpiracion(expiracion)
+                .build());
+    }
 
-        tokenRepository.save(token);
+    /** Valida el código del usuario; si no coincide suma un intento fallido. */
+    static VerificationToken validarCodigo(VerificationTokenRepository repo, Usuario usuario, TokenType tipo,
+            String codigo) {
+        VerificationToken token = repo.findByUsuarioAndType(usuario, tipo)
+                .orElseThrow(() -> new CodigoInvalidoException("Código inválido"));
 
-        emailServiceFactory.getService().sendBienvenidaEmail(
-                usuario.getEmail(),
-                Map.of(
-                        "nombre", usuario.getNombre(),
-                        "password", passwordTemporal,
-                        "codigo", token.getToken()));
+        if (token.esExpirado()) {
+            throw new CodigoInvalidoException("El código expiró. Pedí uno nuevo.");
+        }
+        if (token.estaBloqueado()) {
+            throw new CodigoInvalidoException("Superaste la cantidad de intentos. Pedí un código nuevo.");
+        }
+        if (!token.esValido(codigo)) {
+            token.registrarIntentoFallido();
+            repo.save(token);
+            throw new CodigoInvalidoException("Código inválido");
+        }
+        return token;
+    }
+
+    static String nombre(Usuario usuario) {
+        return usuario.getNombre() != null ? usuario.getNombre() : "";
     }
 }

@@ -15,8 +15,10 @@ import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
 import com.LosCiruelos.padel_club_api.Repository.VerificationTokenRepository;
+import com.LosCiruelos.padel_club_api.Security.JWTUtil;
 import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
 import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
+import com.LosCiruelos.padel_club_api.Services.Email.EnvioPostCommit;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,53 +30,42 @@ public class PasswordResetService {
         private final VerificationTokenRepository tokenRepository;
         private final PasswordEncoder passwordEncoder;
         private final EmailServiceFactory emailServiceFactory;
+        private final JWTUtil jwtUtil;
 
         @Transactional
         public void enviarToken(String email) {
                 Usuario usuario = usuarioService.findByEmail(email);
-
-                if (usuario == null)
-                        return;
+                if (usuario == null) {
+                        return; // no se revela si el email existe
+                }
 
                 tokenRepository.deleteByUsuarioAndType(usuario, TokenType.PASSWORD_RESET);
-
-                VerificationToken token = VerificationToken.builder()
+                VerificationToken token = tokenRepository.save(VerificationToken.builder()
                                 .usuario(usuario)
                                 .token(VerificationToken.generarCodigo())
                                 .type(TokenType.PASSWORD_RESET)
                                 .fechaExpiracion(Instant.now().plus(15, ChronoUnit.MINUTES))
-                                .build();
+                                .build());
 
-                tokenRepository.save(token);
-
-                emailServiceFactory.getService().sendResetPasswordEmail(
-                                usuario.getEmail(),
-                                Map.of("nombre", usuario.getNombre(), "codigo", token.getToken()));
+                Map<String, Object> datos = Map.of("nombre", VerificationService.nombre(usuario), "codigo",
+                                token.getToken());
+                EnvioPostCommit.ejecutar("reset de contraseña a " + usuario.getEmail(),
+                                () -> emailServiceFactory.getService().sendResetPasswordEmail(usuario.getEmail(), datos));
         }
 
-        @Transactional
+        @Transactional(noRollbackFor = CodigoInvalidoException.class)
         public void verificarToken(String email, String codigo) {
                 Usuario usuario = usuarioService.findByEmailOrThrow(email,
                                 new CredencialesInvalidasException("Usuario no encontrado"));
 
-                VerificationToken token = tokenRepository
-                                .findByUsuarioAndType(usuario, TokenType.PASSWORD_RESET)
-                                .orElseThrow(() -> new CodigoInvalidoException("Código invalido"));
-
-                if (token.esExpirado()) {
-                        throw new CodigoInvalidoException("Codigo inválido");
-                }
-
-                if (!token.esValido(codigo)) {
-                        throw new CodigoInvalidoException("Código inválido");
-                }
-
+                VerificationToken token = VerificationService.validarCodigo(tokenRepository, usuario,
+                                TokenType.PASSWORD_RESET, codigo);
                 token.setVerificado(true);
                 tokenRepository.save(token);
         }
 
+        @Transactional
         public void resetPassword(String email, String nuevaPassword) {
-
                 if (!PasswordValidator.esValida(nuevaPassword)) {
                         throw new PasswordInvalidaException();
                 }
@@ -85,12 +76,14 @@ public class PasswordResetService {
                                 .findByUsuarioAndType(usuario, TokenType.PASSWORD_RESET)
                                 .orElseThrow(() -> new CredencialesInvalidasException("Flujo inválido"));
 
-                if (!token.getVerificado()) {
+                if (!token.getVerificado() || token.esExpirado()) {
                         throw new CredencialesInvalidasException("Flujo inválido");
                 }
 
                 usuario.setPasswordHash(passwordEncoder.encode(nuevaPassword));
                 usuarioService.save(usuario);
                 tokenRepository.delete(token);
+                // cierra las sesiones abiertas con la contraseña anterior
+                jwtUtil.deleteAllRefreshTokens(usuario);
         }
 }

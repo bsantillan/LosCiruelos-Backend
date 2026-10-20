@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.DTOs.Responses.GoogleUser;
+import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -29,7 +30,6 @@ public class GoogleTokenVerifier {
         try {
             GoogleIdToken idToken = verifier.verify(idTokenString);
             if (idToken != null) {
-                System.out.print("ID TOKEN" + idToken);
                 GoogleIdToken.Payload payload = idToken.getPayload();
 
                 String firstName = (String) payload.get("given_name");
@@ -41,15 +41,20 @@ public class GoogleTokenVerifier {
                     lastName = parts[1];
                 }
 
+                // Solo se vincula por email si Google confirma que el email es de esa persona
+                if (!Boolean.TRUE.equals(payload.getEmailVerified())) {
+                    throw new CredencialesInvalidasException("El email de la cuenta de Google no está verificado");
+                }
+
                 return new GoogleUser(payload.getEmail(), firstName, lastName);
             }
-            log.error("Google rechazó el token - idToken es null");
-            throw new RuntimeException("Token de Google inválido");
+            log.warn("Google rechazó el token - idToken es null");
+            throw new CredencialesInvalidasException("Token de Google inválido");
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Excepción verificando token: {}", e.getMessage(), e);
-            throw new RuntimeException("Error verificando token de Google", e);
+            log.error("Excepción verificando token de Google: {}", e.getMessage(), e);
+            throw new CredencialesInvalidasException("No se pudo verificar el token de Google");
         }
     }
 }
