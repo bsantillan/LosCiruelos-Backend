@@ -55,6 +55,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/pagos/notificacion").permitAll() // webhook de Mercado Pago
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        // Un visitante sin cuenta puede ver canchas, horarios libres y precios (no reservar).
+                        // La disponibilidad solo informa horarios: no expone datos de las reservas ni de clientes
+                        .requestMatchers(HttpMethod.GET, "/canchas", "/canchas/*/disponibilidad",
+                                "/productos", "/productos/disponibilidad")
+                        .permitAll()
 
                         // Stock de productos: el personal puede verlo y ajustarlo; el resto es del ADMIN
                         .requestMatchers(HttpMethod.GET, "/admin/configuracion/productos")
