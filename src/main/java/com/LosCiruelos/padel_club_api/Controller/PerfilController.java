@@ -14,9 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.LosCiruelos.padel_club_api.DTOs.Requests.PerfilRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PerfilResponse;
-import com.LosCiruelos.padel_club_api.Security.UsuarioPrincipal;
 import com.LosCiruelos.padel_club_api.Services.PerfilService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -28,25 +28,21 @@ public class PerfilController {
 
     @GetMapping
     public ResponseEntity<PerfilResponse> getPerfil(Authentication authentication) {
-        UsuarioPrincipal principal = (UsuarioPrincipal) authentication.getPrincipal();
-        return ResponseEntity.ok(perfilService.getPerfil(principal.getUsername()));
+        return ResponseEntity.ok(perfilService.getPerfil(authentication.getName()));
     }
 
     @PutMapping
     public ResponseEntity<PerfilResponse> updatePerfil(
-            @RequestBody PerfilRequest per_rq,
+            @Valid @RequestBody PerfilRequest request,
             Authentication authentication) {
-        UsuarioPrincipal principal = (UsuarioPrincipal) authentication.getPrincipal();
-
-        return ResponseEntity.ok(perfilService.updatePerfil(per_rq, principal.getUsername()));
+        return ResponseEntity.ok(perfilService.updatePerfil(request, authentication.getName()));
     }
 
+    /** Desactiva la cuenta y cierra todas las sesiones (el body con refreshToken ya no es necesario). */
     @DeleteMapping("/desactivar")
-    @PreAuthorize("hasAnyRole('CLIENTE')")
-    public ResponseEntity<?> desactivarPerfil(Authentication authentication, @RequestBody Map<String, String> request) {
-        UsuarioPrincipal principal = (UsuarioPrincipal) authentication.getPrincipal();
-        String refreshToken = request.get("refreshToken");
-        perfilService.desactivarPerfil(principal.getUsername(), refreshToken);
-        return ResponseEntity.ok(Map.of("message", "Se elimino correctamente su cuenta"));
+    @PreAuthorize("hasRole('CLIENTE')")
+    public ResponseEntity<Map<String, String>> desactivarPerfil(Authentication authentication) {
+        perfilService.desactivarPerfil(authentication.getName());
+        return ResponseEntity.ok(Map.of("message", "Se eliminó correctamente su cuenta"));
     }
 }

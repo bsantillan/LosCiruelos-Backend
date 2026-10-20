@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.Config;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -10,10 +11,14 @@ import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
+import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
+import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
+import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.Services.CanchaService;
+import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 
 import lombok.RequiredArgsConstructor;
@@ -26,13 +31,18 @@ public class DataInitializer implements ApplicationRunner {
 
         private final UsuarioService usuarioService;
         private final CanchaService canchaService;
+        private final ClienteProfileService clienteProfileService;
         private final ConfiguracionRepository configuracionRepository;
 
         @Value("${admin.email}")
         private String adminEmail;
 
-        private String userPruebaEmail = "user.prueba@losciruelos.com";
-        private String userPruebaPassword = "UserPassword123!";
+        // Usuario de prueba: solo en desarrollo (APP_SEED_USUARIO_PRUEBA=true)
+        @Value("${app.seed.usuario-prueba:false}")
+        private boolean crearUsuarioPrueba;
+
+        private static final String USER_PRUEBA_EMAIL = "user.prueba@losciruelos.com";
+        private static final String USER_PRUEBA_PASSWORD = "UserPassword123!";
 
         @Value("${admin.password}")
         private String adminPassword;
@@ -40,7 +50,9 @@ public class DataInitializer implements ApplicationRunner {
         @Override
         public void run(ApplicationArguments args) {
                 crearAdminSiNoExiste();
-                crearUsuarioPruebaSiNoExiste();
+                if (crearUsuarioPrueba) {
+                        crearUsuarioPruebaSiNoExiste();
+                }
                 crearConfiguracionSiNoExiste();
                 crearCanchasSiNoExisten();
         }
@@ -98,11 +110,13 @@ public class DataInitializer implements ApplicationRunner {
 
                         Configuracion configuracion = Configuracion.builder()
                                         .id(1L)
-                                        .montoReserva(0f)
-                                        .porcentajeSeña(50f)
+                                        .montoReserva(BigDecimal.ZERO)
+                                        .porcentajeSenia(new BigDecimal("50"))
                                         .duracionMinimaTurno(90)
                                         .duracionMaximaTurno(180)
-                                        .montoXMediHora(5000f)
+                                        .montoXMediaHora(new BigDecimal("5000"))
+                                        .minutosReembolsoTotal(1440)
+                                        .minutosReembolsoSenia(720)
                                         .dias_apertura(dias)
                                         .build();
 
@@ -114,21 +128,31 @@ public class DataInitializer implements ApplicationRunner {
         }
 
         private void crearUsuarioPruebaSiNoExiste() {
-                if (usuarioService.findByEmail(userPruebaEmail) == null) {
-                        usuarioService.crearUsuario(
-                                        userPruebaEmail,
+                if (usuarioService.findByEmail(USER_PRUEBA_EMAIL) == null) {
+                        Usuario usuarioPrueba = usuarioService.crearUsuario(
+                                        USER_PRUEBA_EMAIL,
                                         "User",
                                         "Prueba",
-                                        null,
-                                        userPruebaPassword,
+                                        "1122334455",
+                                        USER_PRUEBA_PASSWORD,
                                         Role.CLIENTE,
                                         AuthProvider.LOCAL,
                                         true,
                                         true,
                                         true);
-                        log.info("User creado con email: {}", userPruebaEmail);
+                        // los clientes necesitan su perfil de jugador y el celular verificado para poder reservar
+                        usuarioPrueba.setTelefonoVerificado(true);
+                        usuarioService.save(usuarioPrueba);
+                        clienteProfileService.crearClienteProfile(usuarioPrueba, Categoria.Cuarta, Posicion.Drive);
+                        log.info("User creado con email: {}", USER_PRUEBA_EMAIL);
                 } else {
                         log.info("User ya existe, no se crea uno nuevo.");
+                        // creado antes de exigir el celular verificado: se marca para que pueda seguir reservando
+                        Usuario existente = usuarioService.findByEmail(USER_PRUEBA_EMAIL);
+                        if (existente.getTelefono() != null && !Boolean.TRUE.equals(existente.getTelefonoVerificado())) {
+                                existente.setTelefonoVerificado(true);
+                                usuarioService.save(existente);
+                        }
                 }
         }
 }

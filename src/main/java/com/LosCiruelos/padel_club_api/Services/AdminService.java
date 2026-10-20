@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import java.util.Collections;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.DTOs.Requests.CrearUsuarioAdminRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.EditarUsuarioAdminRequest;
@@ -35,6 +36,7 @@ public class AdminService {
     private final JWTUtil jwtUtil;
     private final VerificationService verificationService;
 
+    @Transactional
     public UsuarioAdminResponse crearUsuario(CrearUsuarioAdminRequest request) {
         Usuario existente = usuarioService.findByEmail(request.getEmail());
         if (existente != null) {
@@ -53,7 +55,7 @@ public class AdminService {
         Usuario usuario = usuarioService.crearUsuario(
                 request.getEmail(), request.getNombre(), request.getApellido(),
                 request.getTelefono(), passwordTemporal,
-                request.getRol(), AuthProvider.LOCAL, true, false, false);
+                request.getRol(), AuthProvider.LOCAL, true, false, true); // habilitado, email sin verificar
 
         if (request.getRol() == Role.CLIENTE) {
             clienteProfileService.crearClienteProfile(
@@ -69,13 +71,21 @@ public class AdminService {
         return buildUsuarioAdminResponse(usuario);
     }
 
+    @Transactional
     public UsuarioAdminResponse editarUsuario(Long id, EditarUsuarioAdminRequest request) {
 
+        // Todas las validaciones antes de modificar
         if ((request.getCategoria() != null || request.getPosicion() != null) && request.getRol() != Role.CLIENTE) {
             throw new IllegalArgumentException("El rol debe ser CLIENTE para asignar categoría o posición");
         }
+        if (request.getRol() == Role.CLIENTE && (request.getCategoria() == null || request.getPosicion() == null)) {
+            throw new IllegalArgumentException("La categoría y posición son obligatorias para clientes");
+        }
 
         Usuario usuario = usuarioService.findByIdOrThrow(id);
+        if (usuario.getRol() == Role.ADMIN || request.getRol() == Role.ADMIN) {
+            throw new IllegalArgumentException("Los administradores no se editan desde este endpoint");
+        }
         Role rolAnterior = usuario.getRol();
 
         usuario = usuarioService.updateUsuario(
@@ -91,10 +101,6 @@ public class AdminService {
             usuarioService.save(usuario);
         } else if (request.getRol() == Role.CLIENTE) {
             perfil = clienteProfileService.findByUsuario(usuario);
-
-            if (request.getCategoria() == null || request.getPosicion() == null) {
-                throw new IllegalArgumentException("La categoría y posición son obligatorias para clientes");
-            }
 
             if (perfil == null) {
                 perfil = clienteProfileService.crearClienteProfile(
@@ -125,6 +131,7 @@ public class AdminService {
         return buildUsuarioAdminResponse(usuario);
     }
 
+    @Transactional
     public UsuarioAdminResponse reactivarUsuario(Long id) {
         Usuario usuario = usuarioService.findByIdOrThrow(id);
         usuario.setEnabled(true);
@@ -132,8 +139,12 @@ public class AdminService {
         return buildUsuarioAdminResponse(usuario);
     }
 
+    @Transactional
     public UsuarioAdminResponse desactivarUsuario(Long id) {
         Usuario usuario = usuarioService.findByIdOrThrow(id);
+        if (usuario.getRol() == Role.ADMIN) {
+            throw new IllegalArgumentException("No se puede desactivar a un administrador");
+        }
         usuario.setEnabled(false);
         jwtUtil.deleteAllRefreshTokens(usuario);
         usuarioService.save(usuario);
@@ -147,6 +158,8 @@ public class AdminService {
         response.setApellido(usuario.getApellido());
         response.setEmail(usuario.getEmail());
         response.setTelefono(usuario.getTelefono());
+        response.setTelefonoVerificado(usuario.getTelefonoVerificado());
+        response.setCanalNotificaciones(usuario.getCanalNotificaciones());
         response.setRol(usuario.getRol());
         response.setEnabled(usuario.getEnabled());
         response.setEmailVerificado(usuario.getEmailVerificado());
