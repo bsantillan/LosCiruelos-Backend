@@ -3,6 +3,7 @@ package com.LosCiruelos.padel_club_api.Entities;
 import java.time.LocalDateTime;
 
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
+import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 
 import jakarta.persistence.CascadeType;
@@ -47,8 +48,41 @@ public class Usuario {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
+    // Formato de WhatsApp: código de país y número, solo dígitos (ej. 5491123456789)
     @Column(length = 20)
     private String telefono;
+
+    // El usuario ingresó el código que le llegó por WhatsApp a ese teléfono
+    @Builder.Default
+    @Column(name = "telefono_verificado", nullable = false)
+    private Boolean telefonoVerificado = false;
+
+    // =========================
+    // NOTIFICACIONES
+    // =========================
+
+    // Canal elegido para los avisos. WHATSAPP se usa solo con el teléfono verificado; si no, va por mail
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "canal_notificaciones", nullable = false, length = 20)
+    private CanalNotificacion canalNotificaciones = CanalNotificacion.EMAIL;
+
+    // Cuándo aceptó recibir mensajes por WhatsApp (consentimiento que pide Meta)
+    @Column(name = "acepta_whatsapp_at")
+    private LocalDateTime aceptaWhatsappAt;
+
+    // Cuándo aceptó recibir notificaciones del club (checkbox del registro)
+    @Column(name = "notificaciones_aceptadas_at")
+    private LocalDateTime notificacionesAceptadasAt;
+
+    // Avisos opcionales del cliente. Las cancelaciones se avisan siempre.
+    @Builder.Default
+    @Column(name = "recibe_recordatorios", nullable = false)
+    private Boolean recibeRecordatorios = true;
+
+    @Builder.Default
+    @Column(name = "recibe_promociones", nullable = false)
+    private Boolean recibePromociones = false;
 
     // =========================
     // AUTH

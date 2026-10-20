@@ -1,6 +1,7 @@
 package com.LosCiruelos.padel_club_api.DTOs.Responses;
 
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
+import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
@@ -14,6 +15,8 @@ public class UsuarioAdminResponse {
     private String apellido;
     private String email;
     private String telefono;
+    private Boolean telefonoVerificado;
+    private CanalNotificacion canalNotificaciones;
     private Role rol;
     private Boolean enabled;
     private Boolean emailVerificado;

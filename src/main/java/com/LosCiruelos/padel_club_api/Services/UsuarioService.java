@@ -1,7 +1,9 @@
 package com.LosCiruelos.padel_club_api.Services;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -10,7 +12,9 @@ import org.springframework.stereotype.Service;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
+import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
 import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
+import com.LosCiruelos.padel_club_api.Services.WhatsApp.Telefonos;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,8 +36,25 @@ public class UsuarioService {
     public Usuario updateUsuario(Usuario user, String nombre, String apellido, String telefono) {
         user.setNombre(capitalizar(nombre));
         user.setApellido(capitalizar(apellido));
-        user.setTelefono(telefono);
+        cambiarTelefono(user, telefono);
         return usuarioRepository.save(user);
+    }
+
+    /**
+     * Guarda el teléfono normalizado (formato de WhatsApp). Si cambia, deja de estar verificado:
+     * hay que volver a confirmarlo con un código antes de mandarle mensajes.
+     */
+    public void cambiarTelefono(Usuario user, String telefono) {
+        String normalizado = Telefonos.normalizar(telefono);
+        if (!Objects.equals(normalizado, user.getTelefono())) {
+            user.setTelefonoVerificado(false);
+        }
+        user.setTelefono(normalizado);
+    }
+
+    /** ADMIN activos: reciben los avisos de reservas. */
+    public List<Usuario> adminsActivos() {
+        return usuarioRepository.findByRolAndEnabledTrue(Role.ADMIN);
     }
 
     public void desactivarUsuario(Usuario usuario) {
@@ -48,12 +69,12 @@ public class UsuarioService {
                 .email(email)
                 .nombre(capitalizar(nombre))
                 .apellido(capitalizar(apellido))
-                .telefono(telefono)
+                .telefono(Telefonos.normalizar(telefono))
                 .passwordHash(password != null ? passwordEncoder.encode(password) : null)
                 .rol(rol)
                 .provider(provider)
                 .termsAccepted(termsAccepted)
-                .termsAcceptedAt(LocalDateTime.now())
+                .termsAcceptedAt(LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS))
                 .emailVerificado(emailVerificado)
                 .enabled(enabled)
                 .build());
@@ -61,7 +82,7 @@ public class UsuarioService {
 
     public Usuario findByIdOrThrow(Long id) {
         return usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado: " + id));
     }
 
     public Usuario save(Usuario usuario) {

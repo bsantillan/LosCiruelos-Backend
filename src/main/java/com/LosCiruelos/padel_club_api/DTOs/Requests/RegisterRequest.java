@@ -3,6 +3,7 @@ package com.LosCiruelos.padel_club_api.DTOs.Requests;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -33,8 +34,15 @@ public class RegisterRequest {
     private Boolean termsAccepted;
 
     @NotBlank(message = "El telefono es obligatorio")
-    @Pattern(regexp = "^\\+?[0-9]{8,15}$", message = "Teléfono inválido")
+    // se acepta con espacios, guiones o paréntesis: el servidor lo normaliza al formato de WhatsApp
+    @Pattern(regexp = "^[0-9+() -]{8,25}$", message = "Teléfono inválido")
     private String telefono;
+
+    // "Acepto recibir notificaciones del club" (obligatorio, como los términos). Arrancan por mail:
+    // el medio (mail o WhatsApp) se elige en el perfil, después de validar el celular
+    @NotNull(message = "Debés aceptar recibir notificaciones")
+    @AssertTrue(message = "Debés aceptar recibir notificaciones")
+    private Boolean aceptarNotificacion;
 
     @NotNull(message = "La categoria es obligatoria")
     private Categoria categoria;

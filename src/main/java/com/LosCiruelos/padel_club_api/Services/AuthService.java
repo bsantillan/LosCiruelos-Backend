@@ -3,15 +3,16 @@ package com.LosCiruelos.padel_club_api.Services;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.DTOs.Requests.LoginRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.RegisterRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.GoogleUser;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.LoginResponse;
-import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
 import com.LosCiruelos.padel_club_api.Entities.RefreshToken;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
+import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.CuentaDesactivadaException;
@@ -39,6 +40,10 @@ public class AuthService {
     private final GoogleTokenVerifier googleTokenVerifier;
     private final VerificationService verificationService;
 
+    private boolean perfilCompleto(Usuario usuario) {
+        return clienteProfileService.perfilCompleto(usuario);
+    }
+
     private LoginResponse buildLoginResponse(Usuario usuario, boolean perfilCompleto, String refreshToken) {
         LoginResponse response = new LoginResponse();
         response.setAccessToken(jwtUtil.generateToken(usuario.getEmail()));
@@ -52,6 +57,7 @@ public class AuthService {
         return response;
     }
 
+    @Transactional
     public void register(RegisterRequest reg_rq) {
         Usuario usuario = usuarioService.findByEmail(reg_rq.getEmail());
 
@@ -76,10 +82,16 @@ public class AuthService {
                 Role.CLIENTE,
                 AuthProvider.LOCAL,
                 reg_rq.getTermsAccepted(),
-                false,
-                false);
+                false, // email sin verificar
+                true); // cuenta habilitada: "enabled" solo se usa para desactivar cuentas
 
         clienteProfileService.crearClienteProfile(usuario_nuevo, reg_rq.getCategoria(), reg_rq.getPosicion());
+
+        // consentimiento de notificaciones; arrancan por mail (el medio se cambia en el perfil,
+        // después de validar el celular)
+        usuario_nuevo.setNotificacionesAceptadasAt(usuario_nuevo.getTermsAcceptedAt());
+        usuario_nuevo.setCanalNotificaciones(CanalNotificacion.EMAIL);
+        usuarioService.save(usuario_nuevo);
 
         try {
             verificationService.enviarToken(usuario_nuevo.getEmail());
@@ -87,6 +99,7 @@ public class AuthService {
             log.error("No se pudo enviar email de verificación a {}: {}",
                     usuario_nuevo.getEmail(), e.getMessage());
         }
+
     }
 
     public LoginResponse login(LoginRequest log_rq) {
@@ -108,39 +121,37 @@ public class AuthService {
 
         jwtUtil.deleteAllRefreshTokens(usuario);
 
-        return this.buildLoginResponse(usuario, true, jwtUtil.createRefreshToken(usuario).getToken());
+        return this.buildLoginResponse(usuario, perfilCompleto(usuario), jwtUtil.createRefreshToken(usuario).getToken());
     }
 
+    @Transactional
     public LoginResponse loginWithGoogle(String idToken) {
         GoogleUser googleUser = googleTokenVerifier.verify(idToken);
 
         Usuario usuarioGuardado = usuarioService.findByEmail(googleUser.getEmail());
-        ClienteProfile perfil = usuarioGuardado != null
-                ? clienteProfileService.findByUsuario(usuarioGuardado)
-                : null;
 
         if (usuarioGuardado == null) {
             usuarioGuardado = usuarioService.crearUsuario(
                     googleUser.getEmail(), googleUser.getFirstName(), googleUser.getLastName(),
                     null, null, Role.CLIENTE, AuthProvider.GOOGLE, true, true, true);
 
-            perfil = clienteProfileService.crearClienteProfile(usuarioGuardado, null, null);
+            clienteProfileService.crearClienteProfile(usuarioGuardado, null, null);
         } else {
-            // Usuario existente — sin importar el provider
+            // Usuario existente, sin importar el provider. "enabled" = false solo si fue desactivado.
             if (!usuarioGuardado.getEnabled()) {
                 throw new CuentaDesactivadaException();
             }
 
+            // Google confirmó que el email es suyo: queda verificado
             if (!usuarioGuardado.getEmailVerificado()) {
                 usuarioGuardado.setEmailVerificado(true);
-                usuarioGuardado.setEnabled(true);
                 usuarioService.save(usuarioGuardado);
             }
         }
 
         jwtUtil.deleteAllRefreshTokens(usuarioGuardado);
 
-        return this.buildLoginResponse(usuarioGuardado, clienteProfileService.esPerfilCompleto(perfil),
+        return this.buildLoginResponse(usuarioGuardado, perfilCompleto(usuarioGuardado),
                 jwtUtil.createRefreshToken(usuarioGuardado).getToken());
     }
 
@@ -149,12 +160,15 @@ public class AuthService {
             throw new CredencialesInvalidasException("Token invalido");
         }
 
+        if (!jwtUtil.getUsuarioFromToken(token).getEnabled()) {
+            jwtUtil.deleteRefreshToken(token);
+            throw new CuentaDesactivadaException();
+        }
+
         RefreshToken nuevoRefreshToken = jwtUtil.rotateRefreshToken(token);
         Usuario usuario = nuevoRefreshToken.getUsuario();
-        ClienteProfile perfil = clienteProfileService.findByUsuario(usuario);
 
-        return this.buildLoginResponse(usuario, clienteProfileService.esPerfilCompleto(perfil),
-                nuevoRefreshToken.getToken());
+        return this.buildLoginResponse(usuario, perfilCompleto(usuario), nuevoRefreshToken.getToken());
     }
 
     public void logout(String refreshToken) {

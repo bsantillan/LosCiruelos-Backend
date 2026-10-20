@@ -10,9 +10,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.LosCiruelos.padel_club_api.DTOs.Requests.EmailRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.GoogleLoginRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.LoginRequest;
+import com.LosCiruelos.padel_club_api.DTOs.Requests.ReenviarCodigoRequest;
+import com.LosCiruelos.padel_club_api.DTOs.Requests.RefreshTokenRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.RegisterRequest;
+import com.LosCiruelos.padel_club_api.DTOs.Requests.ResetPasswordRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.VerificarEmailRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.LoginResponse;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TokenType;
@@ -54,48 +58,40 @@ public class AuthController {
     }
 
     @PostMapping("/resend-token")
-    public ResponseEntity<?> renviarToken(@RequestBody Map<String, String> body) {
-        String email = body.get("email");
-        String tipo_codigo = body.get("tipo_codigo");
-        if (TokenType.valueOf(tipo_codigo) == TokenType.VERIFY_EMAIL) {
-            verificationService.enviarToken(email);
+    public ResponseEntity<Void> reenviarToken(@Valid @RequestBody ReenviarCodigoRequest request) {
+        if (request.getTipo_codigo() == TokenType.VERIFY_EMAIL) {
+            verificationService.enviarToken(request.getEmail());
         } else {
-            passwordResetService.enviarToken(email);
+            passwordResetService.enviarToken(request.getEmail());
         }
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<LoginResponse> refresh(@RequestBody Map<String, String> request) {
-        return ResponseEntity.ok(authService.refreshToken(request.get("refreshToken")));
+    public ResponseEntity<LoginResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(authService.refreshToken(request.getRefreshToken()));
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(@RequestBody Map<String, String> request) {
-        String refreshToken = request.get("refreshToken");
-        if (refreshToken == null || refreshToken.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Refresh token requerido"));
-        }
-        authService.logout(refreshToken);
+    public ResponseEntity<Map<String, String>> logout(@Valid @RequestBody RefreshTokenRequest request) {
+        authService.logout(request.getRefreshToken());
         return ResponseEntity.ok(Map.of("message", "Sesión cerrada correctamente"));
     }
 
     @PostMapping("/password-reset/request")
-    public ResponseEntity<?> enviarTokenResetPassword(@RequestBody Map<String, String> body) {
-        passwordResetService.enviarToken(body.get("email"));
+    public ResponseEntity<Void> enviarTokenResetPassword(@Valid @RequestBody EmailRequest request) {
+        passwordResetService.enviarToken(request.getEmail());
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/password-reset/confirm")
-    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> body) {
-        passwordResetService.resetPassword(
-                body.get("email"),
-                body.get("nuevaPassword"));
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.getEmail(), request.getNuevaPassword());
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/google")
-    public ResponseEntity<LoginResponse> loginWithGoogle(@RequestBody GoogleLoginRequest request) {
+    public ResponseEntity<LoginResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
         return ResponseEntity.ok(authService.loginWithGoogle(request.getIdToken()));
     }
 }

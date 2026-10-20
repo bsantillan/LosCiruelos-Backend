@@ -22,7 +22,8 @@ public class EditarUsuarioAdminRequest {
     private String apellido;
 
     @NotBlank(message = "El telefono es obligatorio")
-    @Pattern(regexp = "^\\+?[0-9]{8,15}$", message = "Teléfono inválido")
+    // se acepta con espacios, guiones o paréntesis: el servidor lo normaliza al formato de WhatsApp
+    @Pattern(regexp = "^[0-9+() -]{8,25}$", message = "Teléfono inválido")
     private String telefono;
 
     @NotNull(message = "El rol es obligatorio")

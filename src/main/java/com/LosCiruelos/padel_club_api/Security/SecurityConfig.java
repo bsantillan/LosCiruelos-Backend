@@ -1,10 +1,15 @@
 package com.LosCiruelos.padel_club_api.Security;
 
+import java.time.Clock;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -16,14 +21,20 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity // activa los @PreAuthorize de los controllers
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JWTFilter jwtFilter;
+    private final Clock clock;
+
+    @Value("${app.cors.allowed-origins}")
+    private List<String> allowedOrigins;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -36,25 +47,38 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/logout").authenticated()
+
                         // Públicas
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/reservas/webhook").permitAll()
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/pagos/notificacion").permitAll() // webhook de Mercado Pago
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/actuator/health").permitAll()
+
+                        // Stock de productos: el personal puede verlo y ajustarlo; el resto es del ADMIN
+                        .requestMatchers(HttpMethod.GET, "/admin/configuracion/productos")
+                        .hasAnyRole("ADMIN", "EMPLEADO")
+                        .requestMatchers(HttpMethod.PATCH, "/admin/configuracion/productos/*/stock")
+                        .hasAnyRole("ADMIN", "EMPLEADO")
 
                         // Solo ADMIN
                         .requestMatchers("/admin/**").hasRole("ADMIN")
 
-                        // ADMIN y EMPLEADO
-                        .requestMatchers("/gestion/**").hasAnyRole("ADMIN", "EMPLEADO")
-
-                        // PROFESOR
-                        .requestMatchers("/profesores/**").hasAnyRole("ADMIN", "PROFESOR")
+                        // Pagos que registra el personal del club (además del @PreAuthorize)
+                        .requestMatchers(HttpMethod.POST, "/pagos/*/pago-efectivo", "/pagos/*/pago-presencial")
+                        .hasAnyRole("ADMIN", "EMPLEADO")
 
                         .anyRequest().authenticated())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        // sin token o con token vencido: 401, así el front sabe que tiene que refrescar
+                        .authenticationEntryPoint((request, response, e) -> escribirError(response,
+                                HttpStatus.UNAUTHORIZED, "No autenticado o token vencido"))
+                        .accessDeniedHandler((request, response, e) -> escribirError(response,
+                                HttpStatus.FORBIDDEN, "No tenés permisos para esta operación")));
 
+        http.addFilterBefore(new RateLimitFilter(clock), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
@@ -62,7 +86,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOriginPatterns(List.of("http://localhost:3000", "http://localhost:5173"));
+        cfg.setAllowedOriginPatterns(allowedOrigins);
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         cfg.setAllowCredentials(true);
@@ -70,5 +94,13 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
         return source;
+    }
+
+    private static void escribirError(HttpServletResponse response, HttpStatus status, String mensaje)
+            throws java.io.IOException {
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("{\"error\":\"" + mensaje + "\"}");
     }
 }

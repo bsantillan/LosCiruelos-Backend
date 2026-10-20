@@ -76,6 +76,24 @@ public class GmailEmailService implements EmailService {
         enviarEmail(to, "Bienvenido/a a Los Ciruelos Padel", html);
     }
 
+    @Override
+    public void sendAviso(String to, String asunto, String texto) {
+        String html = """
+                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px;">
+                    <h2>%s</h2>
+                    <p>%s</p>
+                    <p style="color: #888; font-size: 12px;">Los Ciruelos Padel · Podés elegir recibir estos avisos
+                    por WhatsApp o por mail desde tu perfil.</p>
+                </div>
+                """.formatted(escapar(asunto), escapar(texto));
+
+        enviarEmail(to, asunto + " - Los Ciruelos Padel", html);
+    }
+
+    private static String escapar(String texto) {
+        return texto.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
     private void enviarEmail(String to, String subject, String html) {
         try {
             MimeMessage message = mailSender.createMimeMessage();

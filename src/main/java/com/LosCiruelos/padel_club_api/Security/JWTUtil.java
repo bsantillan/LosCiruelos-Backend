@@ -13,12 +13,13 @@ import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.Entities.RefreshToken;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
+import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Repository.RefreshTokenRepository;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -38,7 +39,10 @@ public class JWTUtil {
 
     @PostConstruct
     private void init() {
-        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes());
+        if (secret == null || secret.getBytes(java.nio.charset.StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("JWT_SECRET debe tener al menos 32 bytes para firmar con HS256");
+        }
+        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     private SecretKey signingKey;
@@ -108,7 +112,7 @@ public class JWTUtil {
     public Usuario getUsuarioFromToken(String token) {
         return refreshTokenRepository.findByToken(token)
                 .map(RefreshToken::getUsuario)
-                .orElseThrow(() -> new RuntimeException("Refresh token inválido"));
+                .orElseThrow(() -> new CredencialesInvalidasException("Refresh token inválido"));
     }
 
     @Transactional
@@ -124,7 +128,7 @@ public class JWTUtil {
     @Transactional
     public RefreshToken rotateRefreshToken(String oldToken) {
         RefreshToken old = refreshTokenRepository.findByToken(oldToken)
-                .orElseThrow(() -> new RuntimeException("Refresh token inválido"));
+                .orElseThrow(() -> new CredencialesInvalidasException("Refresh token inválido"));
 
         Usuario usuario = old.getUsuario();
         refreshTokenRepository.delete(old);
@@ -138,6 +142,7 @@ public class JWTUtil {
         return refreshTokenRepository.save(nuevo);
     }
 
+    // El DELETE del repositorio tiene su propia transacción (antes fallaba todas las noches)
     @Scheduled(cron = "0 0 2 * * ?")
     public void cleanExpiredTokens() {
         refreshTokenRepository.deleteAllByFechaExpiracionBefore(Instant.now());
