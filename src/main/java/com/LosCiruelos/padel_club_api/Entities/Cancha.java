@@ -29,5 +29,5 @@ public class Cancha {
     private Integer numero;
 
     @Column(nullable = false, name = "descripcion", length = 300)
-    private String descripccion;
+    private String descripcion;
 }
