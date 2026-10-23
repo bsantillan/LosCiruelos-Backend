@@ -387,6 +387,9 @@ class ControllersTest {
             mvc.perform(json(put("/perfil"), "{\"nombre\":\"Ana\",\"apellido\":\"Gomez\",\"telefono\":\"1122334455\"}"))
                     .andExpect(status().isOk());
             // antes no había @Valid
+            // el teléfono es opcional: se edita en /perfil/notificaciones
+            mvc.perform(json(put("/perfil"), "{\"nombre\":\"Ana\",\"apellido\":\"Gomez\"}"))
+                    .andExpect(status().isOk());
             mvc.perform(json(put("/perfil"), "{\"nombre\":\"Ana\",\"apellido\":\"Gomez\",\"telefono\":\"hola\"}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.telefono").exists());

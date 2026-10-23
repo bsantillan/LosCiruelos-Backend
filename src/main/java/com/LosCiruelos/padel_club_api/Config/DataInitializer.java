@@ -133,7 +133,7 @@ public class DataInitializer implements ApplicationRunner {
                                         USER_PRUEBA_EMAIL,
                                         "User",
                                         "Prueba",
-                                        "1122334455",
+                                        "5491122334455", // ya normalizado (formato de WhatsApp)
                                         USER_PRUEBA_PASSWORD,
                                         Role.CLIENTE,
                                         AuthProvider.LOCAL,

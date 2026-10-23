@@ -178,4 +178,72 @@ class PerfilServiceTest {
         verify(usuarioService).desactivarUsuario(cliente);
         verify(jwtUtil).deleteAllRefreshTokens(cliente);
     }
+
+    // ── Teléfono opcional en PUT /perfil (con el UsuarioService real) ─────
+
+    @org.junit.jupiter.api.Nested
+    class TelefonoOpcional {
+
+        private com.LosCiruelos.padel_club_api.Repository.UsuarioRepository usuarioRepository;
+        private PerfilService perfiles;
+
+        @BeforeEach
+        void conUsuarioServiceReal() {
+            usuarioRepository = mock(com.LosCiruelos.padel_club_api.Repository.UsuarioRepository.class);
+            when(usuarioRepository.findByEmail(cliente.getEmail())).thenReturn(Optional.of(cliente));
+            when(usuarioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            UsuarioService real = new UsuarioService(usuarioRepository,
+                    mock(org.springframework.security.crypto.password.PasswordEncoder.class));
+            perfiles = new PerfilService(real, new ClienteProfileService(clienteProfileRepository), reservaService,
+                    jwtUtil, TestData.reloj(AHORA));
+        }
+
+        @Test
+        void sinTelefonoConservaElTelefonoYSuVerificacion() {
+            PerfilResponse r = perfiles.updatePerfil(pedido(Categoria.Cuarta, Posicion.Reves, null), cliente.getEmail());
+
+            assertThat(cliente.getTelefono()).isEqualTo("5491122334455");
+            assertThat(cliente.getTelefonoVerificado()).isTrue();
+            assertThat(cliente.getNombre()).isEqualTo("Juan");
+            assertThat(r.getPerfilCompleto()).isTrue();
+        }
+
+        @Test
+        void sinTelefonoFuncionaParaQuienNoTieneTelefono() {
+            cliente.setTelefono(null);
+            cliente.setTelefonoVerificado(false);
+
+            PerfilResponse r = perfiles.updatePerfil(pedido(Categoria.Cuarta, Posicion.Reves, null), cliente.getEmail());
+
+            assertThat(cliente.getTelefono()).isNull();
+            assertThat(cliente.getApellido()).isEqualTo("Perez");
+            assertThat(r.getPerfilCompleto()).isFalse(); // le falta el celular verificado
+        }
+
+        @Test
+        void conUnTelefonoNuevoQuedaSinVerificar() {
+            perfiles.updatePerfil(pedido(Categoria.Cuarta, Posicion.Reves, "11 6123-4567"), cliente.getEmail());
+
+            assertThat(cliente.getTelefono()).isEqualTo("5491161234567");
+            assertThat(cliente.getTelefonoVerificado()).isFalse();
+        }
+
+        @Test
+        void elMismoTelefonoEnOtroFormatoNoPierdeLaVerificacion() {
+            perfiles.updatePerfil(pedido(Categoria.Cuarta, Posicion.Reves, "11 2233-4455"), cliente.getEmail());
+
+            assertThat(cliente.getTelefono()).isEqualTo("5491122334455");
+            assertThat(cliente.getTelefonoVerificado()).isTrue();
+        }
+
+        @Test
+        void unTelefonoGuardadoEnFormatoViejoTampocoLaPierde() {
+            cliente.setTelefono("1122334455"); // guardado antes de V8
+
+            perfiles.updatePerfil(pedido(Categoria.Cuarta, Posicion.Reves, "+54 9 11 2233-4455"), cliente.getEmail());
+
+            assertThat(cliente.getTelefono()).isEqualTo("5491122334455");
+            assertThat(cliente.getTelefonoVerificado()).isTrue();
+        }
+    }
 }

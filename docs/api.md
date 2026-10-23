@@ -142,10 +142,18 @@ Requiere haber validado antes el código con `/auth/verificar-token` (tipo `PASS
 `categoria`, `posicion`, `categoriaActualizadaAt` y `categoriaEditable` solo vienen para CLIENTE.
 
 ### `PUT /perfil` → `200 PerfilResponse`
+Datos personales. El celular se edita en "Celular y avisos" (`PUT /perfil/notificaciones`), así que **`telefono` es opcional** acá.
+```json
+{ "nombre": "Juan", "apellido": "Pérez", "categoria": "Tercera", "posicion": "Reves" }
+```
 ```json
 { "nombre": "Juan", "apellido": "Pérez", "telefono": "11 1234-5678", "categoria": "Tercera", "posicion": "Reves" }
 ```
-- Se validan los campos (`@Valid`): nombre y apellido de 2 a 50 caracteres; teléfono: se acepta con espacios, guiones o paréntesis (`^[0-9+() -]{8,25}$`) y se guarda normalizado al formato de WhatsApp (`5491123456789`); con o sin `0`, `15` o `+54 9`. Si el teléfono cambia, queda sin verificar.
+- Se validan los campos (`@Valid`): nombre y apellido obligatorios, de 2 a 50 caracteres.
+- `telefono` **opcional**:
+  - Si no viene (o es `null`), no se tocan el teléfono ni su verificación. Sirve también para quien no tiene celular cargado (el ADMIN inicial, los que entran con Google).
+  - Si viene, se valida (`^[0-9+() -]{8,25}$` y numeración real) y se guarda normalizado al formato de WhatsApp (`5491123456789`), con o sin `0`, `15` o `+54 9`. Si es **otro número**, queda sin verificar; el mismo número escrito de otra forma (`11 2233-4455` y `5491122334455`) no pierde la verificación. Si otra cuenta activa ya lo tiene verificado, `400 errors.telefono`.
+- El celular verificado sigue siendo requisito de `perfilCompleto`.
 - CLIENTE: `categoria` y `posicion` obligatorias (`400 errors.posicion / errors.categoria`). La categoría se puede **cambiar una sola vez y dentro de las 24 h** desde que se cargó; si no se puede, responde `403` y no se guarda nada. El resto de los datos se puede cambiar siempre.
 - Otros roles: no pueden enviar `categoria` ni `posicion` (`400`).
 - Nombre y apellido se guardan capitalizados.

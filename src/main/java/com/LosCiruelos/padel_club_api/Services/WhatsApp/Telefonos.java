@@ -43,6 +43,15 @@ public final class Telefonos {
         }
     }
 
+    /** Como {@link #normalizar} pero sin error: null si no es un teléfono válido. */
+    public static String normalizarSinError(String telefono) {
+        try {
+            return normalizar(telefono);
+        } catch (ValidationException e) {
+            return null;
+        }
+    }
+
     /**
      * Destinatario para la API de Meta. Los celulares argentinos se guardan como los identifica
      * WhatsApp (54 9 área número), pero la API rechaza ese formato ("Recipient phone number not in

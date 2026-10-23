@@ -38,10 +38,13 @@ public class UsuarioService {
         return usuarioRepository.findByEmail(email).orElseThrow(() -> ex);
     }
 
+    /** {@code telefono} null: no se toca el teléfono ni su verificación. */
     public Usuario updateUsuario(Usuario user, String nombre, String apellido, String telefono) {
         user.setNombre(capitalizar(nombre));
         user.setApellido(capitalizar(apellido));
-        cambiarTelefono(user, telefono);
+        if (telefono != null) {
+            cambiarTelefono(user, telefono);
+        }
         return usuarioRepository.save(user);
     }
 
@@ -51,7 +54,9 @@ public class UsuarioService {
      */
     public void cambiarTelefono(Usuario user, String telefono) {
         String normalizado = Telefonos.normalizar(telefono);
-        if (!Objects.equals(normalizado, user.getTelefono())) {
+        // se compara contra el guardado también normalizado: el mismo número escrito de otra forma
+        // (o guardado en un formato viejo) no es un cambio y no pierde la verificación
+        if (!Objects.equals(normalizado, Telefonos.normalizarSinError(user.getTelefono()))) {
             validarCelularDisponible(normalizado, user.getId());
             user.setTelefonoVerificado(false);
         }

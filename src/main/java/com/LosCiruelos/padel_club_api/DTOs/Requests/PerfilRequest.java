@@ -19,8 +19,9 @@ public class PerfilRequest {
     @Size(min = 2, max = 50, message = "El apellido debe tener entre 2 y 50 caracteres")
     private String apellido;
 
-    @NotBlank(message = "El telefono es obligatorio")
-    // se acepta con espacios, guiones o paréntesis: el servidor lo normaliza al formato de WhatsApp
+    // Opcional: el celular se edita en "Celular y avisos" (PUT /perfil/notificaciones). Si no viene
+    // (o es null) no se tocan el teléfono ni su verificación. Si viene, se valida y se normaliza al
+    // formato de WhatsApp; si es otro número, queda sin verificar
     @Pattern(regexp = "^[0-9+() -]{8,25}$", message = "Teléfono inválido")
     private String telefono;
 
