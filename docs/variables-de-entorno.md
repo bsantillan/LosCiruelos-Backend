@@ -24,6 +24,7 @@
 | `FRONTEND_URL` | `app.frontend-url` | URL del frontend. Mercado Pago devuelve al cliente a `FRONTEND_URL/pago/resultado?reservaId=…&resultado=aprobado\|rechazado\|pendiente` después de pagar con su cuenta. Con `https://` además vuelve solo al aprobarse (`auto_return`) | No (por defecto `http://localhost:5173`) | `https://reservas.losciruelos.com` |
 | `MP_WEBHOOK_SECRET` | `mercadopago.webhook-secret` | Clave secreta de los webhooks (MP → Tus integraciones → Webhooks). Si está, se valida la firma `x-signature` | No (recomendada en producción) | `abc123…` |
 | `SERVER_PORT` | `server.port` | Puerto HTTP de la app. En Windows con Docker Desktop puede quedar reservado el rango alrededor de 8080 (ver `netsh interface ipv4 show excludedportrange protocol=tcp`) | No (por defecto `8080`) | `9090` |
+| `FORWARD_HEADERS_STRATEGY` | `server.forward-headers-strategy` | `framework` (por defecto): toma la IP real del cliente de `X-Forwarded-For`, necesario detrás de un proxy (Tailscale Funnel, nginx) para que el rate limiting no trate a todos como una sola IP. `none` si el backend se expone directo, sin proxy | No | `framework` |
 | `WHATSAPP_TOKEN` | `whatsapp.token` | Token permanente del usuario de sistema de Meta (Cloud API). Ver [whatsapp.md](whatsapp.md) | No (sin él los avisos van por mail) | `EAAG...` |
 | `WHATSAPP_PHONE_NUMBER_ID` | `whatsapp.phone-number-id` | Identificador del número del club en Meta (no es el número) | No | `123456789012345` |
 | `CORS_ALLOWED_ORIGINS` | `app.cors.allowed-origins` | Orígenes del frontend permitidos, separados por coma | No (por defecto `http://localhost:3000,http://localhost:5173`) | `https://reservas.losciruelos.com` |
@@ -40,6 +41,9 @@
 | `refresh_token.expiration` | `604800` | Duración del refresh token en segundos (7 días) |
 | `email.provider` | `gmail` | Bean de `EmailService` a usar |
 | `payment.provider` | `mercadopago` | Bean de `PaymentService` a usar |
+| `whatsapp.provider` | `meta` | Bean de `WhatsAppService` a usar |
+| `telefono.codigos-por-dia-usuario` / `telefono.codigos-por-dia-numero` | `5` / `5` | Topes de códigos de verificación por WhatsApp cada 24 h |
+| `telefono.segundos-entre-codigos` | `60` | Espera mínima entre pedidos de código del mismo usuario |
 | `spring.mail.host` / `port` | `smtp.gmail.com` / `587` | SMTP con STARTTLS y TLSv1.2 |
 | `spring.jpa.hibernate.ddl-auto` | `validate` | Hibernate no modifica el esquema |
 | `spring.jpa.show-sql` | `${SHOW_SQL:false}` | SQL de Hibernate en el log |

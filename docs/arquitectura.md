@@ -19,6 +19,8 @@ Controller ──► Services ──► Repository ──► PostgreSQL
 | `Services` | Lógica de negocio: `AuthService`, `VerificationService`, `PasswordResetService`, `UsuarioService`, `ClienteProfileService`, `PerfilService`, `AdminService`, `CanchaService`, `ConfiguracionService` (horarios, precio, seña), `ProductoService` (catálogo y stock), `ReservaService` (creación, cancelación, expiración), `PagoService` |
 | `Services/Email` | `EmailService` (interfaz), `GmailEmailService` (bean `"gmail"`), `EmailServiceFactory`, `EnvioPostCommit` (envía después del commit) |
 | `Services/Pagos` | `PaymentService` (interfaz), `MercadoPagoPaymentService` (bean `"mercadopago"`), `PaymentServiceFactory`, `MercadoPagoWebhookValidator` |
+| `Services/WhatsApp` | `WhatsAppService` (interfaz), `MetaWhatsAppService` (bean `"meta"`, Cloud API de Meta), `WhatsAppServiceFactory`, `Telefonos` (normalización) |
+| `Services/Avisos` | `AvisoReserva` (evento), `TipoAviso` (plantillas y textos), `AvisosService` (elige el canal de cada destinatario), `AvisosListener` (envía después del commit) |
 | `Repository` | Repositorios Spring Data JPA (incluye queries JPQL de solapamiento y pendientes en `ReservaRepository`) |
 | `Entities` / `Entities/Enum` | Entidades JPA y enums de dominio |
 | `DTOs` | Objetos de request/response; `PaymentResult` (resultado normalizado del proveedor de pagos) |
@@ -35,6 +37,8 @@ Email y pagos se resuelven por nombre de bean:
 
 - `EmailServiceFactory` recibe un `Map<String, EmailService>` con todos los beans y devuelve el que coincide con `email.provider` (hoy `gmail`). Para agregar SendGrid alcanza con crear un `@Service("sendgrid")` que implemente `EmailService` y cambiar la propiedad.
 - `PaymentServiceFactory` hace lo mismo con `payment.provider` (hoy `mercadopago`).
+- `WhatsAppServiceFactory` hace lo mismo con `whatsapp.provider` (hoy `meta`). Para cambiar de proveedor (Twilio, 360dialog, …) alcanza con una nueva implementación de `WhatsAppService` registrada con su nombre (`@Service("twilio")`) y cambiar la propiedad.
+- El **canal** de cada aviso (mail o WhatsApp) no lo decide un factory sino `AvisosService.canalPara`, en el momento de enviar, según lo que eligió cada usuario en su perfil. El factory elige el **proveedor** de cada canal.
 
 ## Seguridad
 
@@ -88,7 +92,7 @@ Email y pagos se resuelven por nombre de bean:
 | Servicio | Dónde | Uso |
 |---|---|---|
 | Google Identity | `GoogleTokenVerifier` | Verifica el `idToken` de Google Sign-In contra `GOOGLE_CLIENT_ID` y extrae email, nombre y apellido. |
-| WhatsApp (Cloud API de Meta) | `WhatsAppClient`, `AvisosService`, `AvisosListener` | Plantillas aprobadas: avisos a los ADMIN, recordatorio y cancelación por el club al cliente, código para verificar el teléfono. Los avisos se publican como eventos (`AvisoReserva`) y se envían después del commit en el executor `avisosExecutor` (2 hilos); cada usuario elige mail o WhatsApp. Ver [whatsapp.md](whatsapp.md). |
+| WhatsApp (Cloud API de Meta) | `MetaWhatsAppService` (vía `WhatsAppServiceFactory`), `AvisosService`, `AvisosListener` | Plantillas aprobadas: avisos a los ADMIN, recordatorio y cancelación por el club al cliente, código para verificar el teléfono. Los avisos se publican como eventos (`AvisoReserva`) y se envían después del commit en el executor `avisosExecutor` (2 hilos); cada usuario elige mail o WhatsApp. Ver [whatsapp.md](whatsapp.md). |
 | Gmail SMTP | `GmailEmailService` | Emails HTML: código de verificación, código de reset de contraseña, bienvenida con contraseña temporal. |
 | Mercado Pago | `MercadoPagoConfiguration`, `MercadoPagoPaymentService`, `MercadoPagoWebhookValidator` | Configura el access token del SDK. Crea preferencias (`crearPreferencia`), cobra con el token del Payment Brick por el monto del servidor y con clave de idempotencia (`cobrar`), consulta pagos al recibir notificaciones (`consultarPago`), reembolsa (`reembolsar`) y valida la firma de los webhooks. Las claves de idempotencia salen del UUID de cada pago (`losciruelos-{pref\|cobro\|reembolso}-{uuid}`). |
 

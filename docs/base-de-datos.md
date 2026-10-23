@@ -1,6 +1,6 @@
 # Base de datos
 
-PostgreSQL 16. El esquema lo crea Flyway en `src/main/resources/db/Migrations`: `V1__schema_inicial.sql` tiene el esquema completo (unifica las migraciones de desarrollo anteriores), `V2__stock_inicial_productos.sql` carga el stock inicial de pelotas y paletas, `V3__indice_mis_reservas.sql` agrega el índice del listado de reservas del cliente , `V4__politica_cancelacion.sql` agrega la política de reembolso a la configuración y `monto_reembolsado` a los pagos y `V5__reembolsos_pendientes_y_clave_idempotencia.sql` agrega el estado `REEMBOLSO_PENDIENTE`, `reembolso_solicitado_at` y `clave_idempotencia`,, `V6__stock_50_pelotas_y_paletas.sql` deja el stock en 50 pelotas y 50 paletas, `V7__precio_pelotas_y_paletas.sql` les pone precio de $5000 y `V8__whatsapp.sql` agrega el canal de notificaciones y la verificación del teléfono de los usuarios, la tabla `avisos_admin`, el recordatorio del turno y el tipo de código `VERIFY_PHONE`,, `V9__avisos_admin_activos.sql` el interruptor general de los avisos de cada ADMIN y `V10__preferencias_notificaciones.sql` el consentimiento de notificaciones del registro y los avisos que elige el cliente. Hibernate solo **valida** que las entidades coincidan con las tablas (`ddl-auto=validate`).
+PostgreSQL 16. El esquema lo crea Flyway en `src/main/resources/db/Migrations`: `V1__schema_inicial.sql` tiene el esquema completo (unifica las migraciones de desarrollo anteriores), `V2__stock_inicial_productos.sql` carga el stock inicial de pelotas y paletas, `V3__indice_mis_reservas.sql` agrega el índice del listado de reservas del cliente , `V4__politica_cancelacion.sql` agrega la política de reembolso a la configuración y `monto_reembolsado` a los pagos y `V5__reembolsos_pendientes_y_clave_idempotencia.sql` agrega el estado `REEMBOLSO_PENDIENTE`, `reembolso_solicitado_at` y `clave_idempotencia`,, `V6__stock_50_pelotas_y_paletas.sql` deja el stock en 50 pelotas y 50 paletas, `V7__precio_pelotas_y_paletas.sql` les pone precio de $5000 y `V8__whatsapp.sql` agrega el canal de notificaciones y la verificación del teléfono de los usuarios, la tabla `avisos_admin`, el recordatorio del turno y el tipo de código `VERIFY_PHONE`,, `V9__avisos_admin_activos.sql` el interruptor general de los avisos de cada ADMIN, `V10__preferencias_notificaciones.sql` el consentimiento de notificaciones del registro y los avisos que elige el cliente, `V11__celular_verificado_unico.sql` un índice único parcial (un celular verificado pertenece a una sola cuenta activa) y `V12__topes_codigo_telefono.sql` la tabla `envios_codigo_telefono` para los topes de códigos por WhatsApp. Hibernate solo **valida** que las entidades coincidan con las tablas (`ddl-auto=validate`).
 
 ## Cómo funcionan las migraciones
 
@@ -33,7 +33,7 @@ configuracion 1──N dias           (dias.configuracion_general_id)
 | nombre, apellido | varchar(50) | nullable |
 | email | varchar(100) | NOT NULL, UNIQUE |
 | telefono | varchar(20) | formato de WhatsApp, solo dígitos (`5491123456789`) |
-| telefono_verificado | boolean | se confirmó con el código por WhatsApp (V8) |
+| telefono_verificado | boolean | se confirmó con el código por WhatsApp (V8). Único por celular entre las cuentas activas (`uk_usuarios_celular_verificado_activo`, V11) |
 | canal_notificaciones | varchar(20) | CHECK: EMAIL, WHATSAPP (V8, por defecto EMAIL) |
 | acepta_whatsapp_at | timestamp | cuándo aceptó recibir WhatsApp (V8) |
 | notificaciones_aceptadas_at | timestamp | cuándo aceptó recibir notificaciones en el registro (V10) |
@@ -125,6 +125,9 @@ Restricción `reservas_sin_solapamiento`: `EXCLUDE USING gist (cancha_id WITH =,
 
 ### `refresh_tokens` (`RefreshToken`)
 `id`, `token varchar(255) UNIQUE`, `fecha_expiracion timestamptz`, `usuario_id` FK UNIQUE.
+
+### `envios_codigo_telefono` (`EnvioCodigoTelefono`)
+Un registro por cada código de verificación mandado por WhatsApp (V12): `usuario_id` FK, `telefono`, `enviado_at`. Se usa para los topes por usuario y por número en 24 h; los registros de más de 48 h se borran al mandar el siguiente. Índices por `(usuario_id, enviado_at)` y `(telefono, enviado_at)`.
 
 ### `avisos_admin` (`AvisosAdmin`)
 Qué avisos de reservas recibe cada ADMIN (V8). `usuario_id` PK y FK a usuarios; `activos` (interruptor general, V9), `reserva_confirmada`, `saldo_cobrado`, `reserva_cancelada`, `reembolso_manual` (boolean, true por defecto). Sin fila: recibe todos.
