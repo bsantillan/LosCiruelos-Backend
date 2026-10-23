@@ -29,7 +29,7 @@ import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva.Destinatario;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisosService;
 import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
-import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppClient;
+import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
 
 import lombok.RequiredArgsConstructor;
 
@@ -47,7 +47,7 @@ public class NotificacionesService {
     private final AvisosAdminRepository avisosAdminRepository;
     private final AvisosService avisosService;
     private final ConfiguracionService configuracionService;
-    private final WhatsAppClient whatsApp;
+    private final WhatsAppServiceFactory whatsApp;
     private final Clock clock;
 
     // ── Canal y teléfono (cualquier rol) ─────────────────────────────────
@@ -179,7 +179,7 @@ public class NotificacionesService {
     private NotificacionesResponse aResponse(Usuario usuario) {
         return new NotificacionesResponse(usuario.getCanalNotificaciones(),
                 avisosService.canalPara(Destinatario.de(usuario)), usuario.getTelefono(),
-                Boolean.TRUE.equals(usuario.getTelefonoVerificado()), whatsApp.estaConfigurado());
+                Boolean.TRUE.equals(usuario.getTelefonoVerificado()), whatsApp.getService().estaConfigurado());
     }
 
     private Usuario usuario(String email) {

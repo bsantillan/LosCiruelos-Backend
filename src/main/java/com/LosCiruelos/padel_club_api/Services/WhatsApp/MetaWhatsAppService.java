@@ -8,7 +8,7 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -16,15 +16,15 @@ import org.springframework.web.client.RestClientResponseException;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Envía plantillas por la API oficial de WhatsApp (Cloud API de Meta).
+ * Proveedor "meta": envía plantillas por la API oficial de WhatsApp (Cloud API de Meta).
  *
  * Solo se usan plantillas aprobadas en el WhatsApp Manager: son las únicas que Meta deja mandar
  * a alguien que no le escribió al club en las últimas 24 h. Un error de Meta se loguea y se
  * informa con {@code false}: nunca corta la operación que generó el mensaje.
  */
 @Slf4j
-@Component
-public class WhatsAppClient {
+@Service("meta")
+public class MetaWhatsAppService implements WhatsAppService {
 
     static final String URL_BASE = "https://graph.facebook.com";
 
@@ -35,14 +35,14 @@ public class WhatsAppClient {
     private final String idioma;
 
     @Autowired
-    public WhatsAppClient(@Value("${whatsapp.token:}") String token,
+    public MetaWhatsAppService(@Value("${whatsapp.token:}") String token,
             @Value("${whatsapp.phone-number-id:}") String phoneNumberId,
             @Value("${whatsapp.api-version:v23.0}") String version,
             @Value("${whatsapp.idioma:es_AR}") String idioma) {
         this(RestClient.builder(), token, phoneNumberId, version, idioma);
     }
 
-    WhatsAppClient(RestClient.Builder builder, String token, String phoneNumberId, String version, String idioma) {
+    MetaWhatsAppService(RestClient.Builder builder, String token, String phoneNumberId, String version, String idioma) {
         this.restClient = builder.baseUrl(URL_BASE).build();
         this.token = token;
         this.phoneNumberId = phoneNumberId;
@@ -53,20 +53,19 @@ public class WhatsAppClient {
         }
     }
 
+    @Override
     public boolean estaConfigurado() {
         return token != null && !token.isBlank() && phoneNumberId != null && !phoneNumberId.isBlank();
     }
 
-    /** Plantilla con parámetros de texto en el cuerpo ({{1}}, {{2}}, …). */
+    @Override
     public boolean enviarPlantilla(String telefono, String plantilla, List<String> parametros) {
         Map<String, Object> cuerpo = Map.of("type", "body", "parameters", textos(parametros));
         return enviar(telefono, plantilla, List.of(cuerpo));
     }
 
-    /**
-     * Plantilla de autenticación: el código va en el cuerpo y en el botón "Copiar código"
-     * (Meta exige mandarlo en los dos).
-     */
+    /** El código va en el cuerpo y en el botón "Copiar código" (Meta exige mandarlo en los dos). */
+    @Override
     public boolean enviarCodigo(String telefono, String plantilla, String codigo) {
         Map<String, Object> cuerpo = Map.of("type", "body", "parameters", textos(List.of(codigo)));
         Map<String, Object> boton = Map.of("type", "button", "sub_type", "url", "index", "0",
@@ -86,7 +85,7 @@ public class WhatsAppClient {
 
         Map<String, Object> mensaje = new LinkedHashMap<>();
         mensaje.put("messaging_product", "whatsapp");
-        mensaje.put("to", telefono);
+        mensaje.put("to", Telefonos.paraEnvioWhatsApp(telefono)); // celulares argentinos: 54 área 15 número
         mensaje.put("type", "template");
         mensaje.put("template", template);
 

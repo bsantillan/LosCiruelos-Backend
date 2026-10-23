@@ -28,13 +28,14 @@ import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva.Destinatario;
 import com.LosCiruelos.padel_club_api.Services.Email.EmailService;
 import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
-import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppClient;
+import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppService;
+import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
 
 class AvisosServiceTest {
 
     private UsuarioService usuarioService;
     private AvisosAdminRepository avisosAdminRepository;
-    private WhatsAppClient whatsApp;
+    private WhatsAppService whatsApp;
     private EmailService email;
     private AvisosService avisos;
 
@@ -45,13 +46,15 @@ class AvisosServiceTest {
     void setUp() {
         usuarioService = mock(UsuarioService.class);
         avisosAdminRepository = mock(AvisosAdminRepository.class);
-        whatsApp = mock(WhatsAppClient.class);
+        whatsApp = mock(WhatsAppService.class);
+        WhatsAppServiceFactory fabricaWhatsApp = mock(WhatsAppServiceFactory.class);
+        when(fabricaWhatsApp.getService()).thenReturn(whatsApp);
         email = mock(EmailService.class);
         EmailServiceFactory factory = mock(EmailServiceFactory.class);
         when(factory.getService()).thenReturn(email);
         when(whatsApp.estaConfigurado()).thenReturn(true);
         when(whatsApp.enviarPlantilla(anyString(), anyString(), anyList())).thenReturn(true);
-        avisos = new AvisosService(usuarioService, avisosAdminRepository, whatsApp, factory);
+        avisos = new AvisosService(usuarioService, avisosAdminRepository, fabricaWhatsApp, factory);
 
         adminWhatsapp = usuario(1L, Role.ADMIN);
         adminWhatsapp.setTelefono("5491122334455");
@@ -71,7 +74,7 @@ class AvisosServiceTest {
     void cadaAdminLoRecibePorElCanalQueEligio() {
         avisos.enviar(confirmada());
 
-        verify(whatsApp).enviarPlantilla(eq("5491122334455"), eq("aviso_reserva_confirmada"), anyList());
+        verify(whatsApp).enviarPlantilla(eq("5491122334455"), eq("aviso_reserva_confirmada_v2"), anyList());
         verify(email).sendAviso(eq(adminMail.getEmail()), eq("Nueva reserva"), anyString());
         verify(email, never()).sendAviso(eq(adminWhatsapp.getEmail()), anyString(), anyString());
     }

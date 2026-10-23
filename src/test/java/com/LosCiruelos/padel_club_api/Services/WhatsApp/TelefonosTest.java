@@ -37,6 +37,16 @@ class TelefonosTest {
     }
 
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "5492214375254, 54221154375254", // La Plata (área de 3 dígitos), probado contra Meta
+            "5491161234567, 54111561234567", // Buenos Aires (área de 2)
+            "5493516123456, 54351156123456", // Córdoba
+            "34612345678, 34612345678" })    // otros países: igual
+    void alEnviarLosCelularesArgentinosVanConEl15(String guardado, String enviado) {
+        assertThat(Telefonos.paraEnvioWhatsApp(guardado)).isEqualTo(enviado);
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = { "+34 612 34 56 78" })
     void aceptaNumerosDeOtrosPaises(String telefono) {
         assertThat(Telefonos.normalizar(telefono)).isEqualTo("34612345678");

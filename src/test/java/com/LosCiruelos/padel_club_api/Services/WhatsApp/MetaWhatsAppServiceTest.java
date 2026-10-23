@@ -17,18 +17,18 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
-class WhatsAppClientTest {
+class MetaWhatsAppServiceTest {
 
     private static final String URL = "https://graph.facebook.com/v23.0/123456/messages";
 
     private MockRestServiceServer meta;
-    private WhatsAppClient cliente;
+    private MetaWhatsAppService cliente;
 
     @BeforeEach
     void setUp() {
         RestClient.Builder builder = RestClient.builder();
         meta = MockRestServiceServer.bindTo(builder).build();
-        cliente = new WhatsAppClient(builder, "token-secreto", "123456", "v23.0", "es_AR");
+        cliente = new MetaWhatsAppService(builder, "token-secreto", "123456", "v23.0", "es_AR");
     }
 
     @Test
@@ -37,7 +37,7 @@ class WhatsAppClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "Bearer token-secreto"))
                 .andExpect(content().json("""
-                        {"messaging_product":"whatsapp","to":"5491122334455","type":"template",
+                        {"messaging_product":"whatsapp","to":"54111522334455","type":"template",
                          "template":{"name":"recordatorio_turno","language":{"code":"es_AR"},
                            "components":[{"type":"body","parameters":[
                              {"type":"text","text":"Ana"},{"type":"text","text":"línea uno línea dos"},
@@ -79,7 +79,7 @@ class WhatsAppClientTest {
     void sinConfiguracionNoLlamaAMeta() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer sinLlamadas = MockRestServiceServer.bindTo(builder).build();
-        WhatsAppClient desactivado = new WhatsAppClient(builder, "", "", "v23.0", "es_AR");
+        MetaWhatsAppService desactivado = new MetaWhatsAppService(builder, "", "", "v23.0", "es_AR");
 
         assertThat(desactivado.estaConfigurado()).isFalse();
         assertThat(desactivado.enviarPlantilla("5491122334455", "recordatorio_turno", List.of("Ana"))).isFalse();

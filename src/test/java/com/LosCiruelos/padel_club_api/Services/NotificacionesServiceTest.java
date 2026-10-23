@@ -34,7 +34,8 @@ import com.LosCiruelos.padel_club_api.Repository.AvisosAdminRepository;
 import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisosService;
-import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppClient;
+import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppService;
+import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
 
 class NotificacionesServiceTest {
 
@@ -57,10 +58,12 @@ class NotificacionesServiceTest {
         configuracionRepository = mock(ConfiguracionRepository.class);
         when(configuracionRepository.obtener()).thenReturn(TestData.configuracion());
         when(configuracionRepository.save(any(Configuracion.class))).thenAnswer(inv -> inv.getArgument(0));
-        WhatsAppClient whatsApp = mock(WhatsAppClient.class);
+        WhatsAppService whatsApp = mock(WhatsAppService.class);
+        WhatsAppServiceFactory fabricaWhatsApp = mock(WhatsAppServiceFactory.class);
+        when(fabricaWhatsApp.getService()).thenReturn(whatsApp);
         when(whatsApp.estaConfigurado()).thenReturn(true);
         notificaciones = new NotificacionesService(usuarioService, telefonoService, clienteProfileService, avisosAdminRepository,
-                avisosService, new ConfiguracionService(configuracionRepository), whatsApp, TestData.reloj(AHORA));
+                avisosService, new ConfiguracionService(configuracionRepository), fabricaWhatsApp, TestData.reloj(AHORA));
 
         usuario = usuario(1L, Role.CLIENTE);
         usuario.setTelefono("5491122334455");

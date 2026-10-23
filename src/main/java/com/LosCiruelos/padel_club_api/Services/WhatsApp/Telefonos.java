@@ -43,6 +43,28 @@ public final class Telefonos {
         }
     }
 
+    /**
+     * Destinatario para la API de Meta. Los celulares argentinos se guardan como los identifica
+     * WhatsApp (54 9 área número), pero la API rechaza ese formato ("Recipient phone number not in
+     * allowed list") y acepta el formato con 15: 54 área 15 número. Ej. 5492214375254 → 54221154375254.
+     * El resto de los números se manda igual.
+     */
+    public static String paraEnvioWhatsApp(String telefono) {
+        if (telefono == null || !telefono.startsWith("549")) {
+            return telefono;
+        }
+        String nacional = telefono.substring(3); // área + número, sin el 9
+        try {
+            int largoArea = UTIL.getLengthOfNationalDestinationCode(UTIL.parse("+54" + nacional, REGION));
+            if (largoArea <= 0 || largoArea >= nacional.length()) {
+                return telefono;
+            }
+            return "54" + nacional.substring(0, largoArea) + "15" + nacional.substring(largoArea);
+        } catch (NumberParseException e) {
+            return telefono;
+        }
+    }
+
     private static ValidationException invalido() {
         return new ValidationException(Map.of("telefono", "Teléfono inválido. Ingresalo con código de área, "
                 + "por ejemplo 11 2345-6789."));

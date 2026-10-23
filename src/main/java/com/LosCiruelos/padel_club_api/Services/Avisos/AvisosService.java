@@ -15,7 +15,7 @@ import com.LosCiruelos.padel_club_api.Repository.AvisosAdminRepository;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva.Destinatario;
 import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
-import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppClient;
+import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +32,7 @@ public class AvisosService {
 
     private final UsuarioService usuarioService;
     private final AvisosAdminRepository avisosAdminRepository;
-    private final WhatsAppClient whatsApp;
+    private final WhatsAppServiceFactory whatsApp;
     private final EmailServiceFactory emailServiceFactory;
 
     @Transactional(readOnly = true)
@@ -57,15 +57,15 @@ public class AvisosService {
     public CanalNotificacion canalPara(Destinatario destinatario) {
         boolean puedeWhatsapp = destinatario.canal() == CanalNotificacion.WHATSAPP
                 && destinatario.telefonoVerificado() && destinatario.telefono() != null
-                && whatsApp.estaConfigurado();
+                && whatsApp.getService().estaConfigurado();
         return puedeWhatsapp ? CanalNotificacion.WHATSAPP : CanalNotificacion.EMAIL;
     }
 
     /** Envía el aviso a un destinatario. @return el canal por el que salió, o null si falló. */
     public CanalNotificacion entregar(Destinatario destinatario, AvisoReserva aviso) {
         try {
-            if (canalPara(destinatario) == CanalNotificacion.WHATSAPP
-                    && whatsApp.enviarPlantilla(destinatario.telefono(), aviso.tipo().plantilla(), aviso.parametros())) {
+            if (canalPara(destinatario) == CanalNotificacion.WHATSAPP && whatsApp.getService()
+                    .enviarPlantilla(destinatario.telefono(), aviso.tipo().plantilla(), aviso.parametros())) {
                 return CanalNotificacion.WHATSAPP;
             }
             emailServiceFactory.getService().sendAviso(destinatario.email(), aviso.tipo().asunto(), aviso.texto());
