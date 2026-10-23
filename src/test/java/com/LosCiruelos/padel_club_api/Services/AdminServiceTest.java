@@ -153,6 +153,18 @@ class AdminServiceTest {
 
         adminService.reactivarUsuario(1L);
         assertThat(cliente.getEnabled()).isTrue();
+        assertThat(cliente.getTelefonoVerificado()).isTrue();
+    }
+
+    @Test
+    void alReactivarPierdeElCelularSiOtraCuentaActivaLoVerifico() {
+        cliente.setEnabled(false);
+        when(usuarioService.telefonoVerificadoEnOtraCuenta(cliente.getTelefono(), cliente.getId())).thenReturn(true);
+
+        adminService.reactivarUsuario(1L);
+
+        assertThat(cliente.getEnabled()).isTrue();
+        assertThat(cliente.getTelefonoVerificado()).isFalse();
     }
 
     @Test

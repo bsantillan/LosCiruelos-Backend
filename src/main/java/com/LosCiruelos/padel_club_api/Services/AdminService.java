@@ -134,6 +134,11 @@ public class AdminService {
     @Transactional
     public UsuarioAdminResponse reactivarUsuario(Long id) {
         Usuario usuario = usuarioService.findByIdOrThrow(id);
+        // mientras estuvo desactivada, otra cuenta pudo verificar el mismo celular: se queda con él
+        if (Boolean.TRUE.equals(usuario.getTelefonoVerificado())
+                && usuarioService.telefonoVerificadoEnOtraCuenta(usuario.getTelefono(), usuario.getId())) {
+            usuario.setTelefonoVerificado(false);
+        }
         usuario.setEnabled(true);
         usuarioService.save(usuario);
         return buildUsuarioAdminResponse(usuario);

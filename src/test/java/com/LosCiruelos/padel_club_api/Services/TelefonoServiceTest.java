@@ -26,27 +26,36 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.TokenType;
 import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.Entities.EnvioCodigoTelefono;
+import com.LosCiruelos.padel_club_api.Exceptions.LimiteExcedidoException;
+import com.LosCiruelos.padel_club_api.Repository.EnvioCodigoTelefonoRepository;
 import com.LosCiruelos.padel_club_api.Repository.VerificationTokenRepository;
-import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppClient;
+import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppService;
+import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
 
 class TelefonoServiceTest {
 
     private VerificationTokenRepository tokenRepository;
     private UsuarioService usuarioService;
-    private WhatsAppClient whatsApp;
+    private WhatsAppService whatsApp;
     private TelefonoService telefonos;
+    private EnvioCodigoTelefonoRepository envios;
     private Usuario usuario;
 
     @BeforeEach
     void setUp() {
         tokenRepository = mock(VerificationTokenRepository.class);
         usuarioService = mock(UsuarioService.class);
-        whatsApp = mock(WhatsAppClient.class);
+        whatsApp = mock(WhatsAppService.class);
+        WhatsAppServiceFactory fabricaWhatsApp = mock(WhatsAppServiceFactory.class);
+        when(fabricaWhatsApp.getService()).thenReturn(whatsApp);
         when(whatsApp.estaConfigurado()).thenReturn(true);
         when(whatsApp.enviarCodigo(anyString(), anyString(), anyString())).thenReturn(true);
         when(tokenRepository.save(any(VerificationToken.class))).thenAnswer(inv -> inv.getArgument(0));
-        telefonos = new TelefonoService(tokenRepository, usuarioService, whatsApp, TestData.reloj(AHORA),
-                "codigo_verificacion");
+        envios = mock(EnvioCodigoTelefonoRepository.class);
+        when(envios.findFirstByUsuarioIdOrderByEnviadoAtDesc(any())).thenReturn(Optional.empty());
+        telefonos = new TelefonoService(tokenRepository, envios, usuarioService, fabricaWhatsApp,
+                TestData.reloj(AHORA), "codigo_verificacion_v2", 5, 5, 60);
 
         usuario = usuario(1L, Role.CLIENTE);
         usuario.setTelefono("5491122334455");
@@ -65,7 +74,7 @@ class TelefonoServiceTest {
         assertThat(token.getValue().getFechaExpiracion())
                 .isEqualTo(TestData.reloj(AHORA).instant().plus(TelefonoService.VIGENCIA_CODIGO));
         // sin transacción activa se envía en el acto
-        verify(whatsApp).enviarCodigo("5491122334455", "codigo_verificacion", token.getValue().getToken());
+        verify(whatsApp).enviarCodigo("5491122334455", "codigo_verificacion_v2", token.getValue().getToken());
     }
 
     @Test
@@ -90,6 +99,83 @@ class TelefonoServiceTest {
     }
 
     @Test
+    void registraCadaEnvioParaLosTopes() {
+        telefonos.enviarCodigo(usuario);
+
+        ArgumentCaptor<EnvioCodigoTelefono> envio = ArgumentCaptor.forClass(EnvioCodigoTelefono.class);
+        verify(envios).save(envio.capture());
+        assertThat(envio.getValue().getUsuarioId()).isEqualTo(1L);
+        assertThat(envio.getValue().getTelefono()).isEqualTo("5491122334455");
+        assertThat(envio.getValue().getEnviadoAt()).isEqualTo(AHORA);
+    }
+
+    @Test
+    void hayQueEsperarUnMinutoEntrePedidos() {
+        when(envios.findFirstByUsuarioIdOrderByEnviadoAtDesc(1L)).thenReturn(Optional.of(
+                EnvioCodigoTelefono.builder().usuarioId(1L).telefono("5491122334455")
+                        .enviadoAt(AHORA.minusSeconds(20)).build()));
+
+        assertThatThrownBy(() -> telefonos.enviarCodigo(usuario))
+                .isInstanceOf(LimiteExcedidoException.class)
+                .hasMessage("Esperá 40 segundos para pedir otro código.");
+        verify(whatsApp, never()).enviarCodigo(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void comoMaximo5CodigosPorDiaPorUsuario() {
+        when(envios.countByUsuarioIdAndEnviadoAtAfter(1L, AHORA.minusHours(24))).thenReturn(5L);
+        when(envios.primeroDelUsuarioDesde(1L, AHORA.minusHours(24))).thenReturn(Optional.of(AHORA.minusHours(21)));
+
+        assertThatThrownBy(() -> telefonos.enviarCodigo(usuario))
+                .isInstanceOf(LimiteExcedidoException.class)
+                .hasMessageContaining("máximo de 5 códigos por día")
+                .hasMessageContaining("en 3 h");
+        verify(envios, never()).save(any());
+    }
+
+    @Test
+    void comoMaximo5CodigosPorDiaAlMismoNumeroEntreTodasLasCuentas() {
+        when(envios.countByTelefonoAndEnviadoAtAfter("5491122334455", AHORA.minusHours(24))).thenReturn(5L);
+        when(envios.primeroDelNumeroDesde("5491122334455", AHORA.minusHours(24)))
+                .thenReturn(Optional.of(AHORA.minusHours(23).minusMinutes(50)));
+
+        assertThatThrownBy(() -> telefonos.enviarCodigo(usuario))
+                .isInstanceOf(LimiteExcedidoException.class)
+                .hasMessageContaining("Ese número ya recibió el máximo")
+                .hasMessageContaining("en 10 minutos");
+    }
+
+    @Test
+    void alElegirWhatsappConElTopeAlcanzadoNoFallaNiManda() {
+        when(envios.countByUsuarioIdAndEnviadoAtAfter(1L, AHORA.minusHours(24))).thenReturn(5L);
+
+        telefonos.enviarCodigoSiCorresponde(usuario);
+
+        verify(whatsApp, never()).enviarCodigo(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void noSeMandaElCodigoSiOtraCuentaActivaYaVerificoEseCelular() {
+        when(usuarioService.telefonoVerificadoEnOtraCuenta("5491122334455", 1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> telefonos.enviarCodigo(usuario))
+                .isInstanceOf(EstadoInvalidoException.class)
+                .hasMessageContaining("otra cuenta");
+        verify(whatsApp, never()).enviarCodigo(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void siOtraCuentaLoVerificoMientrasTantoNoSeVerifica() {
+        VerificationToken token = VerificationToken.builder().usuario(usuario).token("123456")
+                .type(TokenType.VERIFY_PHONE).fechaExpiracion(java.time.Instant.now().plusSeconds(600)).build();
+        when(tokenRepository.findByUsuarioAndType(usuario, TokenType.VERIFY_PHONE)).thenReturn(Optional.of(token));
+        when(usuarioService.telefonoVerificadoEnOtraCuenta("5491122334455", 1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> telefonos.verificar(usuario, "123456")).isInstanceOf(EstadoInvalidoException.class);
+        assertThat(usuario.getTelefonoVerificado()).isFalse();
+    }
+
+    @Test
     void elCodigoCorrectoVerificaElTelefono() {
         VerificationToken token = VerificationToken.builder().usuario(usuario).token("123456")
                 .type(TokenType.VERIFY_PHONE).fechaExpiracion(java.time.Instant.now().plusSeconds(600)).build();
@@ -102,6 +188,8 @@ class TelefonoServiceTest {
         telefonos.verificar(usuario, "123456");
 
         assertThat(usuario.getTelefonoVerificado()).isTrue();
+        // las cuentas desactivadas que lo tenían verificado lo pierden
+        verify(usuarioService).quitarVerificacionDeOtrasCuentas(usuario);
         verify(usuarioService).save(usuario);
         verify(tokenRepository).delete(token);
     }

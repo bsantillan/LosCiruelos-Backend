@@ -3,6 +3,7 @@ package com.LosCiruelos.padel_club_api.Services;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import org.springframework.data.jpa.domain.Specification;
@@ -13,6 +14,7 @@ import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
+import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
 import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.Services.WhatsApp.Telefonos;
 
@@ -21,6 +23,9 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class UsuarioService {
+
+    public static final String MENSAJE_CELULAR_EN_USO =
+            "Ese celular ya está verificado en otra cuenta. Si es tuyo, iniciá sesión con esa cuenta.";
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
@@ -47,9 +52,31 @@ public class UsuarioService {
     public void cambiarTelefono(Usuario user, String telefono) {
         String normalizado = Telefonos.normalizar(telefono);
         if (!Objects.equals(normalizado, user.getTelefono())) {
+            validarCelularDisponible(normalizado, user.getId());
             user.setTelefonoVerificado(false);
         }
         user.setTelefono(normalizado);
+    }
+
+    /**
+     * Un celular verificado identifica a una sola cuenta activa: si otra cuenta activa ya lo
+     * verificó, no se puede cargar en esta. Si esa cuenta está desactivada (ej. el cliente se
+     * hizo una cuenta nueva), sí se permite.
+     */
+    public void validarCelularDisponible(String telefonoNormalizado, Long idActual) {
+        if (telefonoVerificadoEnOtraCuenta(telefonoNormalizado, idActual)) {
+            throw new ValidationException(Map.of("telefono", MENSAJE_CELULAR_EN_USO));
+        }
+    }
+
+    public boolean telefonoVerificadoEnOtraCuenta(String telefonoNormalizado, Long idActual) {
+        return telefonoNormalizado != null && usuarioRepository.existeCelularVerificadoEnOtraCuentaActiva(
+                telefonoNormalizado, idActual != null ? idActual : -1L);
+    }
+
+    /** Al verificarse en esta cuenta, las demás (desactivadas) que lo tenían verificado lo pierden. */
+    public void quitarVerificacionDeOtrasCuentas(Usuario usuario) {
+        usuarioRepository.quitarVerificacionDeOtrasCuentas(usuario.getTelefono(), usuario.getId());
     }
 
     /** ADMIN activos: reciben los avisos de reservas. */
@@ -65,11 +92,13 @@ public class UsuarioService {
     public Usuario crearUsuario(String email, String nombre, String apellido,
             String telefono, String password, Role rol, AuthProvider provider,
             Boolean termsAccepted, Boolean emailVerificado, Boolean enabled) {
+        String telefonoNormalizado = Telefonos.normalizar(telefono);
+        validarCelularDisponible(telefonoNormalizado, null);
         return usuarioRepository.save(Usuario.builder()
                 .email(email)
                 .nombre(capitalizar(nombre))
                 .apellido(capitalizar(apellido))
-                .telefono(Telefonos.normalizar(telefono))
+                .telefono(telefonoNormalizado)
                 .passwordHash(password != null ? passwordEncoder.encode(password) : null)
                 .rol(rol)
                 .provider(provider)
