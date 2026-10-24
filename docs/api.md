@@ -412,6 +412,46 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 
 ---
 
+## Resumen del club — `/admin/resumen` (rol: ADMIN, EMPLEADO)
+
+### `GET /admin/resumen?desde=2026-10-01&hasta=2026-10-31` → `200 ResumenResponse`
+Resumen del período para el panel del club. La base son las **reservas cuyo turno (`fechaReserva`) cae en el período**. Las fechas son inclusive (`yyyy-MM-dd`) y van las dos juntas o ninguna: **sin fechas, el resumen es del día de hoy**.
+
+| Rol | Qué puede ver |
+|---|---|
+| ADMIN | Cualquier período (hasta 366 días) |
+| EMPLEADO | **Solo el día de hoy**: `GET /admin/resumen` sin fechas, o con `desde` y `hasta` iguales a hoy. Otro período → `403` "Solo podés ver el resumen de hoy." |
+
+```json
+{
+  "desde": "2026-10-01", "hasta": "2026-10-31",
+  "montoEsperado": 450000.00,
+  "montoCobrado": 390000.00, "cobradoOnline": 240000.00, "cobradoEnClub": 150000.00,
+  "montoPendiente": 60000.00,
+  "retenidoCancelaciones": 7500.00,
+  "partidosJugados": 28, "partidosCancelados": 3,
+  "productos": [ { "productoId": 1, "nombre": "Pelotas", "tipo": "VENTA", "cantidad": 40, "monto": 200000.00 } ]
+}
+```
+
+| Campo | Cómo se calcula |
+|---|---|
+| `montoEsperado` | Suma de `montoTotal` de las reservas `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA` y `COMPLETADA` (no cuentan `CANCELADA`, `EXPIRADA` ni `PENDIENTE`) |
+| `montoCobrado` | Lo cobrado de esas reservas: pagos aprobados menos lo devuelto (o por devolver). Es `cobradoOnline` + `cobradoEnClub` |
+| `cobradoOnline` | Cobros online de Mercado Pago (Brick o Wallet, con id de pago de MP) |
+| `cobradoEnClub` | Cobros registrados en el club: `pago-efectivo` y `pago-presencial` |
+| `montoPendiente` | `montoEsperado − montoCobrado` |
+| `retenidoCancelaciones` | De las reservas `CANCELADA`, lo pagado que no se devolvió |
+| `partidosJugados` | Reservas `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA` o `COMPLETADA` cuyo turno ya terminó |
+| `partidosCancelados` | Reservas `CANCELADA` del período (las `EXPIRADA` no cuentan) |
+| `productos` | Por producto, unidades y monto (con el precio congelado en cada reserva) de las reservas `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA` y `COMPLETADA`; solo los que tienen cantidad > 0. Las paletas cuentan las alquiladas |
+
+- Montos con 2 decimales; fechas `yyyy-MM-dd`.
+- Todo se calcula con consultas agregadas en la base.
+- Errores: `400` si viene una sola de las dos fechas · `400 errors.desde` / `errors.hasta` si una fecha no tiene el formato · `400` si `desde` es posterior a `hasta` · `400` si el período supera los 366 días · `403` si un EMPLEADO pide otro período que no sea hoy · `403` para CLIENTE.
+
+---
+
 ## Formato de errores
 
 ```json

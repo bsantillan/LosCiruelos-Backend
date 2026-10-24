@@ -68,6 +68,7 @@ import com.LosCiruelos.padel_club_api.Services.PasswordResetService;
 import com.LosCiruelos.padel_club_api.Services.PerfilService;
 import com.LosCiruelos.padel_club_api.Services.ProductoService;
 import com.LosCiruelos.padel_club_api.Services.ReservaService;
+import com.LosCiruelos.padel_club_api.Services.ResumenService;
 import com.LosCiruelos.padel_club_api.Services.VerificationService;
 import com.LosCiruelos.padel_club_api.Services.Pagos.MercadoPagoWebhookValidator;
 
@@ -91,6 +92,7 @@ class ControllersTest {
     private CanchaService canchaService;
     private ProductoService productoService;
     private NotificacionesService notificacionesService;
+    private ResumenService resumenService;
     private MockMvc mvc;
 
     @BeforeEach
@@ -107,6 +109,7 @@ class ControllersTest {
         canchaService = mock(CanchaService.class);
         productoService = mock(ProductoService.class);
         notificacionesService = mock(NotificacionesService.class);
+        resumenService = mock(ResumenService.class);
 
         mvc = MockMvcBuilders.standaloneSetup(
                 new ReservaController(reservaService, cancelacionService),
@@ -117,7 +120,8 @@ class ControllersTest {
                 new CanchaController(canchaService),
                 new ProductoController(productoService),
                 new AdminProductoController(productoService),
-                new NotificacionesController(notificacionesService))
+                new NotificacionesController(notificacionesService),
+                new ResumenController(resumenService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
                 // mismo formato de fechas que la app
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
@@ -660,6 +664,74 @@ class ControllersTest {
                     .andExpect(jsonPath("$.errors.minutosRecordatorio").exists());
             mvc.perform(json(put("/admin/configuracion/avisos"), "{\"recordatorioActivo\":true,\"minutosRecordatorio\":120}"))
                     .andExpect(status().isOk());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class Resumen {
+
+        @Test
+        void devuelveElResumenConMontosYFechasEnElFormatoDeSiempre() throws Exception {
+            java.time.LocalDate desde = java.time.LocalDate.of(2026, 10, 1);
+            java.time.LocalDate hasta = java.time.LocalDate.of(2026, 10, 31);
+            when(resumenService.resumen(desde, hasta, false)).thenReturn(new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse(
+                    desde, hasta, new BigDecimal("450000.00"), new BigDecimal("390000.00"), new BigDecimal("240000.00"),
+                    new BigDecimal("150000.00"), new BigDecimal("60000.00"), new BigDecimal("7500.00"), 28, 3,
+                    List.of(new com.LosCiruelos.padel_club_api.DTOs.Resumen.ProductoVendido(1L, "Pelotas",
+                            com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto.VENTA, 40L,
+                            new BigDecimal("200000.00")))));
+
+            mvc.perform(get("/admin/resumen").principal(ADMIN).param("desde", "2026-10-01").param("hasta", "2026-10-31"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.desde").value("2026-10-01"))
+                    .andExpect(jsonPath("$.hasta").value("2026-10-31"))
+                    .andExpect(jsonPath("$.montoEsperado").value(450000.00))
+                    .andExpect(jsonPath("$.montoPendiente").value(60000.00))
+                    .andExpect(jsonPath("$.partidosJugados").value(28))
+                    .andExpect(jsonPath("$.productos[0].nombre").value("Pelotas"))
+                    .andExpect(jsonPath("$.productos[0].tipo").value("VENTA"))
+                    .andExpect(jsonPath("$.productos[0].cantidad").value(40));
+        }
+
+        private final Authentication ADMIN = new UsernamePasswordAuthenticationToken("admin@test.com", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN")));
+        private final Authentication EMPLEADO = new UsernamePasswordAuthenticationToken("emp@test.com", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_EMPLEADO")));
+
+        @Test
+        void elEmpleadoPideSoloElDiaDeHoyYElAdminCualquierPeriodo() throws Exception {
+            mvc.perform(get("/admin/resumen").principal(EMPLEADO)).andExpect(status().isOk());
+            verify(resumenService).resumen(null, null, true);
+
+            mvc.perform(get("/admin/resumen").principal(ADMIN)).andExpect(status().isOk());
+            verify(resumenService).resumen(null, null, false);
+
+            when(resumenService.resumen(any(), any(), eq(true)))
+                    .thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException(
+                            "Solo podés ver el resumen de hoy."));
+            mvc.perform(get("/admin/resumen").principal(EMPLEADO).param("desde", "2026-10-01").param("hasta", "2026-10-31"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error").value("Solo podés ver el resumen de hoy."));
+        }
+
+        @Test
+        void unaFechaConFormatoInvalidoDevuelve400() throws Exception {
+            mvc.perform(get("/admin/resumen").principal(ADMIN).param("desde", "01/10/2026").param("hasta", "2026-10-31"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.desde").exists());
+        }
+
+        @Test
+        void unPeriodoInvalidoDevuelve400() throws Exception {
+            when(resumenService.resumen(any(), any(), eq(false)))
+                    .thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.ReservaException(
+                            "La fecha desde no puede ser posterior a hasta."));
+
+            mvc.perform(get("/admin/resumen").principal(ADMIN).param("desde", "2026-10-31").param("hasta", "2026-10-01"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("La fecha desde no puede ser posterior a hasta."));
         }
     }
 }
