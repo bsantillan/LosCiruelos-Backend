@@ -1,6 +1,6 @@
 # Base de datos
 
-PostgreSQL 16. El esquema lo crea Flyway en `src/main/resources/db/Migrations`: `V1__schema_inicial.sql` tiene el esquema completo (unifica las migraciones de desarrollo anteriores), `V2__stock_inicial_productos.sql` carga el stock inicial de pelotas y paletas, `V3__indice_mis_reservas.sql` agrega el índice del listado de reservas del cliente , `V4__politica_cancelacion.sql` agrega la política de reembolso a la configuración y `monto_reembolsado` a los pagos y `V5__reembolsos_pendientes_y_clave_idempotencia.sql` agrega el estado `REEMBOLSO_PENDIENTE`, `reembolso_solicitado_at` y `clave_idempotencia`,, `V6__stock_50_pelotas_y_paletas.sql` deja el stock en 50 pelotas y 50 paletas, `V7__precio_pelotas_y_paletas.sql` les pone precio de $5000 y `V8__whatsapp.sql` agrega el canal de notificaciones y la verificación del teléfono de los usuarios, la tabla `avisos_admin`, el recordatorio del turno y el tipo de código `VERIFY_PHONE`,, `V9__avisos_admin_activos.sql` el interruptor general de los avisos de cada ADMIN, `V10__preferencias_notificaciones.sql` el consentimiento de notificaciones del registro y los avisos que elige el cliente, `V11__celular_verificado_unico.sql` un índice único parcial (un celular verificado pertenece a una sola cuenta activa), `V12__topes_codigo_telefono.sql` la tabla `envios_codigo_telefono` para los topes de códigos por WhatsApp y `V13__NormalizarTelefonos` (migración **Java**, en `src/main/java/db/Migrations`) normaliza los teléfonos guardados antes de V8 con la misma regla que la app, sin tocar la verificación (los inválidos quedan en null). Hibernate solo **valida** que las entidades coincidan con las tablas (`ddl-auto=validate`).
+PostgreSQL 16. El esquema lo crea Flyway en `src/main/resources/db/Migrations`: `V1__schema_inicial.sql` tiene el esquema completo (unifica las migraciones de desarrollo anteriores), `V2__stock_inicial_productos.sql` carga el stock inicial de pelotas y paletas, `V3__indice_mis_reservas.sql` agrega el índice del listado de reservas del cliente , `V4__politica_cancelacion.sql` agrega la política de reembolso a la configuración y `monto_reembolsado` a los pagos y `V5__reembolsos_pendientes_y_clave_idempotencia.sql` agrega el estado `REEMBOLSO_PENDIENTE`, `reembolso_solicitado_at` y `clave_idempotencia`,, `V6__stock_50_pelotas_y_paletas.sql` deja el stock en 50 pelotas y 50 paletas, `V7__precio_pelotas_y_paletas.sql` les pone precio de $5000 y `V8__whatsapp.sql` agrega el canal de notificaciones y la verificación del teléfono de los usuarios, la tabla `avisos_admin`, el recordatorio del turno y el tipo de código `VERIFY_PHONE`,, `V9__avisos_admin_activos.sql` el interruptor general de los avisos de cada ADMIN, `V10__preferencias_notificaciones.sql` el consentimiento de notificaciones del registro y los avisos que elige el cliente, `V11__celular_verificado_unico.sql` un índice único parcial (un celular verificado pertenece a una sola cuenta activa), `V12__topes_codigo_telefono.sql` la tabla `envios_codigo_telefono` para los topes de códigos por WhatsApp y `V13__NormalizarTelefonos` (migración **Java**, en `src/main/java/db/Migrations`) normaliza los teléfonos guardados antes de V8 con la misma regla que la app, sin tocar la verificación (los inválidos quedan en null),, `V14__indices_panel_reservas.sql` agrega índices para el listado del personal y `V15__bonificaciones.sql` el provider `BONIFICACION` y, en los pagos, quién los registró y el motivo. Hibernate solo **valida** que las entidades coincidan con las tablas (`ddl-auto=validate`).
 
 ## Cómo funcionan las migraciones
 
@@ -115,7 +115,9 @@ Restricción `reservas_sin_solapamiento`: `EXCLUDE USING gist (cancha_id WITH =,
 | reserva_id | bigint | FK → reservas |
 | monto | numeric(10,2) | |
 | estado | varchar(255) | CHECK: PENDIENTE, APROBADO, RECHAZADO, EN_PROCESO, DEVUELTO, EXPIRADO, A_REEMBOLSAR, REEMBOLSO_PENDIENTE |
-| provider | varchar(255) | CHECK: MERCADO_PAGO, MANUAL |
+| provider | varchar(255) | CHECK: MERCADO_PAGO, MANUAL, BONIFICACION (V15: el ADMIN no le cobró al cliente; cubre el monto pero no es plata) |
+| registrado_por_id | bigint | FK → usuarios: quién registró el pago en el club o la bonificación (V15) |
+| motivo | varchar(200) | motivo de una bonificación (V15) |
 | preference_id | varchar(255) | id de la preferencia de MP (campo `paymentToken` en la entidad) |
 | external_payment_id | varchar(255) | id del pago en MP (único cuando no es null) |
 | created_at, paid_at | timestamp | |
@@ -149,8 +151,9 @@ Qué avisos de reservas recibe cada ADMIN (V8). `usuario_id` PK y FK a usuarios;
 |---|---|---|
 | `idx_reservas_estado_expires` | reservas(estado, expires_at) | Job de expiración |
 | `idx_reservas_cancha_fecha` | reservas(cancha_id, fecha_reserva) | Solapamientos y disponibilidad |
+| `idx_reservas_fecha_hora` | reservas(fecha_reserva, hora_inicio) | Alquileres por día, job de completadas y listado del personal por fecha y orden del turno (V14, reemplaza a `idx_reservas_fecha`) |
+| `idx_reservas_estado_fecha` | reservas(estado, fecha_reserva) | Listado del personal por estado y "pendientes" (V14) |
 | `idx_reservas_cliente_fecha` | reservas(cliente_id, fecha_reserva DESC, hora_inicio DESC) | "Mis reservas" (V3, reemplaza a `idx_reservas_cliente`) |
-| `idx_reservas_fecha` | reservas(fecha_reserva) | Alquileres por día y job de completadas |
 | `idx_reserva_productos_producto` | reserva_productos(producto_id) | Uso de productos alquilados |
 | `idx_pagos_reserva` | pagos(reserva_id) | Pagos de una reserva |
 | `uk_pagos_external_payment_id` | pagos(external_payment_id), único si no es null | Webhook de MP |

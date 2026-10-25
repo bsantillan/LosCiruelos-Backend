@@ -30,6 +30,7 @@ import org.mockito.ArgumentCaptor;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.DTOs.PaymentResult;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PagoResponse;
+import com.LosCiruelos.padel_club_api.DTOs.Responses.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Pago;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
@@ -694,7 +695,7 @@ class PagoServiceTest {
 
             assertThat(publicados()).singleElement().satisfies(a -> {
                 assertThat(a.tipo()).isEqualTo(TipoAviso.RESERVA_CONFIRMADA);
-                assertThat(a.texto()).contains("Pagó $7.500 de $15.000");
+                assertThat(a.texto()).contains("Pagó $7.500 de un total de $15.000");
             });
         }
 
@@ -796,6 +797,126 @@ class PagoServiceTest {
             pagoService.reintentarReembolso(1L);
 
             assertThat(publicados()).extracting(AvisoReserva::tipo).containsExactly(TipoAviso.REEMBOLSO_MANUAL);
+        }
+    }
+
+    @Nested
+    class Bonificacion {
+
+        private Usuario admin;
+
+        @BeforeEach
+        void unAdmin() {
+            admin = usuario(3L, Role.ADMIN);
+            when(usuarioService.findByEmailOrThrow(eq(admin.getEmail()), any())).thenReturn(admin);
+        }
+
+        @Test
+        void sinMontoBonificaTodoYLaReservaQuedaPagaSinPlataCobrada() {
+            Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
+
+            PagoResponse r = pagoService.bonificar(10L, null, "  socio ", admin.getEmail());
+
+            assertThat(r.getProvider()).isEqualTo(PaymentProvider.BONIFICACION);
+            assertThat(r.getMonto()).isEqualByComparingTo("15000");
+            assertThat(r.getMotivo()).isEqualTo("socio");
+            assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.PAGADA);
+            assertThat(reserva.getMontoPagado()).isEqualByComparingTo("0");
+            assertThat(reserva.getMontoBonificado()).isEqualByComparingTo("15000");
+            assertThat(reserva.getMontoPendiente()).isEqualByComparingTo("0");
+            assertThat(reserva.getPagos().getFirst().getRegistradoPorId()).isEqualTo(3L);
+        }
+
+        @Test
+        void bonificarElSaldoDeUnaSenadaLaDejaPaga() {
+            Reserva reserva = reservaBloqueada(EstadoReserva.SEÑADA);
+            pago(1L, reserva, EstadoPago.APROBADO, "7500").setExternalPaymentId("mp-1");
+
+            pagoService.bonificar(10L, null, null, admin.getEmail());
+
+            assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.PAGADA);
+            assertThat(reserva.getMontoPagado()).isEqualByComparingTo("7500");
+            assertThat(reserva.getMontoBonificado()).isEqualByComparingTo("7500");
+        }
+
+        @Test
+        void unaBonificacionParcialCuentaParaLaSenia() {
+            Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
+
+            pagoService.bonificar(10L, new BigDecimal("7500"), null, admin.getEmail());
+
+            assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
+            assertThat(reserva.getMontoPendiente()).isEqualByComparingTo("7500");
+        }
+
+        @Test
+        void noSeBonificaMasDeLoQueFaltaNiUnaReservaPaga() {
+            Reserva reserva = reservaBloqueada(EstadoReserva.SEÑADA);
+            pago(1L, reserva, EstadoPago.APROBADO, "7500");
+
+            assertThatThrownBy(() -> pagoService.bonificar(10L, new BigDecimal("8000"), null, admin.getEmail()))
+                    .isInstanceOf(ReservaException.class).hasMessageContaining("supera el pendiente");
+
+            pago(2L, reserva, EstadoPago.APROBADO, "7500");
+            assertThatThrownBy(() -> pagoService.bonificar(10L, null, null, admin.getEmail()))
+                    .isInstanceOf(EstadoInvalidoException.class).hasMessage("La reserva ya está paga.");
+        }
+
+        @Test
+        void soloElAdminPuedeBonificar() {
+            reservaBloqueada(EstadoReserva.PENDIENTE);
+
+            assertThatThrownBy(() -> pagoService.bonificar(10L, null, null, empleado.getEmail()))
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException.class)
+                    .hasMessage("Solo el ADMIN puede bonificar una reserva.");
+            verify(pagoRepository, never()).save(any());
+        }
+
+        @Test
+        void laBonificacionNoAvisaAlAdmin() {
+            reservaBloqueada(EstadoReserva.PENDIENTE);
+
+            pagoService.bonificar(10L, null, null, admin.getEmail());
+
+            verify(eventos, never()).publishEvent(any());
+        }
+
+        @Test
+        void alCancelarNoSeDevuelveLaBonificacion() {
+            Reserva reserva = reservaBloqueada(EstadoReserva.PAGADA);
+            Pago bonificacion = pago(1L, reserva, EstadoPago.APROBADO, "7500");
+            bonificacion.setProvider(PaymentProvider.BONIFICACION);
+            Pago enElClub = pago(2L, reserva, EstadoPago.APROBADO, "7500");
+            enElClub.setProvider(PaymentProvider.MANUAL);
+
+            pagoService.reembolsar(reserva, reserva.getMontoPagado());
+
+            assertThat(bonificacion.getEstado()).isEqualTo(EstadoPago.APROBADO);
+            assertThat(enElClub.getEstado()).isEqualTo(EstadoPago.A_REEMBOLSAR);
+            assertThat(enElClub.getMontoReembolsado()).isEqualByComparingTo("7500");
+        }
+
+        @Test
+        void crearConBonificacionCreaYBonificaEnLaMismaOperacion() {
+            Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
+            ReservaResponse creada = new ReservaResponse();
+            creada.setId(10L);
+            com.LosCiruelos.padel_club_api.DTOs.Requests.CrearReservaRequest req =
+                    new com.LosCiruelos.padel_club_api.DTOs.Requests.CrearReservaRequest();
+            com.LosCiruelos.padel_club_api.DTOs.Requests.BonificacionRequest bonif =
+                    new com.LosCiruelos.padel_club_api.DTOs.Requests.BonificacionRequest();
+            bonif.setMotivo("torneo");
+            req.setBonificacion(bonif);
+            when(reservaService.crearReserva(req, admin.getEmail())).thenReturn(creada);
+            when(reservaService.obtener(10L, admin.getEmail())).thenReturn(creada);
+
+            assertThat(pagoService.crearReservaBonificada(req, admin.getEmail())).isSameAs(creada);
+            assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.PAGADA);
+
+            // un empleado no llega a crearla
+            assertThatThrownBy(() -> pagoService.crearReservaBonificada(req, empleado.getEmail()))
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException.class);
+            verify(reservaService, org.mockito.Mockito.times(1)).crearReserva(any(), anyString());
         }
     }
 

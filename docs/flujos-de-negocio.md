@@ -118,11 +118,17 @@ Si cualquier paso falla, la transacción se revierte entera: no quedan reservas 
 - Si hay un pago online `EN_PROCESO` responde `409`, para evitar cobrar dos veces.
 - Si había un pago online iniciado y sin cobrar, se descarta.
 
+### 4 bis. Bonificar (no cobrar) — `POST /pagos/{reservaId}/bonificacion`, solo ADMIN
+- El dueño a veces no le cobra a un cliente (socio, torneo, cortesía). Puede bonificar **todo o una parte**, al crear la reserva (campo `bonificacion` en `POST /reservas`, todo en una transacción) o después.
+- Body opcional `{ "monto": 7500, "motivo": "socio" }`: sin `monto` bonifica todo lo pendiente; más que lo pendiente → `400`. EMPLEADO o CLIENTE → `403`.
+- Se acepta en las mismas reservas que un pago en el club, con el mismo `409` si hay un pago online en proceso.
+- Queda un pago `provider = BONIFICACION`, `APROBADO`, con `registrado_por_id` y `motivo`. Cubre el monto para el estado de la reserva, pero **no es plata**: no suma en `montoPagado` ni en lo cobrado del resumen y del listado (va en `montoBonificado`), no se devuelve al cancelar y no manda aviso.
+
 ### 5. Estado de la reserva según lo pagado
 
-Se recalcula siempre a partir de los pagos `APROBADO`, nunca se asigna a mano:
+Se recalcula siempre a partir de los pagos `APROBADO` (plata más bonificaciones), nunca se asigna a mano:
 
-| Pagado | Estado |
+| Pagado + bonificado | Estado |
 |---|---|
 | 0 | `PENDIENTE` (o `CANCELADA` si estaba confirmada y se devolvió todo) |
 | más de 0 y menos que la seña | `PARCIALMENTE_PAGADA` |

@@ -18,6 +18,7 @@ import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.ResumenRepository;
@@ -91,19 +92,26 @@ public class ResumenService {
 
         BigDecimal online = BigDecimal.ZERO;
         BigDecimal enClub = BigDecimal.ZERO;
+        BigDecimal efectivo = BigDecimal.ZERO;
+        BigDecimal bonificado = BigDecimal.ZERO;
         BigDecimal retenido = BigDecimal.ZERO;
-        for (CobrosPorEstado c : resumenRepository.cobrosPorEstado(desde, hasta, EstadoPago.APROBADO, DEVUELTOS)) {
+        for (CobrosPorEstado c : resumenRepository.cobrosPorEstado(desde, hasta, EstadoPago.APROBADO, DEVUELTOS,
+                PaymentProvider.MANUAL, PaymentProvider.BONIFICACION)) {
             if (esperadas.contains(c.estado())) {
                 online = online.add(c.online());
                 enClub = enClub.add(c.enClub());
+                efectivo = efectivo.add(c.efectivo());
+                bonificado = bonificado.add(c.bonificado());
             } else if (c.estado() == EstadoReserva.CANCELADA) {
                 retenido = retenido.add(c.online()).add(c.enClub());
             }
         }
         BigDecimal cobrado = online.add(enClub);
 
+        // por medio de pago: efectivo y Mercado Pago (online + tarjeta o QR en el mostrador)
         return new ResumenResponse(desde, hasta, pesos(esperado), pesos(cobrado), pesos(online), pesos(enClub),
-                pesos(esperado.subtract(cobrado)), pesos(retenido), jugados, cancelados,
+                pesos(efectivo), pesos(cobrado.subtract(efectivo)), pesos(bonificado),
+                pesos(esperado.subtract(cobrado).subtract(bonificado)), pesos(retenido), jugados, cancelados,
                 List.copyOf(resumenRepository.productos(desde, hasta, esperadas)));
     }
 

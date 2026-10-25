@@ -69,6 +69,8 @@ import com.LosCiruelos.padel_club_api.Services.PerfilService;
 import com.LosCiruelos.padel_club_api.Services.ProductoService;
 import com.LosCiruelos.padel_club_api.Services.ReservaService;
 import com.LosCiruelos.padel_club_api.Services.ResumenService;
+import com.LosCiruelos.padel_club_api.Services.ReservaAdminService;
+import com.LosCiruelos.padel_club_api.Services.BusquedaClientesService;
 import com.LosCiruelos.padel_club_api.Services.VerificationService;
 import com.LosCiruelos.padel_club_api.Services.Pagos.MercadoPagoWebhookValidator;
 
@@ -93,6 +95,8 @@ class ControllersTest {
     private ProductoService productoService;
     private NotificacionesService notificacionesService;
     private ResumenService resumenService;
+    private ReservaAdminService reservaAdminService;
+    private BusquedaClientesService busquedaClientesService;
     private MockMvc mvc;
 
     @BeforeEach
@@ -110,9 +114,11 @@ class ControllersTest {
         productoService = mock(ProductoService.class);
         notificacionesService = mock(NotificacionesService.class);
         resumenService = mock(ResumenService.class);
+        reservaAdminService = mock(ReservaAdminService.class);
+        busquedaClientesService = mock(BusquedaClientesService.class);
 
         mvc = MockMvcBuilders.standaloneSetup(
-                new ReservaController(reservaService, cancelacionService),
+                new ReservaController(reservaService, cancelacionService, pagoService),
                 new PagoController(pagoService, webhookValidator),
                 new AuthController(authService, verificationService, passwordResetService),
                 new PerfilController(perfilService),
@@ -121,7 +127,8 @@ class ControllersTest {
                 new ProductoController(productoService),
                 new AdminProductoController(productoService),
                 new NotificacionesController(notificacionesService),
-                new ResumenController(resumenService))
+                new ResumenController(resumenService),
+                new PanelPersonalController(reservaAdminService, busquedaClientesService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
                 // mismo formato de fechas que la app
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
@@ -678,7 +685,8 @@ class ControllersTest {
             java.time.LocalDate hasta = java.time.LocalDate.of(2026, 10, 31);
             when(resumenService.resumen(desde, hasta, false)).thenReturn(new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse(
                     desde, hasta, new BigDecimal("450000.00"), new BigDecimal("390000.00"), new BigDecimal("240000.00"),
-                    new BigDecimal("150000.00"), new BigDecimal("60000.00"), new BigDecimal("7500.00"), 28, 3,
+                    new BigDecimal("150000.00"), new BigDecimal("120000.00"), new BigDecimal("270000.00"),
+                    new BigDecimal("0.00"), new BigDecimal("60000.00"), new BigDecimal("7500.00"), 28, 3,
                     List.of(new com.LosCiruelos.padel_club_api.DTOs.Resumen.ProductoVendido(1L, "Pelotas",
                             com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto.VENTA, 40L,
                             new BigDecimal("200000.00")))));
@@ -688,6 +696,8 @@ class ControllersTest {
                     .andExpect(jsonPath("$.desde").value("2026-10-01"))
                     .andExpect(jsonPath("$.hasta").value("2026-10-31"))
                     .andExpect(jsonPath("$.montoEsperado").value(450000.00))
+                    .andExpect(jsonPath("$.cobradoEfectivo").value(120000.00))
+                    .andExpect(jsonPath("$.cobradoMercadoPago").value(270000.00))
                     .andExpect(jsonPath("$.montoPendiente").value(60000.00))
                     .andExpect(jsonPath("$.partidosJugados").value(28))
                     .andExpect(jsonPath("$.productos[0].nombre").value("Pelotas"))
@@ -732,6 +742,155 @@ class ControllersTest {
             mvc.perform(get("/admin/resumen").principal(ADMIN).param("desde", "2026-10-31").param("hasta", "2026-10-01"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error").value("La fecha desde no puede ser posterior a hasta."));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class PanelPersonal {
+
+        private com.LosCiruelos.padel_club_api.DTOs.Responses.ListadoReservasResponse pagina() {
+            ReservaResponse r = new ReservaResponse();
+            r.setId(10L);
+            r.setEstado(EstadoReserva.SEÑADA);
+            return new com.LosCiruelos.padel_club_api.DTOs.Responses.ListadoReservasResponse(List.of(r), 0, 20, 57, 3,
+                    new com.LosCiruelos.padel_club_api.DTOs.Responses.ListadoReservasResponse.Totales(57,
+                            new BigDecimal("855000.00"), new BigDecimal("690000.00"), new BigDecimal("410000.00"),
+                            new BigDecimal("280000.00"), new BigDecimal("15000.00"), new BigDecimal("165000.00")));
+        }
+
+        @Test
+        void listaConTodosLosFiltrosYLosTotales() throws Exception {
+            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+                    any())).thenReturn(pagina());
+
+            mvc.perform(get("/admin/reservas").principal(AUTH)
+                    .param("desde", "2026-10-01").param("hasta", "2026-10-31")
+                    .param("estado", "SEÑADA,PARCIALMENTE_PAGADA").param("clienteId", "7").param("cliente", "pérez")
+                    .param("canchaId", "2").param("pendientes", "true").param("page", "1").param("size", "50")
+                    .param("orden", "desc"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.contenido[0].id").value(10))
+                    .andExpect(jsonPath("$.totalElementos").value(57))
+                    .andExpect(jsonPath("$.totales.reservas").value(57))
+                    .andExpect(jsonPath("$.totales.cobradoEfectivo").value(410000.00))
+                    .andExpect(jsonPath("$.totales.cobradoMercadoPago").value(280000.00))
+                    .andExpect(jsonPath("$.totales.montoBonificado").value(15000.00))
+                    .andExpect(jsonPath("$.totales.montoPendiente").value(165000.00));
+
+            verify(reservaAdminService).listar(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31),
+                    List.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA), 7L, "pérez", 2L, true, 1, 50,
+                    "desc");
+        }
+
+        @Test
+        void sinParametrosUsaLosValoresPorDefecto() throws Exception {
+            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+                    any())).thenReturn(pagina());
+
+            mvc.perform(get("/admin/reservas").principal(AUTH)).andExpect(status().isOk());
+
+            verify(reservaAdminService).listar(null, null, null, null, null, null, false, 0, null, null);
+        }
+
+        @Test
+        void unEstadoInexistenteOUnaFechaInvalidaDevuelven400() throws Exception {
+            mvc.perform(get("/admin/reservas").principal(AUTH).param("estado", "JUGADA"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.estado").exists());
+            mvc.perform(get("/admin/reservas").principal(AUTH).param("desde", "31/10/2026"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.desde").exists());
+        }
+
+        @Test
+        void losErroresDelServicioSeRespetan() throws Exception {
+            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+                    any())).thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.ReservaException(
+                            "El tamaño de página tiene que estar entre 1 y 100."));
+
+            mvc.perform(get("/admin/reservas").principal(AUTH).param("size", "500"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("El tamaño de página tiene que estar entre 1 y 100."));
+        }
+
+        @Test
+        void buscaClientes() throws Exception {
+            when(busquedaClientesService.buscar("ana", true)).thenReturn(List.of(
+                    new com.LosCiruelos.padel_club_api.DTOs.Responses.ClienteBusquedaResponse(5L, "Ana", "Gómez",
+                            "ana@test.com", "5491122334455", true, null, null, false, true)));
+
+            mvc.perform(get("/admin/clientes").principal(AUTH).param("buscar", "ana"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].id").value(5))
+                    .andExpect(jsonPath("$[0].telefonoVerificado").value(true))
+                    .andExpect(jsonPath("$[0].perfilCompleto").value(false))
+                    .andExpect(jsonPath("$[0].enabled").value(true));
+
+            mvc.perform(get("/admin/clientes").principal(AUTH).param("buscar", "ana").param("soloActivos", "false"))
+                    .andExpect(status().isOk());
+            verify(busquedaClientesService).buscar("ana", false);
+        }
+
+        @Test
+        void buscarEsObligatorio() throws Exception {
+            mvc.perform(get("/admin/clientes").principal(AUTH))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.buscar").exists());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class Bonificaciones {
+
+        @Test
+        void bonificarSinBodyEsTodoLoQueFalta() throws Exception {
+            when(pagoService.bonificar(5L, null, null, EMAIL)).thenReturn(new PagoResponse());
+
+            mvc.perform(post("/pagos/5/bonificacion").principal(AUTH)).andExpect(status().isOk());
+            verify(pagoService).bonificar(5L, null, null, EMAIL);
+        }
+
+        @Test
+        void bonificarUnaParteConMotivo() throws Exception {
+            when(pagoService.bonificar(any(), any(), any(), any())).thenReturn(new PagoResponse());
+
+            mvc.perform(json(post("/pagos/5/bonificacion"), "{\"monto\":7500,\"motivo\":\"socio\"}"))
+                    .andExpect(status().isOk());
+            verify(pagoService).bonificar(5L, new BigDecimal("7500"), "socio", EMAIL);
+
+            mvc.perform(json(post("/pagos/5/bonificacion"), "{\"monto\":0}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.monto").exists());
+        }
+
+        @Test
+        void unEmpleadoNoPuedeBonificar() throws Exception {
+            when(pagoService.bonificar(any(), any(), any(), any())).thenThrow(
+                    new com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException(
+                            "Solo el ADMIN puede bonificar una reserva."));
+
+            mvc.perform(post("/pagos/5/bonificacion").principal(AUTH))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error").value("Solo el ADMIN puede bonificar una reserva."));
+        }
+
+        @Test
+        void crearConBonificacionVaPorElServicioDePagos() throws Exception {
+            ReservaResponse r = new ReservaResponse();
+            r.setId(9L);
+            when(pagoService.crearReservaBonificada(any(), eq(EMAIL))).thenReturn(r);
+
+            mvc.perform(json(post("/reservas"), """
+                    {"canchaId":1,"fechaReserva":"2099-01-01","horaInicio":"18:00","horaFin":"19:30",
+                     "clienteId":7,"bonificacion":{"motivo":"torneo"}}
+                    """))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.id").value(9));
+            verify(reservaService, never()).crearReserva(any(), anyString());
         }
     }
 }

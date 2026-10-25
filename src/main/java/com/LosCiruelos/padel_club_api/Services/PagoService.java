@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.DTOs.PaymentResult;
+import com.LosCiruelos.padel_club_api.DTOs.Requests.CrearReservaRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PagoResponse;
+import com.LosCiruelos.padel_club_api.DTOs.Responses.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.Pago;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
@@ -22,10 +24,12 @@ import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
+import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
+import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReembolsoFallidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.PagoRepository;
@@ -104,7 +108,7 @@ public class PagoService {
 
     BigDecimal calcularMontoAPagar(Reserva reserva, boolean pagarTotal) {
         Configuracion config = configuracionService.obtener();
-        BigDecimal pagado = reserva.getMontoPagado();
+        BigDecimal pagado = reserva.getMontoCubierto();
         BigDecimal pendiente = reserva.getMontoPendiente();
 
         if (pendiente.signum() <= 0) {
@@ -187,7 +191,8 @@ public class PagoService {
             throw new ReservaException("El monto debe ser mayor a cero.");
         }
 
-        Reserva reserva = reservaService.bloquearConAcceso(reservaId, usuario(email));
+        Usuario personal = usuario(email);
+        Reserva reserva = reservaService.bloquearConAcceso(reservaId, personal);
         validarQueAdmitePagos(reserva);
         if (reserva.tienePagoEnProceso()) {
             throw new EstadoInvalidoException(
@@ -211,6 +216,7 @@ public class PagoService {
                 .provider(provider)
                 .createdAt(ahora)
                 .paidAt(ahora)
+                .registradoPorId(personal.getId())
                 .build();
         reserva.agregarPago(pago);
         pago = pagoRepository.save(pago);
@@ -219,6 +225,77 @@ public class PagoService {
         log.info("Pago manual {} #{} — reserva #{} — monto ${} — registrado por {}",
                 provider, pago.getId(), reserva.getId(), monto, email);
         return PagoResponse.from(pago);
+    }
+
+    // ── 4 bis. Bonificación del ADMIN ────────────────────────────────────
+
+    /**
+     * El ADMIN no le cobra al cliente todo o una parte del turno (socio, torneo, cortesía). Se
+     * registra como un pago BONIFICACION: cubre el monto (la reserva queda confirmada o paga) pero
+     * no es plata, así que no cuenta como cobrado ni se devuelve si después se cancela.
+     *
+     * @param monto null: todo lo que falta pagar
+     */
+    @Transactional
+    public PagoResponse bonificar(Long reservaId, BigDecimal monto, String motivo, String email) {
+        Usuario admin = usuario(email);
+        validarQueEsAdmin(admin);
+        Reserva reserva = reservaService.bloquearConAcceso(reservaId, admin);
+        validarQueAdmitePagos(reserva);
+        if (reserva.tienePagoEnProceso()) {
+            throw new EstadoInvalidoException(
+                    "Hay un pago online en proceso para esta reserva; esperá a que se resuelva.");
+        }
+        BigDecimal pendiente = reserva.getMontoPendiente();
+        if (pendiente.signum() <= 0) {
+            throw new EstadoInvalidoException("La reserva ya está paga.");
+        }
+        BigDecimal aBonificar = monto != null ? monto : pendiente;
+        if (aBonificar.signum() <= 0) {
+            throw new ReservaException("El monto debe ser mayor a cero.");
+        }
+        if (aBonificar.compareTo(pendiente) > 0) {
+            throw new ReservaException("El monto ($%s) supera el pendiente ($%s).".formatted(aBonificar, pendiente));
+        }
+
+        // un pago online iniciado por un monto que ya no corresponde se descarta
+        reserva.getPagos().stream()
+                .filter(p -> p.getEstado() == EstadoPago.PENDIENTE)
+                .forEach(p -> cambiarEstado(p, EstadoPago.EXPIRADO));
+
+        LocalDateTime ahora = LocalDateTime.now(clock);
+        Pago bonificacion = Pago.builder()
+                .monto(aBonificar)
+                .estado(EstadoPago.APROBADO)
+                .provider(PaymentProvider.BONIFICACION)
+                .createdAt(ahora)
+                .paidAt(ahora)
+                .registradoPorId(admin.getId())
+                .motivo(motivo != null && !motivo.isBlank() ? motivo.trim() : null)
+                .build();
+        reserva.agregarPago(bonificacion);
+        bonificacion = pagoRepository.save(bonificacion);
+
+        // la confirmó el ADMIN mismo: no se manda el aviso de "nueva reserva / saldo cobrado"
+        recalcularEstadoReserva(reserva, false);
+        log.info("Bonificación #{} — reserva #{} — ${} — {} — por {}", bonificacion.getId(), reserva.getId(),
+                aBonificar, bonificacion.getMotivo() != null ? bonificacion.getMotivo() : "sin motivo", email);
+        return PagoResponse.from(bonificacion);
+    }
+
+    /** POST /reservas con bonificación (solo ADMIN): se crea y se bonifica en la misma transacción. */
+    @Transactional
+    public ReservaResponse crearReservaBonificada(CrearReservaRequest req, String email) {
+        validarQueEsAdmin(usuario(email));
+        ReservaResponse creada = reservaService.crearReserva(req, email);
+        bonificar(creada.getId(), req.getBonificacion().getMonto(), req.getBonificacion().getMotivo(), email);
+        return reservaService.obtener(creada.getId(), email);
+    }
+
+    private static void validarQueEsAdmin(Usuario usuario) {
+        if (usuario.getRol() != Role.ADMIN) {
+            throw new PermisoDenegadoException("Solo el ADMIN puede bonificar una reserva.");
+        }
     }
 
     // ── 5. Reembolso por cancelación ─────────────────────────────────────
@@ -236,7 +313,7 @@ public class PagoService {
     void reembolsar(Reserva reserva, BigDecimal monto) {
         BigDecimal restante = monto;
         List<Pago> aprobados = reserva.getPagos().stream()
-                .filter(p -> p.getEstado() == EstadoPago.APROBADO)
+                .filter(p -> p.getEstado() == EstadoPago.APROBADO && !p.esBonificacion()) // no es plata
                 .sorted(Comparator.comparing((Pago p) -> p.getExternalPaymentId() == null)
                         .thenComparing(Pago::getCreatedAt, Comparator.reverseOrder()))
                 .toList();
@@ -454,12 +531,17 @@ public class PagoService {
      * CANCELADA, EXPIRADA y COMPLETADA no cambian.
      */
     void recalcularEstadoReserva(Reserva reserva) {
+        recalcularEstadoReserva(reserva, true);
+    }
+
+    /** @param avisar false cuando el cambio lo hizo el ADMIN mismo (bonificación) */
+    void recalcularEstadoReserva(Reserva reserva, boolean avisar) {
         EstadoReserva anterior = reserva.getEstado();
         if (reserva.estaInactiva() || anterior == EstadoReserva.COMPLETADA) {
             return;
         }
 
-        BigDecimal pagado = reserva.getMontoPagado();
+        BigDecimal pagado = reserva.getMontoCubierto(); // pagado + bonificado
         BigDecimal senia = configuracionService.calcularSenia(configuracionService.obtener(), reserva.getMontoTotal());
 
         EstadoReserva nuevo;
@@ -486,7 +568,9 @@ public class PagoService {
             }
             reservaService.save(reserva);
             log.info("Reserva #{}: {} → {}", reserva.getId(), anterior, nuevo);
-            avisarCambioDeEstado(reserva, anterior, nuevo, pagado);
+            if (avisar) {
+                avisarCambioDeEstado(reserva, anterior, nuevo, pagado);
+            }
         }
     }
 

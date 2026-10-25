@@ -25,6 +25,7 @@ import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.ResumenRepository;
@@ -56,11 +57,15 @@ class ResumenServiceTest {
                 new ReservasPorEstado(EstadoReserva.CANCELADA, 3L, $("45000"), 1L),
                 new ReservasPorEstado(EstadoReserva.EXPIRADA, 2L, $("30000"), 2L),     // no cuentan
                 new ReservasPorEstado(EstadoReserva.PENDIENTE, 1L, $("15000"), 0L)));
-        when(repo.cobrosPorEstado(eq(DESDE), eq(HASTA), eq(EstadoPago.APROBADO), any())).thenReturn(List.of(
-                new CobrosPorEstado(EstadoReserva.COMPLETADA, $("200000"), $("100000")),
-                new CobrosPorEstado(EstadoReserva.SEÑADA, $("40000"), $("5000")),
-                new CobrosPorEstado(EstadoReserva.PAGADA, $("0"), $("45000")),
-                new CobrosPorEstado(EstadoReserva.CANCELADA, $("7500"), $("0"))));
+        // en el club: 150.000, de los que 120.000 son efectivo y 30.000 tarjeta/QR (Mercado Pago presencial)
+        // bonificado por el ADMIN: 10.000 en reservas que se juegan y 3.000 en una cancelada (no cuentan como cobrado)
+        when(repo.cobrosPorEstado(eq(DESDE), eq(HASTA), eq(EstadoPago.APROBADO), any(), eq(PaymentProvider.MANUAL),
+                eq(PaymentProvider.BONIFICACION)))
+                .thenReturn(List.of(
+                        new CobrosPorEstado(EstadoReserva.COMPLETADA, $("200000"), $("100000"), $("80000"), $("10000")),
+                        new CobrosPorEstado(EstadoReserva.SEÑADA, $("40000"), $("5000"), $("5000"), $("0")),
+                        new CobrosPorEstado(EstadoReserva.PAGADA, $("0"), $("45000"), $("35000"), $("0")),
+                        new CobrosPorEstado(EstadoReserva.CANCELADA, $("7500"), $("0"), $("0"), $("3000"))));
         ProductoVendido pelotas = new ProductoVendido(1L, "Pelotas", TipoProducto.VENTA, 40L, $("200000"));
         when(repo.productos(DESDE, HASTA, Reserva.ESTADOS_QUE_SE_JUEGAN)).thenReturn(List.of(pelotas));
 
@@ -72,7 +77,11 @@ class ResumenServiceTest {
         assertThat(r.cobradoOnline()).isEqualTo($("240000.00"));
         assertThat(r.cobradoEnClub()).isEqualTo($("150000.00"));
         assertThat(r.montoCobrado()).isEqualTo($("390000.00"));
-        assertThat(r.montoPendiente()).isEqualTo($("60000.00"));
+        assertThat(r.cobradoEfectivo()).isEqualTo($("120000.00"));
+        assertThat(r.cobradoMercadoPago()).isEqualTo($("270000.00"));
+        assertThat(r.montoBonificado()).isEqualTo($("10000.00"));
+        // lo que falta = esperado - cobrado - bonificado
+        assertThat(r.montoPendiente()).isEqualTo($("50000.00"));
         assertThat(r.retenidoCancelaciones()).isEqualTo($("7500.00"));
         assertThat(r.partidosJugados()).isEqualTo(28);
         assertThat(r.partidosCancelados()).isEqualTo(3);
@@ -84,7 +93,8 @@ class ResumenServiceTest {
         resumen.resumen(DESDE, HASTA);
 
         verify(repo).cobrosPorEstado(DESDE, HASTA, EstadoPago.APROBADO,
-                java.util.Set.of(EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE));
+                java.util.Set.of(EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE),
+                PaymentProvider.MANUAL, PaymentProvider.BONIFICACION);
     }
 
     @Test

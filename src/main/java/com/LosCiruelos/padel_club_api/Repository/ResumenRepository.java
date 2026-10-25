@@ -15,6 +15,7 @@ import com.LosCiruelos.padel_club_api.DTOs.Resumen.ReservasPorEstado;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
 
 /** Consultas agregadas del resumen del club: todo se suma en la base, sin traer reservas a memoria. */
 public interface ResumenRepository extends Repository<Reserva, Long> {
@@ -30,7 +31,10 @@ public interface ResumenRepository extends Repository<Reserva, Long> {
 
     @Query("SELECT new com.LosCiruelos.padel_club_api.DTOs.Resumen.CobrosPorEstado(r.estado, "
             + "COALESCE(SUM(CASE WHEN p.externalPaymentId IS NOT NULL THEN " + RETENIDO + " ELSE 0 END), 0), "
-            + "COALESCE(SUM(CASE WHEN p.externalPaymentId IS NULL THEN " + RETENIDO + " ELSE 0 END), 0)) "
+            + "COALESCE(SUM(CASE WHEN p.externalPaymentId IS NULL AND p.provider <> :bonificacion THEN "
+            + RETENIDO + " ELSE 0 END), 0), "
+            + "COALESCE(SUM(CASE WHEN p.provider = :efectivo THEN " + RETENIDO + " ELSE 0 END), 0), "
+            + "COALESCE(SUM(CASE WHEN p.provider = :bonificacion THEN " + RETENIDO + " ELSE 0 END), 0)) "
             + "FROM Pago p JOIN p.reserva r "
             + "WHERE r.fechaReserva BETWEEN :desde AND :hasta "
             + "GROUP BY r.estado")
@@ -38,7 +42,9 @@ public interface ResumenRepository extends Repository<Reserva, Long> {
             @Param("desde") LocalDate desde,
             @Param("hasta") LocalDate hasta,
             @Param("aprobado") EstadoPago aprobado,
-            @Param("devueltos") Collection<EstadoPago> devueltos);
+            @Param("devueltos") Collection<EstadoPago> devueltos,
+            @Param("efectivo") PaymentProvider efectivo,
+            @Param("bonificacion") PaymentProvider bonificacion);
 
     @Query("""
             SELECT new com.LosCiruelos.padel_club_api.DTOs.Resumen.ReservasPorEstado(r.estado, COUNT(r),

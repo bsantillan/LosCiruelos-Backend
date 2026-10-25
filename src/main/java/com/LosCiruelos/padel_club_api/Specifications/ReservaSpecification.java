@@ -2,10 +2,13 @@ package com.LosCiruelos.padel_club_api.Specifications;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 import org.springframework.data.jpa.domain.Specification;
 
+import com.LosCiruelos.padel_club_api.DTOs.Admin.FiltroReservasAdmin;
 import com.LosCiruelos.padel_club_api.Entities.Pago;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
@@ -17,7 +20,7 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 
-/** Filtros del listado "Mis reservas". */
+/** Filtros de los listados de reservas ("Mis reservas" y el del personal). */
 public final class ReservaSpecification {
 
     private ReservaSpecification() {
@@ -59,6 +62,36 @@ public final class ReservaSpecification {
             return cb.or(
                     cb.not(root.get("estado").in(EstadoReserva.CANCELADA, EstadoReserva.EXPIRADA)),
                     cb.exists(conDinero));
+        };
+    }
+
+    /**
+     * Listado del personal: combina todos los filtros que vengan (los null no filtran). A diferencia
+     * de "Mis reservas", incluye las canceladas y vencidas sin pago.
+     */
+    public static Specification<Reserva> paraPersonal(FiltroReservasAdmin filtro) {
+        return (root, query, cb) -> {
+            List<Predicate> condiciones = new ArrayList<>();
+            if (filtro.desde() != null) {
+                condiciones.add(cb.greaterThanOrEqualTo(root.get("fechaReserva"), filtro.desde()));
+            }
+            if (filtro.hasta() != null) {
+                condiciones.add(cb.lessThanOrEqualTo(root.get("fechaReserva"), filtro.hasta()));
+            }
+            if (filtro.estados() != null) {
+                condiciones.add(filtro.estados().isEmpty() ? cb.disjunction()
+                        : root.get("estado").in(filtro.estados()));
+            }
+            if (filtro.clienteId() != null) {
+                condiciones.add(cb.equal(root.get("cliente").get("id"), filtro.clienteId()));
+            }
+            if (filtro.canchaId() != null) {
+                condiciones.add(cb.equal(root.get("cancha").get("id"), filtro.canchaId()));
+            }
+            if (filtro.textoCliente() != null) {
+                condiciones.add(Busquedas.nombreApellidoOEmail(cb, root.join("cliente"), filtro.textoCliente()));
+            }
+            return cb.and(condiciones.toArray(Predicate[]::new));
         };
     }
 

@@ -69,11 +69,16 @@ public class SecurityConfig {
 
                         // Resumen del período: también lo ve el personal
                         .requestMatchers(HttpMethod.GET, "/admin/resumen").hasAnyRole("ADMIN", "EMPLEADO")
+                        // Panel del personal: listado de reservas y búsqueda de clientes
+                        .requestMatchers(HttpMethod.GET, "/admin/reservas", "/admin/clientes")
+                        .hasAnyRole("ADMIN", "EMPLEADO")
 
                         // Solo ADMIN
                         .requestMatchers("/admin/**").hasRole("ADMIN")
 
                         // Pagos que registra el personal del club (además del @PreAuthorize)
+                        // Bonificar (no cobrarle al cliente): solo ADMIN
+                        .requestMatchers(HttpMethod.POST, "/pagos/*/bonificacion").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/pagos/*/pago-efectivo", "/pagos/*/pago-presencial")
                         .hasAnyRole("ADMIN", "EMPLEADO")
 

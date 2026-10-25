@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.LosCiruelos.padel_club_api.DTOs.Requests.BonificacionRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.PagoManualRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PagoResponse;
 import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
@@ -115,6 +116,21 @@ public class PagoController {
             Authentication authentication) {
         return ResponseEntity.ok(pagoService.registrarPagoManual(reservaId, body.getMonto(),
                 PaymentProvider.MANUAL, authentication.getName()));
+    }
+
+    /**
+     * ADMIN: bonifica la reserva (todo o una parte) cuando no se le cobra al cliente. Sin monto,
+     * bonifica todo lo que falta. No cuenta como cobrado y no se devuelve si se cancela.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{reservaId}/bonificacion")
+    public ResponseEntity<PagoResponse> bonificar(
+            @PathVariable Long reservaId,
+            @Valid @RequestBody(required = false) BonificacionRequest body,
+            Authentication authentication) {
+        BonificacionRequest datos = body != null ? body : new BonificacionRequest();
+        return ResponseEntity.ok(pagoService.bonificar(reservaId, datos.getMonto(), datos.getMotivo(),
+                authentication.getName()));
     }
 
     /** Empleado/Admin registra un pago presencial con tarjeta o QR de Mercado Pago. */

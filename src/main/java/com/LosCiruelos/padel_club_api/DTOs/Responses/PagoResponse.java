@@ -25,6 +25,8 @@ public class PagoResponse {
     LocalDateTime paidAt;
     // cuánto se devolvió (DEVUELTO) o hay que devolver (A_REEMBOLSAR)
     BigDecimal montoReembolsado;
+    // motivo de una bonificación (provider BONIFICACION)
+    String motivo;
     // estado de la reserva después de la operación
     EstadoReserva estadoReserva;
     // detalle del proveedor al cobrar (ej. motivo del rechazo); solo en la respuesta del cobro
@@ -42,6 +44,7 @@ public class PagoResponse {
         response.setCreatedAt(pago.getCreatedAt());
         response.setPaidAt(pago.getPaidAt());
         response.setMontoReembolsado(pago.getMontoReembolsado());
+        response.setMotivo(pago.getMotivo());
         response.setEstadoReserva(pago.getReserva().getEstado());
         return response;
     }

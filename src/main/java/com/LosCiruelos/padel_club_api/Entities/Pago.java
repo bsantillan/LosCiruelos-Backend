@@ -76,6 +76,14 @@ public class Pago {
     @Column(name = "reembolso_solicitado_at")
     private LocalDateTime reembolsoSolicitadoAt;
 
+    // Pagos registrados por el personal (en el club o bonificaciones): quién lo cargó
+    @Column(name = "registrado_por_id")
+    private Long registradoPorId;
+
+    // Motivo de una bonificación (opcional), ej. "socio", "torneo", "cortesía"
+    @Column(length = 200)
+    private String motivo;
+
     // Identifica al pago ante Mercado Pago (claves de idempotencia). Se genera al crearlo y no cambia.
     @Builder.Default
     @Column(name = "clave_idempotencia", nullable = false, unique = true, updatable = false)
@@ -94,6 +102,11 @@ public class Pago {
      */
     public static final Set<EstadoPago> ESTADOS_CON_DINERO = Set.of(EstadoPago.APROBADO, EstadoPago.DEVUELTO,
             EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE, EstadoPago.EN_PROCESO);
+
+    /** Una bonificación cubre parte del turno sin que el cliente pague: no es plata. */
+    public boolean esBonificacion() {
+        return provider == PaymentProvider.BONIFICACION;
+    }
 
     /** Lo que el club se queda de este pago: lo aprobado menos lo devuelto o a devolver. */
     public BigDecimal getMontoRetenido() {

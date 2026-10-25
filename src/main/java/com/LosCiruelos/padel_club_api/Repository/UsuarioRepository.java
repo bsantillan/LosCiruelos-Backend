@@ -3,6 +3,10 @@ package com.LosCiruelos.padel_club_api.Repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
@@ -16,6 +20,11 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long>, JpaSpec
     Optional<Usuario> findByEmail(String email);
 
     List<Usuario> findByRolAndEnabledTrue(Role rol);
+
+    /** Página con el perfil de jugador en la misma consulta (búsqueda de clientes del personal). */
+    @Override
+    @EntityGraph(attributePaths = { "clienteProfile" })
+    Page<Usuario> findAll(Specification<Usuario> spec, Pageable pageable);
 
     /** Otra cuenta activa con ese celular verificado (idActual = -1 para un usuario nuevo). */
     @Query("""

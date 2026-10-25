@@ -27,7 +27,10 @@ public class ReservaResponse {
     BigDecimal montoCancha;
     BigDecimal montoProductos;
     BigDecimal montoSenia;
+    // plata cobrada (sin bonificaciones)
     BigDecimal montoPagado;
+    // lo que el ADMIN bonificó; montoPendiente = montoTotal - montoPagado - montoBonificado
+    BigDecimal montoBonificado;
     BigDecimal montoPendiente;
     Integer cantidadPelotas;
     Integer cantidadPaletas;
@@ -68,6 +71,7 @@ public class ReservaResponse {
         response.setMontoCancha(reserva.getMontoCancha());
         response.setMontoProductos(reserva.getMontoProductos());
         response.setMontoPagado(reserva.getMontoPagado());
+        response.setMontoBonificado(reserva.getMontoBonificado());
         response.setMontoPendiente(reserva.getMontoPendiente());
         response.setCantidadPelotas(reserva.cantidadDe(Producto.CODIGO_PELOTAS));
         response.setCantidadPaletas(reserva.cantidadDe(Producto.CODIGO_PALETAS));

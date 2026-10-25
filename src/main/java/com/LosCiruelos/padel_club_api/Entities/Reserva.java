@@ -135,17 +135,33 @@ public class Reserva {
         pago.setReserva(this);
     }
 
+    /** La plata que el club se quedó: aprobado menos lo devuelto, sin las bonificaciones. */
     @Transient
     public BigDecimal getMontoPagado() {
-        // aprobado menos lo devuelto (una cancelación puede devolver solo una parte)
         return pagos.stream()
+                .filter(p -> !p.esBonificacion())
                 .map(Pago::getMontoRetenido)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /** Lo que el ADMIN bonificó (no se le cobra al cliente). */
+    @Transient
+    public BigDecimal getMontoBonificado() {
+        return pagos.stream()
+                .filter(Pago::esBonificacion)
+                .map(Pago::getMontoRetenido)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Lo pagado más lo bonificado: define el estado de la reserva y lo que falta. */
+    @Transient
+    public BigDecimal getMontoCubierto() {
+        return getMontoPagado().add(getMontoBonificado());
+    }
+
     @Transient
     public BigDecimal getMontoPendiente() {
-        return montoTotal.subtract(getMontoPagado());
+        return montoTotal.subtract(getMontoCubierto());
     }
 
     /** Tiene un pago cobrado o que MP todavía está procesando. */

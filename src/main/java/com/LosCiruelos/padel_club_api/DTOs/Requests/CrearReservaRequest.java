@@ -3,6 +3,7 @@ package com.LosCiruelos.padel_club_api.DTOs.Requests;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -37,4 +38,8 @@ public class CrearReservaRequest {
     @Min(value = 0, message = "La cantidad de paletas no puede ser negativa")
     @Max(value = 20, message = "Se pueden pedir hasta 20 paletas")
     Integer cantidadPaletas;
+
+    // Solo ADMIN (opcional): bonificar el turno al crearlo, todo o una parte
+    @Valid
+    BonificacionRequest bonificacion;
 }
