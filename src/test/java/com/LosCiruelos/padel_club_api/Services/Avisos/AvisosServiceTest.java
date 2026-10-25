@@ -156,7 +156,8 @@ class AvisosServiceTest {
         assertThat(aviso.parametros()).containsExactly("Nombre3", "1", "miércoles 14/10", "18:00 a 19:30",
                 "$7.500", "$15.000");
         assertThat(aviso.texto()).isEqualTo(
-                "Nueva reserva: Nombre3 reservó la cancha 1 para el miércoles 14/10, de 18:00 a 19:30. Pagó $7.500 de $15.000.");
+                "Nueva reserva en Los Ciruelos: Nombre3 reservó la cancha 1 para el miércoles 14/10, de 18:00 a 19:30. "
+                        + "Pagó $7.500 de un total de $15.000. Podés ver el detalle en el panel del club.");
         assertThat(AvisoReserva.pesos(new BigDecimal("7500.50"))).isEqualTo("$7.500,5");
     }
 }

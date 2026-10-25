@@ -50,13 +50,13 @@ Se crean en *WhatsApp Manager > Plantillas de mensajes*, idioma **Español (ARG)
 
 | Nombre | Categoría | Texto |
 |---|---|---|
-| `aviso_reserva_confirmada_v2` | Utilidad | Nueva reserva: {{1}} reservó la cancha {{2}} para el {{3}}, de {{4}}. Pagó {{5}} de {{6}}. |
-| `aviso_saldo_cobrado_v2` | Utilidad | Saldo cobrado: la reserva de {{1}} (cancha {{2}}, {{3}}, de {{4}}) quedó paga. Total: {{5}}. |
-| `aviso_reserva_cancelada_v2` | Utilidad | Reserva cancelada: {{1}}, cancha {{2}}, {{3}}, de {{4}}. {{5}} |
-| `aviso_reembolso_manual_v2` | Utilidad | Atención: hay que devolver {{1}} a mano. Reserva #{{2}} de {{3}}. Motivo: {{4}} |
-| `aviso_reembolso_realizado_v2` | Utilidad | Reembolso hecho: Mercado Pago devolvió {{1}} de la reserva cancelada #{{2}} de {{3}}, que había quedado pendiente. |
-| `recordatorio_turno_v2` | Utilidad | Hola {{1}}, te recordamos tu turno en Los Ciruelos: cancha {{2}}, {{3}}, de {{4}}. {{5}} |
-| `reserva_cancelada_por_club_v2` | Utilidad | Hola {{1}}, el club canceló tu reserva de la cancha {{2}} del {{3}}, de {{4}}. {{5}} |
+| `aviso_reserva_confirmada_v2` | Utilidad | Nueva reserva en Los Ciruelos: {{1}} reservó la cancha {{2}} para el {{3}}, de {{4}}. Pagó {{5}} de un total de {{6}}. Podés ver el detalle en el panel del club. |
+| `aviso_saldo_cobrado_v2` | Utilidad | Saldo cobrado en Los Ciruelos: la reserva de {{1}} en la cancha {{2}} para el {{3}}, de {{4}}, quedó totalmente paga. Total cobrado: {{5}}. Podés ver el detalle en el panel del club. |
+| `aviso_reserva_cancelada_v2` | Utilidad | Reserva cancelada en Los Ciruelos: {{1}}, cancha {{2}}, el {{3}}, de {{4}}. Detalle: {{5}} Podés ver la reserva en el panel del club. |
+| `aviso_reembolso_manual_v2` | Utilidad | Atención: hay que devolver {{1}} a mano por la reserva #{{2}} de {{3}}. Motivo: {{4}} Revisalo en el panel de Mercado Pago o en el panel del club. |
+| `aviso_reembolso_realizado_v2` | Utilidad | Reembolso hecho: Mercado Pago devolvió {{1}} de la reserva cancelada #{{2}} de {{3}}, que había quedado pendiente. No hace falta hacer nada más. |
+| `recordatorio_turno_v2` | Utilidad | Hola {{1}}, te recordamos tu turno en Los Ciruelos: cancha {{2}}, el {{3}}, de {{4}}. {{5}} Si no podés venir, cancelá la reserva desde la página. ¡Te esperamos! |
+| `reserva_cancelada_por_club_v2` | Utilidad | Hola {{1}}, el club canceló tu reserva de la cancha {{2}} del {{3}}, de {{4}}. {{5}} Disculpá las molestias. |
 | `codigo_verificacion_v2` | Autenticación | Plantilla de autenticación de Meta con botón **Copiar código** (Meta arma el texto: "{{1}} es tu código de verificación"). Vencimiento sugerido: 10 minutos |
 
 Título, pie y botón de cada plantilla (texto fijo, sin variables: el backend solo manda los parámetros del cuerpo y, en la de autenticación, el código del botón):
@@ -73,6 +73,8 @@ Título, pie y botón de cada plantilla (texto fijo, sin variables: el backend s
 | `codigo_verificacion_v2` | — | Lo arma Meta (vencimiento: 10 minutos, igual que el backend) | Copiar código (lo agrega Meta) | — |
 
 Si se cambia el nombre de una plantilla en Meta (por ejemplo a `_v3`), hay que cambiarlo en `TipoAviso.java` y, para el código, en `whatsapp.plantilla-codigo`.
+
+Reglas de Meta al cargarlas: las variables son de tipo **número** (`{{1}}`, `{{2}}`…, no con nombre), **ninguna puede ir al principio ni al final** del texto, y tiene que haber bastante texto fijo por cada variable (si no, Meta responde "demasiadas variables para su longitud"). Si en Meta se carga otro texto, cambialo también en `TipoAviso.java`: el mail de respaldo usa el mismo.
 
 Ejemplos de valores: `{{3}}` = `miércoles 21/10`, `{{4}}` = `18:00 a 19:30`, montos = `$7.500`.
 
