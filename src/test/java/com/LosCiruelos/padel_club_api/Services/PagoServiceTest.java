@@ -436,6 +436,9 @@ class PagoServiceTest {
 
             assertThat(pago.getEstado()).isEqualTo(EstadoPago.A_REEMBOLSAR);
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
+            // la plata entró (cierre de caja) y queda por devolver desde ahora
+            assertThat(pago.getPaidAt()).isEqualTo(AHORA);
+            assertThat(pago.getReembolsadoAt()).isEqualTo(AHORA);
         }
 
         @Test
@@ -497,6 +500,7 @@ class PagoServiceTest {
 
             assertThat(pago.getEstado()).isEqualTo(EstadoPago.DEVUELTO);
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
+            assertThat(pago.getReembolsadoAt()).isEqualTo(AHORA);
         }
 
         @Test
@@ -532,6 +536,9 @@ class PagoServiceTest {
             assertThat(online.getMontoReembolsado()).isEqualByComparingTo("7500");
             assertThat(enElClub.getEstado()).isEqualTo(EstadoPago.A_REEMBOLSAR);
             assertThat(enElClub.getMontoReembolsado()).isEqualByComparingTo("2500");
+            // fecha del reembolso para el cierre de caja
+            assertThat(online.getReembolsadoAt()).isEqualTo(AHORA);
+            assertThat(enElClub.getReembolsadoAt()).isEqualTo(AHORA);
             // el club se queda con 5000
             assertThat(reserva.getMontoPagado()).isEqualByComparingTo("5000");
         }

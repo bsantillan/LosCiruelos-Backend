@@ -491,7 +491,10 @@ Errores: `400 errors.buscar` si falta · `400` si tiene menos de 2 caracteres ·
 ## Resumen del club — `/admin/resumen` (rol: ADMIN, EMPLEADO)
 
 ### `GET /admin/resumen?desde=2026-10-01&hasta=2026-10-31` → `200 ResumenResponse`
-Resumen del período para el panel del club. La base son las **reservas cuyo turno (`fechaReserva`) cae en el período**. Las fechas son inclusive (`yyyy-MM-dd`) y van las dos juntas o ninguna: **sin fechas, el resumen es del día de hoy**.
+Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-dd`) y van las dos juntas o ninguna: **sin fechas, el resumen es del día de hoy**.
+
+- `jugados`, `porJugar`, `cancelaciones` y `productos` toman las **reservas cuyo turno (`fechaReserva`) cae en el período**.
+- `caja` toma los **pagos cobrados y devueltos en el período**, sea cual sea la fecha del turno: es el cierre de caja. Una seña pagada hoy para un turno del mes que viene está en la caja de hoy y en `porJugar` del período del turno.
 
 | Rol | Qué puede ver |
 |---|---|
@@ -501,29 +504,66 @@ Resumen del período para el panel del club. La base son las **reservas cuyo tur
 ```json
 {
   "desde": "2026-10-01", "hasta": "2026-10-31",
-  "montoEsperado": 450000.00,
-  "montoCobrado": 390000.00, "cobradoOnline": 240000.00, "cobradoEnClub": 150000.00,
-  "cobradoEfectivo": 120000.00, "cobradoMercadoPago": 270000.00, "montoBonificado": 0.00,
-  "montoPendiente": 60000.00,
-  "retenidoCancelaciones": 7500.00,
-  "partidosJugados": 28, "partidosCancelados": 3,
+
+  "jugados": {
+    "turnos": 28,
+    "montoTotal": 420000.00,
+    "montoCobrado": 380000.00,
+    "montoBonificado": 15000.00,
+    "deuda": 25000.00
+  },
+  "porJugar": {
+    "turnos": 6,
+    "montoTotal": 90000.00,
+    "cobradoAnticipado": 45000.00,
+    "montoBonificado": 0.00,
+    "aCobrar": 45000.00
+  },
+  "caja": {
+    "total": 230000.00,
+    "efectivo": 90000.00,
+    "mercadoPagoOnline": 100000.00,
+    "mercadoPagoPresencial": 40000.00,
+    "devoluciones": 7500.00,
+    "neto": 222500.00
+  },
+  "cancelaciones": { "turnos": 3, "retenido": 7500.00 },
   "productos": [ { "productoId": 1, "nombre": "Pelotas", "tipo": "VENTA", "cantidad": 40, "monto": 200000.00 } ]
 }
 ```
 
+**Turnos del período.** Son las reservas `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA` o `COMPLETADA` (no cuentan `PENDIENTE`, `CANCELADA` ni `EXPIRADA`). Un turno está **jugado** si ya terminó (`fechaReserva` + `horaFin` ≤ ahora, en hora de Argentina) y **por jugar** si no. Si `hasta` es anterior a hoy, `porJugar` queda en 0; si `desde` es posterior a hoy, `jugados` queda en 0.
+
 | Campo | Cómo se calcula |
 |---|---|
-| `montoEsperado` | Suma de `montoTotal` de las reservas `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA` y `COMPLETADA` (no cuentan `CANCELADA`, `EXPIRADA` ni `PENDIENTE`) |
-| `montoCobrado` | Lo cobrado de esas reservas: pagos aprobados menos lo devuelto (o por devolver). Es `cobradoOnline` + `cobradoEnClub` |
-| `cobradoOnline` | Cobros online de Mercado Pago (Brick o Wallet, con id de pago de MP) |
-| `cobradoEnClub` | Cobros registrados en el club: `pago-efectivo` y `pago-presencial` |
-| `cobradoEfectivo` | De `montoCobrado`, lo cobrado en efectivo (`pago-efectivo`) |
-| `cobradoMercadoPago` | De `montoCobrado`, lo cobrado con Mercado Pago: online y con tarjeta o QR en el mostrador (`pago-presencial`). `cobradoEfectivo + cobradoMercadoPago = montoCobrado`, igual que `cobradoOnline + cobradoEnClub` |
-| `montoBonificado` | Lo que el ADMIN bonificó en esas reservas: cubre el turno pero no es plata, así que no está en `montoCobrado` ni en sus divisiones |
-| `montoPendiente` | `montoEsperado − montoCobrado − montoBonificado` |
-| `retenidoCancelaciones` | De las reservas `CANCELADA`, lo pagado que no se devolvió |
-| `partidosJugados` | Reservas `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA` o `COMPLETADA` cuyo turno ya terminó |
-| `partidosCancelados` | Reservas `CANCELADA` del período (las `EXPIRADA` no cuentan) |
+| `jugados.turnos` / `porJugar.turnos` | Cantidad de reservas |
+| `jugados.montoTotal` / `porJugar.montoTotal` | Suma de `montoTotal` (cancha + productos) |
+| `jugados.montoCobrado` / `porJugar.cobradoAnticipado` | La plata que el club se quedó de esas reservas: pagos aprobados menos lo devuelto o por devolver, sin bonificaciones. Es la suma de `montoPagado` de cada reserva |
+| `jugados.montoBonificado` / `porJugar.montoBonificado` | Lo que el ADMIN bonificó en esas reservas (no es plata) |
+| `jugados.deuda` | `montoTotal − montoCobrado − montoBonificado`: turnos jugados que no se terminaron de pagar |
+| `porJugar.aCobrar` | `montoTotal − cobradoAnticipado − montoBonificado`: el saldo normal de los turnos que vienen |
+
+**Caja** (por fecha de pago, de las 00:00 de `desde` a las 24:00 de `hasta`):
+
+| Campo | Cómo se calcula |
+|---|---|
+| `efectivo` | Monto completo de los pagos `MANUAL` (`pago-efectivo`) cobrados en el período |
+| `mercadoPagoOnline` | Pagos `MERCADO_PAGO` con id de pago de MP (Brick o Wallet) cobrados en el período |
+| `mercadoPagoPresencial` | Pagos `MERCADO_PAGO` sin id de MP: tarjeta o QR en el mostrador (`pago-presencial`) |
+| `total` | `efectivo + mercadoPagoOnline + mercadoPagoPresencial` |
+| `devoluciones` | Lo devuelto (`montoReembolsado`) de los pagos `DEVUELTO` cuyo reembolso se hizo en el período |
+| `neto` | `total − devoluciones` (puede ser negativo un día con devoluciones y sin cobros) |
+
+- Entran los pagos que alguna vez se cobraron (`APROBADO`, `DEVUELTO`, `A_REEMBOLSAR`, `REEMBOLSO_PENDIENTE`) por su `paidAt`, con el monto completo: lo devuelto se resta en `devoluciones` el día del reembolso. Las bonificaciones no entran nunca.
+- Lo que queda `A_REEMBOLSAR` (por ejemplo, un pago en efectivo de una reserva cancelada con reembolso, que el personal devuelve a mano) **no** está en `devoluciones`: el sistema no registra cuándo se entregó esa plata. Sí está en `total` el día que se cobró.
+- Datos anteriores a la migración V16: no se guardaba la fecha del reembolso. Para esos pagos se usó la fecha en que se pidió el reembolso a Mercado Pago si el primer intento falló; si no, la fecha de cobro (o de creación del pago). Las devoluciones viejas pueden aparecer el día del cobro en vez del día en que se devolvieron.
+
+**Cancelaciones y productos**:
+
+| Campo | Cómo se calcula |
+|---|---|
+| `cancelaciones.turnos` | Reservas `CANCELADA` del período (las `EXPIRADA` no cuentan) |
+| `cancelaciones.retenido` | De esas reservas, lo pagado que el club no devolvió (sin bonificaciones) |
 | `productos` | Por producto, unidades y monto (con el precio congelado en cada reserva) de las reservas `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA` y `COMPLETADA`; solo los que tienen cantidad > 0. Las paletas cuentan las alquiladas |
 
 - Montos con 2 decimales; fechas `yyyy-MM-dd`.

@@ -684,9 +684,18 @@ class ControllersTest {
             java.time.LocalDate desde = java.time.LocalDate.of(2026, 10, 1);
             java.time.LocalDate hasta = java.time.LocalDate.of(2026, 10, 31);
             when(resumenService.resumen(desde, hasta, false)).thenReturn(new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse(
-                    desde, hasta, new BigDecimal("450000.00"), new BigDecimal("390000.00"), new BigDecimal("240000.00"),
-                    new BigDecimal("150000.00"), new BigDecimal("120000.00"), new BigDecimal("270000.00"),
-                    new BigDecimal("0.00"), new BigDecimal("60000.00"), new BigDecimal("7500.00"), 28, 3,
+                    desde, hasta,
+                    new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Jugados(28,
+                            new BigDecimal("420000.00"), new BigDecimal("380000.00"), new BigDecimal("15000.00"),
+                            new BigDecimal("25000.00")),
+                    new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.PorJugar(6,
+                            new BigDecimal("90000.00"), new BigDecimal("45000.00"), new BigDecimal("0.00"),
+                            new BigDecimal("45000.00")),
+                    new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Caja(
+                            new BigDecimal("230000.00"), new BigDecimal("90000.00"), new BigDecimal("100000.00"),
+                            new BigDecimal("40000.00"), new BigDecimal("7500.00"), new BigDecimal("222500.00")),
+                    new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Cancelaciones(3,
+                            new BigDecimal("7500.00")),
                     List.of(new com.LosCiruelos.padel_club_api.DTOs.Resumen.ProductoVendido(1L, "Pelotas",
                             com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto.VENTA, 40L,
                             new BigDecimal("200000.00")))));
@@ -695,11 +704,23 @@ class ControllersTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.desde").value("2026-10-01"))
                     .andExpect(jsonPath("$.hasta").value("2026-10-31"))
-                    .andExpect(jsonPath("$.montoEsperado").value(450000.00))
-                    .andExpect(jsonPath("$.cobradoEfectivo").value(120000.00))
-                    .andExpect(jsonPath("$.cobradoMercadoPago").value(270000.00))
-                    .andExpect(jsonPath("$.montoPendiente").value(60000.00))
-                    .andExpect(jsonPath("$.partidosJugados").value(28))
+                    .andExpect(jsonPath("$.jugados.turnos").value(28))
+                    .andExpect(jsonPath("$.jugados.montoTotal").value(420000.00))
+                    .andExpect(jsonPath("$.jugados.montoCobrado").value(380000.00))
+                    .andExpect(jsonPath("$.jugados.montoBonificado").value(15000.00))
+                    .andExpect(jsonPath("$.jugados.deuda").value(25000.00))
+                    .andExpect(jsonPath("$.porJugar.turnos").value(6))
+                    .andExpect(jsonPath("$.porJugar.cobradoAnticipado").value(45000.00))
+                    .andExpect(jsonPath("$.porJugar.aCobrar").value(45000.00))
+                    .andExpect(jsonPath("$.caja.total").value(230000.00))
+                    .andExpect(jsonPath("$.caja.efectivo").value(90000.00))
+                    .andExpect(jsonPath("$.caja.mercadoPagoOnline").value(100000.00))
+                    .andExpect(jsonPath("$.caja.mercadoPagoPresencial").value(40000.00))
+                    .andExpect(jsonPath("$.caja.devoluciones").value(7500.00))
+                    .andExpect(jsonPath("$.caja.neto").value(222500.00))
+                    .andExpect(jsonPath("$.cancelaciones.turnos").value(3))
+                    .andExpect(jsonPath("$.cancelaciones.retenido").value(7500.00))
+                    .andExpect(jsonPath("$.montoEsperado").doesNotExist())
                     .andExpect(jsonPath("$.productos[0].nombre").value("Pelotas"))
                     .andExpect(jsonPath("$.productos[0].tipo").value("VENTA"))
                     .andExpect(jsonPath("$.productos[0].cantidad").value(40));

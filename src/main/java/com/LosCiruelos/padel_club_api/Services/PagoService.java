@@ -606,6 +606,14 @@ public class PagoService {
     }
 
     private void cambiarEstado(Pago pago, EstadoPago estado) {
+        LocalDateTime ahora = LocalDateTime.now(clock);
+        // un cobro de MP que queda devuelto o por devolver sin pasar por APROBADO también entró a caja
+        if (pago.getPaidAt() == null && estado != EstadoPago.EN_PROCESO && Pago.ESTADOS_CON_DINERO.contains(estado)) {
+            pago.setPaidAt(ahora);
+        }
+        if (estado == EstadoPago.DEVUELTO || estado == EstadoPago.A_REEMBOLSAR) {
+            pago.setReembolsadoAt(ahora);
+        }
         pago.setEstado(estado);
         pagoRepository.save(pago);
     }

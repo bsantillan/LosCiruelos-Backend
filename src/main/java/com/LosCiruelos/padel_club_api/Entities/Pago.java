@@ -76,6 +76,10 @@ public class Pago {
     @Column(name = "reembolso_solicitado_at")
     private LocalDateTime reembolsoSolicitadoAt;
 
+    // Cuándo pasó a DEVUELTO o A_REEMBOLSAR (cierre de caja: devoluciones del día)
+    @Column(name = "reembolsado_at")
+    private LocalDateTime reembolsadoAt;
+
     // Pagos registrados por el personal (en el club o bonificaciones): quién lo cargó
     @Column(name = "registrado_por_id")
     private Long registradoPorId;

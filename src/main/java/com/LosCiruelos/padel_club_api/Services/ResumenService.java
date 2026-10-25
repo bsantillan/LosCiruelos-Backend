@@ -12,9 +12,14 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.CobrosPorEstado;
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.ReservasPorEstado;
+import com.LosCiruelos.padel_club_api.DTOs.Resumen.CobrosDelPeriodo;
+import com.LosCiruelos.padel_club_api.DTOs.Resumen.EntradasDeCaja;
+import com.LosCiruelos.padel_club_api.DTOs.Resumen.TurnosDelPeriodo;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse;
+import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Caja;
+import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Cancelaciones;
+import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Jugados;
+import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.PorJugar;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
@@ -26,8 +31,14 @@ import com.LosCiruelos.padel_club_api.Repository.ResumenRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Resumen del período para el panel del club. La base son las reservas cuyo turno
- * (fechaReserva) cae entre desde y hasta, inclusive.
+ * Resumen del período para el panel del club.
+ * <ul>
+ * <li>jugados, porJugar, cancelaciones y productos: reservas cuyo turno (fechaReserva) cae entre
+ * desde y hasta, inclusive. Jugados son los turnos confirmados que ya terminaron; por jugar, los
+ * que todavía no.</li>
+ * <li>caja: pagos cobrados y devueltos en esas fechas, sea cual sea la fecha del turno (cierre de
+ * caja).</li>
+ * </ul>
  */
 @Service
 @RequiredArgsConstructor
@@ -38,6 +49,10 @@ public class ResumenService {
     // Pagos devueltos o por devolver: el club se queda con lo que no se devolvió
     private static final Set<EstadoPago> DEVUELTOS = Set.of(EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR,
             EstadoPago.REEMBOLSO_PENDIENTE);
+
+    // Pagos que alguna vez se cobraron: entran a caja el día del cobro aunque después se devuelvan
+    private static final Set<EstadoPago> COBRADOS = Set.of(EstadoPago.APROBADO, EstadoPago.DEVUELTO,
+            EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE);
 
     private final ResumenRepository resumenRepository;
     private final Clock clock;
@@ -73,46 +88,41 @@ public class ResumenService {
             throw new ReservaException("El período no puede superar los " + DIAS_MAXIMOS + " días.");
         }
 
-        // las que cuentan para lo esperado: señadas, parciales, pagas y completadas
-        Set<EstadoReserva> esperadas = Reserva.ESTADOS_QUE_SE_JUEGAN;
+        // las que se juegan o se jugaron: señadas, parciales, pagas y completadas
+        Set<EstadoReserva> juegan = Reserva.ESTADOS_QUE_SE_JUEGAN;
         LocalDateTime ahora = LocalDateTime.now(clock);
 
-        BigDecimal esperado = BigDecimal.ZERO;
-        long jugados = 0;
-        long cancelados = 0;
-        for (ReservasPorEstado r : resumenRepository.reservasPorEstado(desde, hasta, ahora.toLocalDate(),
-                ahora.toLocalTime())) {
-            if (esperadas.contains(r.estado())) {
-                esperado = esperado.add(r.montoTotal());
-                jugados += r.terminadas();
-            } else if (r.estado() == EstadoReserva.CANCELADA) {
-                cancelados += r.cantidad();
-            }
-        }
+        TurnosDelPeriodo t = resumenRepository.turnos(desde, hasta, ahora.toLocalDate(), ahora.toLocalTime(),
+                juegan, EstadoReserva.CANCELADA);
+        CobrosDelPeriodo c = resumenRepository.cobros(desde, hasta, ahora.toLocalDate(), ahora.toLocalTime(),
+                juegan, EstadoReserva.CANCELADA, EstadoPago.APROBADO, DEVUELTOS, PaymentProvider.BONIFICACION);
 
-        BigDecimal online = BigDecimal.ZERO;
-        BigDecimal enClub = BigDecimal.ZERO;
-        BigDecimal efectivo = BigDecimal.ZERO;
-        BigDecimal bonificado = BigDecimal.ZERO;
-        BigDecimal retenido = BigDecimal.ZERO;
-        for (CobrosPorEstado c : resumenRepository.cobrosPorEstado(desde, hasta, EstadoPago.APROBADO, DEVUELTOS,
-                PaymentProvider.MANUAL, PaymentProvider.BONIFICACION)) {
-            if (esperadas.contains(c.estado())) {
-                online = online.add(c.online());
-                enClub = enClub.add(c.enClub());
-                efectivo = efectivo.add(c.efectivo());
-                bonificado = bonificado.add(c.bonificado());
-            } else if (c.estado() == EstadoReserva.CANCELADA) {
-                retenido = retenido.add(c.online()).add(c.enClub());
-            }
-        }
-        BigDecimal cobrado = online.add(enClub);
+        Jugados jugados = new Jugados(cantidad(t.jugados()), pesos(t.montoJugados()), pesos(c.cobradoJugados()),
+                pesos(c.bonificadoJugados()),
+                pesos(t.montoJugados().subtract(c.cobradoJugados()).subtract(c.bonificadoJugados())));
+        PorJugar porJugar = new PorJugar(cantidad(t.porJugar()), pesos(t.montoPorJugar()),
+                pesos(c.cobradoPorJugar()), pesos(c.bonificadoPorJugar()),
+                pesos(t.montoPorJugar().subtract(c.cobradoPorJugar()).subtract(c.bonificadoPorJugar())));
 
-        // por medio de pago: efectivo y Mercado Pago (online + tarjeta o QR en el mostrador)
-        return new ResumenResponse(desde, hasta, pesos(esperado), pesos(cobrado), pesos(online), pesos(enClub),
-                pesos(efectivo), pesos(cobrado.subtract(efectivo)), pesos(bonificado),
-                pesos(esperado.subtract(cobrado).subtract(bonificado)), pesos(retenido), jugados, cancelados,
-                List.copyOf(resumenRepository.productos(desde, hasta, esperadas)));
+        // caja: de las 00:00 de desde a las 00:00 del día siguiente a hasta
+        LocalDateTime inicio = desde.atStartOfDay();
+        LocalDateTime fin = hasta.plusDays(1).atStartOfDay();
+        EntradasDeCaja e = resumenRepository.entradasDeCaja(inicio, fin, COBRADOS, PaymentProvider.MANUAL,
+                PaymentProvider.MERCADO_PAGO, PaymentProvider.BONIFICACION);
+        BigDecimal total = e.efectivo().add(e.mercadoPagoOnline()).add(e.mercadoPagoPresencial());
+        BigDecimal devoluciones = resumenRepository.devoluciones(inicio, fin, EstadoPago.DEVUELTO,
+                PaymentProvider.BONIFICACION);
+        Caja caja = new Caja(pesos(total), pesos(e.efectivo()), pesos(e.mercadoPagoOnline()),
+                pesos(e.mercadoPagoPresencial()), pesos(devoluciones), pesos(total.subtract(devoluciones)));
+
+        return new ResumenResponse(desde, hasta, jugados, porJugar, caja,
+                new Cancelaciones(cantidad(t.cancelados()), pesos(c.retenidoCancelaciones())),
+                List.copyOf(resumenRepository.productos(desde, hasta, juegan)));
+    }
+
+    /** SUM de un período sin reservas da null. */
+    private static long cantidad(Long cantidad) {
+        return cantidad == null ? 0 : cantidad;
     }
 
     private static BigDecimal pesos(BigDecimal monto) {
