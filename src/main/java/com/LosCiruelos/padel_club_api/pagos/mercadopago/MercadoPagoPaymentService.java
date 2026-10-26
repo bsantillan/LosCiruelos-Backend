@@ -11,7 +11,7 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentResult;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentService;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
-import com.LosCiruelos.padel_club_api.pagos.payment.EstadoPagoExterno;
+import com.LosCiruelos.padel_club_api.pagos.payment.EstadoPayment;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
@@ -192,16 +192,16 @@ public class MercadoPagoPaymentService implements PaymentService {
 
     // ── helpers ──────────────────────────────────────────────────────────
 
-    static EstadoPagoExterno mapearEstado(String status) {
+    static EstadoPayment mapearEstado(String status) {
         if (status == null) {
-            return EstadoPagoExterno.EN_PROCESO;
+            return EstadoPayment.EN_PROCESO;
         }
         return switch (status) {
-            case "approved" -> EstadoPagoExterno.APROBADO;
-            case "rejected", "cancelled" -> EstadoPagoExterno.RECHAZADO;
-            case "refunded", "charged_back" -> EstadoPagoExterno.DEVUELTO;
+            case "approved" -> EstadoPayment.APROBADO;
+            case "rejected", "cancelled" -> EstadoPayment.RECHAZADO;
+            case "refunded", "charged_back" -> EstadoPayment.DEVUELTO;
             // pending, in_process, in_mediation, authorized: todavía no hay resultado final
-            default -> EstadoPagoExterno.EN_PROCESO;
+            default -> EstadoPayment.EN_PROCESO;
         };
     }
 

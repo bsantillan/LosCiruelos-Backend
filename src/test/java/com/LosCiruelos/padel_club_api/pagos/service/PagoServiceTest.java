@@ -32,7 +32,7 @@ import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
-import com.LosCiruelos.padel_club_api.pagos.payment.EstadoPagoExterno;
+import com.LosCiruelos.padel_club_api.pagos.payment.EstadoPayment;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentResult;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
@@ -106,7 +106,7 @@ class PagoServiceTest {
         return reserva;
     }
 
-    private static PaymentResult resultado(EstadoPagoExterno estado, String monto, String paymentId, Long pagoId) {
+    private static PaymentResult resultado(EstadoPayment estado, String monto, String paymentId, Long pagoId) {
         return PaymentResult.builder()
                 .estado(estado)
                 .monto(monto != null ? new BigDecimal(monto) : null)
@@ -331,7 +331,7 @@ class PagoServiceTest {
         void elMontoQueSeCobraEsElDelServidorNoElDelFront() {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             pago(1L, reserva, EstadoPago.PENDIENTE, "7500");
-            when(mercadoPago.cobrar(any(), anyMap())).thenReturn(resultado(EstadoPagoExterno.APROBADO, "7500", "mp-1", 1L));
+            when(mercadoPago.cobrar(any(), anyMap())).thenReturn(resultado(EstadoPayment.APROBADO, "7500", "mp-1", 1L));
 
             pagoService.procesarPago(10L, Map.of("transaction_amount", 1, "token", "tok"), cliente.getEmail());
 
@@ -345,7 +345,7 @@ class PagoServiceTest {
         void pagoRechazadoDejaLaReservaPendiente() {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             Pago pago = pago(1L, reserva, EstadoPago.PENDIENTE, "7500");
-            when(mercadoPago.cobrar(any(), anyMap())).thenReturn(resultado(EstadoPagoExterno.RECHAZADO, "7500", "mp-1", 1L));
+            when(mercadoPago.cobrar(any(), anyMap())).thenReturn(resultado(EstadoPayment.RECHAZADO, "7500", "mp-1", 1L));
 
             PagoResponse r = pagoService.procesarPago(10L, Map.of(), cliente.getEmail());
 
@@ -358,7 +358,7 @@ class PagoServiceTest {
         void pagoEnProcesoQuedaEnProcesoHastaElWebhook() {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             Pago pago = pago(1L, reserva, EstadoPago.PENDIENTE, "7500");
-            when(mercadoPago.cobrar(any(), anyMap())).thenReturn(resultado(EstadoPagoExterno.EN_PROCESO, "7500", "mp-1", 1L));
+            when(mercadoPago.cobrar(any(), anyMap())).thenReturn(resultado(EstadoPayment.EN_PROCESO, "7500", "mp-1", 1L));
 
             pagoService.procesarPago(10L, Map.of(), cliente.getEmail());
 
@@ -397,7 +397,7 @@ class PagoServiceTest {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             Pago pago = pago(1L, reserva, EstadoPago.EN_PROCESO, "7500");
             pago.setExternalPaymentId("mp-1");
-            when(mercadoPago.consultarPago("mp-1")).thenReturn(resultado(EstadoPagoExterno.APROBADO, "7500", "mp-1", 1L));
+            when(mercadoPago.consultarPago("mp-1")).thenReturn(resultado(EstadoPayment.APROBADO, "7500", "mp-1", 1L));
             when(pagoRepository.findReservaIdByExternalPaymentId("mp-1")).thenReturn(Optional.of(10L));
 
             pagoService.procesarNotificacion("mp-1");
@@ -410,7 +410,7 @@ class PagoServiceTest {
         void pagoConWalletSinIdExternoSeEncuentraPorMetadata() {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             Pago pago = pago(7L, reserva, EstadoPago.PENDIENTE, "15000");
-            when(mercadoPago.consultarPago("mp-9")).thenReturn(resultado(EstadoPagoExterno.APROBADO, "15000", "mp-9", 7L));
+            when(mercadoPago.consultarPago("mp-9")).thenReturn(resultado(EstadoPayment.APROBADO, "15000", "mp-9", 7L));
             when(pagoRepository.findReservaIdByExternalPaymentId("mp-9")).thenReturn(Optional.empty());
             when(pagoRepository.findReservaIdByPagoId(7L)).thenReturn(Optional.of(10L));
 
@@ -422,7 +422,7 @@ class PagoServiceTest {
 
         @Test
         void notificacionSinPagoAsociadoSeIgnora() {
-            when(mercadoPago.consultarPago("mp-x")).thenReturn(resultado(EstadoPagoExterno.APROBADO, "1", "mp-x", null));
+            when(mercadoPago.consultarPago("mp-x")).thenReturn(resultado(EstadoPayment.APROBADO, "1", "mp-x", null));
             when(pagoRepository.findReservaIdByExternalPaymentId("mp-x")).thenReturn(Optional.empty());
 
             pagoService.procesarNotificacion("mp-x");
@@ -436,7 +436,7 @@ class PagoServiceTest {
             Reserva reserva = reservaBloqueada(EstadoReserva.CANCELADA);
             Pago pago = pago(1L, reserva, EstadoPago.EN_PROCESO, "7500");
 
-            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPagoExterno.APROBADO, "7500", "mp-1", 1L));
+            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPayment.APROBADO, "7500", "mp-1", 1L));
 
             assertThat(pago.getEstado()).isEqualTo(EstadoPago.A_REEMBOLSAR);
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
@@ -450,7 +450,7 @@ class PagoServiceTest {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             Pago pago = pago(1L, reserva, EstadoPago.PENDIENTE, "7500");
 
-            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPagoExterno.APROBADO, "1", "mp-1", 1L));
+            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPayment.APROBADO, "1", "mp-1", 1L));
 
             assertThat(pago.getEstado()).isEqualTo(EstadoPago.A_REEMBOLSAR);
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.PENDIENTE);
@@ -464,7 +464,7 @@ class PagoServiceTest {
             Pago segundo = pago(2L, reserva, EstadoPago.EN_PROCESO, "7500");
             segundo.setExternalPaymentId("mp-2");
 
-            pagoService.aplicarResultado(reserva, segundo, resultado(EstadoPagoExterno.RECHAZADO, "7500", "mp-2", 2L));
+            pagoService.aplicarResultado(reserva, segundo, resultado(EstadoPayment.RECHAZADO, "7500", "mp-2", 2L));
 
             assertThat(segundo.getEstado()).isEqualTo(EstadoPago.RECHAZADO);
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
@@ -474,7 +474,7 @@ class PagoServiceTest {
         void notificacionRepetidaNoCambiaNada() {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             Pago pago = pago(1L, reserva, EstadoPago.PENDIENTE, "7500");
-            PaymentResult aprobado = resultado(EstadoPagoExterno.APROBADO, "7500", "mp-1", 1L);
+            PaymentResult aprobado = resultado(EstadoPayment.APROBADO, "7500", "mp-1", 1L);
 
             pagoService.aplicarResultado(reserva, pago, aprobado);
             var pagadoEn = pago.getPaidAt();
@@ -489,7 +489,7 @@ class PagoServiceTest {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             Pago pago = pago(1L, reserva, EstadoPago.DEVUELTO, "7500");
 
-            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPagoExterno.APROBADO, "7500", "mp-1", 1L));
+            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPayment.APROBADO, "7500", "mp-1", 1L));
 
             assertThat(pago.getEstado()).isEqualTo(EstadoPago.DEVUELTO);
         }
@@ -500,7 +500,7 @@ class PagoServiceTest {
             Pago pago = pago(1L, reserva, EstadoPago.APROBADO, "7500");
             pago.setExternalPaymentId("mp-1");
 
-            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPagoExterno.DEVUELTO, "7500", "mp-1", 1L));
+            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPayment.DEVUELTO, "7500", "mp-1", 1L));
 
             assertThat(pago.getEstado()).isEqualTo(EstadoPago.DEVUELTO);
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
@@ -513,7 +513,7 @@ class PagoServiceTest {
             Pago pago = pago(1L, reserva, EstadoPago.EN_PROCESO, "7500");
             pago.setExternalPaymentId("mp-nuevo");
 
-            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPagoExterno.RECHAZADO, "7500", "mp-viejo", 1L));
+            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPayment.RECHAZADO, "7500", "mp-viejo", 1L));
 
             assertThat(pago.getEstado()).isEqualTo(EstadoPago.EN_PROCESO);
             assertThat(pago.getExternalPaymentId()).isEqualTo("mp-nuevo");
@@ -605,7 +605,7 @@ class PagoServiceTest {
             pendiente.setMontoReembolsado(new BigDecimal("7500"));
             pendiente.setReembolsoSolicitadoAt(AHORA.minusMinutes(10));
             when(pagoRepository.findReservaIdByPagoId(1L)).thenReturn(Optional.of(10L));
-            when(mercadoPago.consultarPago("mp-1")).thenReturn(resultado(EstadoPagoExterno.APROBADO, "15000", "mp-1", 1L));
+            when(mercadoPago.consultarPago("mp-1")).thenReturn(resultado(EstadoPayment.APROBADO, "15000", "mp-1", 1L));
         }
 
         @Test
@@ -618,7 +618,7 @@ class PagoServiceTest {
 
         @Test
         void siMercadoPagoYaLoTieneDevueltoNoSeDevuelveDosVeces() {
-            PaymentResult devuelto = resultado(EstadoPagoExterno.APROBADO, "15000", "mp-1", 1L);
+            PaymentResult devuelto = resultado(EstadoPayment.APROBADO, "15000", "mp-1", 1L);
             devuelto.setMontoDevuelto(new BigDecimal("7500"));
             when(mercadoPago.consultarPago("mp-1")).thenReturn(devuelto);
 
@@ -628,7 +628,7 @@ class PagoServiceTest {
 
         @Test
         void siSeDevolvioOtroMontoDesdeElPanelQuedaParaRevisarAMano() {
-            PaymentResult devuelto = resultado(EstadoPagoExterno.APROBADO, "15000", "mp-1", 1L);
+            PaymentResult devuelto = resultado(EstadoPayment.APROBADO, "15000", "mp-1", 1L);
             devuelto.setMontoDevuelto(new BigDecimal("15000"));
             when(mercadoPago.consultarPago("mp-1")).thenReturn(devuelto);
 
@@ -675,7 +675,7 @@ class PagoServiceTest {
 
         @Test
         void elWebhookDeDevolucionLoResuelve() {
-            pagoService.aplicarResultado(reserva, pendiente, resultado(EstadoPagoExterno.DEVUELTO, "15000", "mp-1", 1L));
+            pagoService.aplicarResultado(reserva, pendiente, resultado(EstadoPayment.DEVUELTO, "15000", "mp-1", 1L));
 
             assertThat(pendiente.getEstado()).isEqualTo(EstadoPago.DEVUELTO);
             assertThat(pendiente.getMontoReembolsado()).isEqualByComparingTo("7500");
@@ -683,7 +683,7 @@ class PagoServiceTest {
 
         @Test
         void unAprobadoRepetidoNoLoVuelveAtras() {
-            pagoService.aplicarResultado(reserva, pendiente, resultado(EstadoPagoExterno.APROBADO, "15000", "mp-1", 1L));
+            pagoService.aplicarResultado(reserva, pendiente, resultado(EstadoPayment.APROBADO, "15000", "mp-1", 1L));
 
             assertThat(pendiente.getEstado()).isEqualTo(EstadoPago.REEMBOLSO_PENDIENTE);
         }
@@ -734,8 +734,8 @@ class PagoServiceTest {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             Pago pago = pago(1L, reserva, EstadoPago.PENDIENTE, "7500");
 
-            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPagoExterno.APROBADO, "7500", "mp-1", 1L));
-            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPagoExterno.APROBADO, "7500", "mp-1", 1L));
+            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPayment.APROBADO, "7500", "mp-1", 1L));
+            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPayment.APROBADO, "7500", "mp-1", 1L));
 
             assertThat(publicados()).extracting(AvisoReserva::tipo).containsExactly(TipoAviso.RESERVA_CONFIRMADA);
         }
@@ -745,7 +745,7 @@ class PagoServiceTest {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             Pago pago = pago(1L, reserva, EstadoPago.PENDIENTE, "7500");
 
-            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPagoExterno.APROBADO, "1", "mp-1", 1L));
+            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPayment.APROBADO, "1", "mp-1", 1L));
 
             assertThat(publicados()).singleElement().satisfies(a -> {
                 assertThat(a.tipo()).isEqualTo(TipoAviso.REEMBOLSO_MANUAL);
@@ -759,7 +759,7 @@ class PagoServiceTest {
             Pago pago = pago(1L, reserva, EstadoPago.APROBADO, "7500");
             pago.setExternalPaymentId("mp-1");
 
-            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPagoExterno.DEVUELTO, "7500", "mp-1", 1L));
+            pagoService.aplicarResultado(reserva, pago, resultado(EstadoPayment.DEVUELTO, "7500", "mp-1", 1L));
 
             assertThat(publicados()).extracting(AvisoReserva::tipo).containsExactly(TipoAviso.RESERVA_CANCELADA);
         }
@@ -772,7 +772,7 @@ class PagoServiceTest {
             pendiente.setMontoReembolsado(new BigDecimal("15000"));
             pendiente.setReembolsoSolicitadoAt(AHORA.minusMinutes(5));
             when(pagoRepository.findReservaIdByPagoId(1L)).thenReturn(Optional.of(10L));
-            when(mercadoPago.consultarPago("mp-1")).thenReturn(resultado(EstadoPagoExterno.APROBADO, "15000", "mp-1", 1L));
+            when(mercadoPago.consultarPago("mp-1")).thenReturn(resultado(EstadoPayment.APROBADO, "15000", "mp-1", 1L));
 
             pagoService.reintentarReembolso(1L);
 
@@ -789,7 +789,7 @@ class PagoServiceTest {
             pendiente.setExternalPaymentId("mp-1");
             pendiente.setMontoReembolsado(new BigDecimal("15000"));
 
-            pagoService.aplicarResultado(reserva, pendiente, resultado(EstadoPagoExterno.DEVUELTO, "15000", "mp-1", 1L));
+            pagoService.aplicarResultado(reserva, pendiente, resultado(EstadoPayment.DEVUELTO, "15000", "mp-1", 1L));
 
             assertThat(publicados()).extracting(AvisoReserva::tipo).containsExactly(TipoAviso.REEMBOLSO_REALIZADO);
         }
@@ -802,7 +802,7 @@ class PagoServiceTest {
             pendiente.setMontoReembolsado(new BigDecimal("15000"));
             pendiente.setReembolsoSolicitadoAt(AHORA.minusHours(25));
             when(pagoRepository.findReservaIdByPagoId(1L)).thenReturn(Optional.of(10L));
-            when(mercadoPago.consultarPago("mp-1")).thenReturn(resultado(EstadoPagoExterno.APROBADO, "15000", "mp-1", 1L));
+            when(mercadoPago.consultarPago("mp-1")).thenReturn(resultado(EstadoPayment.APROBADO, "15000", "mp-1", 1L));
             doThrow(new ReembolsoFallidoException(false)).when(mercadoPago).reembolsar(any(), any());
 
             pagoService.reintentarReembolso(1L);

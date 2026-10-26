@@ -47,7 +47,7 @@ reservas/
 └── mapper/          entidad → DTO (ReservaMapper)
 ```
 
-`pagos` sigue la misma forma y además tiene `payment/` (lo genérico para usar distintos proveedores de pago: `PaymentService`, `PaymentServiceFactory`, `PaymentProvider`, `PaymentResult`, `EstadoPagoExterno`) y `mercadopago/` (la implementación de Mercado Pago y su validador de webhooks). Un proveedor nuevo va en su propio subpaquete e implementa `PaymentService`.
+`pagos` sigue la misma forma y además tiene `payment/` (lo genérico para usar distintos proveedores de pago: `PaymentService`, `PaymentServiceFactory`, `PaymentProvider`, `PaymentResult`, `EstadoPayment`) y `mercadopago/` (la implementación de Mercado Pago y su validador de webhooks). Un proveedor nuevo va en su propio subpaquete e implementa `PaymentService`.
 
 ### Responsabilidad de cada capa
 1. **Controller**: solo HTTP. Ruta, `@Valid`, rol (`@PreAuthorize` por método) y una llamada a un service. Sin lógica de negocio y sin repositories. Un controller por recurso: lo público y lo del ADMIN de un mismo recurso van en el mismo controller con roles por método.

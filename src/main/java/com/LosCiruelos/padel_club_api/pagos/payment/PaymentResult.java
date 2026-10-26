@@ -12,7 +12,7 @@ import lombok.Data;
 @Builder
 @AllArgsConstructor
 public class PaymentResult {
-    private EstadoPagoExterno estado;
+    private EstadoPayment estado;
     // id de la reserva (external_reference)
     private String externalReference;
     // id de nuestro Pago (metadata pago_id)

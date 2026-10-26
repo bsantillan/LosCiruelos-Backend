@@ -15,7 +15,7 @@ import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
-import com.LosCiruelos.padel_club_api.pagos.payment.EstadoPagoExterno;
+import com.LosCiruelos.padel_club_api.pagos.payment.EstadoPayment;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.mercadopago.client.preference.PreferenceRequest;
@@ -24,14 +24,14 @@ class MercadoPagoTest {
 
     @Test
     void mapeaLosEstadosDeMercadoPago() {
-        assertThat(MercadoPagoPaymentService.mapearEstado("approved")).isEqualTo(EstadoPagoExterno.APROBADO);
-        assertThat(MercadoPagoPaymentService.mapearEstado("rejected")).isEqualTo(EstadoPagoExterno.RECHAZADO);
-        assertThat(MercadoPagoPaymentService.mapearEstado("cancelled")).isEqualTo(EstadoPagoExterno.RECHAZADO);
-        assertThat(MercadoPagoPaymentService.mapearEstado("refunded")).isEqualTo(EstadoPagoExterno.DEVUELTO);
-        assertThat(MercadoPagoPaymentService.mapearEstado("charged_back")).isEqualTo(EstadoPagoExterno.DEVUELTO);
-        assertThat(MercadoPagoPaymentService.mapearEstado("in_process")).isEqualTo(EstadoPagoExterno.EN_PROCESO);
-        assertThat(MercadoPagoPaymentService.mapearEstado("in_mediation")).isEqualTo(EstadoPagoExterno.EN_PROCESO);
-        assertThat(MercadoPagoPaymentService.mapearEstado(null)).isEqualTo(EstadoPagoExterno.EN_PROCESO);
+        assertThat(MercadoPagoPaymentService.mapearEstado("approved")).isEqualTo(EstadoPayment.APROBADO);
+        assertThat(MercadoPagoPaymentService.mapearEstado("rejected")).isEqualTo(EstadoPayment.RECHAZADO);
+        assertThat(MercadoPagoPaymentService.mapearEstado("cancelled")).isEqualTo(EstadoPayment.RECHAZADO);
+        assertThat(MercadoPagoPaymentService.mapearEstado("refunded")).isEqualTo(EstadoPayment.DEVUELTO);
+        assertThat(MercadoPagoPaymentService.mapearEstado("charged_back")).isEqualTo(EstadoPayment.DEVUELTO);
+        assertThat(MercadoPagoPaymentService.mapearEstado("in_process")).isEqualTo(EstadoPayment.EN_PROCESO);
+        assertThat(MercadoPagoPaymentService.mapearEstado("in_mediation")).isEqualTo(EstadoPayment.EN_PROCESO);
+        assertThat(MercadoPagoPaymentService.mapearEstado(null)).isEqualTo(EstadoPayment.EN_PROCESO);
     }
 
     @Test
