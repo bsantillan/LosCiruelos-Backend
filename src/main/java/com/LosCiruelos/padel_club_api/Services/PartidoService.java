@@ -1,7 +1,6 @@
 package com.LosCiruelos.padel_club_api.Services;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -31,12 +30,13 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
-import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
 import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
 import com.LosCiruelos.padel_club_api.Repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.Repository.TurnoFijoRepository;
+import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.common.Roles;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,7 +60,7 @@ public class PartidoService {
     private final CanchaRepository canchaRepository;
     private final ReservaRepository reservaRepository;
     private final TurnoFijoRepository turnoFijoRepository;
-    private final Clock clock;
+    private final Reloj reloj;
 
     /** Un jugador ya validado: un cliente registrado o un invitado (nombre y teléfono opcional). */
     public record DatosJugador(Usuario usuario, String nombre, String telefono) {
@@ -78,7 +78,7 @@ public class PartidoService {
     @Transactional
     public ReservaResponse crear(PartidoRequest req, String email) {
         Usuario admin = admin(email);
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         Configuracion config = configuracionService.obtener();
         long duracion = reservaService.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(),
                 req.getHoraFin(), ahora);
@@ -108,7 +108,7 @@ public class PartidoService {
                 || reservaRepository.existsByTurnoFijoAndFechaReserva(tf, fecha)) {
             return Optional.empty();
         }
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         Configuracion config = configuracionService.obtener();
         long duracion = reservaService.validarHorario(config, fecha, tf.getHoraInicio(), tf.getHoraFin(), ahora);
         List<DatosJugador> jugadores = tf.getJugadores().stream()
@@ -173,7 +173,7 @@ public class PartidoService {
     public ReservaResponse actualizar(Long id, PartidoRequest req, String email) {
         admin(email);
         Reserva partido = reservaService.bloquear(id);
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         if (!partido.esPartido()) {
             throw new ReservaException("La reserva #" + id + " no es un partido.");
         }
@@ -319,11 +319,8 @@ public class PartidoService {
     }
 
     private Usuario admin(String email) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(email,
-                new CredencialesInvalidasException("Usuario no encontrado"));
-        if (usuario.getRol() != Role.ADMIN) {
-            throw new PermisoDenegadoException("Solo el ADMIN puede armar partidos.");
-        }
+        Usuario usuario = usuarioService.autenticado(email);
+        Roles.exigirAdmin(usuario, "Solo el ADMIN puede armar partidos.");
         return usuario;
     }
 }

@@ -101,7 +101,7 @@ class ReservaServiceTest {
         otroCliente = usuario(2L, Role.CLIENTE);
         admin = usuario(3L, Role.ADMIN);
         for (Usuario u : List.of(cliente, otroCliente, admin)) {
-            when(usuarioService.findByEmailOrThrow(eq(u.getEmail()), any())).thenReturn(u);
+            when(usuarioService.autenticado(u.getEmail())).thenReturn(u);
         }
         when(usuarioService.findByIdOrThrow(1L)).thenReturn(cliente);
         when(usuarioService.findByIdOrThrow(3L)).thenReturn(admin);

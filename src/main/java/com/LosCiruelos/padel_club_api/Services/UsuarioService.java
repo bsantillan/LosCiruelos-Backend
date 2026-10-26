@@ -10,13 +10,14 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
 import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
 import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
-import com.LosCiruelos.padel_club_api.Services.WhatsApp.Telefonos;
+import com.LosCiruelos.padel_club_api.common.Telefonos;
 
 import lombok.RequiredArgsConstructor;
 
@@ -112,6 +113,11 @@ public class UsuarioService {
                 .emailVerificado(emailVerificado)
                 .enabled(enabled)
                 .build());
+    }
+
+    /** El usuario de la sesión (por el email del token). */
+    public Usuario autenticado(String email) {
+        return findByEmailOrThrow(email, new CredencialesInvalidasException("Usuario no encontrado"));
     }
 
     public Usuario findByIdOrThrow(Long id) {

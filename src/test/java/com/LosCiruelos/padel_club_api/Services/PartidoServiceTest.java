@@ -92,7 +92,7 @@ class PartidoServiceTest {
         cliente = usuario(1L, Role.CLIENTE);
         otroCliente = usuario(2L, Role.CLIENTE);
         for (Usuario u : List.of(admin, empleado, cliente, otroCliente)) {
-            when(usuarioService.findByEmailOrThrow(eq(u.getEmail()), any())).thenReturn(u);
+            when(usuarioService.autenticado(u.getEmail())).thenReturn(u);
             when(usuarioService.findByIdOrThrow(u.getId())).thenReturn(u);
         }
         when(usuarioService.findByIdOrThrow(99L)).thenThrow(new UsuarioNotFoundException("Usuario no encontrado: 99"));

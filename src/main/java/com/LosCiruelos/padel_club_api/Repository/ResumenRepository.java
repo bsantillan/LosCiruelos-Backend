@@ -19,12 +19,12 @@ import com.LosCiruelos.padel_club_api.Entities.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
+import com.LosCiruelos.padel_club_api.common.ConsultasDeTurno;
 
 /** Consultas agregadas del resumen del club: todo se suma en la base, sin traer reservas a memoria. */
 public interface ResumenRepository extends Repository<Reserva, Long> {
 
-    /** El turno ya terminó: fecha anterior a hoy, o hoy con la hora de fin ya pasada. */
-    String TERMINADO = "(r.fechaReserva < :hoy OR (r.fechaReserva = :hoy AND r.horaFin <= :hora))";
+    String TERMINADO = ConsultasDeTurno.TERMINADO;
 
     /** Reserva confirmada (se juega o se jugó) con el turno terminado. */
     String JUGADA = "r.estado IN :juegan AND " + TERMINADO;

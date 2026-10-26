@@ -7,7 +7,6 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.LosCiruelos.padel_club_api.Config.Fechas;
 import com.LosCiruelos.padel_club_api.DTOs.PaymentResult;
 import com.LosCiruelos.padel_club_api.Entities.Pago;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
@@ -17,6 +16,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReembolsoFallidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.common.Fechas;
 import com.mercadopago.client.common.IdentificationRequest;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;

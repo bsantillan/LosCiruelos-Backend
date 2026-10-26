@@ -1,6 +1,5 @@
 package com.LosCiruelos.padel_club_api.Security;
 
-import java.time.Clock;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +20,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.LosCiruelos.padel_club_api.common.Reloj;
+
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
@@ -31,7 +32,7 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
     private final JWTFilter jwtFilter;
-    private final Clock clock;
+    private final Reloj reloj;
 
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
@@ -91,7 +92,7 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, e) -> escribirError(response,
                                 HttpStatus.FORBIDDEN, "No tenés permisos para esta operación")));
 
-        http.addFilterBefore(new RateLimitFilter(clock), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(new RateLimitFilter(reloj), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

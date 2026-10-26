@@ -15,7 +15,7 @@ import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
-import com.LosCiruelos.padel_club_api.Specifications.Busquedas;
+import com.LosCiruelos.padel_club_api.common.Busquedas;
 
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;

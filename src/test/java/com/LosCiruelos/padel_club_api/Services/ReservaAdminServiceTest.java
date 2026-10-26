@@ -160,8 +160,8 @@ class ReservaAdminServiceTest {
 
     @Test
     void elTextoDelClienteSeNormaliza() {
-        assertThat(com.LosCiruelos.padel_club_api.Specifications.Busquedas.normalizar("  JOSÉ   María ")).isEqualTo("jose maria");
-        assertThat(com.LosCiruelos.padel_club_api.Specifications.Busquedas.normalizar("  ")).isNull();
-        assertThat(com.LosCiruelos.padel_club_api.Specifications.Busquedas.contiene("50%_a\\b")).isEqualTo("%50\\%\\_a\\\\b%");
+        assertThat(com.LosCiruelos.padel_club_api.common.Busquedas.normalizar("  JOSÉ   María ")).isEqualTo("jose maria");
+        assertThat(com.LosCiruelos.padel_club_api.common.Busquedas.normalizar("  ")).isNull();
+        assertThat(com.LosCiruelos.padel_club_api.common.Busquedas.contiene("50%_a\\b")).isEqualTo("%50\\%\\_a\\\\b%");
     }
 }

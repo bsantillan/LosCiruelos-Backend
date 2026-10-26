@@ -30,6 +30,7 @@ import com.LosCiruelos.padel_club_api.Services.Email.EmailService;
 import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
 import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppService;
 import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
+import com.LosCiruelos.padel_club_api.common.Dinero;
 
 class AvisosServiceTest {
 
@@ -158,6 +159,6 @@ class AvisosServiceTest {
         assertThat(aviso.texto()).isEqualTo(
                 "Nueva reserva en Los Ciruelos: Nombre3 reservó la cancha 1 para el miércoles 14/10, de 18:00 a 19:30. "
                         + "Pagó $7.500 de un total de $15.000. Podés ver el detalle en el panel del club.");
-        assertThat(AvisoReserva.pesos(new BigDecimal("7500.50"))).isEqualTo("$7.500,5");
+        assertThat(Dinero.texto(new BigDecimal("7500.50"))).isEqualTo("$7.500,5");
     }
 }

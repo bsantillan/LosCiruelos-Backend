@@ -13,6 +13,7 @@ import com.LosCiruelos.padel_club_api.Entities.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.ReservaJugador;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
+import com.LosCiruelos.padel_club_api.common.Dinero;
 
 import lombok.Data;
 
@@ -105,10 +106,8 @@ public class ReservaResponse {
                 .filter(p -> p.getJugador() != null && p.getJugador().getId() != null
                         && p.getJugador().getId().equals(jugador.getId()))
                 .toList();
-        BigDecimal pagado = suyos.stream().filter(p -> !p.esBonificacion()).map(Pago::getMontoRetenido)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal bonificado = suyos.stream().filter(Pago::esBonificacion).map(Pago::getMontoRetenido)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal pagado = Dinero.sumar(suyos.stream().filter(p -> !p.esBonificacion()).map(Pago::getMontoRetenido));
+        BigDecimal bonificado = Dinero.sumar(suyos.stream().filter(Pago::esBonificacion).map(Pago::getMontoRetenido));
         BigDecimal parte = reserva.parteDe(jugador.getPosicion());
         // si la reserva ya está cubierta (por ejemplo, otro pagó todo) nadie debe nada
         BigDecimal debe = reserva.getMontoPendiente().signum() <= 0 ? BigDecimal.ZERO

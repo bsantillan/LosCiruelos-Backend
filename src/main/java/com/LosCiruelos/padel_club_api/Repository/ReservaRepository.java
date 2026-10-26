@@ -24,6 +24,7 @@ import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
+import com.LosCiruelos.padel_club_api.common.ConsultasDeTurno;
 
 import jakarta.persistence.LockModeType;
 
@@ -74,8 +75,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             SELECT r FROM Reserva r
             WHERE r.cancha.id = :canchaId
               AND r.fechaReserva = :fecha
-              AND r.horaInicio < :horaFin
-              AND r.horaFin > :horaInicio
+              AND\s""" + ConsultasDeTurno.SE_SUPERPONE + """
               AND r.estado NOT IN :inactivos
               AND NOT (r.estado = :pendiente AND r.expiresAt <= :ahora
                        AND NOT EXISTS (SELECT p FROM Pago p WHERE p.reserva = r AND p.estado IN :pagosActivos))
@@ -96,8 +96,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             SELECT r.id FROM Reserva r
             WHERE r.cancha.id = :canchaId
               AND r.fechaReserva = :fecha
-              AND r.horaInicio < :horaFin
-              AND r.horaFin > :horaInicio
+              AND\s""" + ConsultasDeTurno.SE_SUPERPONE + """
               AND r.estado = :pendiente
               AND r.expiresAt <= :ahora
               AND NOT EXISTS (SELECT p FROM Pago p WHERE p.reserva = r AND p.estado IN :pagosActivos)
@@ -161,7 +160,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             WHERE rp.cantidadDevuelta IS NULL
               AND rp.producto.tipo = :alquiler
               AND r.estado IN :estadosQueSeJuegan
-              AND (r.fechaReserva < :hoy OR (r.fechaReserva = :hoy AND r.horaInicio <= :hora))
+              AND\s""" + ConsultasDeTurno.EMPEZO + """
             ORDER BY r.fechaReserva, r.horaInicio
             """)
     List<Reserva> findConAlquileresSinDevolver(
@@ -190,7 +189,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
     @Query("""
             SELECT r FROM Reserva r
             WHERE r.estado IN :estados
-              AND (r.fechaReserva < :hoy OR (r.fechaReserva = :hoy AND r.horaFin <= :hora))
+              AND\s""" + ConsultasDeTurno.TERMINADO + """
             ORDER BY r.fechaReserva, r.horaInicio
             """)
     List<Reserva> findTerminadasConSaldo(
@@ -203,7 +202,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
     @Query("""
             UPDATE Reserva r SET r.estado = :completada
             WHERE r.estado IN :confirmados
-              AND (r.fechaReserva < :hoy OR (r.fechaReserva = :hoy AND r.horaFin <= :hora))
+              AND\s""" + ConsultasDeTurno.TERMINADO + """
             """)
     int marcarCompletadas(
             @Param("completada") EstadoReserva completada,
@@ -221,7 +220,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
     @Query("""
             SELECT r.id FROM Reserva r
             WHERE r.turnoFijo.id = :turnoFijoId
-              AND (r.fechaReserva > :hoy OR (r.fechaReserva = :hoy AND r.horaInicio > :hora))
+              AND NOT\s""" + ConsultasDeTurno.EMPEZO + """
             ORDER BY r.fechaReserva
             """)
     List<Long> findIdsFuturosDelTurnoFijo(
@@ -234,8 +233,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             SELECT r FROM Reserva r
             WHERE r.cancha.id = :canchaId
               AND r.fechaReserva >= :desde
-              AND r.horaInicio < :horaFin
-              AND r.horaFin > :horaInicio
+              AND\s""" + ConsultasDeTurno.SE_SUPERPONE + """
               AND r.estado NOT IN :inactivos
               AND (r.turnoFijo IS NULL OR r.turnoFijo.id <> :turnoFijoId)
             ORDER BY r.fechaReserva

@@ -14,6 +14,7 @@ import com.LosCiruelos.padel_club_api.DTOs.UsoAlquiler;
 import com.LosCiruelos.padel_club_api.Entities.ReservaProducto;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.common.ConsultasDeTurno;
 
 public interface ReservaProductoRepository extends JpaRepository<ReservaProducto, Long> {
 
@@ -31,8 +32,7 @@ public interface ReservaProductoRepository extends JpaRepository<ReservaProducto
               AND rp.cantidadDevuelta IS NULL
               AND r.id <> :excluirReservaId
               AND r.fechaReserva = :fecha
-              AND r.horaInicio < :horaFin
-              AND r.horaFin > :horaInicio
+              AND\s""" + ConsultasDeTurno.SE_SUPERPONE + """
               AND r.estado NOT IN :inactivos
               AND NOT (r.estado = :pendiente AND r.expiresAt <= :ahora
                        AND NOT EXISTS (SELECT p FROM Pago p WHERE p.reserva = r AND p.estado IN :pagosActivos))
@@ -58,7 +58,7 @@ public interface ReservaProductoRepository extends JpaRepository<ReservaProducto
             WHERE rp.producto.id = :productoId
               AND rp.cantidadDevuelta IS NULL
               AND r.estado IN :estadosQueSeJuegan
-              AND (r.fechaReserva < :hoy OR (r.fechaReserva = :hoy AND r.horaFin <= :hora))
+              AND\s""" + ConsultasDeTurno.TERMINADO + """
             """)
     Long sumarSinDevolver(
             @Param("productoId") Long productoId,

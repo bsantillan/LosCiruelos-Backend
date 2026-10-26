@@ -49,7 +49,7 @@
 | `spring.jpa.show-sql` | `${SHOW_SQL:false}` | SQL de Hibernate en el log |
 | `spring.jpa.open-in-view` | `false` | No se mantiene la sesión de Hibernate abierta durante la vista |
 | `spring.jpa.properties.hibernate.jdbc.time_zone` | `America/Argentina/Buenos_Aires` | |
-| `spring.jackson.time-zone` | `America/Argentina/Buenos_Aires` | Zona de Jackson (los formatos están en `Config/Fechas`) |
+| `spring.jackson.time-zone` | `America/Argentina/Buenos_Aires` | Zona de Jackson (los formatos están en `common/Fechas`) |
 | `spring.jackson.datatype.datetime.write-dates-as-timestamps` | `false` | Fechas como texto ISO. En Jackson 3 esta opción ya no está en `spring.jackson.serialization.*`: escrita ahí, la app no arranca |
 | `spring.flyway.*` | enabled, `classpath:db/Migrations`, baseline en V1 | |
 

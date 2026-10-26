@@ -13,6 +13,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import com.LosCiruelos.padel_club_api.common.Telefonos;
+
 import lombok.extern.slf4j.Slf4j;
 
 /**

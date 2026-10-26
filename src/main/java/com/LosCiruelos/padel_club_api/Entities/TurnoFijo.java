@@ -7,6 +7,8 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.LosCiruelos.padel_club_api.common.Turno;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -86,6 +88,11 @@ public class TurnoFijo {
     @OrderBy("posicion")
     @OneToMany(mappedBy = "turnoFijo", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TurnoFijoJugador> jugadores = new ArrayList<>();
+
+    /** El turno de esa fecha (cancha aparte). */
+    public Turno turnoEl(LocalDate fecha) {
+        return new Turno(fecha, horaInicio, horaFin);
+    }
 
     /** La fecha cae en este turno fijo: mismo día de la semana y desde la fecha de inicio. */
     public boolean seJuegaEl(LocalDate fecha) {

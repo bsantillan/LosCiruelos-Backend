@@ -12,6 +12,8 @@ import java.util.Set;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
+import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.common.Turno;
 
 import org.hibernate.annotations.BatchSize;
 
@@ -162,14 +164,23 @@ public class Reserva {
 
     @Transient
     public BigDecimal getMontoProductos() {
-        return productos.stream()
-                .map(ReservaProducto::getSubtotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return Dinero.sumar(productos.stream()
+                .map(ReservaProducto::getSubtotal));
     }
 
     @Transient
     public BigDecimal getMontoCancha() {
         return montoTotal.subtract(getMontoProductos());
+    }
+
+    /**
+     * Los pagos iniciados y nunca cobrados (PENDIENTE) pasan a EXPIRADO: ya no se pueden cobrar.
+     * @return los que cambiaron, para guardarlos
+     */
+    public List<Pago> expirarPagosPendientes() {
+        List<Pago> expirados = pagos.stream().filter(p -> p.getEstado() == EstadoPago.PENDIENTE).toList();
+        expirados.forEach(p -> p.setEstado(EstadoPago.EXPIRADO));
+        return expirados;
     }
 
     /** Agrega el pago a la relación en memoria para que los montos calculados lo incluyan. */
@@ -183,19 +194,17 @@ public class Reserva {
     /** La plata que el club se quedó: aprobado menos lo devuelto, sin las bonificaciones. */
     @Transient
     public BigDecimal getMontoPagado() {
-        return pagos.stream()
+        return Dinero.sumar(pagos.stream()
                 .filter(p -> !p.esBonificacion())
-                .map(Pago::getMontoRetenido)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(Pago::getMontoRetenido));
     }
 
     /** Lo que el ADMIN bonificó (no se le cobra al cliente). */
     @Transient
     public BigDecimal getMontoBonificado() {
-        return pagos.stream()
+        return Dinero.sumar(pagos.stream()
                 .filter(Pago::esBonificacion)
-                .map(Pago::getMontoRetenido)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(Pago::getMontoRetenido));
     }
 
     /** Lo pagado más lo bonificado: define el estado de la reserva y lo que falta. */
@@ -237,20 +246,26 @@ public class Reserva {
         return estaPendienteVigente(ahora) || ESTADOS_CONFIRMADOS.contains(estado);
     }
 
+    /** Fecha y horario de la reserva (duración, superposición, si empezó o terminó). */
+    @Transient
+    public Turno turno() {
+        return new Turno(fechaReserva, horaInicio, horaFin);
+    }
+
     public LocalDateTime inicioDelTurno() {
-        return fechaReserva.atTime(horaInicio);
+        return turno().inicioEnFecha();
     }
 
     public LocalDateTime finDelTurno() {
-        return fechaReserva.atTime(horaFin);
+        return turno().finEnFecha();
     }
 
     public boolean turnoEmpezo(LocalDateTime ahora) {
-        return !ahora.isBefore(inicioDelTurno());
+        return turno().empezo(ahora);
     }
 
     public boolean turnoTermino(LocalDateTime ahora) {
-        return !ahora.isBefore(finDelTurno());
+        return turno().termino(ahora);
     }
 
     /** La reserva ya no cuenta: cancelada o expirada. */

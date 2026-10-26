@@ -13,6 +13,8 @@ import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import com.LosCiruelos.padel_club_api.common.Reloj;
+
 class RateLimitFilterTest {
 
     private int status(RateLimitFilter filtro, String ruta) throws Exception {
@@ -25,7 +27,7 @@ class RateLimitFilterTest {
 
     @Test
     void limitaLosIntentosDeLoginPorMinuto() throws Exception {
-        RateLimitFilter filtro = new RateLimitFilter(Clock.fixed(Instant.parse("2026-10-13T10:00:00Z"), ZoneOffset.UTC));
+        RateLimitFilter filtro = new RateLimitFilter(new Reloj(Clock.fixed(Instant.parse("2026-10-13T10:00:00Z"), ZoneOffset.UTC)));
 
         for (int i = 0; i < 10; i++) {
             assertThat(status(filtro, "/auth/login")).isEqualTo(200);
@@ -54,7 +56,7 @@ class RateLimitFilterTest {
                 return ahora.get();
             }
         };
-        RateLimitFilter filtro = new RateLimitFilter(reloj);
+        RateLimitFilter filtro = new RateLimitFilter(new Reloj(reloj));
 
         for (int i = 0; i < 3; i++) {
             assertThat(status(filtro, "/auth/resend-token")).isEqualTo(200);

@@ -19,7 +19,7 @@ Controller ──► Services ──► Repository ──► PostgreSQL
 | `Services` | Lógica de negocio: `AuthService`, `VerificationService`, `PasswordResetService`, `UsuarioService`, `ClienteProfileService`, `PerfilService`, `AdminService`, `CanchaService`, `ConfiguracionService` (horarios, precio, seña), `ProductoService` (catálogo y stock), `ReservaService` (creación, cancelación, expiración), `PagoService` |
 | `Services/Email` | `EmailService` (interfaz), `GmailEmailService` (bean `"gmail"`), `EmailServiceFactory`, `EnvioPostCommit` (envía después del commit) |
 | `Services/Pagos` | `PaymentService` (interfaz), `MercadoPagoPaymentService` (bean `"mercadopago"`), `PaymentServiceFactory`, `MercadoPagoWebhookValidator` |
-| `Services/WhatsApp` | `WhatsAppService` (interfaz), `MetaWhatsAppService` (bean `"meta"`, Cloud API de Meta), `WhatsAppServiceFactory`, `Telefonos` (normalización) |
+| `Services/WhatsApp` | `WhatsAppService` (interfaz), `MetaWhatsAppService` (bean `"meta"`, Cloud API de Meta), `WhatsAppServiceFactory` |
 | `Services/Avisos` | `AvisoReserva` (evento), `TipoAviso` (plantillas y textos), `AvisosService` (elige el canal de cada destinatario), `AvisosListener` (envía después del commit) |
 | `Repository` | Repositorios Spring Data JPA (incluye queries JPQL de solapamiento y pendientes en `ReservaRepository`) |
 | `Entities` / `Entities/Enum` | Entidades JPA y enums de dominio |
@@ -29,7 +29,8 @@ Controller ──► Services ──► Repository ──► PostgreSQL
 | `Handlers` | `GlobalExceptionHandler`: traduce excepciones a respuestas HTTP |
 | `Exceptions` | Excepciones de negocio |
 | `Jobs` | `ReservaJobs` (expiración y reservas completadas) |
-| `Config` | `AppConfig` (`Clock`, caché), `DataInitializer`, `MercadoPagoConfiguration`, `SwaggerConfig` |
+| `Config` | `AppConfig` (`Reloj`, caché), `DataInitializer`, `MercadoPagoConfiguration`, `SwaggerConfig` |
+| `common` | Utilidades compartidas, de uso obligatorio (detalle en `CLAUDE.md`): `Reloj` (hora del club), `Turno` (duración, superposición, si empezó o terminó), `ConsultasDeTurno` (las mismas condiciones en JPQL y Criteria), `Fechas` (zona, formato de la API y textos de fechas y días), `Dinero` (redondeo, sumas y texto en pesos), `Paginacion`, `Roles`, `Busquedas` (búsqueda sin tildes) y `Telefonos` (normalización del celular) |
 
 ## Proveedores intercambiables (patrón factory)
 
@@ -100,10 +101,10 @@ Email y pagos se resuelven por nombre de bean:
 
 ## Otros detalles
 
-- **Zona horaria**: una sola constante, `Fechas.ZONA` (`America/Argentina/Buenos_Aires`). La usan el `Clock` de la app (`Clock.system(ZONA)`, de a milisegundos), la zona por defecto de la JVM (fijada en `main`), Hibernate (`hibernate.jdbc.time_zone`), Jackson (`spring.jackson.time-zone`) y el vencimiento de las preferencias de MP.
+- **Zona horaria**: una sola constante, `Fechas.ZONA` (`America/Argentina/Buenos_Aires`). La usan el `Reloj` de la app (`Reloj.delSistema()`, de a milisegundos), la zona por defecto de la JVM (fijada en `main`), Hibernate (`hibernate.jdbc.time_zone`), Jackson (`spring.jackson.time-zone`) y el vencimiento de las preferencias de MP.
 - **Formato de fechas del JSON** (`Fechas.moduloJackson`, registrado como bean en `AppConfig`): `LocalDateTime` → `2026-10-17T18:15:00.123-03:00`, `LocalTime` → `18:00`, `LocalDate` → `2026-10-17`. El `timestamp` de los errores usa el mismo formato y el mismo reloj.
 - **Esquema**: lo gestiona Flyway; Hibernate solo valida (`ddl-auto=validate`).
 - **Configuración del club**: un único registro `Configuracion` con id = 1 (ver [flujos-de-negocio.md](flujos-de-negocio.md)), en caché en memoria (`AppConfig` activa `@EnableCaching`).
-- **Reloj**: los servicios usan el `Clock` de `AppConfig` en lugar de `now()` directo, para poder testear con horas fijas.
+- **Reloj**: los servicios usan el `Reloj` de `AppConfig` (`ahora()`, `hoy()`) en lugar de `now()` directo, para poder testear con horas fijas (`Reloj.fijo(...)`).
 - **OpenAPI**: `SwaggerConfig` define la info de la API y el esquema de seguridad `bearerAuth`.
 - **Actuator**: incluido; sus endpoints requieren autenticación.

@@ -72,7 +72,7 @@ class TelefonoServiceTest {
         assertThat(token.getValue().getToken()).matches("[0-9]{6}");
         assertThat(token.getValue().getType()).isEqualTo(TokenType.VERIFY_PHONE);
         assertThat(token.getValue().getFechaExpiracion())
-                .isEqualTo(TestData.reloj(AHORA).instant().plus(TelefonoService.VIGENCIA_CODIGO));
+                .isEqualTo(TestData.reloj(AHORA).instante().plus(TelefonoService.VIGENCIA_CODIGO));
         // sin transacción activa se envía en el acto
         verify(whatsApp).enviarCodigo("5491122334455", "codigo_verificacion_v2", token.getValue().getToken());
     }

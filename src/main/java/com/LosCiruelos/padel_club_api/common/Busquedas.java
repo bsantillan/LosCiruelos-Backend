@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Specifications;
+package com.LosCiruelos.padel_club_api.common;
 
 import java.text.Normalizer;
 import java.util.Locale;

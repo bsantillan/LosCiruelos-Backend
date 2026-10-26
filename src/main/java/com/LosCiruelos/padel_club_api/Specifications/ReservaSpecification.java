@@ -15,6 +15,8 @@ import com.LosCiruelos.padel_club_api.Entities.ReservaJugador;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.common.Busquedas;
+import com.LosCiruelos.padel_club_api.common.ConsultasDeTurno;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
@@ -123,11 +125,7 @@ public final class ReservaSpecification {
     // así el NOT de "historial" nunca evalúa a null (y ninguna reserva queda fuera de los dos).
     private static Predicate esProxima(Root<Reserva> root, jakarta.persistence.criteria.CriteriaQuery<?> query,
             CriteriaBuilder cb, LocalDateTime ahora) {
-        LocalDate hoy = ahora.toLocalDate();
-        Predicate turnoNoTermino = cb.or(
-                cb.greaterThan(root.get("fechaReserva"), hoy),
-                cb.and(cb.equal(root.get("fechaReserva"), hoy),
-                        cb.greaterThan(root.get("horaFin"), ahora.toLocalTime())));
+        Predicate turnoNoTermino = ConsultasDeTurno.noTermino(cb, root, ahora);
 
         Predicate confirmada = root.get("estado").in(Reserva.ESTADOS_CONFIRMADOS);
 

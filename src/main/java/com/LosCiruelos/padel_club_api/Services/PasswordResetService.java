@@ -55,8 +55,7 @@ public class PasswordResetService {
 
         @Transactional(noRollbackFor = CodigoInvalidoException.class)
         public void verificarToken(String email, String codigo) {
-                Usuario usuario = usuarioService.findByEmailOrThrow(email,
-                                new CredencialesInvalidasException("Usuario no encontrado"));
+                Usuario usuario = usuarioService.autenticado(email);
 
                 VerificationToken token = VerificationService.validarCodigo(tokenRepository, usuario,
                                 TokenType.PASSWORD_RESET, codigo);
@@ -69,8 +68,7 @@ public class PasswordResetService {
                 if (!PasswordValidator.esValida(nuevaPassword)) {
                         throw new PasswordInvalidaException();
                 }
-                Usuario usuario = usuarioService.findByEmailOrThrow(email,
-                                new CredencialesInvalidasException("Usuario no encontrado"));
+                Usuario usuario = usuarioService.autenticado(email);
 
                 VerificationToken token = tokenRepository
                                 .findByUsuarioAndType(usuario, TokenType.PASSWORD_RESET)

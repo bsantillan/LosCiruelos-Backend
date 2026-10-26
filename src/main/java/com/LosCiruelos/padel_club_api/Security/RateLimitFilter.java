@@ -1,7 +1,6 @@
 package com.LosCiruelos.padel_club_api.Security;
 
 import java.io.IOException;
-import java.time.Clock;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -9,6 +8,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -41,12 +42,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
             Map.entry("/perfil/telefono/codigo", 3),
             Map.entry("/perfil/telefono/verificar", 10));
 
-    private final Clock clock;
+    private final Reloj reloj;
     private final Map<String, Ventana> ventanas = new ConcurrentHashMap<>();
     private volatile long ultimaLimpieza;
 
-    public RateLimitFilter(Clock clock) {
-        this.clock = clock;
+    public RateLimitFilter(Reloj reloj) {
+        this.reloj = reloj;
     }
 
     @Override
@@ -57,7 +58,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        long ahora = clock.millis();
+        long ahora = reloj.milisegundos();
         limpiarSiCorresponde(ahora);
 
         String ruta = request.getRequestURI();

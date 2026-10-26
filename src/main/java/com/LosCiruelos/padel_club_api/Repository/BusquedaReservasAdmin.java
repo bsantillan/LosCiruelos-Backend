@@ -1,7 +1,6 @@
 package com.LosCiruelos.padel_club_api.Repository;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
@@ -17,6 +16,7 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Specifications.ReservaSpecification;
+import com.LosCiruelos.padel_club_api.common.Dinero;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -103,8 +103,8 @@ public class BusquedaReservasAdmin {
         BigDecimal efectivo = monto(cobros, 2);
         // lo que falta: el total de las que deben menos lo cubierto (pagado + bonificado) de ellas
         BigDecimal pendiente = monto(reservas, 2).subtract(monto(cobros, 1));
-        return new Totales(reservas.get(0, Long.class), pesos(monto(reservas, 1)), pesos(montoCobrado),
-                pesos(efectivo), pesos(montoCobrado.subtract(efectivo)), pesos(monto(cobros, 3)), pesos(pendiente));
+        return new Totales(reservas.get(0, Long.class), Dinero.redondear(monto(reservas, 1)), Dinero.redondear(montoCobrado),
+                Dinero.redondear(efectivo), Dinero.redondear(montoCobrado.subtract(efectivo)), Dinero.redondear(monto(cobros, 3)), Dinero.redondear(pendiente));
     }
 
     /** Lo que el club se queda de un pago, igual que Pago.getMontoRetenido. */
@@ -124,7 +124,4 @@ public class BusquedaReservasAdmin {
         return valor instanceof BigDecimal bd ? bd : new BigDecimal(String.valueOf(valor));
     }
 
-    private static BigDecimal pesos(BigDecimal monto) {
-        return monto.setScale(2, RoundingMode.HALF_UP);
-    }
 }

@@ -30,7 +30,6 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.Config.Fechas;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.PartidoRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.TurnoFijoRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.JugadorResponse;
@@ -48,6 +47,7 @@ import com.LosCiruelos.padel_club_api.Services.PagoService;
 import com.LosCiruelos.padel_club_api.Services.PartidoService;
 import com.LosCiruelos.padel_club_api.Services.TurnoFijoService;
 import com.LosCiruelos.padel_club_api.Services.Pagos.MercadoPagoWebhookValidator;
+import com.LosCiruelos.padel_club_api.common.Fechas;
 
 import tools.jackson.databind.json.JsonMapper;
 

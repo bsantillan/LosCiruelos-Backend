@@ -1,7 +1,6 @@
 package com.LosCiruelos.padel_club_api.Services;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -24,6 +23,8 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
 import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
+import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +42,7 @@ public class RecordatorioService {
     private final ReservaService reservaService;
     private final ConfiguracionService configuracionService;
     private final ApplicationEventPublisher eventos;
-    private final Clock clock;
+    private final Reloj reloj;
 
     /** Reservas cuyo turno empieza dentro de la ventana del recordatorio y todavía no lo recibieron. */
     @Transactional(readOnly = true)
@@ -50,7 +51,7 @@ public class RecordatorioService {
         if (!Boolean.TRUE.equals(config.getRecordatorioActivo())) {
             return List.of();
         }
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         LocalDateTime limite = ahora.plusMinutes(config.getMinutosRecordatorio());
         LocalDate hoy = ahora.toLocalDate();
 
@@ -78,7 +79,7 @@ public class RecordatorioService {
     public boolean enviar(Long reservaId) {
         Configuracion config = configuracionService.obtener();
         Reserva reserva = reservaService.bloquear(reservaId);
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         LocalDateTime inicio = reserva.inicioDelTurno();
         LocalDateTime desdeCuando = inicio.minusMinutes(config.getMinutosRecordatorio());
 
@@ -98,7 +99,7 @@ public class RecordatorioService {
             return true;
         }
         String detalle = reserva.getMontoPendiente().signum() > 0
-                ? "Saldo a pagar: " + AvisoReserva.pesos(reserva.getMontoPendiente()) + "."
+                ? "Saldo a pagar: " + Dinero.texto(reserva.getMontoPendiente()) + "."
                 : "Tu reserva está paga. ¡Que lo disfrutes!";
         eventos.publishEvent(AvisoReserva.de(TipoAviso.RECORDATORIO, reserva, reserva.getMontoPendiente(), detalle));
         log.info("Recordatorio de la reserva #{} ({} {})", reserva.getId(), reserva.getFechaReserva(),
@@ -117,7 +118,7 @@ public class RecordatorioService {
             BigDecimal debe = montos.stream().filter(m -> m.getId().equals(jugador.getId()))
                     .map(JugadorResponse::getDebe).findFirst().orElse(BigDecimal.ZERO);
             String detalle = debe.signum() > 0
-                    ? "Tu parte a pagar en el club: " + AvisoReserva.pesos(debe) + "."
+                    ? "Tu parte a pagar en el club: " + Dinero.texto(debe) + "."
                     : "El partido está pago. ¡Que lo disfrutes!";
             eventos.publishEvent(AvisoReserva.para(TipoAviso.RECORDATORIO, reserva, jugador.getUsuario(), debe,
                     detalle));

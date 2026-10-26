@@ -1,6 +1,5 @@
 package com.LosCiruelos.padel_club_api.Services;
 
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Component;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.TurnoFijoResponse.FechaOmitida;
 import com.LosCiruelos.padel_club_api.Entities.TurnoFijo;
 import com.LosCiruelos.padel_club_api.Repository.TurnoFijoRepository;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -27,14 +27,14 @@ public class GeneradorTurnosFijos {
 
     private final TurnoFijoRepository turnoFijoRepository;
     private final PartidoService partidoService;
-    private final Clock clock;
+    private final Reloj reloj;
     private final int semanasAnticipacion;
 
-    public GeneradorTurnosFijos(TurnoFijoRepository turnoFijoRepository, PartidoService partidoService, Clock clock,
+    public GeneradorTurnosFijos(TurnoFijoRepository turnoFijoRepository, PartidoService partidoService, Reloj reloj,
             @Value("${turnos-fijos.semanas-anticipacion:4}") int semanasAnticipacion) {
         this.turnoFijoRepository = turnoFijoRepository;
         this.partidoService = partidoService;
-        this.clock = clock;
+        this.reloj = reloj;
         this.semanasAnticipacion = semanasAnticipacion;
     }
 
@@ -51,7 +51,7 @@ public class GeneradorTurnosFijos {
             return new Resultado(creados, omitidas);
         }
 
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         LocalDate hasta = ahora.toLocalDate().plusWeeks(semanasAnticipacion);
         for (LocalDate fecha = TurnoFijoService.proximaFecha(tf.getDesde(), tf.getHoraInicio(), ahora);
                 !fecha.isAfter(hasta); fecha = fecha.plusWeeks(1)) {

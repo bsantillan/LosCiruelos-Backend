@@ -2,9 +2,7 @@ package com.LosCiruelos.padel_club_api.Services;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.util.Map;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -16,6 +14,8 @@ import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
 import com.LosCiruelos.padel_club_api.Exceptions.DiaSinAperturaException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.common.Fechas;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,15 +28,6 @@ import lombok.RequiredArgsConstructor;
 public class ConfiguracionService {
 
     public static final int MINUTOS_POR_BLOQUE = 30;
-
-    private static final Map<DayOfWeek, String> NOMBRES_DIAS = Map.of(
-            DayOfWeek.MONDAY, "Lunes",
-            DayOfWeek.TUESDAY, "Martes",
-            DayOfWeek.WEDNESDAY, "Miércoles",
-            DayOfWeek.THURSDAY, "Jueves",
-            DayOfWeek.FRIDAY, "Viernes",
-            DayOfWeek.SATURDAY, "Sábado",
-            DayOfWeek.SUNDAY, "Domingo");
 
     private final ConfiguracionRepository configuracionRepository;
 
@@ -53,7 +44,7 @@ public class ConfiguracionService {
 
     /** Horario de apertura del día de la semana de {@code fecha}. */
     public DiaApertura obtenerDiaApertura(Configuracion config, LocalDate fecha) {
-        String nombreDia = NOMBRES_DIAS.get(fecha.getDayOfWeek());
+        String nombreDia = Fechas.nombreDiaCapitalizado(fecha.getDayOfWeek());
         return config.getDias_apertura().stream()
                 .filter(d -> d.getDia().equalsIgnoreCase(nombreDia))
                 .findFirst()
@@ -78,9 +69,8 @@ public class ConfiguracionService {
     /** montoReserva + montoXMediaHora × cantidad de bloques de 30 minutos. */
     public BigDecimal calcularMontoTurno(Configuracion config, long duracionMinutos) {
         long bloques = duracionMinutos / MINUTOS_POR_BLOQUE;
-        return config.getMontoReserva()
-                .add(config.getMontoXMediaHora().multiply(BigDecimal.valueOf(bloques)))
-                .setScale(2, RoundingMode.HALF_UP);
+        return Dinero.redondear(config.getMontoReserva()
+                .add(config.getMontoXMediaHora().multiply(BigDecimal.valueOf(bloques))));
     }
 
     /** Seña = total × porcentajeSenia / 100, redondeada a centavos. */

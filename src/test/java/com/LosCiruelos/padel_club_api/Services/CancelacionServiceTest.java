@@ -66,7 +66,7 @@ class CancelacionServiceTest {
         cliente = usuario(1L, Role.CLIENTE);
         empleado = usuario(2L, Role.EMPLEADO);
         for (Usuario u : List.of(cliente, empleado)) {
-            when(usuarioService.findByEmailOrThrow(eq(u.getEmail()), any())).thenReturn(u);
+            when(usuarioService.autenticado(u.getEmail())).thenReturn(u);
         }
         reserva = reserva(10L, cliente, EstadoReserva.PAGADA, "15000");
         when(reservaService.bloquearConAcceso(eq(10L), any())).thenReturn(reserva);
@@ -339,7 +339,7 @@ class CancelacionServiceTest {
         @BeforeEach
         void partido() {
             admin = usuario(3L, Role.ADMIN);
-            when(usuarioService.findByEmailOrThrow(eq(admin.getEmail()), any())).thenReturn(admin);
+            when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
             partido = TestData.partido(20L, admin, cliente, "15000");
             partido.setFechaReserva(AHORA.toLocalDate().plusDays(2));
             when(reservaService.bloquearConAcceso(eq(20L), any())).thenReturn(partido);

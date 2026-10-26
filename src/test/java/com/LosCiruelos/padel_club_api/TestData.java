@@ -1,7 +1,6 @@
 package com.LosCiruelos.padel_club_api;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -22,6 +21,7 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 /** Datos de prueba compartidos por los tests unitarios. */
 public final class TestData {
@@ -36,8 +36,8 @@ public final class TestData {
     private TestData() {
     }
 
-    public static Clock reloj(LocalDateTime momento) {
-        return Clock.fixed(momento.atZone(ZONA).toInstant(), ZONA);
+    public static Reloj reloj(LocalDateTime momento) {
+        return Reloj.fijo(momento);
     }
 
     /** Configuración por defecto del DataInitializer: seña 50 %, 90-180 min, $5000 cada 30 min. */

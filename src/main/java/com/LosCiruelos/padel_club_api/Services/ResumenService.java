@@ -1,8 +1,6 @@
 package com.LosCiruelos.padel_club_api.Services;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -27,6 +25,8 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.ResumenRepository;
+import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import lombok.RequiredArgsConstructor;
 
@@ -55,7 +55,7 @@ public class ResumenService {
             EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE);
 
     private final ResumenRepository resumenRepository;
-    private final Clock clock;
+    private final Reloj reloj;
 
     /**
      * @param desde       null junto con hasta: el día de hoy
@@ -64,7 +64,7 @@ public class ResumenService {
      */
     @Transactional(readOnly = true)
     public ResumenResponse resumen(LocalDate desde, LocalDate hasta, boolean soloHoy) {
-        LocalDate hoy = LocalDate.now(clock);
+        LocalDate hoy = reloj.hoy();
         if ((desde == null) != (hasta == null)) {
             throw new ReservaException("Indicá las dos fechas (desde y hasta) o ninguna para ver el día de hoy.");
         }
@@ -90,19 +90,19 @@ public class ResumenService {
 
         // las que se juegan o se jugaron: señadas, parciales, pagas y completadas
         Set<EstadoReserva> juegan = Reserva.ESTADOS_QUE_SE_JUEGAN;
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
 
         TurnosDelPeriodo t = resumenRepository.turnos(desde, hasta, ahora.toLocalDate(), ahora.toLocalTime(),
                 juegan, EstadoReserva.CANCELADA);
         CobrosDelPeriodo c = resumenRepository.cobros(desde, hasta, ahora.toLocalDate(), ahora.toLocalTime(),
                 juegan, EstadoReserva.CANCELADA, EstadoPago.APROBADO, DEVUELTOS, PaymentProvider.BONIFICACION);
 
-        Jugados jugados = new Jugados(cantidad(t.jugados()), pesos(t.montoJugados()), pesos(c.cobradoJugados()),
-                pesos(c.bonificadoJugados()),
-                pesos(t.montoJugados().subtract(c.cobradoJugados()).subtract(c.bonificadoJugados())));
-        PorJugar porJugar = new PorJugar(cantidad(t.porJugar()), pesos(t.montoPorJugar()),
-                pesos(c.cobradoPorJugar()), pesos(c.bonificadoPorJugar()),
-                pesos(t.montoPorJugar().subtract(c.cobradoPorJugar()).subtract(c.bonificadoPorJugar())));
+        Jugados jugados = new Jugados(cantidad(t.jugados()), Dinero.redondear(t.montoJugados()), Dinero.redondear(c.cobradoJugados()),
+                Dinero.redondear(c.bonificadoJugados()),
+                Dinero.redondear(t.montoJugados().subtract(c.cobradoJugados()).subtract(c.bonificadoJugados())));
+        PorJugar porJugar = new PorJugar(cantidad(t.porJugar()), Dinero.redondear(t.montoPorJugar()),
+                Dinero.redondear(c.cobradoPorJugar()), Dinero.redondear(c.bonificadoPorJugar()),
+                Dinero.redondear(t.montoPorJugar().subtract(c.cobradoPorJugar()).subtract(c.bonificadoPorJugar())));
 
         // caja: de las 00:00 de desde a las 00:00 del día siguiente a hasta
         LocalDateTime inicio = desde.atStartOfDay();
@@ -112,11 +112,11 @@ public class ResumenService {
         BigDecimal total = e.efectivo().add(e.mercadoPagoOnline()).add(e.mercadoPagoPresencial());
         BigDecimal devoluciones = resumenRepository.devoluciones(inicio, fin, EstadoPago.DEVUELTO,
                 PaymentProvider.BONIFICACION);
-        Caja caja = new Caja(pesos(total), pesos(e.efectivo()), pesos(e.mercadoPagoOnline()),
-                pesos(e.mercadoPagoPresencial()), pesos(devoluciones), pesos(total.subtract(devoluciones)));
+        Caja caja = new Caja(Dinero.redondear(total), Dinero.redondear(e.efectivo()), Dinero.redondear(e.mercadoPagoOnline()),
+                Dinero.redondear(e.mercadoPagoPresencial()), Dinero.redondear(devoluciones), Dinero.redondear(total.subtract(devoluciones)));
 
         return new ResumenResponse(desde, hasta, jugados, porJugar, caja,
-                new Cancelaciones(cantidad(t.cancelados()), pesos(c.retenidoCancelaciones())),
+                new Cancelaciones(cantidad(t.cancelados()), Dinero.redondear(c.retenidoCancelaciones())),
                 List.copyOf(resumenRepository.productos(desde, hasta, juegan)));
     }
 
@@ -125,7 +125,4 @@ public class ResumenService {
         return cantidad == null ? 0 : cantidad;
     }
 
-    private static BigDecimal pesos(BigDecimal monto) {
-        return monto.setScale(2, RoundingMode.HALF_UP);
-    }
 }

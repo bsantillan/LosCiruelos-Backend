@@ -1,9 +1,6 @@
 package com.LosCiruelos.padel_club_api.Services;
 
 import java.math.BigDecimal;
-import java.time.Clock;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 import org.springframework.stereotype.Service;
@@ -21,7 +18,6 @@ import com.LosCiruelos.padel_club_api.Entities.AvisosAdmin;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.AvisosAdminRepository;
@@ -30,6 +26,7 @@ import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva.Destinatario;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisosService;
 import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
 import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import lombok.RequiredArgsConstructor;
 
@@ -48,7 +45,7 @@ public class NotificacionesService {
     private final AvisosService avisosService;
     private final ConfiguracionService configuracionService;
     private final WhatsAppServiceFactory whatsApp;
-    private final Clock clock;
+    private final Reloj reloj;
 
     // ── Canal y teléfono (cualquier rol) ─────────────────────────────────
 
@@ -73,7 +70,7 @@ public class NotificacionesService {
                 throw new ReservaException("Cargá tu teléfono para recibir avisos por WhatsApp.");
             }
             if (usuario.getAceptaWhatsappAt() == null) {
-                usuario.setAceptaWhatsappAt(LocalDateTime.now(clock));
+                usuario.setAceptaWhatsappAt(reloj.ahora());
             }
         } else {
             usuario.setAceptaWhatsappAt(null);
@@ -151,7 +148,7 @@ public class NotificacionesService {
         Destinatario destinatario = Destinatario.de(admin);
         AvisoReserva ejemplo = new AvisoReserva(TipoAviso.RESERVA_CONFIRMADA, 0L,
                 new Destinatario("PRUEBA (cliente de ejemplo)", admin.getEmail(), null, CanalNotificacion.EMAIL, false),
-                1, LocalDate.now(clock), LocalTime.of(18, 0), LocalTime.of(19, 30),
+                1, reloj.hoy(), LocalTime.of(18, 0), LocalTime.of(19, 30),
                 new BigDecimal("15000"), new BigDecimal("7500"), null);
         CanalNotificacion canal = avisosService.entregar(destinatario, ejemplo);
         String destino = canal == CanalNotificacion.WHATSAPP ? admin.getTelefono() : admin.getEmail();
@@ -183,6 +180,6 @@ public class NotificacionesService {
     }
 
     private Usuario usuario(String email) {
-        return usuarioService.findByEmailOrThrow(email, new CredencialesInvalidasException("Usuario no encontrado"));
+        return usuarioService.autenticado(email);
     }
 }

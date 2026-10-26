@@ -13,7 +13,7 @@ import org.flywaydb.core.api.migration.Context;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.LosCiruelos.padel_club_api.Services.WhatsApp.Telefonos;
+import com.LosCiruelos.padel_club_api.common.Telefonos;
 
 /**
  * V13: normaliza los teléfonos guardados antes de V8 (por ejemplo "1122334455") al formato de

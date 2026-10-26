@@ -1,6 +1,5 @@
 package com.LosCiruelos.padel_club_api.Services;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -21,6 +20,7 @@ import com.LosCiruelos.padel_club_api.Repository.EnvioCodigoTelefonoRepository;
 import com.LosCiruelos.padel_club_api.Repository.VerificationTokenRepository;
 import com.LosCiruelos.padel_club_api.Services.Email.EnvioPostCommit;
 import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,7 +41,7 @@ public class TelefonoService {
     private final EnvioCodigoTelefonoRepository envios;
     private final UsuarioService usuarioService;
     private final WhatsAppServiceFactory whatsApp;
-    private final Clock clock;
+    private final Reloj reloj;
     private final String plantillaCodigo;
     private final Topes topes;
 
@@ -53,7 +53,7 @@ public class TelefonoService {
     }
 
     public TelefonoService(VerificationTokenRepository tokenRepository, EnvioCodigoTelefonoRepository envios,
-            UsuarioService usuarioService, WhatsAppServiceFactory whatsApp, Clock clock,
+            UsuarioService usuarioService, WhatsAppServiceFactory whatsApp, Reloj reloj,
             @Value("${whatsapp.plantilla-codigo:codigo_verificacion_v2}") String plantillaCodigo,
             @Value("${telefono.codigos-por-dia-usuario:5}") int porUsuarioPorDia,
             @Value("${telefono.codigos-por-dia-numero:5}") int porNumeroPorDia,
@@ -62,7 +62,7 @@ public class TelefonoService {
         this.envios = envios;
         this.usuarioService = usuarioService;
         this.whatsApp = whatsApp;
-        this.clock = clock;
+        this.reloj = reloj;
         this.plantillaCodigo = plantillaCodigo;
         this.topes = new Topes(porUsuarioPorDia, porNumeroPorDia, segundosEntrePedidos);
     }
@@ -83,7 +83,7 @@ public class TelefonoService {
         if (usuarioService.telefonoVerificadoEnOtraCuenta(usuario.getTelefono(), usuario.getId())) {
             throw new EstadoInvalidoException(UsuarioService.MENSAJE_CELULAR_EN_USO);
         }
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         validarTopes(usuario, ahora);
         envios.save(EnvioCodigoTelefono.builder().usuarioId(usuario.getId()).telefono(usuario.getTelefono())
                 .enviadoAt(ahora).build());
@@ -94,7 +94,7 @@ public class TelefonoService {
                 .usuario(usuario)
                 .token(VerificationToken.generarCodigo())
                 .type(TokenType.VERIFY_PHONE)
-                .fechaExpiracion(clock.instant().plus(VIGENCIA_CODIGO))
+                .fechaExpiracion(reloj.instante().plus(VIGENCIA_CODIGO))
                 .build());
 
         String telefono = usuario.getTelefono();

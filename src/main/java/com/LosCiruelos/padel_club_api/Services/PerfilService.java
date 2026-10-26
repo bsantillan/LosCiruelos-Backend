@@ -1,7 +1,5 @@
 package com.LosCiruelos.padel_club_api.Services;
 
-import java.time.Clock;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
@@ -17,9 +15,9 @@ import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
 import com.LosCiruelos.padel_club_api.Security.JWTUtil;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,7 +29,7 @@ public class PerfilService {
     private final ClienteProfileService clienteProfileService;
     private final ReservaService reservaService;
     private final JWTUtil jwtUtil;
-    private final Clock clock;
+    private final Reloj reloj;
 
     @Transactional(readOnly = true)
     public PerfilResponse getPerfil(String email) {
@@ -47,7 +45,7 @@ public class PerfilService {
     @Transactional
     public PerfilResponse updatePerfil(PerfilRequest req, String email) {
         Usuario usuario = usuario(email);
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         ClienteProfile perfil = null;
 
         if (usuario.getRol() == Role.CLIENTE) {
@@ -101,7 +99,7 @@ public class PerfilService {
     }
 
     private PerfilResponse buildPerfilResponse(Usuario usuario, ClienteProfile perfil) {
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         PerfilResponse response = new PerfilResponse();
         response.setNombre(usuario.getNombre());
         response.setApellido(usuario.getApellido());
@@ -115,7 +113,7 @@ public class PerfilService {
         response.setCantPartidos((int) reservaService.contarPorEstado(usuario, EstadoReserva.COMPLETADA));
         response.setCantPartidosEsteMes(reservaService.countPartidosEsteMes(usuario.getId(), EstadoReserva.COMPLETADA));
         response.setDiasDesdeUltimoPartido(reservaService.ultimaReservaCompletada(usuario)
-                .map(r -> Math.toIntExact(ChronoUnit.DAYS.between(r.getFechaReserva(), LocalDate.now(clock))))
+                .map(r -> Math.toIntExact(ChronoUnit.DAYS.between(r.getFechaReserva(), reloj.hoy())))
                 .orElse(null));
 
         if (perfil != null) {
@@ -128,6 +126,6 @@ public class PerfilService {
     }
 
     private Usuario usuario(String email) {
-        return usuarioService.findByEmailOrThrow(email, new CredencialesInvalidasException("Usuario no encontrado"));
+        return usuarioService.autenticado(email);
     }
 }

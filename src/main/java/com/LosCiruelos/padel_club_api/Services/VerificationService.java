@@ -11,7 +11,6 @@ import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.VerificationToken;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TokenType;
 import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.CuentaVerificadaException;
 import com.LosCiruelos.padel_club_api.Repository.VerificationTokenRepository;
 import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
@@ -46,8 +45,7 @@ public class VerificationService {
      */
     @Transactional(noRollbackFor = CodigoInvalidoException.class)
     public void verificarToken(String email, String codigo) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(email,
-                new CredencialesInvalidasException("Usuario no encontrado"));
+        Usuario usuario = usuarioService.autenticado(email);
 
         if (usuario.getEmailVerificado()) {
             throw new CuentaVerificadaException();
@@ -63,8 +61,7 @@ public class VerificationService {
 
     @Transactional
     public void enviarBienvenida(String email, String passwordTemporal) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(email,
-                new CredencialesInvalidasException("Usuario no encontrado"));
+        Usuario usuario = usuarioService.autenticado(email);
 
         VerificationToken token = crearToken(usuario, TokenType.VERIFY_EMAIL, Instant.now().plus(1, ChronoUnit.DAYS));
         Map<String, Object> datos = Map.of(

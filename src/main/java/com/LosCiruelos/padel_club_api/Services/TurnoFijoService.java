@@ -1,14 +1,11 @@
 package com.LosCiruelos.padel_club_api.Services;
 
-import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,19 +21,20 @@ import com.LosCiruelos.padel_club_api.Entities.TurnoFijoJugador;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.OpcionReembolso;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
-import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.TurnoFijoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
 import com.LosCiruelos.padel_club_api.Repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.Repository.TurnoFijoRepository;
 import com.LosCiruelos.padel_club_api.Services.PartidoService.DatosJugador;
+import com.LosCiruelos.padel_club_api.common.Fechas;
+import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.common.Roles;
+import com.LosCiruelos.padel_club_api.common.Turno;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,8 +49,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class TurnoFijoService {
 
-    private static final Locale ES_AR = Locale.of("es", "AR");
-
     private final TurnoFijoRepository turnoFijoRepository;
     private final ReservaRepository reservaRepository;
     private final CanchaRepository canchaRepository;
@@ -62,7 +58,7 @@ public class TurnoFijoService {
     private final ProductoService productoService;
     private final ConfiguracionService configuracionService;
     private final UsuarioService usuarioService;
-    private final Clock clock;
+    private final Reloj reloj;
 
     // ── Consultas ────────────────────────────────────────────────────────
 
@@ -85,7 +81,7 @@ public class TurnoFijoService {
     @Transactional
     public Long crear(TurnoFijoRequest req, String email) {
         Usuario admin = admin(email);
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         validarTurno(req, ahora, null);
         Cancha cancha = canchaRepository.findByIdForUpdate(req.getCanchaId())
                 .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + req.getCanchaId()));
@@ -121,7 +117,7 @@ public class TurnoFijoService {
     public List<Long> actualizar(Long id, TurnoFijoRequest req, String email) {
         admin(email);
         TurnoFijo tf = bloquearActivo(id);
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         validarTurno(req, ahora, tf);
         Cancha cancha = canchaRepository.findByIdForUpdate(req.getCanchaId())
                 .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + req.getCanchaId()));
@@ -167,7 +163,7 @@ public class TurnoFijoService {
     public TurnoFijoResponse darDeBaja(Long id, OpcionReembolso reembolso, String email) {
         Usuario admin = admin(email);
         TurnoFijo tf = bloquearActivo(id);
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         tf.setActivo(false);
         tf.setDadoDeBajaAt(ahora);
         turnoFijoRepository.save(tf);
@@ -194,7 +190,7 @@ public class TurnoFijoService {
     public ReservaResponse darDeBajaFecha(Long id, LocalDate fecha, OpcionReembolso reembolso, String email) {
         Usuario admin = admin(email);
         TurnoFijo tf = bloquearActivo(id);
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         if (!tf.seJuegaEl(fecha)) {
             throw new ReservaException("El turno fijo no se juega el %s: es los %s desde el %s."
                     .formatted(fecha, dia(tf.getDiaSemana()), tf.getDesde()));
@@ -217,7 +213,7 @@ public class TurnoFijoService {
         }
         // el partido todavía no se creó: queda registrada la fecha como cancelada
         Configuracion config = configuracionService.obtener();
-        long duracion = java.time.Duration.between(tf.getHoraInicio(), tf.getHoraFin()).toMinutes();
+        long duracion = Turno.minutosEntre(tf.getHoraInicio(), tf.getHoraFin());
         Reserva liberada = Reserva.builder()
                 .cancha(tf.getCancha())
                 .cliente(tf.getCreatedBy())
@@ -304,11 +300,8 @@ public class TurnoFijoService {
     }
 
     private Usuario admin(String email) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(email,
-                new CredencialesInvalidasException("Usuario no encontrado"));
-        if (usuario.getRol() != Role.ADMIN) {
-            throw new PermisoDenegadoException("Solo el ADMIN puede manejar los turnos fijos.");
-        }
+        Usuario usuario = usuarioService.autenticado(email);
+        Roles.exigirAdmin(usuario, "Solo el ADMIN puede manejar los turnos fijos.");
         return usuario;
     }
 
@@ -317,7 +310,7 @@ public class TurnoFijoService {
     }
 
     static String dia(DayOfWeek dia) {
-        return dia.getDisplayName(TextStyle.FULL, ES_AR);
+        return Fechas.nombreDia(dia);
     }
 
     TurnoFijoResponse aResponse(TurnoFijo tf) {
@@ -339,7 +332,7 @@ public class TurnoFijoService {
                         j.getUsuario() != null ? j.getUsuario().getId() : null, j.nombreParaMostrar(),
                         j.getUsuario() != null ? j.getUsuario().getTelefono() : j.getTelefono(), j.getUsuario() == null))
                 .toList());
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         response.setProximosPartidos(reservaRepository.findIdsFuturosDelTurnoFijo(tf.getId(), ahora.toLocalDate(),
                 ahora.toLocalTime()).stream()
                 .map(reservaRepository::findById)

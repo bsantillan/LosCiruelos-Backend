@@ -67,7 +67,7 @@ class NotificacionesServiceTest {
 
         usuario = usuario(1L, Role.CLIENTE);
         usuario.setTelefono("5491122334455");
-        when(usuarioService.findByEmailOrThrow(eq(usuario.getEmail()), any())).thenReturn(usuario);
+        when(usuarioService.autenticado(usuario.getEmail())).thenReturn(usuario);
         when(avisosService.canalPara(any())).thenReturn(CanalNotificacion.EMAIL);
     }
 
@@ -139,7 +139,7 @@ class NotificacionesServiceTest {
     @Test
     void elAdminEligeQueAvisosRecibe() {
         Usuario admin = usuario(5L, Role.ADMIN);
-        when(usuarioService.findByEmailOrThrow(eq(admin.getEmail()), any())).thenReturn(admin);
+        when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
         when(avisosAdminRepository.findById(5L)).thenReturn(Optional.empty());
         when(avisosAdminRepository.save(any(AvisosAdmin.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -170,7 +170,7 @@ class NotificacionesServiceTest {
     @Test
     void elAvisoDePruebaSaleporElCanalDelAdmin() {
         Usuario admin = usuario(5L, Role.ADMIN);
-        when(usuarioService.findByEmailOrThrow(eq(admin.getEmail()), any())).thenReturn(admin);
+        when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
         when(avisosService.entregar(any(), any(AvisoReserva.class))).thenReturn(CanalNotificacion.EMAIL);
 
         PruebaAvisoResponse r = notificaciones.probarAviso(admin.getEmail());

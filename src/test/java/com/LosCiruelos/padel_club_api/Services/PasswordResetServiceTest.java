@@ -58,7 +58,7 @@ class PasswordResetServiceTest {
         token = VerificationToken.builder().usuario(usuario).token("654321").type(TokenType.PASSWORD_RESET)
                 .fechaExpiracion(Instant.now().plus(15, ChronoUnit.MINUTES)).build();
         when(usuarioService.findByEmail(usuario.getEmail())).thenReturn(usuario);
-        when(usuarioService.findByEmailOrThrow(eq(usuario.getEmail()), any())).thenReturn(usuario);
+        when(usuarioService.autenticado(usuario.getEmail())).thenReturn(usuario);
         when(tokenRepository.findByUsuarioAndType(usuario, TokenType.PASSWORD_RESET)).thenReturn(Optional.of(token));
         when(tokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(passwordEncoder.encode(anyString())).thenReturn("nuevo-hash");

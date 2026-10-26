@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Services.WhatsApp;
+package com.LosCiruelos.padel_club_api.common;
 
 import java.util.Map;
 

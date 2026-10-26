@@ -1,7 +1,5 @@
 package com.LosCiruelos.padel_club_api.Handlers;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -22,7 +20,6 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import com.LosCiruelos.padel_club_api.Config.Fechas;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
 import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
 import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
@@ -38,6 +35,8 @@ import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.TerminosNoAceptadosException;
 import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
 import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
+import com.LosCiruelos.padel_club_api.common.Fechas;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -52,7 +51,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
-        private final Clock clock;
+        private final Reloj reloj;
 
         // ── Registro / login ─────────────────────────────────────────────
 
@@ -225,7 +224,7 @@ public class GlobalExceptionHandler {
 
         /** Mismo formato que el resto de las fechas de la API: 2026-10-17T18:15:00.123-03:00. */
         private String timestamp() {
-                return Fechas.formatear(LocalDateTime.now(clock));
+                return Fechas.formatear(reloj.ahora());
         }
 
         private ResponseEntity<Map<String, Object>> error(HttpStatus status, String mensaje) {

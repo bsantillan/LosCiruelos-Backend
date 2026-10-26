@@ -1,7 +1,5 @@
 package com.LosCiruelos.padel_club_api.Config;
 
-import java.time.Clock;
-import java.time.Duration;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -12,6 +10,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import com.LosCiruelos.padel_club_api.common.Fechas;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import tools.jackson.databind.JacksonModule;
 
@@ -26,8 +27,8 @@ public class AppConfig {
      * con horas fijas. Avanza de a milisegundos: en Windows el reloj tiene precisión de 100 ns.
      */
     @Bean
-    public Clock clock() {
-        return Clock.tick(Clock.system(Fechas.ZONA), Duration.ofMillis(1));
+    public Reloj reloj() {
+        return Reloj.delSistema();
     }
 
     /**

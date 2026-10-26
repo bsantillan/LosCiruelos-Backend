@@ -87,8 +87,8 @@ class PagoServiceTest {
 
         cliente = usuario(1L, Role.CLIENTE);
         empleado = usuario(2L, Role.EMPLEADO);
-        when(usuarioService.findByEmailOrThrow(eq(cliente.getEmail()), any())).thenReturn(cliente);
-        when(usuarioService.findByEmailOrThrow(eq(empleado.getEmail()), any())).thenReturn(empleado);
+        when(usuarioService.autenticado(cliente.getEmail())).thenReturn(cliente);
+        when(usuarioService.autenticado(empleado.getEmail())).thenReturn(empleado);
 
         pagoService = new PagoService(factory, reservaService, pagoRepository,
                 new ConfiguracionService(configuracionRepository), usuarioService, mock(ProductoService.class),
@@ -816,7 +816,7 @@ class PagoServiceTest {
         @BeforeEach
         void partido() {
             admin = usuario(3L, Role.ADMIN);
-            when(usuarioService.findByEmailOrThrow(eq(admin.getEmail()), any())).thenReturn(admin);
+            when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
             partido = TestData.partido(10L, admin, cliente, "15000");
             when(reservaService.bloquearConAcceso(eq(10L), any())).thenReturn(partido);
         }
@@ -907,7 +907,7 @@ class PagoServiceTest {
         @BeforeEach
         void unAdmin() {
             admin = usuario(3L, Role.ADMIN);
-            when(usuarioService.findByEmailOrThrow(eq(admin.getEmail()), any())).thenReturn(admin);
+            when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
         }
 
         @Test
@@ -1021,7 +1021,7 @@ class PagoServiceTest {
 
     @Test
     void emailInexistenteNoLlegaAlServicio() {
-        when(usuarioService.findByEmailOrThrow(eq("nadie@test.com"), any()))
+        when(usuarioService.autenticado("nadie@test.com"))
                 .thenThrow(new ReservaException("Usuario no encontrado"));
 
         assertThatThrownBy(() -> pagoService.iniciarPago(10L, false, "nadie@test.com"))

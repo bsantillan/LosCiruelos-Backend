@@ -1,7 +1,6 @@
 package com.LosCiruelos.padel_club_api.Services;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -26,11 +25,9 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
-import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReembolsoFallidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.PagoRepository;
@@ -38,6 +35,9 @@ import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
 import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
 import com.LosCiruelos.padel_club_api.Services.Pagos.PaymentService;
 import com.LosCiruelos.padel_club_api.Services.Pagos.PaymentServiceFactory;
+import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.common.Roles;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,7 +60,7 @@ public class PagoService {
     private final ConfiguracionService configuracionService;
     private final UsuarioService usuarioService;
     private final ProductoService productoService;
-    private final Clock clock;
+    private final Reloj reloj;
     private final ApplicationEventPublisher eventos;
 
     // ── 1. Iniciar un pago online ────────────────────────────────────────
@@ -97,7 +97,7 @@ public class PagoService {
                 .monto(monto)
                 .estado(EstadoPago.PENDIENTE)
                 .provider(PaymentProvider.MERCADO_PAGO)
-                .createdAt(LocalDateTime.now(clock))
+                .createdAt(reloj.ahora())
                 .build();
         reserva.agregarPago(pago);
         pago = pagoRepository.save(pago);
@@ -212,11 +212,9 @@ public class PagoService {
         }
 
         // un pago online iniciado por un monto que ya no corresponde se descarta
-        reserva.getPagos().stream()
-                .filter(p -> p.getEstado() == EstadoPago.PENDIENTE)
-                .forEach(p -> cambiarEstado(p, EstadoPago.EXPIRADO));
+        reserva.expirarPagosPendientes().forEach(pagoRepository::save);
 
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         Pago pago = Pago.builder()
                 .monto(monto)
                 .estado(EstadoPago.APROBADO)
@@ -272,11 +270,9 @@ public class PagoService {
         }
 
         // un pago online iniciado por un monto que ya no corresponde se descarta
-        reserva.getPagos().stream()
-                .filter(p -> p.getEstado() == EstadoPago.PENDIENTE)
-                .forEach(p -> cambiarEstado(p, EstadoPago.EXPIRADO));
+        reserva.expirarPagosPendientes().forEach(pagoRepository::save);
 
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         Pago bonificacion = Pago.builder()
                 .monto(aBonificar)
                 .estado(EstadoPago.APROBADO)
@@ -336,9 +332,7 @@ public class PagoService {
     }
 
     private static void validarQueEsAdmin(Usuario usuario) {
-        if (usuario.getRol() != Role.ADMIN) {
-            throw new PermisoDenegadoException("Solo el ADMIN puede bonificar una reserva.");
-        }
+        Roles.exigirAdmin(usuario, "Solo el ADMIN puede bonificar una reserva.");
     }
 
     // ── 5. Reembolso por cancelación ─────────────────────────────────────
@@ -375,7 +369,7 @@ public class PagoService {
                     paymentServiceFactory.getService().reembolsar(pago, aDevolver);
                     cambiarEstado(pago, EstadoPago.DEVUELTO);
                 } catch (ReembolsoFallidoException e) {
-                    pago.setReembolsoSolicitadoAt(LocalDateTime.now(clock));
+                    pago.setReembolsoSolicitadoAt(reloj.ahora());
                     if (e.isDefinitivo()) {
                         // el aviso de la cancelación ya dice lo que hay que devolver a mano
                         pasarAReembolsoManual(pago, reserva, null);
@@ -440,8 +434,8 @@ public class PagoService {
                     // alguien devolvió otro monto desde el panel: que lo revise una persona
                     log.error("Pago #{}: MP tiene devueltos ${} pero había que devolver ${}", pago.getId(),
                             yaDevuelto, aDevolver);
-                    pasarAReembolsoManual(pago, reserva, "Mercado Pago tiene devueltos " + AvisoReserva.pesos(yaDevuelto)
-                            + " y había que devolver " + AvisoReserva.pesos(aDevolver) + ". Revisalo en el panel de MP.");
+                    pasarAReembolsoManual(pago, reserva, "Mercado Pago tiene devueltos " + Dinero.texto(yaDevuelto)
+                            + " y había que devolver " + Dinero.texto(aDevolver) + ". Revisalo en el panel de MP.");
                 }
                 return pago.getEstado();
             }
@@ -474,7 +468,7 @@ public class PagoService {
     private boolean plazoDeReintentoVencido(Pago pago) {
         LocalDateTime desde = pago.getReembolsoSolicitadoAt() != null ? pago.getReembolsoSolicitadoAt()
                 : pago.getCreatedAt();
-        return !LocalDateTime.now(clock).isBefore(desde.plus(PLAZO_REINTENTO_REEMBOLSO));
+        return !reloj.ahora().isBefore(desde.plus(PLAZO_REINTENTO_REEMBOLSO));
     }
 
     /** @param motivoAviso si no es null, se avisa a los ADMIN con ese motivo */
@@ -521,8 +515,8 @@ public class PagoService {
                             pago.getId(), resultado.getMonto(), pago.getMonto());
                     pago.setMontoReembolsado(pago.getMonto());
                     cambiarEstado(pago, EstadoPago.A_REEMBOLSAR);
-                    avisarReembolsoManual(pago, reserva, "Mercado Pago cobró " + AvisoReserva.pesos(resultado.getMonto())
-                            + " y se esperaba " + AvisoReserva.pesos(pago.getMonto()) + ".");
+                    avisarReembolsoManual(pago, reserva, "Mercado Pago cobró " + Dinero.texto(resultado.getMonto())
+                            + " y se esperaba " + Dinero.texto(pago.getMonto()) + ".");
                 } else if (reserva.estaInactiva()) {
                     log.warn("Pago #{} aprobado para la reserva #{} en estado {}. Queda A_REEMBOLSAR: "
                             + "hay que devolver el dinero.", pago.getId(), reserva.getId(), reserva.getEstado());
@@ -531,7 +525,7 @@ public class PagoService {
                     avisarReembolsoManual(pago, reserva, "Se cobró un pago online de una reserva "
                             + reserva.getEstado() + ".");
                 } else {
-                    pago.setPaidAt(LocalDateTime.now(clock));
+                    pago.setPaidAt(reloj.ahora());
                     cambiarEstado(pago, EstadoPago.APROBADO);
                 }
             }
@@ -596,7 +590,7 @@ public class PagoService {
         } else if (pagado.compareTo(reserva.getMontoTotal()) >= 0) {
             // totalmente paga: si el turno ya terminó se completa en el acto (ej. el saldo se
             // cobró en el club después de jugar); si no, la completa el job al terminar
-            nuevo = reserva.turnoTermino(LocalDateTime.now(clock)) ? EstadoReserva.COMPLETADA : EstadoReserva.PAGADA;
+            nuevo = reserva.turnoTermino(reloj.ahora()) ? EstadoReserva.COMPLETADA : EstadoReserva.PAGADA;
         } else if (pagado.compareTo(senia) >= 0) {
             nuevo = EstadoReserva.SEÑADA;
         } else {
@@ -606,9 +600,7 @@ public class PagoService {
         if (nuevo != anterior) {
             reserva.setEstado(nuevo);
             if (nuevo == EstadoReserva.CANCELADA) {
-                reserva.getPagos().stream()
-                        .filter(p -> p.getEstado() == EstadoPago.PENDIENTE)
-                        .forEach(p -> cambiarEstado(p, EstadoPago.EXPIRADO));
+                reserva.expirarPagosPendientes().forEach(pagoRepository::save);
                 productoService.liberar(reserva);
                 log.warn("Reserva #{} cancelada: se devolvió todo lo pagado", reserva.getId());
             }
@@ -643,7 +635,7 @@ public class PagoService {
     }
 
     private void validarQueAdmitePagos(Reserva reserva) {
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         if (reserva.estaVencida(ahora)) {
             throw new EstadoInvalidoException("El tiempo para pagar esta reserva expiró.");
         }
@@ -653,7 +645,7 @@ public class PagoService {
     }
 
     private void cambiarEstado(Pago pago, EstadoPago estado) {
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         // un cobro de MP que queda devuelto o por devolver sin pasar por APROBADO también entró a caja
         if (pago.getPaidAt() == null && estado != EstadoPago.EN_PROCESO && Pago.ESTADOS_CON_DINERO.contains(estado)) {
             pago.setPaidAt(ahora);
@@ -666,6 +658,6 @@ public class PagoService {
     }
 
     private Usuario usuario(String email) {
-        return usuarioService.findByEmailOrThrow(email, new CredencialesInvalidasException("Usuario no encontrado"));
+        return usuarioService.autenticado(email);
     }
 }

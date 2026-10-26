@@ -94,7 +94,7 @@ class TurnoFijoServiceTest {
         empleado = usuario(4L, Role.EMPLEADO);
         cliente = usuario(1L, Role.CLIENTE);
         for (Usuario u : List.of(admin, empleado, cliente)) {
-            when(usuarioService.findByEmailOrThrow(eq(u.getEmail()), any())).thenReturn(u);
+            when(usuarioService.autenticado(u.getEmail())).thenReturn(u);
             when(usuarioService.findByIdOrThrow(u.getId())).thenReturn(u);
         }
         when(canchaRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(TestData.cancha()));

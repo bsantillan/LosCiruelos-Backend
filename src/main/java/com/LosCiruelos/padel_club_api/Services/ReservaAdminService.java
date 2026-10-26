@@ -1,6 +1,5 @@
 package com.LosCiruelos.padel_club_api.Services;
 
-import java.time.Clock;
 import java.time.LocalDate;
 import java.util.EnumSet;
 import java.util.List;
@@ -19,7 +18,9 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.BusquedaReservasAdmin;
-import com.LosCiruelos.padel_club_api.Specifications.Busquedas;
+import com.LosCiruelos.padel_club_api.common.Busquedas;
+import com.LosCiruelos.padel_club_api.common.Paginacion;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,7 +37,7 @@ public class ReservaAdminService {
 
     private final BusquedaReservasAdmin busqueda;
     private final ReservaService reservaService;
-    private final Clock clock;
+    private final Reloj reloj;
 
     /**
      * @param tipo       NORMAL o PARTIDO (null: las dos)
@@ -50,12 +51,7 @@ public class ReservaAdminService {
             Long clienteId, String cliente, Long canchaId, TipoReserva tipo, boolean pendientes, int pagina,
             Integer tamanio, String orden) {
         int size = tamanio != null ? tamanio : TAMANIO_POR_DEFECTO;
-        if (pagina < 0) {
-            throw new ReservaException("La página no puede ser negativa.");
-        }
-        if (size < 1 || size > TAMANIO_MAXIMO) {
-            throw new ReservaException("El tamaño de página tiene que estar entre 1 y " + TAMANIO_MAXIMO + ".");
-        }
+        Paginacion.validar(pagina, size, TAMANIO_MAXIMO);
         if (desde != null && hasta != null && desde.isAfter(hasta)) {
             throw new ReservaException("La fecha desde no puede ser posterior a hasta.");
         }
@@ -85,7 +81,7 @@ public class ReservaAdminService {
 
     private Sort.Direction direccion(String orden, LocalDate desde) {
         if (orden == null || orden.isBlank()) {
-            boolean proximas = desde != null && !desde.isBefore(LocalDate.now(clock));
+            boolean proximas = desde != null && !desde.isBefore(reloj.hoy());
             return proximas ? Sort.Direction.ASC : Sort.Direction.DESC;
         }
         return switch (orden.trim().toLowerCase()) {

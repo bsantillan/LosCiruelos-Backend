@@ -1,17 +1,15 @@
 package com.LosCiruelos.padel_club_api.Services.Avisos;
 
 import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
+import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.common.Fechas;
 
 /**
  * Evento de aviso con los datos ya resueltos: se arma dentro de la transacción y se envía
@@ -32,10 +30,6 @@ public record AvisoReserva(
         BigDecimal montoTotal,
         BigDecimal monto,
         String detalle) {
-
-    private static final Locale ES_AR = Locale.of("es", "AR");
-    private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("EEEE d/M", ES_AR);
-    private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
 
     /** Datos de contacto de quien recibe el aviso. */
     public record Destinatario(String nombre, String email, String telefono, CanalNotificacion canal,
@@ -64,17 +58,17 @@ public record AvisoReserva(
     public List<String> parametros() {
         String nombreCompleto = cliente.nombre();
         String canchaTexto = String.valueOf(cancha);
-        String fechaTexto = FECHA.format(fecha);
-        String horario = HORA.format(horaInicio) + " a " + HORA.format(horaFin);
+        String fechaTexto = Fechas.textoFecha(fecha);
+        String horario = Fechas.textoHora(horaInicio) + " a " + Fechas.textoHora(horaFin);
         return switch (tipo) {
-            case RESERVA_CONFIRMADA -> List.of(nombreCompleto, canchaTexto, fechaTexto, horario, pesos(monto),
-                    pesos(montoTotal));
-            case SALDO_COBRADO -> List.of(nombreCompleto, canchaTexto, fechaTexto, horario, pesos(montoTotal));
+            case RESERVA_CONFIRMADA -> List.of(nombreCompleto, canchaTexto, fechaTexto, horario, Dinero.texto(monto),
+                    Dinero.texto(montoTotal));
+            case SALDO_COBRADO -> List.of(nombreCompleto, canchaTexto, fechaTexto, horario, Dinero.texto(montoTotal));
             case RESERVA_CANCELADA, RECORDATORIO, CANCELADA_POR_CLUB -> List.of(nombreCompleto, canchaTexto,
                     fechaTexto, horario, detalle != null ? detalle : "");
-            case REEMBOLSO_MANUAL -> List.of(pesos(monto), String.valueOf(reservaId), nombreCompleto,
+            case REEMBOLSO_MANUAL -> List.of(Dinero.texto(monto), String.valueOf(reservaId), nombreCompleto,
                     detalle != null ? detalle : "");
-            case REEMBOLSO_REALIZADO -> List.of(pesos(monto), String.valueOf(reservaId), nombreCompleto);
+            case REEMBOLSO_REALIZADO -> List.of(Dinero.texto(monto), String.valueOf(reservaId), nombreCompleto);
         };
     }
 
@@ -82,12 +76,4 @@ public record AvisoReserva(
         return tipo.texto(parametros());
     }
 
-    /** $7.500 · $7.500,50 */
-    public static String pesos(BigDecimal monto) {
-        if (monto == null) {
-            return "$0";
-        }
-        DecimalFormat formato = new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(ES_AR));
-        return "$" + formato.format(monto);
-    }
 }

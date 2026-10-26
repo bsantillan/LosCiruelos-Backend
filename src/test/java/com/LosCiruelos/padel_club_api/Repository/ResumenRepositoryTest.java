@@ -3,7 +3,6 @@ package com.LosCiruelos.padel_club_api.Repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -25,6 +24,7 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Services.ResumenService;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 /**
  * Las consultas del resumen contra una base real (H2, esquema generado por Hibernate), a través
@@ -115,7 +115,7 @@ class ResumenRepositoryTest {
     }
 
     private ResumenResponse resumen(LocalDate desde, LocalDate hasta, LocalDateTime ahora) {
-        Clock reloj = TestData.reloj(ahora);
+        Reloj reloj = TestData.reloj(ahora);
         return new ResumenService(repo, reloj).resumen(desde, hasta);
     }
 

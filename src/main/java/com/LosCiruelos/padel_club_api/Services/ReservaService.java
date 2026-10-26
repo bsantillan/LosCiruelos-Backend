@@ -1,8 +1,6 @@
 package com.LosCiruelos.padel_club_api.Services;
 
 import java.math.BigDecimal;
-import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -38,7 +36,6 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.DiaSinAperturaException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
@@ -50,6 +47,10 @@ import com.LosCiruelos.padel_club_api.Repository.PagoRepository;
 import com.LosCiruelos.padel_club_api.Repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.Repository.TurnoFijoRepository;
 import com.LosCiruelos.padel_club_api.Specifications.ReservaSpecification;
+import com.LosCiruelos.padel_club_api.common.Paginacion;
+import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.common.Roles;
+import com.LosCiruelos.padel_club_api.common.Turno;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -82,7 +83,7 @@ public class ReservaService {
     private final ProductoService productoService;
     private final PoliticaCancelacion politicaCancelacion;
     private final TurnoFijoRepository turnoFijoRepository;
-    private final Clock clock;
+    private final Reloj reloj;
 
     // ── Consultas ────────────────────────────────────────────────────────
 
@@ -99,19 +100,13 @@ public class ReservaService {
     @Transactional(readOnly = true)
     public PaginaResponse<ReservaResponse> misReservas(String email, String tipo, List<EstadoReserva> estados,
             LocalDate desde, LocalDate hasta, boolean incluirDescartadas, int pagina, int tamanio) {
-        if (pagina < 0) {
-            throw new ReservaException("La página no puede ser negativa.");
-        }
-        if (tamanio < 1 || tamanio > TAMANIO_MAXIMO_PAGINA) {
-            throw new ReservaException("El tamaño de página tiene que estar entre 1 y " + TAMANIO_MAXIMO_PAGINA + ".");
-        }
+        Paginacion.validar(pagina, tamanio, TAMANIO_MAXIMO_PAGINA);
         if (desde != null && hasta != null && desde.isAfter(hasta)) {
             throw new ReservaException("La fecha desde no puede ser posterior a hasta.");
         }
 
-        Usuario usuario = usuarioService.findByEmailOrThrow(email,
-                new CredencialesInvalidasException("Usuario no encontrado"));
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        Usuario usuario = usuarioService.autenticado(email);
+        LocalDateTime ahora = reloj.ahora();
 
         // las suyas y los partidos en los que juega
         Specification<Reserva> filtro = ReservaSpecification.delClienteOJugador(usuario);
@@ -148,8 +143,7 @@ public class ReservaService {
 
     @Transactional(readOnly = true)
     public ReservaResponse obtener(Long id, String email) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(email,
-                new CredencialesInvalidasException("Usuario no encontrado"));
+        Usuario usuario = usuarioService.autenticado(email);
         Reserva reserva = reservaRepository.findById(id).orElseThrow(() -> new ReservaNoEncontradaException(id));
         verificarLectura(reserva, usuario);
         return aResponsePara(reserva, usuario);
@@ -164,7 +158,7 @@ public class ReservaService {
     }
 
     public Long countPartidosEsteMes(Long clienteId, EstadoReserva estado) {
-        LocalDate hoy = LocalDate.now(clock);
+        LocalDate hoy = reloj.hoy();
         return reservaRepository.countPartidosEsteMes(
                 clienteId, estado, hoy.withDayOfMonth(1), hoy.withDayOfMonth(hoy.lengthOfMonth()));
     }
@@ -193,7 +187,7 @@ public class ReservaService {
      */
     public void verificarAcceso(Reserva reserva, Usuario usuario) {
         boolean esDuenio = reserva.getCliente().getId().equals(usuario.getId());
-        if (!esPersonal(usuario) && !esDuenio) {
+        if (!Roles.esPersonal(usuario) && !esDuenio) {
             throw new ReservaNoEncontradaException(reserva.getId());
         }
     }
@@ -205,18 +199,13 @@ public class ReservaService {
         }
     }
 
-    static boolean esPersonal(Usuario usuario) {
-        return usuario.getRol() == Role.ADMIN || usuario.getRol() == Role.EMPLEADO;
-    }
-
     // ── Creación ─────────────────────────────────────────────────────────
 
     @Transactional
     public ReservaResponse crearReserva(CrearReservaRequest req, String emailSolicitante) {
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
 
-        Usuario solicitante = usuarioService.findByEmailOrThrow(emailSolicitante,
-                new CredencialesInvalidasException("Usuario no encontrado"));
+        Usuario solicitante = usuarioService.autenticado(emailSolicitante);
         Usuario cliente = resolverCliente(req.getClienteId(), solicitante);
         validarPerfilCompleto(cliente, solicitante);
 
@@ -407,7 +396,7 @@ public class ReservaService {
             throw new ReservaException("La hora de inicio debe ser anterior a la hora de fin.");
         }
 
-        long duracion = Duration.between(inicio, fin).toMinutes();
+        long duracion = Turno.minutosEntre(inicio, fin);
         configuracionService.validarDuracion(config, duracion);
 
         DiaApertura dia = configuracionService.obtenerDiaApertura(config, fecha);
@@ -419,7 +408,7 @@ public class ReservaService {
             throw new DiaSinAperturaException(
                     "El horario de cierre el %s es a las %s.".formatted(dia.getDia(), dia.getHorario_fin()));
         }
-        if (Duration.between(dia.getHorario_inicio(), inicio).toMinutes()
+        if (Turno.minutosEntre(dia.getHorario_inicio(), inicio)
                 % ConfiguracionService.MINUTOS_POR_BLOQUE != 0) {
             throw new ReservaException(
                     "El horario de inicio debe coincidir con un turno válido (cada 30 minutos desde la apertura).");
@@ -467,10 +456,9 @@ public class ReservaService {
     /** Expiración pedida por el usuario (por ejemplo, cuando el contador del front llega a cero). */
     @Transactional
     public void expirarPorUsuario(Long id, String email) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(email,
-                new CredencialesInvalidasException("Usuario no encontrado"));
+        Usuario usuario = usuarioService.autenticado(email);
         Reserva reserva = bloquearConAcceso(id, usuario);
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
 
         if (reserva.getEstado() != EstadoReserva.PENDIENTE) {
             throw new EstadoInvalidoException("Solo se pueden expirar reservas PENDIENTE.");
@@ -498,7 +486,7 @@ public class ReservaService {
             return false;
         }
         Reserva reserva = encontrada.get();
-        if (!reserva.estaVencida(LocalDateTime.now(clock)) || reserva.tienePagoActivo()) {
+        if (!reserva.estaVencida(reloj.ahora()) || reserva.tienePagoActivo()) {
             return false;
         }
         expirar(reserva);
@@ -506,7 +494,7 @@ public class ReservaService {
     }
 
     public List<Long> idsPendientesVencidas() {
-        return reservaRepository.findIdsPendientesVencidas(EstadoReserva.PENDIENTE, LocalDateTime.now(clock));
+        return reservaRepository.findIdsPendientesVencidas(EstadoReserva.PENDIENTE, reloj.ahora());
     }
 
     /**
@@ -515,7 +503,7 @@ public class ReservaService {
      */
     @Transactional
     public int marcarCompletadas() {
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         return reservaRepository.marcarCompletadas(EstadoReserva.COMPLETADA, Set.of(EstadoReserva.PAGADA),
                 ahora.toLocalDate(), ahora.toLocalTime());
     }
@@ -530,7 +518,7 @@ public class ReservaService {
     @Transactional
     public ReservaResponse registrarDevolucion(Long id, int paletasDevueltas, String emailPersonal) {
         Reserva reserva = bloquear(id);
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
 
         if (!Reserva.ESTADOS_QUE_SE_JUEGAN.contains(reserva.getEstado())) {
             throw new EstadoInvalidoException("La reserva está " + reserva.getEstado() + ": no se entregaron paletas.");
@@ -559,7 +547,7 @@ public class ReservaService {
     /** Reservas cuyo turno ya empezó y todavía tienen paletas sin devolver. */
     @Transactional(readOnly = true)
     public List<ReservaResponse> devolucionesPendientes() {
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         return reservaRepository.findConAlquileresSinDevolver(TipoProducto.ALQUILER, Reserva.ESTADOS_QUE_SE_JUEGAN,
                 ahora.toLocalDate(), ahora.toLocalTime()).stream()
                 .map(this::aResponse)
@@ -572,7 +560,7 @@ public class ReservaService {
      */
     @Transactional(readOnly = true)
     public List<ReservaResponse> saldosPendientes() {
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         return reservaRepository.findTerminadasConSaldo(
                 Reserva.ESTADOS_CON_SALDO,
                 ahora.toLocalDate(), ahora.toLocalTime()).stream()
@@ -607,12 +595,7 @@ public class ReservaService {
 
     /** Los pagos iniciados y nunca cobrados de la reserva quedan EXPIRADO (ya no se pueden cobrar). */
     private void expirarPagosPendientes(Reserva reserva) {
-        for (Pago pago : reserva.getPagos()) {
-            if (pago.getEstado() == EstadoPago.PENDIENTE) {
-                pago.setEstado(EstadoPago.EXPIRADO);
-                pagoRepository.save(pago);
-            }
-        }
+        reserva.expirarPagosPendientes().forEach(pagoRepository::save);
     }
 
     // ── Respuesta ────────────────────────────────────────────────────────
@@ -624,7 +607,7 @@ public class ReservaService {
 
         // si el cliente la cancelara ahora: si puede, hasta cuándo y cuánto se le devolvería
         PoliticaCancelacion.Evaluacion cancelacion = politicaCancelacion.evaluarParaCliente(reserva,
-                LocalDateTime.now(clock));
+                reloj.ahora());
         response.setCancelable(cancelacion.cancelable());
         response.setCancelableHasta(cancelacion.cancelableHasta());
         response.setMontoReembolso(cancelacion.montoReembolso());
@@ -632,7 +615,7 @@ public class ReservaService {
         response.setReembolsoSeniaHasta(cancelacion.reembolsoSeniaHasta());
 
         // turno jugado pero sin pagar del todo: el front lo muestra como "Jugada · saldo pendiente"
-        boolean turnoTerminado = reserva.turnoTermino(LocalDateTime.now(clock));
+        boolean turnoTerminado = reserva.turnoTermino(reloj.ahora());
         response.setTurnoTerminado(turnoTerminado);
         response.setDebeSaldo(turnoTerminado && Reserva.ESTADOS_CON_SALDO.contains(reserva.getEstado()));
         return response;
@@ -641,7 +624,7 @@ public class ReservaService {
     /** La respuesta para quien la pide: a un cliente no se le muestran los teléfonos de los otros jugadores. */
     ReservaResponse aResponsePara(Reserva reserva, Usuario usuario) {
         ReservaResponse response = aResponse(reserva);
-        if (!esPersonal(usuario)) {
+        if (!Roles.esPersonal(usuario)) {
             response.getJugadores().forEach(j -> j.setTelefono(null));
         }
         return response;

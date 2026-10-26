@@ -50,7 +50,7 @@ class VerificationServiceTest {
         token = VerificationToken.builder().usuario(usuario).token("123456").type(TokenType.VERIFY_EMAIL)
                 .fechaExpiracion(Instant.now().plus(1, ChronoUnit.HOURS)).build();
 
-        when(usuarioService.findByEmailOrThrow(eq(usuario.getEmail()), any())).thenReturn(usuario);
+        when(usuarioService.autenticado(usuario.getEmail())).thenReturn(usuario);
         when(usuarioService.findByEmail(usuario.getEmail())).thenReturn(usuario);
         when(tokenRepository.findByUsuarioAndType(usuario, TokenType.VERIFY_EMAIL)).thenReturn(Optional.of(token));
         when(tokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));

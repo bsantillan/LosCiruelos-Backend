@@ -56,7 +56,7 @@ class PerfilServiceTest {
         perfil = ClienteProfile.builder().id(1L).usuario(cliente).categoria(Categoria.Cuarta).posicion(Posicion.Drive)
                 .categoriaActualizadaAt(AHORA.minusHours(2)).categoriaModificada(false).build();
 
-        when(usuarioService.findByEmailOrThrow(eq(cliente.getEmail()), any())).thenReturn(cliente);
+        when(usuarioService.autenticado(cliente.getEmail())).thenReturn(cliente);
         when(usuarioService.updateUsuario(any(), any(), any(), any())).thenAnswer(inv -> inv.getArgument(0));
         when(clienteProfileRepository.findByUsuario(cliente)).thenReturn(Optional.of(perfil));
         when(clienteProfileRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -141,7 +141,7 @@ class PerfilServiceTest {
     @Test
     void otrosRolesNoTienenCategoria() {
         Usuario empleado = usuario(2L, Role.EMPLEADO);
-        when(usuarioService.findByEmailOrThrow(eq(empleado.getEmail()), any())).thenReturn(empleado);
+        when(usuarioService.autenticado(empleado.getEmail())).thenReturn(empleado);
 
         assertThatThrownBy(() -> perfilService.updatePerfil(pedido(Categoria.Cuarta, null, "1199998888"),
                 empleado.getEmail()))

@@ -1,6 +1,5 @@
 package com.LosCiruelos.padel_club_api.Services;
 
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -29,6 +28,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.StockInsuficienteException;
 import com.LosCiruelos.padel_club_api.Repository.ProductoRepository;
 import com.LosCiruelos.padel_club_api.Repository.ReservaProductoRepository;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -54,7 +54,7 @@ public class ProductoService {
     private final ProductoRepository productoRepository;
     private final ReservaProductoRepository reservaProductoRepository;
     private final EntityManager entityManager;
-    private final Clock clock;
+    private final Reloj reloj;
 
     // ── Catálogo ─────────────────────────────────────────────────────────
 
@@ -132,7 +132,7 @@ public class ProductoService {
         if (!inicio.isBefore(fin)) {
             throw new ReservaException("La hora de inicio debe ser anterior a la hora de fin.");
         }
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         return productoRepository.findAllByActivoTrueOrderByNombreAsc().stream()
                 .map(p -> new ProductoDisponibleResponse(p.getId(), p.getCodigo(), p.getNombre(), p.getTipo(),
                         p.getPrecio(), disponibles(p, fecha, inicio, fin, null, ahora)))
@@ -197,7 +197,7 @@ public class ProductoService {
 
     /** Devuelve el stock de VENTA de una reserva que se cancela o expira (la reserva ya está bloqueada). */
     public void liberar(Reserva reserva) {
-        moverStock(List.of(reserva), null, Map.of(), LocalDateTime.now(clock));
+        moverStock(List.of(reserva), null, Map.of(), reloj.ahora());
     }
 
     private void tomar(Reserva destino, Producto producto, int cantidad, LocalDateTime ahora) {

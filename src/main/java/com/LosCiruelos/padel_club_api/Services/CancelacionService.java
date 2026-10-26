@@ -1,7 +1,6 @@
 package com.LosCiruelos.padel_club_api.Services;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDateTime;
 
 import org.springframework.context.ApplicationEventPublisher;
@@ -15,12 +14,14 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.OpcionReembolso;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
 import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
+import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.common.Roles;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +42,7 @@ public class CancelacionService {
     private final PagoService pagoService;
     private final PoliticaCancelacion politica;
     private final UsuarioService usuarioService;
-    private final Clock clock;
+    private final Reloj reloj;
     private final ApplicationEventPublisher eventos;
 
     /**
@@ -50,9 +51,8 @@ public class CancelacionService {
      */
     @Transactional
     public ReservaResponse cancelar(Long id, String email, OpcionReembolso opcionPersonal) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(email,
-                new CredencialesInvalidasException("Usuario no encontrado"));
-        boolean esPersonal = usuario.getRol() == Role.ADMIN || usuario.getRol() == Role.EMPLEADO;
+        Usuario usuario = usuarioService.autenticado(email);
+        boolean esPersonal = Roles.esPersonal(usuario);
         if (opcionPersonal != null && !esPersonal) {
             throw new ReservaException("Solo el personal del club puede elegir el reembolso.");
         }
@@ -69,7 +69,7 @@ public class CancelacionService {
             OpcionReembolso opcionPersonal) {
         Long id = reserva.getId();
         String email = usuario.getEmail();
-        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime ahora = reloj.ahora();
         EstadoReserva estado = reserva.getEstado();
 
         if (estado != EstadoReserva.PENDIENTE && !Reserva.ESTADOS_CONFIRMADOS.contains(estado)) {
@@ -122,7 +122,7 @@ public class CancelacionService {
 
         if (esPersonal) {
             String paraCliente = reembolso.signum() > 0
-                    ? "Te devolvemos " + AvisoReserva.pesos(reembolso) + ". Ante cualquier duda, comunicate con el club."
+                    ? "Te devolvemos " + Dinero.texto(reembolso) + ". Ante cualquier duda, comunicate con el club."
                     : "Ante cualquier duda, comunicate con el club.";
             eventos.publishEvent(AvisoReserva.de(TipoAviso.CANCELADA_POR_CLUB, reserva, reembolso, paraCliente));
         }
@@ -152,20 +152,20 @@ public class CancelacionService {
         BigDecimal fallido = sumar(reserva, EstadoPago.A_REEMBOLSAR, true);
         BigDecimal enElClub = sumar(reserva, EstadoPago.A_REEMBOLSAR, false);
 
-        StringBuilder texto = new StringBuilder("Reembolso de ").append(AvisoReserva.pesos(reembolso)).append(":");
+        StringBuilder texto = new StringBuilder("Reembolso de ").append(Dinero.texto(reembolso)).append(":");
         if (hecho.signum() > 0) {
-            texto.append(" Mercado Pago devolvió ").append(AvisoReserva.pesos(hecho)).append(" (exitoso).");
+            texto.append(" Mercado Pago devolvió ").append(Dinero.texto(hecho)).append(" (exitoso).");
         }
         if (pendiente.signum() > 0) {
-            texto.append(" Mercado Pago todavía no aceptó ").append(AvisoReserva.pesos(pendiente))
+            texto.append(" Mercado Pago todavía no aceptó ").append(Dinero.texto(pendiente))
                     .append(": se reintenta solo durante 24 h (pendiente).");
         }
         if (fallido.signum() > 0) {
-            texto.append(" Mercado Pago rechazó ").append(AvisoReserva.pesos(fallido))
+            texto.append(" Mercado Pago rechazó ").append(Dinero.texto(fallido))
                     .append(": hay que devolverlo a mano (fallido).");
         }
         if (enElClub.signum() > 0) {
-            texto.append(" Hay que devolver ").append(AvisoReserva.pesos(enElClub))
+            texto.append(" Hay que devolver ").append(Dinero.texto(enElClub))
                     .append(" a mano (se cobró en el club).");
         }
         return texto.toString();
@@ -173,9 +173,8 @@ public class CancelacionService {
 
     /** Suma lo que se devolvió o hay que devolver de los pagos en ese estado, online o en el club. */
     private static BigDecimal sumar(Reserva reserva, EstadoPago estado, boolean online) {
-        return reserva.getPagos().stream()
+        return Dinero.sumar(reserva.getPagos().stream()
                 .filter(p -> p.getEstado() == estado && (p.getExternalPaymentId() != null) == online)
-                .map(p -> p.getMontoReembolsado() != null ? p.getMontoReembolsado() : p.getMonto())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(p -> p.getMontoReembolsado() != null ? p.getMontoReembolsado() : p.getMonto()));
     }
 }
