@@ -83,8 +83,24 @@ Antes de escribir lógica, buscar si ya existe. **Si algo se repite dos veces, v
 - `docs/arquitectura.md`, `docs/whatsapp.md`, `docs/variables-de-entorno.md` cuando corresponda.
 
 ## Git
-- No commitear ni pushear sin que se pida (o sin que lo diga el plan aprobado). Trabajar en una rama, nunca directo en `main`.
-- Commits chicos y por etapa, con mensaje en castellano (`feat(reservas): …`, `fix(pagos): …`, `refactor(common): …`) y la línea `Co-Authored-By` que corresponda.
+- Trabajar en una rama, nunca directo en `main`. Mensajes en castellano (`feat(reservas): …`, `fix(pagos): …`, `refactor(common): …`) con la línea `Co-Authored-By` que corresponda.
+- **Commits atómicos**: cada commit es un solo cambio lógico, compila y deja los tests en verde (`./mvnw clean verify`). Nada de commits que mezclan un refactor con una funcionalidad o con un fix.
+- **Se suben a medida que se hacen**: después de cada commit, `git push` de la rama (la primera vez con `-u origin <rama>`). Abrir o mergear un PR sigue siendo a pedido.
+
+### Refactor, feature o fix: en qué rama va cada cambio
+El criterio es si cambia lo que el sistema hace hacia afuera, no si se tocó lógica por dentro.
+
+- **Rama de refactor** (`refactor/…`): lo que mantiene el mismo resultado, aunque haya que reescribir lógica para lograrlo. Por ejemplo:
+  - mover una regla de un service a la entidad;
+  - partir un service o unir código repetido en una utilidad de `common`;
+  - ajustar una consulta, una transacción o el orden de los pasos para que el proceso de negocio siga dando lo mismo;
+  - renombrar clases o métodos internos y cambiar de paquete;
+  - índices que no cambian datos ni comportamiento.
+
+  La prueba de que es refactor: los tests existentes y la prueba punta a punta dan exactamente lo mismo antes y después.
+- **Rama de feature** (`feature/…`): reglas o funcionalidades nuevas, cambios de contrato para el front (rutas nuevas o renombradas, campos que aparecen o desaparecen, mensajes de error distintos) y cambios de esquema de la base.
+- **Fix** (`fix/…` o un commit `fix(...)` aparte): un bug que aparece mientras se refactoriza se avisa y se corrige en su propio commit, nunca mezclado con el refactor.
+- **Si para reestructurar algo hace falta cambiar el comportamiento**, en el refactor se mantiene el comportamiento actual (aunque quede menos prolijo) y el cambio va después, en la rama de feature.
 
 ## Seguridad y datos
 - No mostrar ni copiar los secretos de `.vscode/launch.json` ni tokens (Mercado Pago, Meta, Google, JWT).
