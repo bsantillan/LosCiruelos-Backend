@@ -1,26 +1,13 @@
 package com.LosCiruelos.padel_club_api.Services;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.DTOs.Responses.CanchaResponse;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.DisponibilidadResponse;
 import com.LosCiruelos.padel_club_api.Entities.Cancha;
-import com.LosCiruelos.padel_club_api.Entities.Configuracion;
-import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
-import com.LosCiruelos.padel_club_api.reservas.Reserva;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
-import com.LosCiruelos.padel_club_api.common.Reloj;
-import com.LosCiruelos.padel_club_api.common.Turno;
-import com.LosCiruelos.padel_club_api.reservas.ReservaService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,9 +16,6 @@ import lombok.RequiredArgsConstructor;
 public class CanchaService {
 
     private final CanchaRepository canchaRepository;
-    private final ReservaService reservaService;
-    private final ConfiguracionService configuracionService;
-    private final Reloj reloj;
 
     public Cancha findByIdOrThrow(Long id) {
         return canchaRepository.findById(id)
@@ -53,82 +37,5 @@ public class CanchaService {
         return canchaRepository.findAll().stream()
                 .map(CanchaResponse::from)
                 .toList();
-    }
-
-    /**
-     * Horario del día, turnos ocupados y turnos libres de la duración pedida.
-     * Usa exactamente las mismas reglas que la creación de reservas, así el front solo
-     * ofrece horarios que después se pueden reservar.
-     *
-     * @param duracion minutos; si es null se usa la duración mínima configurada
-     */
-    @Transactional(readOnly = true)
-    public DisponibilidadResponse getDisponibilidad(Long canchaId, LocalDate fecha, Integer duracion) {
-        Cancha cancha = findByIdOrThrow(canchaId);
-        Configuracion config = configuracionService.obtener();
-        LocalDateTime ahora = reloj.ahora();
-
-        if (fecha.isBefore(ahora.toLocalDate())) {
-            throw new ReservaException("La fecha debe ser hoy o en el futuro.");
-        }
-        int minutosTurno = duracion != null ? duracion : config.getDuracionMinimaTurno();
-        configuracionService.validarDuracion(config, minutosTurno);
-
-        DiaApertura dia = configuracionService.obtenerDiaApertura(config, fecha);
-        int apertura = enMinutos(dia.getHorario_inicio());
-        int cierre = enMinutos(dia.getHorario_fin());
-
-        // Si es hoy, el primer turno es el próximo bloque de 30 min contado desde la apertura
-        int desde = apertura;
-        if (fecha.isEqual(ahora.toLocalDate())) {
-            int minutoActual = enMinutos(ahora.toLocalTime());
-            if (minutoActual > apertura) {
-                int bloque = ConfiguracionService.MINUTOS_POR_BLOQUE;
-                desde = apertura + (int) Math.ceil((minutoActual - apertura) / (double) bloque) * bloque;
-            }
-        }
-
-        // todas las reservas caen dentro del horario del día
-        List<Reserva> ocupadas = reservaService.buscarQueOcupan(cancha.getId(), fecha,
-                dia.getHorario_inicio(), dia.getHorario_fin(), ahora);
-        List<DisponibilidadResponse.Turno> slotsOcupados = new ArrayList<>(ocupadas.stream()
-                .map(r -> new DisponibilidadResponse.Turno(r.getHoraInicio(), r.getHoraFin()))
-                .toList());
-        // los turnos fijos ocupan aunque el partido de esa fecha todavía no se haya creado
-        reservaService.turnosFijosQueBloquean(cancha.getId(), fecha, dia.getHorario_inicio(), dia.getHorario_fin())
-                .forEach(tf -> slotsOcupados.add(new DisponibilidadResponse.Turno(tf.getHoraInicio(), tf.getHoraFin())));
-        slotsOcupados.sort(java.util.Comparator.comparing(DisponibilidadResponse.Turno::getHoraInicio));
-
-        // nunca se pasa del cierre, así que nunca se intenta construir las 24:00
-        List<DisponibilidadResponse.Turno> disponibles = new ArrayList<>();
-        for (int inicio = desde; inicio + minutosTurno <= cierre; inicio += ConfiguracionService.MINUTOS_POR_BLOQUE) {
-            LocalTime horaInicio = desdeMinutos(inicio);
-            LocalTime horaFin = desdeMinutos(inicio + minutosTurno);
-            boolean libre = slotsOcupados.stream()
-                    .noneMatch(t -> Turno.seSuperponen(t.getHoraInicio(), t.getHoraFin(), horaInicio, horaFin));
-            if (libre) {
-                disponibles.add(new DisponibilidadResponse.Turno(horaInicio, horaFin));
-            }
-        }
-
-        return new DisponibilidadResponse(
-                dia.getHorario_inicio(),
-                dia.getHorario_fin(),
-                config.getDuracionMinimaTurno(),
-                config.getDuracionMaximaTurno(),
-                minutosTurno,
-                // mismo cálculo que ReservaService al crear la reserva
-                configuracionService.calcularMontoTurno(config, minutosTurno),
-                desde < cierre ? desdeMinutos(desde) : null,
-                slotsOcupados,
-                disponibles);
-    }
-
-    private static int enMinutos(LocalTime hora) {
-        return hora.getHour() * 60 + hora.getMinute();
-    }
-
-    private static LocalTime desdeMinutos(int minutos) {
-        return LocalTime.of(minutos / 60, minutos % 60);
     }
 }

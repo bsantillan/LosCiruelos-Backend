@@ -36,6 +36,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import com.LosCiruelos.padel_club_api.Services.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.ProductoService;
@@ -72,6 +73,7 @@ class ReservaServiceTest {
     private ProductoService productoService;
     private ReservaService reservaService;
     private ReservaMapper mapper;
+    private DisponibilidadService disponibilidad;
     private Configuracion config;
 
     private Usuario cliente;
@@ -94,9 +96,11 @@ class ReservaServiceTest {
         productoService = mock(ProductoService.class);
         ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository);
         mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA));
+        disponibilidad = new DisponibilidadService(configuracionService, new CanchaService(canchaRepository), reservaRepository,
+                turnoFijoRepository, TestData.reloj(AHORA));
         reservaService = new ReservaService(configuracionService, usuarioService,
                 clienteProfileService, reservaRepository, canchaRepository, pagoRepository, productoService,
-                mapper, turnoFijoRepository, TestData.reloj(AHORA));
+                mapper, disponibilidad, TestData.reloj(AHORA));
 
         cliente = usuario(1L, Role.CLIENTE);
         otroCliente = usuario(2L, Role.CLIENTE);
@@ -156,7 +160,7 @@ class ReservaServiceTest {
 
         private void invalido(LocalDate fecha, String inicio, String fin, Class<? extends Exception> tipo,
                 String mensaje) {
-            assertThatThrownBy(() -> reservaService.validarHorario(config, fecha, LocalTime.parse(inicio),
+            assertThatThrownBy(() -> disponibilidad.validarHorario(config, fecha, LocalTime.parse(inicio),
                     LocalTime.parse(fin), AHORA))
                     .isInstanceOf(tipo)
                     .hasMessageContaining(mensaje);
@@ -164,7 +168,7 @@ class ReservaServiceTest {
 
         @Test
         void turnoValidoDevuelveLaDuracion() {
-            assertThat(reservaService.validarHorario(config, MANIANA, LocalTime.of(18, 0), LocalTime.of(19, 30), AHORA))
+            assertThat(disponibilidad.validarHorario(config, MANIANA, LocalTime.of(18, 0), LocalTime.of(19, 30), AHORA))
                     .isEqualTo(90);
         }
 

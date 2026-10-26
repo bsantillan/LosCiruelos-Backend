@@ -13,7 +13,7 @@ import java.util.TreeSet;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.LosCiruelos.padel_club_api.reservas.ReservaService;
+import com.LosCiruelos.padel_club_api.reservas.DisponibilidadService;
 import com.LosCiruelos.padel_club_api.reservas.dto.UsoAlquiler;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.ProductoRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoDisponibleResponse;
@@ -264,7 +264,7 @@ public class ProductoService {
         // alquiler: total − máximo en uso en ese horario − las de turnos terminados que no volvieron
         List<UsoAlquiler> usos = reservaProductoRepository.findAlquileresQueSeSuperponen(producto.getId(),
                 excluirReservaId != null ? excluirReservaId : -1L, fecha, inicio, fin, ahora,
-                ReservaService.ESTADOS_INACTIVOS, EstadoReserva.PENDIENTE, ReservaService.PAGOS_ACTIVOS);
+                DisponibilidadService.ESTADOS_INACTIVOS, EstadoReserva.PENDIENTE, DisponibilidadService.PAGOS_ACTIVOS);
         Long sinDevolver = reservaProductoRepository.sumarSinDevolver(producto.getId(), Reserva.ESTADOS_QUE_SE_JUEGAN,
                 ahora.toLocalDate(), ahora.toLocalTime());
         int afuera = sinDevolver != null ? sinDevolver.intValue() : 0;

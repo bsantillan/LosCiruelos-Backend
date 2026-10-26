@@ -48,6 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PartidoService {
 
     private final ReservaService reservaService;
+    private final DisponibilidadService disponibilidad;
     private final ReservaMapper reservaMapper;
     private final PagoService pagoService;
     private final UsuarioService usuarioService;
@@ -76,7 +77,7 @@ public class PartidoService {
         Usuario admin = admin(email);
         LocalDateTime ahora = reloj.ahora();
         Configuracion config = configuracionService.obtener();
-        long duracion = reservaService.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(),
+        long duracion = disponibilidad.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(),
                 req.getHoraFin(), ahora);
         List<DatosJugador> jugadores = resolverJugadores(req.getJugadores());
 
@@ -106,7 +107,7 @@ public class PartidoService {
         }
         LocalDateTime ahora = reloj.ahora();
         Configuracion config = configuracionService.obtener();
-        long duracion = reservaService.validarHorario(config, fecha, tf.getHoraInicio(), tf.getHoraFin(), ahora);
+        long duracion = disponibilidad.validarHorario(config, fecha, tf.getHoraInicio(), tf.getHoraFin(), ahora);
         List<DatosJugador> jugadores = tf.getJugadores().stream()
                 .map(j -> new DatosJugador(j.getUsuario(), j.getNombre(), j.getTelefono()))
                 .toList();
@@ -126,7 +127,7 @@ public class PartidoService {
                 .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + canchaId));
         List<Reserva> aLiberar = reservaService.expirarVencidasQueSeSuperponen(cancha.getId(), fecha, inicio, fin,
                 ahora);
-        reservaService.validarLibre(cancha.getId(), fecha, inicio, fin, ahora, null,
+        disponibilidad.validarLibre(cancha.getId(), fecha, inicio, fin, ahora, null,
                 turnoFijo != null ? turnoFijo.getId() : null);
 
         Reserva partido = Reserva.builder()
@@ -196,13 +197,13 @@ public class PartidoService {
             if (partido.turnoEmpezo(ahora)) {
                 throw new EstadoInvalidoException("El partido ya empezó: no se puede cambiar el turno.");
             }
-            long duracion = reservaService.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(),
+            long duracion = disponibilidad.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(),
                     req.getHoraFin(), ahora);
             Cancha cancha = canchaRepository.findByIdForUpdate(req.getCanchaId())
                     .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + req.getCanchaId()));
             aLiberar.addAll(reservaService.expirarVencidasQueSeSuperponen(cancha.getId(), req.getFechaReserva(),
                     req.getHoraInicio(), req.getHoraFin(), ahora));
-            reservaService.validarLibre(cancha.getId(), req.getFechaReserva(), req.getHoraInicio(),
+            disponibilidad.validarLibre(cancha.getId(), req.getFechaReserva(), req.getHoraInicio(),
                     req.getHoraFin(), ahora, partido.getId(),
                     partido.getTurnoFijo() != null ? partido.getTurnoFijo().getId() : null);
             partido.setCancha(cancha);

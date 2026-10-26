@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.CanchaResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.DisponibilidadResponse;
 import com.LosCiruelos.padel_club_api.Services.CanchaService;
+import com.LosCiruelos.padel_club_api.reservas.DisponibilidadService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class CanchaController {
 
     private final CanchaService canchaService;
+    private final DisponibilidadService disponibilidadService;
 
     @GetMapping
     public ResponseEntity<List<CanchaResponse>> listarCanchas() {
@@ -35,6 +37,6 @@ public class CanchaController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
             @RequestParam(required = false) Integer duracion) {
         // duracion es opcional: si no viene, se usa la duración mínima de la configuración
-        return ResponseEntity.ok(canchaService.getDisponibilidad(id, fecha, duracion));
+        return ResponseEntity.ok(disponibilidadService.disponibilidad(id, fecha, duracion));
     }
 }

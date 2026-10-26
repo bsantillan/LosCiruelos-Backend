@@ -44,6 +44,7 @@ import com.LosCiruelos.padel_club_api.pagos.PagoController;
 import com.LosCiruelos.padel_club_api.pagos.dto.PagoResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PerfilResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoResponse;
+import com.LosCiruelos.padel_club_api.reservas.DisponibilidadService;
 import com.LosCiruelos.padel_club_api.reservas.PanelPersonalController;
 import com.LosCiruelos.padel_club_api.reservas.ReservaController;
 import com.LosCiruelos.padel_club_api.reservas.dto.ReservaResponse;
@@ -95,6 +96,7 @@ class ControllersTest {
     private PerfilService perfilService;
     private AdminService adminService;
     private CanchaService canchaService;
+    private DisponibilidadService disponibilidadService;
     private ProductoService productoService;
     private NotificacionesService notificacionesService;
     private ResumenService resumenService;
@@ -114,6 +116,7 @@ class ControllersTest {
         perfilService = mock(PerfilService.class);
         adminService = mock(AdminService.class);
         canchaService = mock(CanchaService.class);
+        disponibilidadService = mock(DisponibilidadService.class);
         productoService = mock(ProductoService.class);
         notificacionesService = mock(NotificacionesService.class);
         resumenService = mock(ResumenService.class);
@@ -126,7 +129,7 @@ class ControllersTest {
                 new AuthController(authService, verificationService, passwordResetService),
                 new PerfilController(perfilService),
                 new AdminController(adminService),
-                new CanchaController(canchaService),
+                new CanchaController(canchaService, disponibilidadService),
                 new ProductoController(productoService),
                 new AdminProductoController(productoService),
                 new NotificacionesController(notificacionesService),
@@ -432,7 +435,7 @@ class ControllersTest {
         @Test
         void canchasYDisponibilidad() throws Exception {
             when(canchaService.listarCanchas()).thenReturn(List.of(new CanchaResponse()));
-            when(canchaService.getDisponibilidad(any(), any(), any())).thenReturn(new DisponibilidadResponse());
+            when(disponibilidadService.disponibilidad(any(), any(), any())).thenReturn(new DisponibilidadResponse());
 
             mvc.perform(get("/canchas").principal(AUTH)).andExpect(status().isOk());
             mvc.perform(get("/canchas/1/disponibilidad").param("fecha", "2099-01-01").param("duracion", "90"))
@@ -440,7 +443,7 @@ class ControllersTest {
             // duracion es opcional (el servicio usa la mínima configurada)
             mvc.perform(get("/canchas/1/disponibilidad").param("fecha", "2099-01-01"))
                     .andExpect(status().isOk());
-            verify(canchaService).getDisponibilidad(1L, java.time.LocalDate.of(2099, 1, 1), null);
+            verify(disponibilidadService).disponibilidad(1L, java.time.LocalDate.of(2099, 1, 1), null);
             // antes: 500
             mvc.perform(get("/canchas/1/disponibilidad")).andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.fecha").exists());

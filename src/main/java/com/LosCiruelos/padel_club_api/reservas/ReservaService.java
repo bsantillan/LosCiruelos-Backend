@@ -28,14 +28,11 @@ import com.LosCiruelos.padel_club_api.reservas.dto.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Cancha;
 import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
-import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
 import com.LosCiruelos.padel_club_api.Entities.Producto;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
-import com.LosCiruelos.padel_club_api.pagos.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
-import com.LosCiruelos.padel_club_api.Exceptions.DiaSinAperturaException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
@@ -46,7 +43,6 @@ import com.LosCiruelos.padel_club_api.pagos.PagoRepository;
 import com.LosCiruelos.padel_club_api.common.Paginacion;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.common.Roles;
-import com.LosCiruelos.padel_club_api.common.Turno;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -67,9 +63,6 @@ public class ReservaService {
 
     public static final int MINUTOS_PARA_PAGAR = 15;
 
-    public static final Set<EstadoReserva> ESTADOS_INACTIVOS = Set.of(EstadoReserva.CANCELADA, EstadoReserva.EXPIRADA);
-    public static final Set<EstadoPago> PAGOS_ACTIVOS = Set.of(EstadoPago.APROBADO, EstadoPago.EN_PROCESO);
-
     private final ConfiguracionService configuracionService;
     private final UsuarioService usuarioService;
     private final ClienteProfileService clienteProfileService;
@@ -78,7 +71,7 @@ public class ReservaService {
     private final PagoRepository pagoRepository;
     private final ProductoService productoService;
     private final ReservaMapper mapper;
-    private final TurnoFijoRepository turnoFijoRepository;
+    private final DisponibilidadService disponibilidad;
     private final Reloj reloj;
 
     // ── Consultas ────────────────────────────────────────────────────────
@@ -206,7 +199,7 @@ public class ReservaService {
         validarPerfilCompleto(cliente, solicitante);
 
         Configuracion config = configuracionService.obtener();
-        long duracion = validarHorario(config, req.getFechaReserva(), req.getHoraInicio(), req.getHoraFin(), ahora);
+        long duracion = disponibilidad.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(), req.getHoraFin(), ahora);
 
         // Lock de la cancha: los pedidos simultáneos para esta cancha esperan su turno
         Cancha cancha = canchaRepository.findByIdForUpdate(req.getCanchaId())
@@ -228,7 +221,7 @@ public class ReservaService {
 
         // 3. Otras PENDIENTE del cliente en esa cancha y fecha sin pagos activos: eligió otro horario
         for (Long id : reservaRepository.findPendientesSinPagoActivo(cliente.getId(), cancha.getId(),
-                req.getFechaReserva(), ahora, EstadoReserva.PENDIENTE, PAGOS_ACTIVOS)) {
+                req.getFechaReserva(), ahora, EstadoReserva.PENDIENTE, DisponibilidadService.PAGOS_ACTIVOS)) {
             Reserva anterior = bloquear(id);
             if (anterior.estaPendienteVigente(ahora) && !anterior.tienePagoActivo()) {
                 marcarCancelada(anterior);
@@ -238,7 +231,7 @@ public class ReservaService {
         }
 
         // 4. Solapamiento con otras reservas y con los turnos fijos
-        validarLibre(cancha.getId(), req.getFechaReserva(), req.getHoraInicio(), req.getHoraFin(), ahora, null);
+        disponibilidad.validarLibre(cancha.getId(), req.getFechaReserva(), req.getHoraInicio(), req.getHoraFin(), ahora, null);
 
         Reserva reserva = Reserva.builder()
                 .cancha(cancha)
@@ -280,7 +273,7 @@ public class ReservaService {
         }
 
         if (cambiaFin) {
-            validarLibre(reserva.getCancha().getId(), reserva.getFechaReserva(), req.getHoraInicio(),
+            disponibilidad.validarLibre(reserva.getCancha().getId(), reserva.getFechaReserva(), req.getHoraInicio(),
                     req.getHoraFin(), ahora, reserva.getId());
             reserva.setHoraFin(req.getHoraFin());
         }
@@ -320,7 +313,7 @@ public class ReservaService {
             LocalDateTime ahora) {
         List<Reserva> expiradas = new ArrayList<>();
         for (Long id : reservaRepository.findPendientesVencidasQueSeSuperponen(canchaId, fecha, inicio, fin, ahora,
-                EstadoReserva.PENDIENTE, PAGOS_ACTIVOS)) {
+                EstadoReserva.PENDIENTE, DisponibilidadService.PAGOS_ACTIVOS)) {
             Reserva vencida = bloquear(id);
             if (vencida.estaVencida(ahora) && !vencida.tienePagoActivo()) {
                 marcarExpirada(vencida);
@@ -328,34 +321,6 @@ public class ReservaService {
             }
         }
         return expiradas;
-    }
-
-    /**
-     * El turno está libre: no se superpone con otra reserva que ocupe la cancha (salvo
-     * {@code excluirReservaId}) ni con un turno fijo que todavía no tiene su partido de esa fecha.
-     */
-    void validarLibre(Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin, LocalDateTime ahora,
-            Long excluirReservaId) {
-        validarLibre(canchaId, fecha, inicio, fin, ahora, excluirReservaId, null);
-    }
-
-    /** @param excluirTurnoFijoId el turno fijo cuyo partido se está creando o modificando (no se bloquea a sí mismo) */
-    void validarLibre(Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin, LocalDateTime ahora,
-            Long excluirReservaId, Long excluirTurnoFijoId) {
-        boolean ocupado = buscarQueOcupan(canchaId, fecha, inicio, fin, ahora).stream()
-                .anyMatch(otra -> !otra.getId().equals(excluirReservaId));
-        if (ocupado) {
-            throw new HorarioOcupadoException();
-        }
-        if (turnosFijosQueBloquean(canchaId, fecha, inicio, fin).stream()
-                .anyMatch(tf -> !tf.getId().equals(excluirTurnoFijoId))) {
-            throw new HorarioOcupadoException("Ese horario es un turno fijo del club en esa cancha.");
-        }
-    }
-
-    /** Turnos fijos activos que ocupan el horario ese día y todavía no tienen su partido creado. */
-    public List<TurnoFijo> turnosFijosQueBloquean(Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin) {
-        return turnoFijoRepository.findQueBloquean(canchaId, fecha.getDayOfWeek(), fecha, inicio, fin);
     }
 
     /** Guarda y fuerza el INSERT/UPDATE para que la restricción de la BD detecte solapamientos concurrentes. */
@@ -367,49 +332,6 @@ public class ReservaService {
                     reserva.getCancha().getId(), reserva.getFechaReserva());
             throw new HorarioOcupadoException();
         }
-    }
-
-    /**
-     * Reservas que ocupan el turno: todas menos CANCELADA, EXPIRADA y PENDIENTE vencidas
-     * sin pagos activos. Es la misma definición que usa la disponibilidad.
-     */
-    public List<Reserva> buscarQueOcupan(Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin,
-            LocalDateTime ahora) {
-        return reservaRepository.findQueOcupan(canchaId, fecha, inicio, fin, ahora,
-                ESTADOS_INACTIVOS, EstadoReserva.PENDIENTE, PAGOS_ACTIVOS);
-    }
-
-    /** Valida fecha y horario contra la configuración. Devuelve la duración en minutos. */
-    long validarHorario(Configuracion config, LocalDate fecha, LocalTime inicio, LocalTime fin,
-            LocalDateTime ahora) {
-        if (fecha.isBefore(ahora.toLocalDate())) {
-            throw new ReservaException("La fecha debe ser hoy o en el futuro.");
-        }
-        if (fecha.isEqual(ahora.toLocalDate()) && inicio.isBefore(ahora.toLocalTime())) {
-            throw new ReservaException("No podés reservar un horario que ya pasó.");
-        }
-        if (!inicio.isBefore(fin)) {
-            throw new ReservaException("La hora de inicio debe ser anterior a la hora de fin.");
-        }
-
-        long duracion = Turno.minutosEntre(inicio, fin);
-        configuracionService.validarDuracion(config, duracion);
-
-        DiaApertura dia = configuracionService.obtenerDiaApertura(config, fecha);
-        if (inicio.isBefore(dia.getHorario_inicio())) {
-            throw new DiaSinAperturaException(
-                    "El horario de apertura el %s es a las %s.".formatted(dia.getDia(), dia.getHorario_inicio()));
-        }
-        if (fin.isAfter(dia.getHorario_fin())) {
-            throw new DiaSinAperturaException(
-                    "El horario de cierre el %s es a las %s.".formatted(dia.getDia(), dia.getHorario_fin()));
-        }
-        if (Turno.minutosEntre(dia.getHorario_inicio(), inicio)
-                % ConfiguracionService.MINUTOS_POR_BLOQUE != 0) {
-            throw new ReservaException(
-                    "El horario de inicio debe coincidir con un turno válido (cada 30 minutos desde la apertura).");
-        }
-        return duracion;
     }
 
     private Usuario resolverCliente(Long clienteId, Usuario solicitante) {

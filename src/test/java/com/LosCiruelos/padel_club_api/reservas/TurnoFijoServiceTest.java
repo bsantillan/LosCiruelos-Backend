@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 
+import com.LosCiruelos.padel_club_api.Services.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.ProductoService;
@@ -74,18 +75,20 @@ class TurnoFijoServiceTest {
         cancelacionService = mock(CancelacionService.class);
 
         ReservaMapper mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA));
+        DisponibilidadService disponibilidad = new DisponibilidadService(configuracionService, new CanchaService(canchaRepository), reservaRepository,
+                turnoFijoRepository, TestData.reloj(AHORA));
         ReservaService reservaService = new ReservaService(configuracionService, usuarioService,
                 mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
-                productoService, mapper, turnoFijoRepository,
+                productoService, mapper, disponibilidad,
                 TestData.reloj(AHORA));
         PagoService pagoService = new PagoService(mock(PaymentServiceFactory.class), reservaService,
                 mock(PagoRepository.class), configuracionService, usuarioService, productoService,
                 TestData.reloj(AHORA), mock(ApplicationEventPublisher.class));
-        PartidoService partidoService = new PartidoService(reservaService, mapper, pagoService, usuarioService,
+        PartidoService partidoService = new PartidoService(reservaService, disponibilidad, mapper, pagoService, usuarioService,
                 configuracionService, productoService, canchaRepository, reservaRepository, turnoFijoRepository,
                 TestData.reloj(AHORA));
         turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, canchaRepository, reservaService,
-                mapper, partidoService, cancelacionService, productoService, configuracionService, usuarioService,
+                disponibilidad, mapper, partidoService, cancelacionService, productoService, configuracionService, usuarioService,
                 TestData.reloj(AHORA));
 
         admin = usuario(3L, Role.ADMIN);

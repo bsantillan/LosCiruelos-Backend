@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
+import com.LosCiruelos.padel_club_api.Services.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.ProductoService;
@@ -76,14 +77,16 @@ class PartidoServiceTest {
         ProductoService productoService = mock(ProductoService.class);
 
         ReservaMapper mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA));
+        DisponibilidadService disponibilidad = new DisponibilidadService(configuracionService, new CanchaService(canchaRepository), reservaRepository,
+                turnoFijoRepository, TestData.reloj(AHORA));
         ReservaService reservaService = new ReservaService(configuracionService, usuarioService,
                 mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
-                productoService, mapper, turnoFijoRepository,
+                productoService, mapper, disponibilidad,
                 TestData.reloj(AHORA));
         PagoService pagoService = new PagoService(mock(PaymentServiceFactory.class), reservaService,
                 mock(PagoRepository.class), configuracionService, usuarioService, productoService,
                 TestData.reloj(AHORA), mock(ApplicationEventPublisher.class));
-        partidos = new PartidoService(reservaService, mapper, pagoService, usuarioService, configuracionService,
+        partidos = new PartidoService(reservaService, disponibilidad, mapper, pagoService, usuarioService, configuracionService,
                 productoService, canchaRepository, reservaRepository, turnoFijoRepository, TestData.reloj(AHORA));
 
         admin = usuario(3L, Role.ADMIN);

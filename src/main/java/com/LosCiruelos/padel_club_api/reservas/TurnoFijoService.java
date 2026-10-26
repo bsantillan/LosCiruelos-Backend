@@ -36,7 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Turnos fijos del ADMIN: el mismo partido todas las semanas. El horario queda bloqueado siempre
- * (ver {@link ReservaService#turnosFijosQueBloquean}); los partidos de cada semana los crea
+ * (ver {@link DisponibilidadService#turnosFijosQueBloquean}); los partidos de cada semana los crea
  * {@link GeneradorTurnosFijos}. Toda operación bloquea primero el turno fijo.
  */
 @Slf4j
@@ -48,6 +48,7 @@ public class TurnoFijoService {
     private final ReservaRepository reservaRepository;
     private final CanchaRepository canchaRepository;
     private final ReservaService reservaService;
+    private final DisponibilidadService disponibilidad;
     private final ReservaMapper reservaMapper;
     private final PartidoService partidoService;
     private final CancelacionService cancelacionService;
@@ -242,7 +243,7 @@ public class TurnoFijoService {
         }
         DayOfWeek dia = req.getDesde().getDayOfWeek();
         Configuracion config = configuracionService.obtener();
-        reservaService.validarHorario(config, proximaFecha(req.getDesde(), req.getHoraInicio(), ahora),
+        disponibilidad.validarHorario(config, proximaFecha(req.getDesde(), req.getHoraInicio(), ahora),
                 req.getHoraInicio(), req.getHoraFin(), ahora);
         List<TurnoFijo> superpuestos = turnoFijoRepository.findSuperpuestos(actual != null ? actual.getId() : -1L,
                 req.getCanchaId(), dia, req.getHoraInicio(), req.getHoraFin());
