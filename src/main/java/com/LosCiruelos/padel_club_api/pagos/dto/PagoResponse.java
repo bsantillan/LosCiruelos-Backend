@@ -1,0 +1,54 @@
+package com.LosCiruelos.padel_club_api.pagos.dto;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+import com.LosCiruelos.padel_club_api.pagos.Pago;
+import com.LosCiruelos.padel_club_api.pagos.EstadoPago;
+import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
+import com.LosCiruelos.padel_club_api.pagos.PaymentProvider;
+
+import lombok.Data;
+
+@Data
+public class PagoResponse {
+    Long id;
+    Long reservaId;
+    // partido: qué jugador pagó (o a quién se le bonificó)
+    Long jugadorId;
+    BigDecimal monto;
+    EstadoPago estado;
+    PaymentProvider provider;
+    // id de la preferencia de Mercado Pago (para inicializar el Brick / Wallet)
+    String paymentToken;
+    // id del pago en Mercado Pago
+    String externalPaymentId;
+    LocalDateTime createdAt;
+    LocalDateTime paidAt;
+    // cuánto se devolvió (DEVUELTO) o hay que devolver (A_REEMBOLSAR)
+    BigDecimal montoReembolsado;
+    // motivo de una bonificación (provider BONIFICACION)
+    String motivo;
+    // estado de la reserva después de la operación
+    EstadoReserva estadoReserva;
+    // detalle del proveedor al cobrar (ej. motivo del rechazo); solo en la respuesta del cobro
+    String detalle;
+
+    public static PagoResponse from(Pago pago) {
+        PagoResponse response = new PagoResponse();
+        response.setId(pago.getId());
+        response.setReservaId(pago.getReserva().getId());
+        response.setMonto(pago.getMonto());
+        response.setEstado(pago.getEstado());
+        response.setProvider(pago.getProvider());
+        response.setPaymentToken(pago.getPaymentToken());
+        response.setExternalPaymentId(pago.getExternalPaymentId());
+        response.setCreatedAt(pago.getCreatedAt());
+        response.setPaidAt(pago.getPaidAt());
+        response.setMontoReembolsado(pago.getMontoReembolsado());
+        response.setMotivo(pago.getMotivo());
+        response.setJugadorId(pago.getJugador() != null ? pago.getJugador().getId() : null);
+        response.setEstadoReserva(pago.getReserva().getEstado());
+        return response;
+    }
+}

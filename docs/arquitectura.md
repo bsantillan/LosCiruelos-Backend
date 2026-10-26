@@ -15,10 +15,11 @@ Controller ──► Services ──► Repository ──► PostgreSQL
 
 | Paquete | Responsabilidad |
 |---|---|
-| `Controller` | Endpoints REST: `AuthController`, `PerfilController`, `AdminController`, `CanchaController`, `ReservaController`, `PagoController` |
+| `reservas` (dominio) | Reservas, partidos y turnos fijos: entidades (`Reserva`, `ReservaJugador`, `ReservaProducto`, `TurnoFijo`, `TurnoFijoJugador`), repositories, services (`ReservaService`, `ReservaAdminService`, `PartidoService`, `TurnoFijoService`, `GeneradorTurnosFijos`, `CancelacionService`, `PoliticaCancelacion`), controllers (`ReservaController`, `PanelPersonalController`, `PartidoController`, `TurnoFijoController`) y `reservas.dto` |
+| `pagos` (dominio) | `Pago` y sus enums, `PagoRepository`, `PagoService`, `PagoController`, `pagos.dto` y `pagos.mercadopago` (`PaymentService`, `PaymentServiceFactory`, `MercadoPagoPaymentService`, `MercadoPagoWebhookValidator`) |
+| `Controller` | Endpoints REST de los dominios que todavía no se mudaron: `AuthController`, `PerfilController`, `AdminController`, `CanchaController`, … |
 | `Services` | Lógica de negocio: `AuthService`, `VerificationService`, `PasswordResetService`, `UsuarioService`, `ClienteProfileService`, `PerfilService`, `AdminService`, `CanchaService`, `ConfiguracionService` (horarios, precio, seña), `ProductoService` (catálogo y stock), `ReservaService` (creación, cancelación, expiración), `PagoService` |
 | `Services/Email` | `EmailService` (interfaz), `GmailEmailService` (bean `"gmail"`), `EmailServiceFactory`, `EnvioPostCommit` (envía después del commit) |
-| `Services/Pagos` | `PaymentService` (interfaz), `MercadoPagoPaymentService` (bean `"mercadopago"`), `PaymentServiceFactory`, `MercadoPagoWebhookValidator` |
 | `Services/WhatsApp` | `WhatsAppService` (interfaz), `MetaWhatsAppService` (bean `"meta"`, Cloud API de Meta), `WhatsAppServiceFactory` |
 | `Services/Avisos` | `AvisoReserva` (evento), `TipoAviso` (plantillas y textos), `AvisosService` (elige el canal de cada destinatario), `AvisosListener` (envía después del commit) |
 | `Repository` | Repositorios Spring Data JPA (incluye queries JPQL de solapamiento y pendientes en `ReservaRepository`) |

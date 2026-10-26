@@ -14,12 +14,13 @@ import com.LosCiruelos.padel_club_api.DTOs.Responses.DisponibilidadResponse;
 import com.LosCiruelos.padel_club_api.Entities.Cancha;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
-import com.LosCiruelos.padel_club_api.Entities.Reserva;
+import com.LosCiruelos.padel_club_api.reservas.Reserva;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.common.Turno;
+import com.LosCiruelos.padel_club_api.reservas.ReservaService;
 
 import lombok.RequiredArgsConstructor;
 

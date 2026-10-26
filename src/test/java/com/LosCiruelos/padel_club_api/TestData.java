@@ -11,16 +11,16 @@ import java.util.List;
 import com.LosCiruelos.padel_club_api.Entities.Cancha;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
-import com.LosCiruelos.padel_club_api.Entities.Pago;
-import com.LosCiruelos.padel_club_api.Entities.Reserva;
-import com.LosCiruelos.padel_club_api.Entities.ReservaJugador;
+import com.LosCiruelos.padel_club_api.pagos.Pago;
+import com.LosCiruelos.padel_club_api.reservas.Reserva;
+import com.LosCiruelos.padel_club_api.reservas.ReservaJugador;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
-import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
-import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
-import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
+import com.LosCiruelos.padel_club_api.pagos.EstadoPago;
+import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
+import com.LosCiruelos.padel_club_api.pagos.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
+import com.LosCiruelos.padel_club_api.reservas.TipoReserva;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 
 /** Datos de prueba compartidos por los tests unitarios. */

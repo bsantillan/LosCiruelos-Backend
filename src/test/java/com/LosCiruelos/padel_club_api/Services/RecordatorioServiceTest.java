@@ -23,15 +23,16 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
-import com.LosCiruelos.padel_club_api.Entities.Pago;
-import com.LosCiruelos.padel_club_api.Entities.Reserva;
-import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
-import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.pagos.Pago;
+import com.LosCiruelos.padel_club_api.reservas.Reserva;
+import com.LosCiruelos.padel_club_api.pagos.EstadoPago;
+import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
-import com.LosCiruelos.padel_club_api.Repository.ReservaRepository;
+import com.LosCiruelos.padel_club_api.reservas.ReservaRepository;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
 import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
+import com.LosCiruelos.padel_club_api.reservas.ReservaService;
 
 class RecordatorioServiceTest {
 

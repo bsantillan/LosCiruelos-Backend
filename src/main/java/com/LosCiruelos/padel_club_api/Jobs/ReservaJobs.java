@@ -5,11 +5,11 @@ import java.util.List;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
-import com.LosCiruelos.padel_club_api.Services.PagoService;
-import com.LosCiruelos.padel_club_api.Services.GeneradorTurnosFijos;
+import com.LosCiruelos.padel_club_api.pagos.EstadoPago;
+import com.LosCiruelos.padel_club_api.pagos.PagoService;
+import com.LosCiruelos.padel_club_api.reservas.GeneradorTurnosFijos;
 import com.LosCiruelos.padel_club_api.Services.RecordatorioService;
-import com.LosCiruelos.padel_club_api.Services.ReservaService;
+import com.LosCiruelos.padel_club_api.reservas.ReservaService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

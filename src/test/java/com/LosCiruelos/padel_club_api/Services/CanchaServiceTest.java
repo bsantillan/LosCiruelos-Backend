@@ -21,13 +21,14 @@ import org.junit.jupiter.api.Test;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.DisponibilidadResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.DisponibilidadResponse.Turno;
-import com.LosCiruelos.padel_club_api.Entities.Reserva;
-import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.reservas.Reserva;
+import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
 import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.reservas.ReservaService;
 
 class CanchaServiceTest {
 
