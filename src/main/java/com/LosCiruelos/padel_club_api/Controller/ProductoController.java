@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoDisponibleResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoResponse;
 import com.LosCiruelos.padel_club_api.Services.ProductoService;
+import com.LosCiruelos.padel_club_api.reservas.StockService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class ProductoController {
 
     private final ProductoService productoService;
+    private final StockService stockService;
 
     @GetMapping
     public ResponseEntity<List<ProductoResponse>> listar() {
@@ -36,6 +38,6 @@ public class ProductoController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime horaInicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime horaFin) {
-        return ResponseEntity.ok(productoService.disponibilidad(fecha, horaInicio, horaFin));
+        return ResponseEntity.ok(stockService.disponibilidad(fecha, horaInicio, horaFin));
     }
 }

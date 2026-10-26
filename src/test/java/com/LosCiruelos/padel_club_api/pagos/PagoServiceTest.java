@@ -28,12 +28,12 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.pagos.dto.PaymentResult;
 import com.LosCiruelos.padel_club_api.pagos.dto.PagoResponse;
 import com.LosCiruelos.padel_club_api.reservas.ReservaService;
+import com.LosCiruelos.padel_club_api.reservas.StockService;
 import com.LosCiruelos.padel_club_api.reservas.dto.ReservaResponse;
 import com.LosCiruelos.padel_club_api.reservas.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
@@ -90,7 +90,7 @@ class PagoServiceTest {
         when(usuarioService.autenticado(empleado.getEmail())).thenReturn(empleado);
 
         pagoService = new PagoService(factory, reservaService, pagoRepository,
-                new ConfiguracionService(configuracionRepository), usuarioService, mock(ProductoService.class),
+                new ConfiguracionService(configuracionRepository), usuarioService, mock(StockService.class),
                 TestData.reloj(AHORA), eventos = mock(ApplicationEventPublisher.class));
     }
 

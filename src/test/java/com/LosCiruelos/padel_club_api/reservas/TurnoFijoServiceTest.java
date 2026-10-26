@@ -28,7 +28,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import com.LosCiruelos.padel_club_api.Services.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.pagos.PagoService;
@@ -54,7 +53,7 @@ class TurnoFijoServiceTest {
     private TurnoFijoRepository turnoFijoRepository;
     private ReservaRepository reservaRepository;
     private CancelacionService cancelacionService;
-    private ProductoService productoService;
+    private StockService stockService;
     private TurnoFijoService turnos;
 
     private Usuario admin;
@@ -71,7 +70,7 @@ class TurnoFijoServiceTest {
         reservaRepository = mock(ReservaRepository.class);
         CanchaRepository canchaRepository = mock(CanchaRepository.class);
         UsuarioService usuarioService = mock(UsuarioService.class);
-        productoService = mock(ProductoService.class);
+        stockService = mock(StockService.class);
         cancelacionService = mock(CancelacionService.class);
 
         ReservaMapper mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA));
@@ -79,16 +78,16 @@ class TurnoFijoServiceTest {
                 turnoFijoRepository, TestData.reloj(AHORA));
         ReservaService reservaService = new ReservaService(configuracionService, usuarioService,
                 mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
-                productoService, mapper, disponibilidad,
+                stockService, mapper, disponibilidad,
                 TestData.reloj(AHORA));
         PagoService pagoService = new PagoService(mock(PaymentServiceFactory.class), reservaService,
-                mock(PagoRepository.class), configuracionService, usuarioService, productoService,
+                mock(PagoRepository.class), configuracionService, usuarioService, stockService,
                 TestData.reloj(AHORA), mock(ApplicationEventPublisher.class));
         PartidoService partidoService = new PartidoService(reservaService, disponibilidad, mapper, pagoService, usuarioService,
-                configuracionService, productoService, canchaRepository, reservaRepository, turnoFijoRepository,
+                configuracionService, stockService, canchaRepository, reservaRepository, turnoFijoRepository,
                 TestData.reloj(AHORA));
         turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, canchaRepository, reservaService,
-                disponibilidad, mapper, partidoService, cancelacionService, productoService, configuracionService, usuarioService,
+                disponibilidad, mapper, partidoService, cancelacionService, stockService, configuracionService, usuarioService,
                 TestData.reloj(AHORA));
 
         admin = usuario(3L, Role.ADMIN);
@@ -213,7 +212,7 @@ class TurnoFijoServiceTest {
         List<Long> sinCambiar = turnos.actualizar(8L, req, admin.getEmail());
 
         assertThat(sinCambiar).containsExactly(71L);
-        verify(productoService).liberar(sinPagos);
+        verify(stockService).liberar(sinPagos);
         verify(reservaRepository).delete(sinPagos);
         verify(reservaRepository, never()).delete(conPagos);
         verify(reservaRepository, never()).delete(liberada);

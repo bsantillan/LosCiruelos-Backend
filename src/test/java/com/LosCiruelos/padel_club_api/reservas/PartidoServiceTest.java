@@ -28,7 +28,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import com.LosCiruelos.padel_club_api.Services.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.pagos.PagoService;
@@ -74,20 +73,20 @@ class PartidoServiceTest {
         turnoFijoRepository = mock(TurnoFijoRepository.class);
         CanchaRepository canchaRepository = mock(CanchaRepository.class);
         usuarioService = mock(UsuarioService.class);
-        ProductoService productoService = mock(ProductoService.class);
+        StockService stockService = mock(StockService.class);
 
         ReservaMapper mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA));
         DisponibilidadService disponibilidad = new DisponibilidadService(configuracionService, new CanchaService(canchaRepository), reservaRepository,
                 turnoFijoRepository, TestData.reloj(AHORA));
         ReservaService reservaService = new ReservaService(configuracionService, usuarioService,
                 mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
-                productoService, mapper, disponibilidad,
+                stockService, mapper, disponibilidad,
                 TestData.reloj(AHORA));
         PagoService pagoService = new PagoService(mock(PaymentServiceFactory.class), reservaService,
-                mock(PagoRepository.class), configuracionService, usuarioService, productoService,
+                mock(PagoRepository.class), configuracionService, usuarioService, stockService,
                 TestData.reloj(AHORA), mock(ApplicationEventPublisher.class));
         partidos = new PartidoService(reservaService, disponibilidad, mapper, pagoService, usuarioService, configuracionService,
-                productoService, canchaRepository, reservaRepository, turnoFijoRepository, TestData.reloj(AHORA));
+                stockService, canchaRepository, reservaRepository, turnoFijoRepository, TestData.reloj(AHORA));
 
         admin = usuario(3L, Role.ADMIN);
         empleado = usuario(4L, Role.EMPLEADO);

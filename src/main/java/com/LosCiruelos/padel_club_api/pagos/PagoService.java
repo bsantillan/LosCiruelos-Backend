@@ -13,10 +13,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.pagos.dto.PaymentResult;
 import com.LosCiruelos.padel_club_api.reservas.ReservaService;
+import com.LosCiruelos.padel_club_api.reservas.StockService;
 import com.LosCiruelos.padel_club_api.reservas.dto.CrearReservaRequest;
 import com.LosCiruelos.padel_club_api.pagos.dto.PagoResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.ReservaResponse;
@@ -58,7 +58,7 @@ public class PagoService {
     private final PagoRepository pagoRepository;
     private final ConfiguracionService configuracionService;
     private final UsuarioService usuarioService;
-    private final ProductoService productoService;
+    private final StockService stockService;
     private final Reloj reloj;
     private final ApplicationEventPublisher eventos;
 
@@ -591,7 +591,7 @@ public class PagoService {
             reserva.setEstado(nuevo);
             if (nuevo == EstadoReserva.CANCELADA) {
                 reserva.expirarPagosPendientes().forEach(pagoRepository::save);
-                productoService.liberar(reserva);
+                stockService.liberar(reserva);
                 log.warn("Reserva #{} cancelada: se devolvió todo lo pagado", reserva.getId());
             }
             reservaService.save(reserva);

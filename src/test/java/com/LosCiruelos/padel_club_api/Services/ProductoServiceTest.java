@@ -16,20 +16,16 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.reservas.dto.UsoAlquiler;
 import com.LosCiruelos.padel_club_api.DTOs.Requests.ProductoRequest;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoDisponibleResponse;
 import com.LosCiruelos.padel_club_api.Entities.Producto;
 import com.LosCiruelos.padel_club_api.reservas.Reserva;
-import com.LosCiruelos.padel_club_api.reservas.ReservaProducto;
 import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
@@ -55,8 +51,7 @@ class ProductoServiceTest {
         productoRepository = mock(ProductoRepository.class);
         reservaProductoRepository = mock(ReservaProductoRepository.class);
         EntityManager entityManager = mock(EntityManager.class);
-        servicio = new ProductoService(productoRepository, reservaProductoRepository, entityManager,
-                TestData.reloj(AHORA));
+        servicio = new ProductoService(productoRepository);
 
         pelotas = Producto.builder().id(1L).codigo(Producto.CODIGO_PELOTAS).nombre("Pelotas")
                 .tipo(TipoProducto.VENTA).precio(new BigDecimal("1500")).stock(10).build();
@@ -85,165 +80,6 @@ class ProductoServiceTest {
         Reserva r = reserva(null, usuario(1L, Role.CLIENTE), EstadoReserva.PENDIENTE, "15000"); // 18:00-19:30
         r.setId(null);
         return r;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-
-    @Nested
-    class UsoMaximo {
-
-        @Test
-        void turnosConsecutivosNoSeSuman() {
-            // 2 paletas 18:00-19:30 y 2 de 19:30-21:00: nunca están en uso al mismo tiempo
-            assertThat(ProductoService.usoMaximo(List.of(uso("18:00", "19:30", 2), uso("19:30", "21:00", 2)),
-                    LocalTime.of(18, 30), LocalTime.of(20, 0))).isEqualTo(2);
-        }
-
-        @Test
-        void turnosQueSePisanSeSuman() {
-            assertThat(ProductoService.usoMaximo(List.of(uso("18:00", "19:30", 2), uso("19:00", "20:30", 1)),
-                    LocalTime.of(18, 0), LocalTime.of(21, 0))).isEqualTo(3);
-        }
-
-        @Test
-        void sinAlquileresEsCero() {
-            assertThat(ProductoService.usoMaximo(List.of(), LocalTime.of(18, 0), LocalTime.of(19, 30))).isZero();
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-
-    @Nested
-    class StockDeReservas {
-
-        @Test
-        void ventaDescuentaStockYCongelaElPrecio() {
-            Reserva reserva = nuevaReserva();
-
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 3), AHORA);
-
-            assertThat(pelotas.getStock()).isEqualTo(7);
-            assertThat(reserva.cantidadDe(Producto.CODIGO_PELOTAS)).isEqualTo(3);
-            assertThat(reserva.getMontoProductos()).isEqualByComparingTo("4500");
-
-            pelotas.setPrecio(new BigDecimal("9999"));
-            assertThat(reserva.getMontoProductos()).isEqualByComparingTo("4500");
-        }
-
-        @Test
-        void ventaSinStockSuficiente() {
-            assertThatThrownBy(() -> servicio.moverStock(List.of(), nuevaReserva(),
-                    Map.of(Producto.CODIGO_PELOTAS, 11), AHORA))
-                    .isInstanceOf(StockInsuficienteException.class)
-                    .hasMessageContaining("Pelotas: hay 10 unidades en stock");
-            assertThat(pelotas.getStock()).isEqualTo(10);
-        }
-
-        @Test
-        void alquilerControlaLasUnidadesEnUsoEnEseHorarioSinTocarElStock() {
-            alquileres(List.of(uso("17:00", "18:30", 2), uso("19:00", "20:00", 1)));
-
-            // de 18:00 a 19:30 hay como máximo 2 en uso: quedan 2 de 4
-            assertThatThrownBy(() -> servicio.moverStock(List.of(), nuevaReserva(),
-                    Map.of(Producto.CODIGO_PALETAS, 3), AHORA))
-                    .isInstanceOf(StockInsuficienteException.class)
-                    .hasMessageContaining("Paletas: hay 2 unidades disponibles para ese horario");
-
-            Reserva reserva = nuevaReserva();
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PALETAS, 2), AHORA);
-            assertThat(reserva.cantidadDe(Producto.CODIGO_PALETAS)).isEqualTo(2);
-            assertThat(reserva.getMontoProductos()).isEqualByComparingTo("4000");
-            assertThat(paletas.getStock()).isEqualTo(4);
-        }
-
-        @Test
-        void lasPaletasDeTurnosTerminadosQueNoVolvieronNoSePuedenAlquilar() {
-            // 4 paletas: 3 de un turno de esta mañana todavía no se devolvieron
-            when(reservaProductoRepository.sumarSinDevolver(eq(2L), anyCollection(), any(), any())).thenReturn(3L);
-
-            assertThatThrownBy(() -> servicio.moverStock(List.of(), nuevaReserva(),
-                    Map.of(Producto.CODIGO_PALETAS, 2), AHORA))
-                    .isInstanceOf(StockInsuficienteException.class)
-                    .hasMessageContaining("1 unidad");
-        }
-
-        @Test
-        void devolucionCompletaNoTocaElStockYConFaltantesLoBaja() {
-            Reserva reserva = nuevaReserva();
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PALETAS, 3), AHORA);
-            ReservaProducto item = reserva.getProductos().getFirst();
-
-            servicio.registrarDevolucion(item, 3, AHORA);
-            assertThat(paletas.getStock()).isEqualTo(4);
-            assertThat(item.getCantidadDevuelta()).isEqualTo(3);
-            assertThat(item.getDevueltaAt()).isEqualTo(AHORA);
-
-            item.setCantidadDevuelta(null);
-            servicio.registrarDevolucion(item, 1, AHORA); // se rompieron 2
-            assertThat(paletas.getStock()).isEqualTo(2);
-        }
-
-        @Test
-        void productoInactivoNoSePuedePedir() {
-            paletas.setActivo(false);
-
-            assertThatThrownBy(() -> servicio.moverStock(List.of(), nuevaReserva(),
-                    Map.of(Producto.CODIGO_PALETAS, 1), AHORA))
-                    .isInstanceOf(ReservaException.class)
-                    .hasMessageContaining("no está disponible");
-        }
-
-        @Test
-        void sinProductosPedidosNoHaceNada() {
-            Reserva reserva = nuevaReserva();
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 0), AHORA);
-            assertThat(reserva.getProductos()).isEmpty();
-        }
-
-        @Test
-        void alCancelarOExpirarSeDevuelveSoloLoVendido() {
-            Reserva reserva = nuevaReserva();
-            servicio.moverStock(List.of(), reserva,
-                    Map.of(Producto.CODIGO_PELOTAS, 3, Producto.CODIGO_PALETAS, 2), AHORA);
-            assertThat(pelotas.getStock()).isEqualTo(7);
-
-            servicio.liberar(reserva);
-
-            assertThat(pelotas.getStock()).isEqualTo(10);
-            assertThat(paletas.getStock()).isEqualTo(4);
-        }
-
-        @Test
-        void modificarActualizaLosItemsEnElLugarYAjustaElStock() {
-            Reserva reserva = nuevaReserva();
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 2), AHORA);
-            ReservaProducto item = reserva.getProductos().getFirst();
-            assertThat(pelotas.getStock()).isEqualTo(8);
-
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 5), AHORA);
-
-            assertThat(reserva.getProductos()).containsExactly(item); // mismo ítem, no se recrea
-            assertThat(item.getCantidad()).isEqualTo(5);
-            assertThat(pelotas.getStock()).isEqualTo(5);
-
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 0), AHORA);
-            assertThat(reserva.getProductos()).isEmpty();
-            assertThat(pelotas.getStock()).isEqualTo(10);
-        }
-
-        @Test
-        void liberarOtrasReservasYTomarParaLaNuevaEnUnSoloPaso() {
-            Reserva vencida = nuevaReserva();
-            servicio.moverStock(List.of(), vencida, Map.of(Producto.CODIGO_PELOTAS, 10), AHORA);
-            assertThat(pelotas.getStock()).isZero();
-
-            // las pelotas de la reserva vencida vuelven y alcanzan para la nueva
-            Reserva nueva = nuevaReserva();
-            servicio.moverStock(List.of(vencida), nueva, Map.of(Producto.CODIGO_PELOTAS, 4), AHORA);
-
-            assertThat(pelotas.getStock()).isEqualTo(6);
-            assertThat(nueva.cantidadDe(Producto.CODIGO_PELOTAS)).isEqualTo(4);
-        }
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -313,19 +149,6 @@ class ProductoServiceTest {
             assertThat(servicio.desactivar(2L).getActivo()).isFalse();
             assertThat(servicio.listarTodos()).hasSize(2);
             assertThat(servicio.listarActivos()).hasSize(1);
-        }
-
-        @Test
-        void disponibilidadPorHorario() {
-            when(productoRepository.findAllByActivoTrueOrderByNombreAsc()).thenReturn(List.of(paletas, pelotas));
-            alquileres(List.of(uso("18:00", "19:30", 3)));
-
-            List<ProductoDisponibleResponse> d = servicio.disponibilidad(MANIANA, LocalTime.of(18, 0),
-                    LocalTime.of(19, 30));
-
-            assertThat(d).extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(1, 10);
-            assertThatThrownBy(() -> servicio.disponibilidad(MANIANA, LocalTime.of(19, 0), LocalTime.of(18, 0)))
-                    .isInstanceOf(ReservaException.class);
         }
     }
 }

@@ -39,7 +39,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import com.LosCiruelos.padel_club_api.Services.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.reservas.dto.CrearReservaRequest;
@@ -70,7 +69,7 @@ class ReservaServiceTest {
     private ReservaRepository reservaRepository;
     private TurnoFijoRepository turnoFijoRepository;
     private CanchaRepository canchaRepository;
-    private ProductoService productoService;
+    private StockService stockService;
     private ReservaService reservaService;
     private ReservaMapper mapper;
     private DisponibilidadService disponibilidad;
@@ -93,13 +92,13 @@ class ReservaServiceTest {
         canchaRepository = mock(CanchaRepository.class);
         PagoRepository pagoRepository = mock(PagoRepository.class);
 
-        productoService = mock(ProductoService.class);
+        stockService = mock(StockService.class);
         ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository);
         mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA));
         disponibilidad = new DisponibilidadService(configuracionService, new CanchaService(canchaRepository), reservaRepository,
                 turnoFijoRepository, TestData.reloj(AHORA));
         reservaService = new ReservaService(configuracionService, usuarioService,
-                clienteProfileService, reservaRepository, canchaRepository, pagoRepository, productoService,
+                clienteProfileService, reservaRepository, canchaRepository, pagoRepository, stockService,
                 mapper, disponibilidad, TestData.reloj(AHORA));
 
         cliente = usuario(1L, Role.CLIENTE);
@@ -219,7 +218,7 @@ class ReservaServiceTest {
                 agregarProducto(destino, Producto.CODIGO_PELOTAS, TipoProducto.VENTA, 2, "1500");
                 agregarProducto(destino, Producto.CODIGO_PALETAS, TipoProducto.ALQUILER, 4, "2000");
                 return null;
-            }).when(productoService).moverStock(any(), any(), any(), any());
+            }).when(stockService).moverStock(any(), any(), any(), any());
             CrearReservaRequest req = pedido(MANIANA, "18:00", "19:30");
             req.setCantidadPelotas(2);
             req.setCantidadPaletas(4);
@@ -232,7 +231,7 @@ class ReservaServiceTest {
             assertThat(r.getMontoSenia()).isEqualByComparingTo("13000"); // 50 % del total
             assertThat(r.getCantidadPelotas()).isEqualTo(2);
             assertThat(r.getCantidadPaletas()).isEqualTo(4);
-            verify(productoService).moverStock(eq(List.of()), any(Reserva.class),
+            verify(stockService).moverStock(eq(List.of()), any(Reserva.class),
                     eq(Map.of(Producto.CODIGO_PELOTAS, 2, Producto.CODIGO_PALETAS, 4)), eq(AHORA));
         }
 
@@ -271,7 +270,7 @@ class ReservaServiceTest {
             assertThat(vencida.getEstado()).isEqualTo(EstadoReserva.EXPIRADA);
             assertThat(iniciado.getEstado()).isEqualTo(EstadoPago.EXPIRADO);
             // su stock se devuelve en el mismo paso en que se toma el de la nueva reserva
-            verify(productoService).moverStock(eq(List.of(vencida)), any(Reserva.class), any(), eq(AHORA));
+            verify(stockService).moverStock(eq(List.of(vencida)), any(Reserva.class), any(), eq(AHORA));
         }
 
         @Test
@@ -374,7 +373,7 @@ class ReservaServiceTest {
             doAnswer(inv -> {
                 agregarProducto(inv.getArgument(1), Producto.CODIGO_PELOTAS, TipoProducto.VENTA, 3, "1000");
                 return null;
-            }).when(productoService).moverStock(any(), eq(existente), any(), any());
+            }).when(stockService).moverStock(any(), eq(existente), any(), any());
             CrearReservaRequest req = pedido(MANIANA, "18:00", "19:30");
             req.setCantidadPelotas(3);
 
@@ -389,7 +388,7 @@ class ReservaServiceTest {
             ReservaResponse r = reservaService.crearReserva(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail());
 
             assertThat(r.getMontoTotal()).isEqualByComparingTo("15000");
-            verify(productoService).moverStock(eq(List.of()), isNull(), eq(Map.of()), any());
+            verify(stockService).moverStock(eq(List.of()), isNull(), eq(Map.of()), any());
         }
 
         @Test
@@ -467,7 +466,7 @@ class ReservaServiceTest {
         @Test
         void registraLaDevolucion() {
             reservaService.registrarDevolucion(20L, 2, admin.getEmail());
-            verify(productoService).registrarDevolucion(paletas, 2, AHORA);
+            verify(stockService).registrarDevolucion(paletas, 2, AHORA);
         }
 
         @Test

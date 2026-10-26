@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.reservas.dto.TurnoFijoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.ReservaResponse;
@@ -52,7 +51,7 @@ public class TurnoFijoService {
     private final ReservaMapper reservaMapper;
     private final PartidoService partidoService;
     private final CancelacionService cancelacionService;
-    private final ProductoService productoService;
+    private final StockService stockService;
     private final ConfiguracionService configuracionService;
     private final UsuarioService usuarioService;
     private final Reloj reloj;
@@ -141,7 +140,7 @@ public class TurnoFijoService {
                 sinCambiar.add(reservaId);
                 continue;
             }
-            productoService.liberar(partido);
+            stockService.liberar(partido);
             reservaRepository.delete(partido);
         }
         reservaRepository.flush();

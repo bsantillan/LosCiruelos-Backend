@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.pagos.PagoService;
 import com.LosCiruelos.padel_club_api.reservas.dto.JugadorRequest;
@@ -53,7 +52,7 @@ public class PartidoService {
     private final PagoService pagoService;
     private final UsuarioService usuarioService;
     private final ConfiguracionService configuracionService;
-    private final ProductoService productoService;
+    private final StockService stockService;
     private final CanchaRepository canchaRepository;
     private final ReservaRepository reservaRepository;
     private final TurnoFijoRepository turnoFijoRepository;
@@ -153,7 +152,7 @@ public class PartidoService {
                     .build());
         }
 
-        productoService.moverStock(aLiberar, partido, ReservaService.pedidoDeProductos(pelotas, paletas), ahora);
+        stockService.moverStock(aLiberar, partido, ReservaService.pedidoDeProductos(pelotas, paletas), ahora);
         partido.setMontoTotal(configuracionService.calcularMontoTurno(config, duracion)
                 .add(partido.getMontoProductos()));
         return reservaService.guardarVerificandoSolapamiento(partido);
@@ -216,7 +215,7 @@ public class PartidoService {
         actualizarJugadores(partido, jugadores);
         // devuelve el stock de los productos anteriores y toma los nuevos (los alquileres se
         // vuelven a validar porque pudo cambiar el horario)
-        productoService.moverStock(aLiberar, partido,
+        stockService.moverStock(aLiberar, partido,
                 ReservaService.pedidoDeProductos(req.getCantidadPelotas(), req.getCantidadPaletas()), ahora);
         BigDecimal total = montoCancha.add(partido.getMontoProductos());
         if (total.compareTo(partido.getMontoCubierto()) < 0) {

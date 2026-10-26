@@ -47,6 +47,7 @@ import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoResponse;
 import com.LosCiruelos.padel_club_api.reservas.DisponibilidadService;
 import com.LosCiruelos.padel_club_api.reservas.PanelPersonalController;
 import com.LosCiruelos.padel_club_api.reservas.ReservaController;
+import com.LosCiruelos.padel_club_api.reservas.StockService;
 import com.LosCiruelos.padel_club_api.reservas.dto.ReservaResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.UsuarioAdminResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.NotificacionesResponse;
@@ -98,6 +99,7 @@ class ControllersTest {
     private CanchaService canchaService;
     private DisponibilidadService disponibilidadService;
     private ProductoService productoService;
+    private StockService stockService;
     private NotificacionesService notificacionesService;
     private ResumenService resumenService;
     private ReservaAdminService reservaAdminService;
@@ -118,6 +120,7 @@ class ControllersTest {
         canchaService = mock(CanchaService.class);
         disponibilidadService = mock(DisponibilidadService.class);
         productoService = mock(ProductoService.class);
+        stockService = mock(StockService.class);
         notificacionesService = mock(NotificacionesService.class);
         resumenService = mock(ResumenService.class);
         reservaAdminService = mock(ReservaAdminService.class);
@@ -130,7 +133,7 @@ class ControllersTest {
                 new PerfilController(perfilService),
                 new AdminController(adminService),
                 new CanchaController(canchaService, disponibilidadService),
-                new ProductoController(productoService),
+                new ProductoController(productoService, stockService),
                 new AdminProductoController(productoService),
                 new NotificacionesController(notificacionesService),
                 new ResumenController(resumenService),
@@ -459,7 +462,7 @@ class ControllersTest {
         @Test
         void catalogoYDisponibilidad() throws Exception {
             when(productoService.listarActivos()).thenReturn(List.of(new ProductoResponse()));
-            when(productoService.disponibilidad(any(), any(), any())).thenReturn(List.of());
+            when(stockService.disponibilidad(any(), any(), any())).thenReturn(List.of());
 
             mvc.perform(get("/productos").principal(AUTH))
                     .andExpect(status().isOk())

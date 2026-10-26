@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.reservas.dto.CrearReservaRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
@@ -69,7 +68,7 @@ public class ReservaService {
     private final ReservaRepository reservaRepository;
     private final CanchaRepository canchaRepository;
     private final PagoRepository pagoRepository;
-    private final ProductoService productoService;
+    private final StockService stockService;
     private final ReservaMapper mapper;
     private final DisponibilidadService disponibilidad;
     private final Reloj reloj;
@@ -246,7 +245,7 @@ public class ReservaService {
                 .build();
 
         // 5. Stock: devuelve lo de las reservas que se expiraron o cancelaron y toma lo pedido
-        productoService.moverStock(aLiberar, reserva, pedidoDeProductos(req), ahora);
+        stockService.moverStock(aLiberar, reserva, pedidoDeProductos(req), ahora);
         reserva.setMontoTotal(configuracionService.calcularMontoTurno(config, duracion).add(reserva.getMontoProductos()));
 
         reserva = guardarVerificandoSolapamiento(reserva);
@@ -268,7 +267,7 @@ public class ReservaService {
                 .anyMatch(e -> reserva.cantidadDe(e.getKey()) != e.getValue());
 
         if (!cambiaFin && !cambianProductos) {
-            productoService.moverStock(aLiberar, null, Map.of(), ahora);
+            stockService.moverStock(aLiberar, null, Map.of(), ahora);
             return reserva;
         }
 
@@ -280,7 +279,7 @@ public class ReservaService {
 
         // devuelve el stock de los productos anteriores y toma los nuevos (los alquileres se
         // vuelven a validar porque pudo cambiar el horario)
-        productoService.moverStock(aLiberar, reserva, pedido, ahora);
+        stockService.moverStock(aLiberar, reserva, pedido, ahora);
 
         BigDecimal montoAnterior = reserva.getMontoTotal();
         reserva.setMontoTotal(configuracionService.calcularMontoTurno(config, duracion).add(reserva.getMontoProductos()));
@@ -456,7 +455,7 @@ public class ReservaService {
                     .formatted(item.getCantidad(), item.getCantidad()));
         }
 
-        productoService.registrarDevolucion(item, paletasDevueltas, ahora);
+        stockService.registrarDevolucion(item, paletasDevueltas, ahora);
         log.info("Reserva #{}: {} de {} paletas devueltas (registró {})", id, paletasDevueltas, item.getCantidad(),
                 emailPersonal);
         return mapper.aResponse(reserva);
@@ -489,13 +488,13 @@ public class ReservaService {
     /** Expira la reserva (ya bloqueada) y devuelve su stock. */
     private void expirar(Reserva reserva) {
         marcarExpirada(reserva);
-        productoService.liberar(reserva);
+        stockService.liberar(reserva);
     }
 
     /** Cancela la reserva (ya bloqueada) y devuelve su stock. Los reembolsos los hace CancelacionService. */
     void cancelar(Reserva reserva) {
         marcarCancelada(reserva);
-        productoService.liberar(reserva);
+        stockService.liberar(reserva);
     }
 
     private void marcarExpirada(Reserva reserva) {
