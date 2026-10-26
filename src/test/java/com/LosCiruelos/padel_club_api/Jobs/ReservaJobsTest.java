@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
+import com.LosCiruelos.padel_club_api.Services.GeneradorTurnosFijos;
 import com.LosCiruelos.padel_club_api.Services.PagoService;
 import com.LosCiruelos.padel_club_api.Services.RecordatorioService;
 import com.LosCiruelos.padel_club_api.Services.ReservaService;
@@ -18,7 +19,8 @@ class ReservaJobsTest {
     private final ReservaService reservaService = mock(ReservaService.class);
     private final PagoService pagoService = mock(PagoService.class);
     private final RecordatorioService recordatorioService = mock(RecordatorioService.class);
-    private final ReservaJobs jobs = new ReservaJobs(reservaService, pagoService, recordatorioService);
+    private final GeneradorTurnosFijos generador = mock(GeneradorTurnosFijos.class);
+    private final ReservaJobs jobs = new ReservaJobs(reservaService, pagoService, recordatorioService, generador);
 
     @Test
     void siUnaReservaFallaSeSigueConLasDemas() {

@@ -10,7 +10,9 @@ import java.util.List;
 import com.LosCiruelos.padel_club_api.Entities.Pago;
 import com.LosCiruelos.padel_club_api.Entities.Producto;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
+import com.LosCiruelos.padel_club_api.Entities.ReservaJugador;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
 
 import lombok.Data;
 
@@ -36,6 +38,13 @@ public class ReservaResponse {
     Integer cantidadPaletas;
     List<ReservaProductoResponse> productos;
     EstadoReserva estado;
+    // NORMAL o PARTIDO (de 4 jugadores, armado por el ADMIN)
+    TipoReserva tipo;
+    // partido creado por un turno fijo
+    Long turnoFijoId;
+    // partido: los 4 jugadores con lo que puso cada uno (vacío en una reserva NORMAL)
+    List<JugadorResponse> jugadores;
+    // en un partido es el ADMIN que lo armó
     Long clienteId;
     String clienteNombre;
     LocalDateTime createdAt;
@@ -77,6 +86,9 @@ public class ReservaResponse {
         response.setCantidadPaletas(reserva.cantidadDe(Producto.CODIGO_PALETAS));
         response.setProductos(reserva.getProductos().stream().map(ReservaProductoResponse::from).toList());
         response.setEstado(reserva.getEstado());
+        response.setTipo(reserva.getTipo());
+        response.setTurnoFijoId(reserva.getTurnoFijo() != null ? reserva.getTurnoFijo().getId() : null);
+        response.setJugadores(reserva.getJugadores().stream().map(j -> jugador(reserva, j)).toList());
         response.setClienteId(reserva.getCliente().getId());
         response.setClienteNombre(nombreCompleto(reserva));
         response.setCreatedAt(reserva.getCreatedAt());
@@ -86,6 +98,25 @@ public class ReservaResponse {
                 .map(PagoResponse::from)
                 .toList());
         return response;
+    }
+
+    private static JugadorResponse jugador(Reserva reserva, ReservaJugador jugador) {
+        List<Pago> suyos = reserva.getPagos().stream()
+                .filter(p -> p.getJugador() != null && p.getJugador().getId() != null
+                        && p.getJugador().getId().equals(jugador.getId()))
+                .toList();
+        BigDecimal pagado = suyos.stream().filter(p -> !p.esBonificacion()).map(Pago::getMontoRetenido)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal bonificado = suyos.stream().filter(Pago::esBonificacion).map(Pago::getMontoRetenido)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal parte = reserva.parteDe(jugador.getPosicion());
+        // si la reserva ya está cubierta (por ejemplo, otro pagó todo) nadie debe nada
+        BigDecimal debe = reserva.getMontoPendiente().signum() <= 0 ? BigDecimal.ZERO
+                : parte.subtract(pagado).subtract(bonificado).max(BigDecimal.ZERO).min(reserva.getMontoPendiente());
+        return new JugadorResponse(jugador.getId(), jugador.getPosicion(),
+                jugador.getUsuario() != null ? jugador.getUsuario().getId() : null, jugador.nombreParaMostrar(),
+                jugador.getUsuario() != null ? jugador.getUsuario().getTelefono() : jugador.getTelefono(),
+                jugador.esInvitado(), parte, pagado, bonificado, debe);
     }
 
     private static String nombreCompleto(Reserva reserva) {

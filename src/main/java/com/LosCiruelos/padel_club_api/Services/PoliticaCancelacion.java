@@ -48,6 +48,11 @@ public class PoliticaCancelacion {
     public Evaluacion evaluarParaCliente(Reserva reserva, LocalDateTime ahora) {
         LocalDateTime inicio = reserva.inicioDelTurno();
 
+        // un partido lo arma y lo cancela el ADMIN, no los jugadores
+        if (reserva.esPartido()) {
+            return Evaluacion.noCancelable();
+        }
+
         if (reserva.getEstado() == EstadoReserva.PENDIENTE) {
             // sin dinero cobrado: se puede cancelar salvo que MP esté procesando un pago
             boolean cancelable = !reserva.tienePagoActivo() && !reserva.turnoEmpezo(ahora);

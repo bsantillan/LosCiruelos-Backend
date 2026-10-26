@@ -115,7 +115,7 @@ public class PagoController {
             @Valid @RequestBody PagoManualRequest body,
             Authentication authentication) {
         return ResponseEntity.ok(pagoService.registrarPagoManual(reservaId, body.getMonto(),
-                PaymentProvider.MANUAL, authentication.getName()));
+                PaymentProvider.MANUAL, body.getJugadorId(), authentication.getName()));
     }
 
     /**
@@ -130,7 +130,7 @@ public class PagoController {
             Authentication authentication) {
         BonificacionRequest datos = body != null ? body : new BonificacionRequest();
         return ResponseEntity.ok(pagoService.bonificar(reservaId, datos.getMonto(), datos.getMotivo(),
-                authentication.getName()));
+                datos.getJugadorId(), authentication.getName()));
     }
 
     /** Empleado/Admin registra un pago presencial con tarjeta o QR de Mercado Pago. */
@@ -141,6 +141,6 @@ public class PagoController {
             @Valid @RequestBody PagoManualRequest body,
             Authentication authentication) {
         return ResponseEntity.ok(pagoService.registrarPagoManual(reservaId, body.getMonto(),
-                PaymentProvider.MERCADO_PAGO, authentication.getName()));
+                PaymentProvider.MERCADO_PAGO, body.getJugadorId(), authentication.getName()));
     }
 }

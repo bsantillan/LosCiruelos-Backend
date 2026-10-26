@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Services.PagoService;
+import com.LosCiruelos.padel_club_api.Services.GeneradorTurnosFijos;
 import com.LosCiruelos.padel_club_api.Services.RecordatorioService;
 import com.LosCiruelos.padel_club_api.Services.ReservaService;
 
@@ -21,6 +22,7 @@ public class ReservaJobs {
     private final ReservaService reservaService;
     private final PagoService pagoService;
     private final RecordatorioService recordatorioService;
+    private final GeneradorTurnosFijos generadorTurnosFijos;
 
     /**
      * Cada minuto: expira las reservas PENDIENTE cuyo plazo para pagar venció y que no
@@ -86,6 +88,18 @@ public class ReservaJobs {
         }
         if (enviados > 0) {
             log.info("Job de recordatorios: {} enviados", enviados);
+        }
+    }
+
+    /**
+     * Cada hora: crea los partidos de los turnos fijos que falten dentro de la anticipación
+     * (cada fecha en su propia transacción; las que no se pueden crear se reintentan la próxima vez).
+     */
+    @Scheduled(fixedDelay = 3_600_000, initialDelay = 120_000)
+    public void crearPartidosDeTurnosFijos() {
+        int creados = generadorTurnosFijos.generarTodos();
+        if (creados > 0) {
+            log.info("Job de turnos fijos: {} partidos creados", creados);
         }
     }
 

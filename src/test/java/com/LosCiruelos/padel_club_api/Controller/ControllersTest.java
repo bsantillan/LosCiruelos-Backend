@@ -245,11 +245,11 @@ class ControllersTest {
                     .andExpect(jsonPath("$.errors.monto").exists());
             mvc.perform(json(post("/pagos/4/pago-efectivo"), "{}")).andExpect(status().isBadRequest());
 
-            when(pagoService.registrarPagoManual(any(), any(), any(), anyString())).thenReturn(new PagoResponse());
+            when(pagoService.registrarPagoManual(any(), any(), any(), any(), anyString())).thenReturn(new PagoResponse());
             mvc.perform(json(post("/pagos/4/pago-efectivo"), "{\"monto\":7500}")).andExpect(status().isOk());
             mvc.perform(json(post("/pagos/4/pago-presencial"), "{\"monto\":7500}")).andExpect(status().isOk());
-            verify(pagoService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, EMAIL);
-            verify(pagoService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO, EMAIL);
+            verify(pagoService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, EMAIL);
+            verify(pagoService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO, null, EMAIL);
         }
 
         @Test
@@ -783,7 +783,7 @@ class ControllersTest {
 
         @Test
         void listaConTodosLosFiltrosYLosTotales() throws Exception {
-            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenReturn(pagina());
 
             mvc.perform(get("/admin/reservas").principal(AUTH)
@@ -801,18 +801,18 @@ class ControllersTest {
                     .andExpect(jsonPath("$.totales.montoPendiente").value(165000.00));
 
             verify(reservaAdminService).listar(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31),
-                    List.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA), 7L, "pérez", 2L, true, 1, 50,
+                    List.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA), 7L, "pérez", 2L, null, true, 1, 50,
                     "desc");
         }
 
         @Test
         void sinParametrosUsaLosValoresPorDefecto() throws Exception {
-            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenReturn(pagina());
 
             mvc.perform(get("/admin/reservas").principal(AUTH)).andExpect(status().isOk());
 
-            verify(reservaAdminService).listar(null, null, null, null, null, null, false, 0, null, null);
+            verify(reservaAdminService).listar(null, null, null, null, null, null, null, false, 0, null, null);
         }
 
         @Test
@@ -827,7 +827,7 @@ class ControllersTest {
 
         @Test
         void losErroresDelServicioSeRespetan() throws Exception {
-            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.ReservaException(
                             "El tamaño de página tiene que estar entre 1 y 100."));
 
@@ -869,19 +869,19 @@ class ControllersTest {
 
         @Test
         void bonificarSinBodyEsTodoLoQueFalta() throws Exception {
-            when(pagoService.bonificar(5L, null, null, EMAIL)).thenReturn(new PagoResponse());
+            when(pagoService.bonificar(5L, null, null, null, EMAIL)).thenReturn(new PagoResponse());
 
             mvc.perform(post("/pagos/5/bonificacion").principal(AUTH)).andExpect(status().isOk());
-            verify(pagoService).bonificar(5L, null, null, EMAIL);
+            verify(pagoService).bonificar(5L, null, null, null, EMAIL);
         }
 
         @Test
         void bonificarUnaParteConMotivo() throws Exception {
-            when(pagoService.bonificar(any(), any(), any(), any())).thenReturn(new PagoResponse());
+            when(pagoService.bonificar(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
 
             mvc.perform(json(post("/pagos/5/bonificacion"), "{\"monto\":7500,\"motivo\":\"socio\"}"))
                     .andExpect(status().isOk());
-            verify(pagoService).bonificar(5L, new BigDecimal("7500"), "socio", EMAIL);
+            verify(pagoService).bonificar(5L, new BigDecimal("7500"), "socio", null, EMAIL);
 
             mvc.perform(json(post("/pagos/5/bonificacion"), "{\"monto\":0}"))
                     .andExpect(status().isBadRequest())
@@ -890,7 +890,7 @@ class ControllersTest {
 
         @Test
         void unEmpleadoNoPuedeBonificar() throws Exception {
-            when(pagoService.bonificar(any(), any(), any(), any())).thenThrow(
+            when(pagoService.bonificar(any(), any(), any(), any(), any())).thenThrow(
                     new com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException(
                             "Solo el ADMIN puede bonificar una reserva."));
 

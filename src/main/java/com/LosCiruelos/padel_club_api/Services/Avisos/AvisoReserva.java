@@ -49,7 +49,13 @@ public record AvisoReserva(
     }
 
     public static AvisoReserva de(TipoAviso tipo, Reserva reserva, BigDecimal monto, String detalle) {
-        return new AvisoReserva(tipo, reserva.getId(), Destinatario.de(reserva.getCliente()),
+        return para(tipo, reserva, reserva.getCliente(), monto, detalle);
+    }
+
+    /** Aviso de la reserva para otro usuario que el cliente (por ejemplo, un jugador del partido). */
+    public static AvisoReserva para(TipoAviso tipo, Reserva reserva, Usuario destinatario, BigDecimal monto,
+            String detalle) {
+        return new AvisoReserva(tipo, reserva.getId(), Destinatario.de(destinatario),
                 reserva.getCancha().getNumero(), reserva.getFechaReserva(), reserva.getHoraInicio(),
                 reserva.getHoraFin(), reserva.getMontoTotal(), monto, detalle);
     }

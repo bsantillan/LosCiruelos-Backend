@@ -36,7 +36,7 @@ import jakarta.persistence.criteria.Subquery;
 public class BusquedaReservasAdmin {
 
     /** Las que deben plata: confirmadas que todavía no están pagas. */
-    public static final Set<EstadoReserva> DEBEN = Set.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA);
+    public static final Set<EstadoReserva> DEBEN = Reserva.ESTADOS_CON_SALDO;
 
     private static final Set<EstadoPago> DEVUELTOS = Set.of(EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR,
             EstadoPago.REEMBOLSO_PENDIENTE);

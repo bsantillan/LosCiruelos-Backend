@@ -124,13 +124,24 @@ Si cualquier paso falla, la transacción se revierte entera: no quedan reservas 
 - Se acepta en las mismas reservas que un pago en el club, con el mismo `409` si hay un pago online en proceso.
 - Queda un pago `provider = BONIFICACION`, `APROBADO`, con `registrado_por_id` y `motivo`. Cubre el monto para el estado de la reserva, pero **no es plata**: no suma en `montoPagado` ni en lo cobrado del resumen y del listado (va en `montoBonificado`), no se devuelve al cancelar y no manda aviso.
 
+### 4 ter. Partidos de 4 jugadores y turnos fijos — solo ADMIN
+- **Armar un partido** (`POST /admin/partidos`): el ADMIN elige cancha, fecha, horario y 4 jugadores, cada uno un cliente registrado o un invitado (nombre y teléfono opcional). Mismas reglas de horario, solapamiento y stock que una reserva normal. Queda `CONFIRMADA`: no vence y ocupa la cancha aunque nadie haya pagado. Su "cliente" es el ADMIN.
+- **Cobrar**: en el club, cada pago (o bonificación) se registra a nombre de un jugador (`jugadorId`). Cada jugador tiene su parte (total / 4) y la respuesta muestra cuánto pagó y cuánto debe; uno puede pagar por otros. El estado de la reserva sigue la tabla de abajo con lo pagado entre todos. No se paga online y no se le avisa al ADMIN de cada pago.
+- **Modificar** (`PUT /admin/partidos/{id}`): jugadores por posición (no se reemplaza a quien ya pagó), cancha, horario y productos, mientras no se haya jugado. El total no puede quedar por debajo de lo pagado.
+- **Cancelar**: solo el ADMIN, con `DELETE /reservas/{id}/cancelar` (reembolso si hay plata). Se avisa a los jugadores registrados.
+- **Jugadores registrados**: ven el partido en "Mis reservas" y su detalle, sin poder pagarlo ni cancelarlo; reciben el recordatorio con lo que les falta de su parte.
+- **Turno fijo** (`/admin/turnos-fijos`): el mismo partido todas las semanas (el día de `desde`). Bloquea el horario siempre, también en la disponibilidad. Un job crea cada hora los partidos de las próximas 4 semanas (cada uno se paga aparte); si una fecha está ocupada se informa y se reintenta.
+  - **Baja de una fecha**: se cancela ese partido (o se registra la fecha como cancelada si todavía no se creó) y el horario queda libre ese día.
+  - **Modificar**: los partidos futuros sin pagos se vuelven a crear con los datos nuevos; los que tienen pagos quedan como estaban.
+  - **Baja general**: se cancelan los partidos que no empezaron (con reembolso si alguno tiene plata) y el horario se libera.
+
 ### 5. Estado de la reserva según lo pagado
 
 Se recalcula siempre a partir de los pagos `APROBADO` (plata más bonificaciones), nunca se asigna a mano:
 
 | Pagado + bonificado | Estado |
 |---|---|
-| 0 | `PENDIENTE` (o `CANCELADA` si estaba confirmada y se devolvió todo) |
+| 0 | `PENDIENTE` (o `CANCELADA` si estaba confirmada y se devolvió todo). Un partido queda `CONFIRMADA` |
 | más de 0 y menos que la seña | `PARCIALMENTE_PAGADA` |
 | la seña o más, menos que el total | `SEÑADA` |
 | el total | `PAGADA`, o `COMPLETADA` si el turno ya terminó |
@@ -138,7 +149,7 @@ Se recalcula siempre a partir de los pagos `APROBADO` (plata más bonificaciones
 `CANCELADA`, `EXPIRADA` y `COMPLETADA` no cambian por pagos. Una reserva `COMPLETADA` siempre está totalmente paga.
 
 ### 6. Cancelar — `DELETE /reservas/{id}/cancelar`
-- **Quién**: el dueño de la reserva, o ADMIN/EMPLEADO. Se pueden cancelar reservas `PENDIENTE`, `SEÑADA`, `PARCIALMENTE_PAGADA` y `PAGADA`, sin pagos en proceso.
+- **Quién**: el dueño de la reserva, o ADMIN/EMPLEADO (un partido, solo el ADMIN). Se pueden cancelar reservas `PENDIENTE`, `CONFIRMADA`, `SEÑADA`, `PARCIALMENTE_PAGADA` y `PAGADA`, sin pagos en proceso.
 - **Cliente**: puede cancelar hasta que empieza el turno y el reembolso lo define la política (configurable en `configuracion`):
 
 | Anticipación | Reembolso |

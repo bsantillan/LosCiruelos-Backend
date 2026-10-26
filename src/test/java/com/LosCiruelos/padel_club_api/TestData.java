@@ -14,12 +14,14 @@ import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
 import com.LosCiruelos.padel_club_api.Entities.Pago;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
+import com.LosCiruelos.padel_club_api.Entities.ReservaJugador;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
+import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
 
 /** Datos de prueba compartidos por los tests unitarios. */
 public final class TestData {
@@ -108,5 +110,22 @@ public final class TestData {
                 .build();
         reserva.agregarPago(pago);
         return pago;
+    }
+
+    /**
+     * Partido CONFIRMADA (sin pagos, no vence) armado por {@code admin}: el jugador 1 es
+     * {@code registrado} y los otros tres son invitados. Los jugadores tienen ids 201 a 204.
+     */
+    public static Reserva partido(Long id, Usuario admin, Usuario registrado, String total) {
+        Reserva partido = reserva(id, admin, EstadoReserva.CONFIRMADA, total);
+        partido.setTipo(TipoReserva.PARTIDO);
+        partido.setExpiresAt(null);
+        partido.getJugadores().add(ReservaJugador.builder().id(201L).reserva(partido).posicion(1).usuario(registrado)
+                .build());
+        for (int posicion = 2; posicion <= 4; posicion++) {
+            partido.getJugadores().add(ReservaJugador.builder().id(200L + posicion).reserva(partido)
+                    .posicion(posicion).nombre("Invitado " + posicion).telefono("11 5555-000" + posicion).build());
+        }
+        return partido;
     }
 }

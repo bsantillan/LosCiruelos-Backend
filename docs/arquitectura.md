@@ -58,7 +58,7 @@ Email y pagos se resuelven por nombre de bean:
 | `GET /canchas`, `GET /canchas/*/disponibilidad`, `GET /productos`, `GET /productos/disponibilidad` | público (un visitante ve horarios libres y precios; reservar requiere sesión) |
 | `GET /admin/reservas`, `GET /admin/clientes` | `ADMIN`, `EMPLEADO` |
 | `GET /admin/resumen` | `ADMIN` (cualquier período), `EMPLEADO` (solo hoy) |
-| `/admin/**` | `ADMIN` |
+| `/admin/**` | `ADMIN` (incluye `/admin/partidos` y `/admin/turnos-fijos`) |
 | `POST /pagos/*/pago-efectivo`, `POST /pagos/*/pago-presencial` | `ADMIN`, `EMPLEADO` |
 | cualquier otra | autenticado |
 

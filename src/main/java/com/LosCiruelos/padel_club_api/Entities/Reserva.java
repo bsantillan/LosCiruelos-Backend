@@ -1,6 +1,7 @@
 package com.LosCiruelos.padel_club_api.Entities;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -10,6 +11,7 @@ import java.util.Set;
 
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
 
 import org.hibernate.annotations.BatchSize;
 
@@ -24,6 +26,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
@@ -42,13 +45,18 @@ import lombok.Setter;
 public class Reserva {
 
     // Estados en los que la reserva ya tiene dinero aprobado y el turno está confirmado
-    public static final Set<EstadoReserva> ESTADOS_CONFIRMADOS = Set.of(
+    // (CONFIRMADA: partido del ADMIN sin nada pagado, que igual está confirmado)
+    public static final Set<EstadoReserva> ESTADOS_CONFIRMADOS = Set.of(EstadoReserva.CONFIRMADA,
             EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA, EstadoReserva.PAGADA);
 
     // Estados de una reserva que se juega (o se jugó): se entregan los productos alquilados
-    public static final Set<EstadoReserva> ESTADOS_QUE_SE_JUEGAN = Set.of(
+    public static final Set<EstadoReserva> ESTADOS_QUE_SE_JUEGAN = Set.of(EstadoReserva.CONFIRMADA,
             EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA, EstadoReserva.PAGADA,
             EstadoReserva.COMPLETADA);
+
+    // Confirmadas que todavía deben plata (el turno pudo haberse jugado o no)
+    public static final Set<EstadoReserva> ESTADOS_CON_SALDO = Set.of(EstadoReserva.CONFIRMADA,
+            EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -78,6 +86,16 @@ public class Reserva {
     @Column(nullable = false, name = "estado")
     private EstadoReserva estado;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TipoReserva tipo = TipoReserva.NORMAL;
+
+    // Partido creado por un turno fijo (null en el resto)
+    @ManyToOne
+    @JoinColumn(name = "turno_fijo_id")
+    private TurnoFijo turnoFijo;
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "cliente_id")
     private Usuario cliente;
@@ -106,6 +124,33 @@ public class Reserva {
     @BatchSize(size = 50)
     @OneToMany(mappedBy = "reserva", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReservaProducto> productos = new ArrayList<>();
+
+    // Partido: los 4 jugadores (vacío en una reserva NORMAL)
+    @Builder.Default
+    @BatchSize(size = 50)
+    @OrderBy("posicion")
+    @OneToMany(mappedBy = "reserva", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ReservaJugador> jugadores = new ArrayList<>();
+
+    public boolean esPartido() {
+        return tipo == TipoReserva.PARTIDO;
+    }
+
+    /**
+     * Parte del jugador en esa posición (1 a 4): el total dividido entre los 4, redondeado para
+     * abajo a centavos; los centavos que sobran van al último.
+     */
+    public BigDecimal parteDe(int posicion) {
+        BigDecimal parte = montoTotal.divide(BigDecimal.valueOf(Jugadores.POR_PARTIDO), 2, RoundingMode.DOWN);
+        if (posicion < Jugadores.POR_PARTIDO) {
+            return parte;
+        }
+        return montoTotal.subtract(parte.multiply(BigDecimal.valueOf(Jugadores.POR_PARTIDO - 1)));
+    }
+
+    public boolean esJugador(Usuario usuario) {
+        return jugadores.stream().anyMatch(j -> j.getUsuario() != null && j.getUsuario().getId().equals(usuario.getId()));
+    }
 
     /** Cantidad pedida del producto del sistema con ese código (0 si no se pidió). */
     public int cantidadDe(String codigoProducto) {

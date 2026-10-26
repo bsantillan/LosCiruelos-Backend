@@ -61,12 +61,14 @@ import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
 import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.Repository.PagoRepository;
 import com.LosCiruelos.padel_club_api.Repository.ReservaRepository;
+import com.LosCiruelos.padel_club_api.Repository.TurnoFijoRepository;
 
 class ReservaServiceTest {
 
     private UsuarioService usuarioService;
     private ClienteProfileService clienteProfileService;
     private ReservaRepository reservaRepository;
+    private TurnoFijoRepository turnoFijoRepository;
     private CanchaRepository canchaRepository;
     private ProductoService productoService;
     private ReservaService reservaService;
@@ -85,6 +87,7 @@ class ReservaServiceTest {
         usuarioService = mock(UsuarioService.class);
         clienteProfileService = mock(ClienteProfileService.class);
         reservaRepository = mock(ReservaRepository.class);
+        turnoFijoRepository = mock(TurnoFijoRepository.class);
         canchaRepository = mock(CanchaRepository.class);
         PagoRepository pagoRepository = mock(PagoRepository.class);
 
@@ -92,7 +95,7 @@ class ReservaServiceTest {
         ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository);
         reservaService = new ReservaService(configuracionService, usuarioService,
                 clienteProfileService, reservaRepository, canchaRepository, pagoRepository, productoService,
-                new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA));
+                new PoliticaCancelacion(configuracionService), turnoFijoRepository, TestData.reloj(AHORA));
 
         cliente = usuario(1L, Role.CLIENTE);
         otroCliente = usuario(2L, Role.CLIENTE);
@@ -581,8 +584,7 @@ class ReservaServiceTest {
         void listaLosTurnosJugadosQueDebenSaldo() {
             Reserva jugada = reserva(30L, cliente, EstadoReserva.PARCIALMENTE_PAGADA, "15000");
             jugada.setFechaReserva(HOY.minusDays(1));
-            when(reservaRepository.findTerminadasConSaldo(
-                    List.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA), HOY, AHORA.toLocalTime()))
+            when(reservaRepository.findTerminadasConSaldo(Reserva.ESTADOS_CON_SALDO, HOY, AHORA.toLocalTime()))
                     .thenReturn(List.of(jugada));
 
             assertThat(reservaService.saldosPendientes()).extracting(ReservaResponse::getId).containsExactly(30L);

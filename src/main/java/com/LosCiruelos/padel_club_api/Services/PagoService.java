@@ -20,6 +20,7 @@ import com.LosCiruelos.padel_club_api.DTOs.Responses.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.Pago;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
+import com.LosCiruelos.padel_club_api.Entities.ReservaJugador;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
@@ -72,6 +73,9 @@ public class PagoService {
     @Transactional
     public PagoResponse iniciarPago(Long reservaId, Boolean pagarTotal, String email) {
         Reserva reserva = reservaService.bloquearConAcceso(reservaId, usuario(email));
+        if (reserva.esPartido()) {
+            throw new EstadoInvalidoException("Los partidos se pagan en el club.");
+        }
         validarQueAdmitePagos(reserva);
         if (reserva.tienePagoEnProceso()) {
             throw new EstadoInvalidoException("Hay un pago en proceso para esta reserva; esperá a que se resuelva.");
@@ -185,8 +189,10 @@ public class PagoService {
 
     // ── 4. Pagos en el club (efectivo / tarjeta o QR en el mostrador) ────
 
+    /** @param jugadorId en un partido, qué jugador paga (obligatorio); en una reserva normal, null */
     @Transactional
-    public PagoResponse registrarPagoManual(Long reservaId, BigDecimal monto, PaymentProvider provider, String email) {
+    public PagoResponse registrarPagoManual(Long reservaId, BigDecimal monto, PaymentProvider provider,
+            Long jugadorId, String email) {
         if (monto == null || monto.signum() <= 0) {
             throw new ReservaException("El monto debe ser mayor a cero.");
         }
@@ -198,6 +204,7 @@ public class PagoService {
             throw new EstadoInvalidoException(
                     "Hay un pago online en proceso para esta reserva; esperá a que se resuelva.");
         }
+        ReservaJugador jugador = resolverJugador(reserva, jugadorId);
 
         BigDecimal montoPendiente = reserva.getMontoPendiente();
         if (monto.compareTo(montoPendiente) > 0) {
@@ -217,6 +224,7 @@ public class PagoService {
                 .createdAt(ahora)
                 .paidAt(ahora)
                 .registradoPorId(personal.getId())
+                .jugador(jugador)
                 .build();
         reserva.agregarPago(pago);
         pago = pagoRepository.save(pago);
@@ -234,10 +242,11 @@ public class PagoService {
      * registra como un pago BONIFICACION: cubre el monto (la reserva queda confirmada o paga) pero
      * no es plata, así que no cuenta como cobrado ni se devuelve si después se cancela.
      *
-     * @param monto null: todo lo que falta pagar
+     * @param monto     null: todo lo que falta pagar (en un partido, lo que le falta de su parte al jugador)
+     * @param jugadorId en un partido, a qué jugador se le bonifica (obligatorio); en una reserva normal, null
      */
     @Transactional
-    public PagoResponse bonificar(Long reservaId, BigDecimal monto, String motivo, String email) {
+    public PagoResponse bonificar(Long reservaId, BigDecimal monto, String motivo, Long jugadorId, String email) {
         Usuario admin = usuario(email);
         validarQueEsAdmin(admin);
         Reserva reserva = reservaService.bloquearConAcceso(reservaId, admin);
@@ -246,11 +255,15 @@ public class PagoService {
             throw new EstadoInvalidoException(
                     "Hay un pago online en proceso para esta reserva; esperá a que se resuelva.");
         }
+        ReservaJugador jugador = resolverJugador(reserva, jugadorId);
         BigDecimal pendiente = reserva.getMontoPendiente();
         if (pendiente.signum() <= 0) {
             throw new EstadoInvalidoException("La reserva ya está paga.");
         }
-        BigDecimal aBonificar = monto != null ? monto : pendiente;
+        BigDecimal aBonificar = monto != null ? monto : jugador != null ? debeDe(reserva, jugador) : pendiente;
+        if (monto == null && jugador != null && aBonificar.signum() <= 0) {
+            throw new EstadoInvalidoException(jugador.nombreParaMostrar() + " ya cubrió su parte.");
+        }
         if (aBonificar.signum() <= 0) {
             throw new ReservaException("El monto debe ser mayor a cero.");
         }
@@ -272,6 +285,7 @@ public class PagoService {
                 .paidAt(ahora)
                 .registradoPorId(admin.getId())
                 .motivo(motivo != null && !motivo.isBlank() ? motivo.trim() : null)
+                .jugador(jugador)
                 .build();
         reserva.agregarPago(bonificacion);
         bonificacion = pagoRepository.save(bonificacion);
@@ -288,8 +302,37 @@ public class PagoService {
     public ReservaResponse crearReservaBonificada(CrearReservaRequest req, String email) {
         validarQueEsAdmin(usuario(email));
         ReservaResponse creada = reservaService.crearReserva(req, email);
-        bonificar(creada.getId(), req.getBonificacion().getMonto(), req.getBonificacion().getMotivo(), email);
+        bonificar(creada.getId(), req.getBonificacion().getMonto(), req.getBonificacion().getMotivo(), null, email);
         return reservaService.obtener(creada.getId(), email);
+    }
+
+    /**
+     * En un partido hay que indicar qué jugador paga, y tiene que ser uno de sus jugadores; en una
+     * reserva normal no se indica.
+     */
+    private static ReservaJugador resolverJugador(Reserva reserva, Long jugadorId) {
+        if (!reserva.esPartido()) {
+            if (jugadorId != null) {
+                throw new ReservaException("La reserva no es un partido: no se indica el jugador.");
+            }
+            return null;
+        }
+        if (jugadorId == null) {
+            throw new ReservaException("Indicá qué jugador paga (jugadorId).");
+        }
+        return reserva.getJugadores().stream()
+                .filter(j -> j.getId().equals(jugadorId))
+                .findFirst()
+                .orElseThrow(() -> new ReservaException("El jugador " + jugadorId + " no es de este partido."));
+    }
+
+    /** Lo que le falta al jugador de su parte (sin pasarse de lo que falta en la reserva). */
+    private static BigDecimal debeDe(Reserva reserva, ReservaJugador jugador) {
+        return ReservaResponse.from(reserva).getJugadores().stream()
+                .filter(j -> j.getId().equals(jugador.getId()))
+                .map(j -> j.getDebe())
+                .findFirst()
+                .orElse(BigDecimal.ZERO);
     }
 
     private static void validarQueEsAdmin(Usuario usuario) {
@@ -527,7 +570,8 @@ public class PagoService {
      * El estado de la reserva siempre se deriva de sus pagos aprobados:
      * nada pagado → PENDIENTE · menos que la seña → PARCIALMENTE_PAGADA ·
      * seña o más → SEÑADA · total → PAGADA (o COMPLETADA si el turno ya terminó).
-     * Una reserva confirmada que queda sin dinero (reembolso) pasa a CANCELADA.
+     * Una reserva confirmada que queda sin dinero (reembolso) pasa a CANCELADA. Un partido sin nada
+     * pagado queda CONFIRMADA (no vence ni se cancela por eso).
      * CANCELADA, EXPIRADA y COMPLETADA no cambian.
      */
     void recalcularEstadoReserva(Reserva reserva) {
@@ -545,7 +589,9 @@ public class PagoService {
         BigDecimal senia = configuracionService.calcularSenia(configuracionService.obtener(), reserva.getMontoTotal());
 
         EstadoReserva nuevo;
-        if (pagado.signum() == 0) {
+        if (pagado.signum() == 0 && reserva.esPartido()) {
+            nuevo = EstadoReserva.CONFIRMADA;
+        } else if (pagado.signum() == 0) {
             nuevo = anterior == EstadoReserva.PENDIENTE ? EstadoReserva.PENDIENTE : EstadoReserva.CANCELADA;
         } else if (pagado.compareTo(reserva.getMontoTotal()) >= 0) {
             // totalmente paga: si el turno ya terminó se completa en el acto (ej. el saldo se
@@ -568,7 +614,8 @@ public class PagoService {
             }
             reservaService.save(reserva);
             log.info("Reserva #{}: {} → {}", reserva.getId(), anterior, nuevo);
-            if (avisar) {
+            // los partidos los arma y los sigue el ADMIN: no se le avisa de cada pago
+            if (avisar && !reserva.esPartido()) {
                 avisarCambioDeEstado(reserva, anterior, nuevo, pagado);
             }
         }

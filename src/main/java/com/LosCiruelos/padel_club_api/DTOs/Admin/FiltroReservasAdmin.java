@@ -4,12 +4,14 @@ import java.time.LocalDate;
 import java.util.Set;
 
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
 
 /**
  * Filtros del listado de reservas del personal, ya validados. Los null no filtran.
  *
  * @param estados        estados a incluir (null: todos). Con "pendientes" ya viene intersectado
- *                       con SEÑADA y PARCIALMENTE_PAGADA (puede quedar vacío: no hay resultados)
+ *                       con los que deben plata: CONFIRMADA, SEÑADA y PARCIALMENTE_PAGADA (puede
+ *                       quedar vacío: no hay resultados)
  * @param textoCliente   texto a buscar en nombre, apellido o email del cliente, ya normalizado
  *                       (minúsculas y sin tildes)
  */
@@ -19,5 +21,6 @@ public record FiltroReservasAdmin(
         Set<EstadoReserva> estados,
         Long clienteId,
         String textoCliente,
-        Long canchaId) {
+        Long canchaId,
+        TipoReserva tipo) {
 }

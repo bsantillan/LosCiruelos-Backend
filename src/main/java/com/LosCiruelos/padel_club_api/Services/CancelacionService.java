@@ -17,6 +17,7 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.OpcionReembolso;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
+import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
 import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
@@ -57,6 +58,17 @@ public class CancelacionService {
         }
 
         Reserva reserva = reservaService.bloquearConAcceso(id, usuario);
+        if (reserva.esPartido() && usuario.getRol() != Role.ADMIN) {
+            throw new PermisoDenegadoException("Solo el ADMIN puede cancelar un partido.");
+        }
+        return cancelarBloqueada(reserva, usuario, esPersonal, opcionPersonal);
+    }
+
+    /** Cancela una reserva ya bloqueada (también la usan las bajas de los turnos fijos). */
+    ReservaResponse cancelarBloqueada(Reserva reserva, Usuario usuario, boolean esPersonal,
+            OpcionReembolso opcionPersonal) {
+        Long id = reserva.getId();
+        String email = usuario.getEmail();
         LocalDateTime ahora = LocalDateTime.now(clock);
         EstadoReserva estado = reserva.getEstado();
 
@@ -100,6 +112,10 @@ public class CancelacionService {
      * él no lo hizo y si no se le avisa no se entera.
      */
     private void avisar(Reserva reserva, Usuario quien, boolean esPersonal, BigDecimal reembolso) {
+        if (reserva.esPartido()) {
+            avisarJugadores(reserva, reembolso);
+            return;
+        }
         String detalle = "Canceló " + (esPersonal ? "el club (" + quien.getNombre() + ")" : "el cliente") + ". "
                 + resultadoDelReembolso(reserva, reembolso);
         eventos.publishEvent(AvisoReserva.de(TipoAviso.RESERVA_CANCELADA, reserva, reembolso, detalle));
@@ -110,6 +126,17 @@ public class CancelacionService {
                     : "Ante cualquier duda, comunicate con el club.";
             eventos.publishEvent(AvisoReserva.de(TipoAviso.CANCELADA_POR_CLUB, reserva, reembolso, paraCliente));
         }
+    }
+
+    /** Partido (lo canceló el ADMIN): se avisa a cada jugador registrado. */
+    private void avisarJugadores(Reserva reserva, BigDecimal reembolso) {
+        String detalle = reembolso.signum() > 0
+                ? "Lo que se pagó se devuelve según lo que indicó el club. Ante cualquier duda, comunicate con el club."
+                : "Ante cualquier duda, comunicate con el club.";
+        reserva.getJugadores().stream()
+                .filter(j -> j.getUsuario() != null)
+                .forEach(j -> eventos.publishEvent(AvisoReserva.para(TipoAviso.CANCELADA_POR_CLUB, reserva,
+                        j.getUsuario(), reembolso, detalle)));
     }
 
     /**

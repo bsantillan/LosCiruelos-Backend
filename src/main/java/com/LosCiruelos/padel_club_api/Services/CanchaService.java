@@ -90,17 +90,21 @@ public class CanchaService {
         // todas las reservas caen dentro del horario del día
         List<Reserva> ocupadas = reservaService.buscarQueOcupan(cancha.getId(), fecha,
                 dia.getHorario_inicio(), dia.getHorario_fin(), ahora);
-        List<Turno> slotsOcupados = ocupadas.stream()
+        List<Turno> slotsOcupados = new ArrayList<>(ocupadas.stream()
                 .map(r -> new Turno(r.getHoraInicio(), r.getHoraFin()))
-                .toList();
+                .toList());
+        // los turnos fijos ocupan aunque el partido de esa fecha todavía no se haya creado
+        reservaService.turnosFijosQueBloquean(cancha.getId(), fecha, dia.getHorario_inicio(), dia.getHorario_fin())
+                .forEach(tf -> slotsOcupados.add(new Turno(tf.getHoraInicio(), tf.getHoraFin())));
+        slotsOcupados.sort(java.util.Comparator.comparing(Turno::getHoraInicio));
 
         // nunca se pasa del cierre, así que nunca se intenta construir las 24:00
         List<Turno> disponibles = new ArrayList<>();
         for (int inicio = desde; inicio + minutosTurno <= cierre; inicio += ConfiguracionService.MINUTOS_POR_BLOQUE) {
             LocalTime horaInicio = desdeMinutos(inicio);
             LocalTime horaFin = desdeMinutos(inicio + minutosTurno);
-            boolean libre = ocupadas.stream()
-                    .noneMatch(r -> r.getHoraInicio().isBefore(horaFin) && r.getHoraFin().isAfter(horaInicio));
+            boolean libre = slotsOcupados.stream()
+                    .noneMatch(t -> t.getHoraInicio().isBefore(horaFin) && t.getHoraFin().isAfter(horaInicio));
             if (libre) {
                 disponibles.add(new Turno(horaInicio, horaFin));
             }

@@ -19,6 +19,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
+import com.LosCiruelos.padel_club_api.Entities.TurnoFijo;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
@@ -209,4 +210,41 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             @Param("confirmados") Collection<EstadoReserva> confirmados,
             @Param("hoy") LocalDate hoy,
             @Param("hora") LocalTime hora);
+
+    // ── Turnos fijos ──
+
+    boolean existsByTurnoFijoAndFechaReserva(TurnoFijo turnoFijo, LocalDate fechaReserva);
+
+    Optional<Reserva> findByTurnoFijoAndFechaReserva(TurnoFijo turnoFijo, LocalDate fechaReserva);
+
+    /** Ids de los partidos del turno fijo cuyo turno todavía no empezó (de cualquier estado). */
+    @Query("""
+            SELECT r.id FROM Reserva r
+            WHERE r.turnoFijo.id = :turnoFijoId
+              AND (r.fechaReserva > :hoy OR (r.fechaReserva = :hoy AND r.horaInicio > :hora))
+            ORDER BY r.fechaReserva
+            """)
+    List<Long> findIdsFuturosDelTurnoFijo(
+            @Param("turnoFijoId") Long turnoFijoId,
+            @Param("hoy") LocalDate hoy,
+            @Param("hora") LocalTime hora);
+
+    /** Reservas que ocupan la cancha desde una fecha en ese horario (para avisar choques de un turno fijo). */
+    @Query("""
+            SELECT r FROM Reserva r
+            WHERE r.cancha.id = :canchaId
+              AND r.fechaReserva >= :desde
+              AND r.horaInicio < :horaFin
+              AND r.horaFin > :horaInicio
+              AND r.estado NOT IN :inactivos
+              AND (r.turnoFijo IS NULL OR r.turnoFijo.id <> :turnoFijoId)
+            ORDER BY r.fechaReserva
+            """)
+    List<Reserva> findActivasDesde(
+            @Param("canchaId") Long canchaId,
+            @Param("desde") LocalDate desde,
+            @Param("horaInicio") LocalTime horaInicio,
+            @Param("horaFin") LocalTime horaFin,
+            @Param("inactivos") Collection<EstadoReserva> inactivos,
+            @Param("turnoFijoId") Long turnoFijoId);
 }

@@ -11,6 +11,7 @@ import org.springframework.data.jpa.domain.Specification;
 import com.LosCiruelos.padel_club_api.DTOs.Admin.FiltroReservasAdmin;
 import com.LosCiruelos.padel_club_api.Entities.Pago;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
+import com.LosCiruelos.padel_club_api.Entities.ReservaJugador;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
@@ -28,6 +29,18 @@ public final class ReservaSpecification {
 
     public static Specification<Reserva> delCliente(Usuario cliente) {
         return (root, query, cb) -> cb.equal(root.get("cliente"), cliente);
+    }
+
+    /** Las reservas del usuario y los partidos en los que es uno de los jugadores. */
+    public static Specification<Reserva> delClienteOJugador(Usuario usuario) {
+        return (root, query, cb) -> {
+            Subquery<Long> juega = query.subquery(Long.class);
+            Root<ReservaJugador> jugador = juega.from(ReservaJugador.class);
+            juega.select(jugador.get("id")).where(
+                    cb.equal(jugador.get("reserva"), root),
+                    cb.equal(jugador.get("usuario"), usuario));
+            return cb.or(cb.equal(root.get("cliente"), usuario), cb.exists(juega));
+        };
     }
 
     /**
@@ -87,6 +100,9 @@ public final class ReservaSpecification {
             }
             if (filtro.canchaId() != null) {
                 condiciones.add(cb.equal(root.get("cancha").get("id"), filtro.canchaId()));
+            }
+            if (filtro.tipo() != null) {
+                condiciones.add(cb.equal(root.get("tipo"), filtro.tipo()));
             }
             if (filtro.textoCliente() != null) {
                 condiciones.add(Busquedas.nombreApellidoOEmail(cb, root.join("cliente"), filtro.textoCliente()));

@@ -88,6 +88,11 @@ public class Pago {
     @Column(length = 200)
     private String motivo;
 
+    // Partido: qué jugador pagó (o a quién se le bonificó)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "jugador_id")
+    private ReservaJugador jugador;
+
     // Identifica al pago ante Mercado Pago (claves de idempotencia). Se genera al crearlo y no cambia.
     @Builder.Default
     @Column(name = "clave_idempotencia", nullable = false, unique = true, updatable = false)

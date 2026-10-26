@@ -44,6 +44,7 @@ class CancelacionServiceTest {
     private PoliticaCancelacion politica;
     private CancelacionService cancelacion;
     private ApplicationEventPublisher eventos;
+    private UsuarioService usuarioService;
 
     private Usuario cliente;
     private Usuario empleado;
@@ -57,7 +58,7 @@ class CancelacionServiceTest {
 
         reservaService = mock(ReservaService.class);
         pagoService = mock(PagoService.class);
-        UsuarioService usuarioService = mock(UsuarioService.class);
+        usuarioService = mock(UsuarioService.class);
         eventos = mock(ApplicationEventPublisher.class);
         cancelacion = new CancelacionService(reservaService, pagoService, politica, usuarioService,
                 TestData.reloj(AHORA), eventos);
@@ -325,5 +326,59 @@ class CancelacionServiceTest {
 
         reserva.setEstado(EstadoReserva.COMPLETADA);
         assertThat(politica.evaluarParaCliente(reserva, AHORA).cancelable()).isFalse();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class Partidos {
+
+        private Usuario admin;
+        private Reserva partido;
+
+        @BeforeEach
+        void partido() {
+            admin = usuario(3L, Role.ADMIN);
+            when(usuarioService.findByEmailOrThrow(eq(admin.getEmail()), any())).thenReturn(admin);
+            partido = TestData.partido(20L, admin, cliente, "15000");
+            partido.setFechaReserva(AHORA.toLocalDate().plusDays(2));
+            when(reservaService.bloquearConAcceso(eq(20L), any())).thenReturn(partido);
+        }
+
+        @Test
+        void soloElAdminCancelaUnPartido() {
+            assertThatThrownBy(() -> cancelacion.cancelar(20L, empleado.getEmail(), OpcionReembolso.NADA))
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException.class)
+                    .hasMessage("Solo el ADMIN puede cancelar un partido.");
+            verify(reservaService, never()).cancelar(any());
+        }
+
+        @Test
+        void sinPagosSeCancelaYSeAvisaACadaJugadorRegistrado() {
+            cancelacion.cancelar(20L, admin.getEmail(), null);
+
+            verify(reservaService).cancelar(partido);
+            ArgumentCaptor<AvisoReserva> aviso = ArgumentCaptor.forClass(AvisoReserva.class);
+            verify(eventos).publishEvent(aviso.capture());
+            // solo el jugador 1 tiene cuenta; no se avisa a los ADMIN (lo canceló uno de ellos)
+            assertThat(aviso.getValue().tipo()).isEqualTo(TipoAviso.CANCELADA_POR_CLUB);
+            assertThat(aviso.getValue().cliente().email()).isEqualTo(cliente.getEmail());
+        }
+
+        @Test
+        void conPlataCobradaHayQueIndicarElReembolso() {
+            pago(1L, partido, EstadoPago.APROBADO, "7500");
+            partido.setEstado(EstadoReserva.SEÑADA);
+
+            assertThatThrownBy(() -> cancelacion.cancelar(20L, admin.getEmail(), null))
+                    .isInstanceOf(ReservaException.class);
+            cancelacion.cancelar(20L, admin.getEmail(), OpcionReembolso.TOTAL);
+            verify(pagoService).reembolsar(eq(partido), eq(new java.math.BigDecimal("7500")));
+        }
+
+        @Test
+        void unJugadorNoPuedeCancelarloNiVeQueSeaCancelable() {
+            assertThat(politica.evaluarParaCliente(partido, AHORA).cancelable()).isFalse();
+        }
     }
 }

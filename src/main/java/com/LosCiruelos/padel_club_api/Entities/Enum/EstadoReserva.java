@@ -2,6 +2,8 @@ package com.LosCiruelos.padel_club_api.Entities.Enum;
 
 public enum EstadoReserva {
     PENDIENTE,
+    // Partido armado por el ADMIN sin nada pagado: el turno está confirmado y se cobra en el club
+    CONFIRMADA,
     SEÑADA,
     PARCIALMENTE_PAGADA,
     PAGADA,

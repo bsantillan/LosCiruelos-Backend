@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ClienteBusquedaResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ListadoReservasResponse;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
 import com.LosCiruelos.padel_club_api.Services.BusquedaClientesService;
 import com.LosCiruelos.padel_club_api.Services.ReservaAdminService;
 
@@ -41,12 +42,13 @@ public class PanelPersonalController {
             @RequestParam(required = false) Long clienteId,
             @RequestParam(required = false) String cliente,
             @RequestParam(required = false) Long canchaId,
+            @RequestParam(required = false) TipoReserva tipo,
             @RequestParam(defaultValue = "false") boolean pendientes,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String orden) {
         return ResponseEntity.ok(reservaAdminService.listar(desde, hasta, estado, clienteId, cliente, canchaId,
-                pendientes, page, size, orden));
+                tipo, pendientes, page, size, orden));
     }
 
     /** Clientes por nombre, apellido o email (mínimo 2 caracteres, hasta 20 resultados). */

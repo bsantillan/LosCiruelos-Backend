@@ -14,6 +14,8 @@ import lombok.Data;
 public class PagoResponse {
     Long id;
     Long reservaId;
+    // partido: qué jugador pagó (o a quién se le bonificó)
+    Long jugadorId;
     BigDecimal monto;
     EstadoPago estado;
     PaymentProvider provider;
@@ -45,6 +47,7 @@ public class PagoResponse {
         response.setPaidAt(pago.getPaidAt());
         response.setMontoReembolsado(pago.getMontoReembolsado());
         response.setMotivo(pago.getMotivo());
+        response.setJugadorId(pago.getJugador() != null ? pago.getJugador().getId() : null);
         response.setEstadoReserva(pago.getReserva().getEstado());
         return response;
     }

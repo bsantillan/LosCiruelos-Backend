@@ -16,6 +16,7 @@ import com.LosCiruelos.padel_club_api.DTOs.Admin.FiltroReservasAdmin;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ListadoReservasResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
+import com.LosCiruelos.padel_club_api.Entities.Enum.TipoReserva;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.BusquedaReservasAdmin;
 import com.LosCiruelos.padel_club_api.Specifications.Busquedas;
@@ -38,15 +39,16 @@ public class ReservaAdminService {
     private final Clock clock;
 
     /**
-     * @param pendientes solo las que deben plata: SEÑADA y PARCIALMENTE_PAGADA (hayan jugado o no).
+     * @param tipo       NORMAL o PARTIDO (null: las dos)
+     * @param pendientes solo las que deben plata: CONFIRMADA, SEÑADA y PARCIALMENTE_PAGADA (hayan jugado o no).
      *                   Se combina con {@code estados}: quedan las que cumplen los dos
      * @param orden      "asc" o "desc" por fecha y hora del turno; null: "asc" si desde es hoy o
      *                   posterior (próximas) y "desc" en el resto (historial)
      */
     @Transactional(readOnly = true)
     public ListadoReservasResponse listar(LocalDate desde, LocalDate hasta, List<EstadoReserva> estados,
-            Long clienteId, String cliente, Long canchaId, boolean pendientes, int pagina, Integer tamanio,
-            String orden) {
+            Long clienteId, String cliente, Long canchaId, TipoReserva tipo, boolean pendientes, int pagina,
+            Integer tamanio, String orden) {
         int size = tamanio != null ? tamanio : TAMANIO_POR_DEFECTO;
         if (pagina < 0) {
             throw new ReservaException("La página no puede ser negativa.");
@@ -59,7 +61,7 @@ public class ReservaAdminService {
         }
 
         FiltroReservasAdmin filtro = new FiltroReservasAdmin(desde, hasta, estadosEfectivos(estados, pendientes),
-                clienteId, Busquedas.normalizar(cliente), canchaId);
+                clienteId, Busquedas.normalizar(cliente), canchaId, tipo);
         Sort.Direction direccion = direccion(orden, desde);
         PageRequest pageable = PageRequest.of(pagina, size,
                 Sort.by(direccion, "fechaReserva", "horaInicio").and(Sort.by(direccion, "id")));
@@ -68,7 +70,7 @@ public class ReservaAdminService {
         return ListadoReservasResponse.de(resultado, busqueda.totales(filtro));
     }
 
-    /** null: todos los estados. Con "pendientes", solo SEÑADA y PARCIALMENTE_PAGADA (de las pedidas). */
+    /** null: todos los estados. Con "pendientes", solo las que deben plata (de las pedidas). */
     static Set<EstadoReserva> estadosEfectivos(List<EstadoReserva> estados, boolean pendientes) {
         Set<EstadoReserva> pedidos = estados == null || estados.isEmpty() ? null : EnumSet.copyOf(estados);
         if (!pendientes) {

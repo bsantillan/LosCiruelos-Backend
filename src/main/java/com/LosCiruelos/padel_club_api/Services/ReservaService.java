@@ -31,6 +31,7 @@ import com.LosCiruelos.padel_club_api.Entities.Pago;
 import com.LosCiruelos.padel_club_api.Entities.Producto;
 import com.LosCiruelos.padel_club_api.Entities.ReservaProducto;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
+import com.LosCiruelos.padel_club_api.Entities.TurnoFijo;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoReserva;
@@ -47,6 +48,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.ReservaNoEncontradaException;
 import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
 import com.LosCiruelos.padel_club_api.Repository.PagoRepository;
 import com.LosCiruelos.padel_club_api.Repository.ReservaRepository;
+import com.LosCiruelos.padel_club_api.Repository.TurnoFijoRepository;
 import com.LosCiruelos.padel_club_api.Specifications.ReservaSpecification;
 
 import lombok.RequiredArgsConstructor;
@@ -79,6 +81,7 @@ public class ReservaService {
     private final PagoRepository pagoRepository;
     private final ProductoService productoService;
     private final PoliticaCancelacion politicaCancelacion;
+    private final TurnoFijoRepository turnoFijoRepository;
     private final Clock clock;
 
     // ── Consultas ────────────────────────────────────────────────────────
@@ -110,7 +113,8 @@ public class ReservaService {
                 new CredencialesInvalidasException("Usuario no encontrado"));
         LocalDateTime ahora = LocalDateTime.now(clock);
 
-        Specification<Reserva> filtro = ReservaSpecification.delCliente(usuario);
+        // las suyas y los partidos en los que juega
+        Specification<Reserva> filtro = ReservaSpecification.delClienteOJugador(usuario);
         Sort orden = Sort.by(Sort.Direction.DESC, "fechaReserva", "horaInicio");
         if (tipo != null && !tipo.isBlank()) {
             switch (tipo.trim().toLowerCase()) {
@@ -138,7 +142,7 @@ public class ReservaService {
         }
 
         Page<ReservaResponse> resultado = reservaRepository.findAll(filtro, PageRequest.of(pagina, tamanio, orden))
-                .map(this::aResponse);
+                .map(r -> aResponsePara(r, usuario));
         return PaginaResponse.de(resultado);
     }
 
@@ -147,8 +151,8 @@ public class ReservaService {
         Usuario usuario = usuarioService.findByEmailOrThrow(email,
                 new CredencialesInvalidasException("Usuario no encontrado"));
         Reserva reserva = reservaRepository.findById(id).orElseThrow(() -> new ReservaNoEncontradaException(id));
-        verificarAcceso(reserva, usuario);
-        return aResponse(reserva);
+        verificarLectura(reserva, usuario);
+        return aResponsePara(reserva, usuario);
     }
 
     public Reserva save(Reserva reserva) {
@@ -188,11 +192,21 @@ public class ReservaService {
      * Si no tiene acceso se responde "no encontrada" para no revelar ids ajenos.
      */
     public void verificarAcceso(Reserva reserva, Usuario usuario) {
-        boolean esStaff = usuario.getRol() == Role.ADMIN || usuario.getRol() == Role.EMPLEADO;
         boolean esDuenio = reserva.getCliente().getId().equals(usuario.getId());
-        if (!esStaff && !esDuenio) {
+        if (!esPersonal(usuario) && !esDuenio) {
             throw new ReservaNoEncontradaException(reserva.getId());
         }
+    }
+
+    /** Para ver la reserva alcanza con jugar el partido (pero no para pagarlo ni cancelarlo). */
+    void verificarLectura(Reserva reserva, Usuario usuario) {
+        if (!reserva.esPartido() || !reserva.esJugador(usuario)) {
+            verificarAcceso(reserva, usuario);
+        }
+    }
+
+    static boolean esPersonal(Usuario usuario) {
+        return usuario.getRol() == Role.ADMIN || usuario.getRol() == Role.EMPLEADO;
     }
 
     // ── Creación ─────────────────────────────────────────────────────────
@@ -217,15 +231,8 @@ public class ReservaService {
         List<Reserva> aLiberar = new ArrayList<>();
 
         // 1. Las pendientes vencidas que se superponen se expiran ahora (el job corre cada minuto)
-        for (Long id : reservaRepository.findPendientesVencidasQueSeSuperponen(cancha.getId(),
-                req.getFechaReserva(), req.getHoraInicio(), req.getHoraFin(), ahora, EstadoReserva.PENDIENTE,
-                PAGOS_ACTIVOS)) {
-            Reserva vencida = bloquear(id);
-            if (vencida.estaVencida(ahora) && !vencida.tienePagoActivo()) {
-                marcarExpirada(vencida);
-                aLiberar.add(vencida);
-            }
-        }
+        aLiberar.addAll(expirarVencidasQueSeSuperponen(cancha.getId(), req.getFechaReserva(), req.getHoraInicio(),
+                req.getHoraFin(), ahora));
 
         // 2. Mismo cliente, cancha, fecha e inicio con una PENDIENTE vigente: cambió la duración o los productos
         Optional<Long> existente = reservaRepository.findPendienteVigenteMismoInicio(cliente.getId(),
@@ -245,11 +252,8 @@ public class ReservaService {
             }
         }
 
-        // 4. Solapamiento
-        if (!buscarQueOcupan(cancha.getId(), req.getFechaReserva(), req.getHoraInicio(), req.getHoraFin(), ahora)
-                .isEmpty()) {
-            throw new HorarioOcupadoException();
-        }
+        // 4. Solapamiento con otras reservas y con los turnos fijos
+        validarLibre(cancha.getId(), req.getFechaReserva(), req.getHoraInicio(), req.getHoraFin(), ahora, null);
 
         Reserva reserva = Reserva.builder()
                 .cancha(cancha)
@@ -291,12 +295,8 @@ public class ReservaService {
         }
 
         if (cambiaFin) {
-            boolean seSuperpone = buscarQueOcupan(reserva.getCancha().getId(), reserva.getFechaReserva(),
-                    req.getHoraInicio(), req.getHoraFin(), ahora).stream()
-                    .anyMatch(otra -> !otra.getId().equals(reserva.getId()));
-            if (seSuperpone) {
-                throw new HorarioOcupadoException();
-            }
+            validarLibre(reserva.getCancha().getId(), reserva.getFechaReserva(), req.getHoraInicio(),
+                    req.getHoraFin(), ahora, reserva.getId());
             reserva.setHoraFin(req.getHoraFin());
         }
 
@@ -318,13 +318,63 @@ public class ReservaService {
 
     /** Cantidades pedidas por código de producto (null = 0). */
     private static Map<String, Integer> pedidoDeProductos(CrearReservaRequest req) {
+        return pedidoDeProductos(req.getCantidadPelotas(), req.getCantidadPaletas());
+    }
+
+    static Map<String, Integer> pedidoDeProductos(Integer pelotas, Integer paletas) {
         return Map.of(
-                Producto.CODIGO_PELOTAS, req.getCantidadPelotas() != null ? req.getCantidadPelotas() : 0,
-                Producto.CODIGO_PALETAS, req.getCantidadPaletas() != null ? req.getCantidadPaletas() : 0);
+                Producto.CODIGO_PELOTAS, pelotas != null ? pelotas : 0,
+                Producto.CODIGO_PALETAS, paletas != null ? paletas : 0);
+    }
+
+    /**
+     * Expira (con lock) las PENDIENTE vencidas sin pagos activos que se superponen con el turno:
+     * todavía cuentan para la restricción de la base. Devuelve las expiradas, para liberar su stock.
+     */
+    List<Reserva> expirarVencidasQueSeSuperponen(Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin,
+            LocalDateTime ahora) {
+        List<Reserva> expiradas = new ArrayList<>();
+        for (Long id : reservaRepository.findPendientesVencidasQueSeSuperponen(canchaId, fecha, inicio, fin, ahora,
+                EstadoReserva.PENDIENTE, PAGOS_ACTIVOS)) {
+            Reserva vencida = bloquear(id);
+            if (vencida.estaVencida(ahora) && !vencida.tienePagoActivo()) {
+                marcarExpirada(vencida);
+                expiradas.add(vencida);
+            }
+        }
+        return expiradas;
+    }
+
+    /**
+     * El turno está libre: no se superpone con otra reserva que ocupe la cancha (salvo
+     * {@code excluirReservaId}) ni con un turno fijo que todavía no tiene su partido de esa fecha.
+     */
+    void validarLibre(Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin, LocalDateTime ahora,
+            Long excluirReservaId) {
+        validarLibre(canchaId, fecha, inicio, fin, ahora, excluirReservaId, null);
+    }
+
+    /** @param excluirTurnoFijoId el turno fijo cuyo partido se está creando o modificando (no se bloquea a sí mismo) */
+    void validarLibre(Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin, LocalDateTime ahora,
+            Long excluirReservaId, Long excluirTurnoFijoId) {
+        boolean ocupado = buscarQueOcupan(canchaId, fecha, inicio, fin, ahora).stream()
+                .anyMatch(otra -> !otra.getId().equals(excluirReservaId));
+        if (ocupado) {
+            throw new HorarioOcupadoException();
+        }
+        if (turnosFijosQueBloquean(canchaId, fecha, inicio, fin).stream()
+                .anyMatch(tf -> !tf.getId().equals(excluirTurnoFijoId))) {
+            throw new HorarioOcupadoException("Ese horario es un turno fijo del club en esa cancha.");
+        }
+    }
+
+    /** Turnos fijos activos que ocupan el horario ese día y todavía no tienen su partido creado. */
+    public List<TurnoFijo> turnosFijosQueBloquean(Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin) {
+        return turnoFijoRepository.findQueBloquean(canchaId, fecha.getDayOfWeek(), fecha, inicio, fin);
     }
 
     /** Guarda y fuerza el INSERT/UPDATE para que la restricción de la BD detecte solapamientos concurrentes. */
-    private Reserva guardarVerificandoSolapamiento(Reserva reserva) {
+    Reserva guardarVerificandoSolapamiento(Reserva reserva) {
         try {
             return reservaRepository.saveAndFlush(reserva);
         } catch (DataIntegrityViolationException e) {
@@ -524,7 +574,7 @@ public class ReservaService {
     public List<ReservaResponse> saldosPendientes() {
         LocalDateTime ahora = LocalDateTime.now(clock);
         return reservaRepository.findTerminadasConSaldo(
-                List.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA),
+                Reserva.ESTADOS_CON_SALDO,
                 ahora.toLocalDate(), ahora.toLocalTime()).stream()
                 .map(this::aResponse)
                 .toList();
@@ -584,8 +634,16 @@ public class ReservaService {
         // turno jugado pero sin pagar del todo: el front lo muestra como "Jugada · saldo pendiente"
         boolean turnoTerminado = reserva.turnoTermino(LocalDateTime.now(clock));
         response.setTurnoTerminado(turnoTerminado);
-        response.setDebeSaldo(turnoTerminado && (reserva.getEstado() == EstadoReserva.SEÑADA
-                || reserva.getEstado() == EstadoReserva.PARCIALMENTE_PAGADA));
+        response.setDebeSaldo(turnoTerminado && Reserva.ESTADOS_CON_SALDO.contains(reserva.getEstado()));
+        return response;
+    }
+
+    /** La respuesta para quien la pide: a un cliente no se le muestran los teléfonos de los otros jugadores. */
+    ReservaResponse aResponsePara(Reserva reserva, Usuario usuario) {
+        ReservaResponse response = aResponse(reserva);
+        if (!esPersonal(usuario)) {
+            response.getJugadores().forEach(j -> j.setTelefono(null));
+        }
         return response;
     }
 }

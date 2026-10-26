@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.Services;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,7 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.Pago;
+import com.LosCiruelos.padel_club_api.DTOs.Responses.JugadorResponse;
+import com.LosCiruelos.padel_club_api.DTOs.Responses.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Reserva;
+import com.LosCiruelos.padel_club_api.Entities.ReservaJugador;
 import com.LosCiruelos.padel_club_api.Entities.Enum.EstadoPago;
 import com.LosCiruelos.padel_club_api.Repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
@@ -79,7 +83,7 @@ public class RecordatorioService {
         LocalDateTime desdeCuando = inicio.minusMinutes(config.getMinutosRecordatorio());
 
         boolean corresponde = Reserva.ESTADOS_CONFIRMADOS.contains(reserva.getEstado())
-                && Boolean.TRUE.equals(reserva.getCliente().getRecibeRecordatorios())
+                && (reserva.esPartido() || Boolean.TRUE.equals(reserva.getCliente().getRecibeRecordatorios()))
                 && reserva.getRecordatorioEnviadoAt() == null
                 && inicio.isAfter(ahora) && !desdeCuando.isAfter(ahora);
         // si la reserva se confirmó dentro de la ventana, el cliente recién reservó: no hace falta
@@ -89,6 +93,10 @@ public class RecordatorioService {
 
         reserva.setRecordatorioEnviadoAt(ahora);
         reservaService.save(reserva);
+        if (reserva.esPartido()) {
+            avisarJugadores(reserva);
+            return true;
+        }
         String detalle = reserva.getMontoPendiente().signum() > 0
                 ? "Saldo a pagar: " + AvisoReserva.pesos(reserva.getMontoPendiente()) + "."
                 : "Tu reserva está paga. ¡Que lo disfrutes!";
@@ -96,6 +104,26 @@ public class RecordatorioService {
         log.info("Recordatorio de la reserva #{} ({} {})", reserva.getId(), reserva.getFechaReserva(),
                 reserva.getHoraInicio());
         return true;
+    }
+
+    /** Partido: a cada jugador registrado que recibe recordatorios, con lo que le falta de su parte. */
+    private void avisarJugadores(Reserva reserva) {
+        List<JugadorResponse> montos = ReservaResponse.from(reserva).getJugadores();
+        for (ReservaJugador jugador : reserva.getJugadores()) {
+            if (jugador.getUsuario() == null
+                    || !Boolean.TRUE.equals(jugador.getUsuario().getRecibeRecordatorios())) {
+                continue;
+            }
+            BigDecimal debe = montos.stream().filter(m -> m.getId().equals(jugador.getId()))
+                    .map(JugadorResponse::getDebe).findFirst().orElse(BigDecimal.ZERO);
+            String detalle = debe.signum() > 0
+                    ? "Tu parte a pagar en el club: " + AvisoReserva.pesos(debe) + "."
+                    : "El partido está pago. ¡Que lo disfrutes!";
+            eventos.publishEvent(AvisoReserva.para(TipoAviso.RECORDATORIO, reserva, jugador.getUsuario(), debe,
+                    detalle));
+        }
+        log.info("Recordatorio del partido #{} ({} {}) a sus jugadores", reserva.getId(), reserva.getFechaReserva(),
+                reserva.getHoraInicio());
     }
 
     /** Cuándo se confirmó: el primer pago aprobado (o la creación, si no tiene fecha de pago). */
