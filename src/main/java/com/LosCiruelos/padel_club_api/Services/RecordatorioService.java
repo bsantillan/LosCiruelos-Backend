@@ -14,12 +14,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
-import com.LosCiruelos.padel_club_api.pagos.Pago;
-import com.LosCiruelos.padel_club_api.reservas.ReservaService;
-import com.LosCiruelos.padel_club_api.reservas.Reserva;
-import com.LosCiruelos.padel_club_api.reservas.ReservaJugador;
-import com.LosCiruelos.padel_club_api.pagos.EstadoPago;
-import com.LosCiruelos.padel_club_api.reservas.ReservaRepository;
+import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
+import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
+import com.LosCiruelos.padel_club_api.reservas.entity.ReservaJugador;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
+import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
 import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
 import com.LosCiruelos.padel_club_api.common.Dinero;

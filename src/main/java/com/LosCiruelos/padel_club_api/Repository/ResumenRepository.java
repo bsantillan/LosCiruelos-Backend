@@ -15,10 +15,10 @@ import com.LosCiruelos.padel_club_api.DTOs.Resumen.CobrosDelPeriodo;
 import com.LosCiruelos.padel_club_api.DTOs.Resumen.EntradasDeCaja;
 import com.LosCiruelos.padel_club_api.DTOs.Resumen.ProductoVendido;
 import com.LosCiruelos.padel_club_api.DTOs.Resumen.TurnosDelPeriodo;
-import com.LosCiruelos.padel_club_api.reservas.Reserva;
-import com.LosCiruelos.padel_club_api.pagos.EstadoPago;
-import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
-import com.LosCiruelos.padel_club_api.pagos.PaymentProvider;
+import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
+import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.common.ConsultasDeTurno;
 
 /** Consultas agregadas del resumen del club: todo se suma en la base, sin traer reservas a memoria. */

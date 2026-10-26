@@ -12,11 +12,11 @@ import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.pagos.Pago;
-import com.LosCiruelos.padel_club_api.reservas.Reserva;
-import com.LosCiruelos.padel_club_api.pagos.EstadoPago;
-import com.LosCiruelos.padel_club_api.pagos.EstadoPagoExterno;
-import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
+import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
+import com.LosCiruelos.padel_club_api.pagos.payment.EstadoPagoExterno;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.mercadopago.client.preference.PreferenceRequest;
 

@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 import com.LosCiruelos.padel_club_api.Entities.AvisosAdmin;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
-import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Repository.AvisosAdminRepository;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;

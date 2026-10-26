@@ -40,21 +40,21 @@ import com.LosCiruelos.padel_club_api.DTOs.Responses.CanchaResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.DisponibilidadResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.LoginResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
-import com.LosCiruelos.padel_club_api.pagos.PagoController;
-import com.LosCiruelos.padel_club_api.pagos.dto.PagoResponse;
+import com.LosCiruelos.padel_club_api.pagos.controller.PagoController;
+import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PerfilResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoResponse;
-import com.LosCiruelos.padel_club_api.reservas.DisponibilidadService;
-import com.LosCiruelos.padel_club_api.reservas.PanelPersonalController;
-import com.LosCiruelos.padel_club_api.reservas.ReservaController;
-import com.LosCiruelos.padel_club_api.reservas.StockService;
-import com.LosCiruelos.padel_club_api.reservas.dto.ReservaResponse;
+import com.LosCiruelos.padel_club_api.reservas.service.DisponibilidadService;
+import com.LosCiruelos.padel_club_api.reservas.controller.PanelPersonalController;
+import com.LosCiruelos.padel_club_api.reservas.controller.ReservaController;
+import com.LosCiruelos.padel_club_api.reservas.service.StockService;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.UsuarioAdminResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.NotificacionesResponse;
 import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
-import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
-import com.LosCiruelos.padel_club_api.reservas.OpcionReembolso;
-import com.LosCiruelos.padel_club_api.pagos.PaymentProvider;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;
+import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.TokenType;
 import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
@@ -65,15 +65,15 @@ import com.LosCiruelos.padel_club_api.Handlers.GlobalExceptionHandler;
 import com.LosCiruelos.padel_club_api.Services.AdminService;
 import com.LosCiruelos.padel_club_api.Services.AuthService;
 import com.LosCiruelos.padel_club_api.Services.CanchaService;
-import com.LosCiruelos.padel_club_api.reservas.CancelacionService;
+import com.LosCiruelos.padel_club_api.reservas.service.CancelacionService;
 import com.LosCiruelos.padel_club_api.Services.NotificacionesService;
-import com.LosCiruelos.padel_club_api.pagos.PagoService;
+import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
 import com.LosCiruelos.padel_club_api.Services.PasswordResetService;
 import com.LosCiruelos.padel_club_api.Services.PerfilService;
 import com.LosCiruelos.padel_club_api.Services.ProductoService;
-import com.LosCiruelos.padel_club_api.reservas.ReservaService;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 import com.LosCiruelos.padel_club_api.Services.ResumenService;
-import com.LosCiruelos.padel_club_api.reservas.ReservaAdminService;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaAdminService;
 import com.LosCiruelos.padel_club_api.Services.BusquedaClientesService;
 import com.LosCiruelos.padel_club_api.Services.VerificationService;
 import com.LosCiruelos.padel_club_api.pagos.mercadopago.MercadoPagoWebhookValidator;
@@ -780,12 +780,12 @@ class ControllersTest {
     @Nested
     class PanelPersonal {
 
-        private com.LosCiruelos.padel_club_api.reservas.dto.ListadoReservasResponse pagina() {
+        private com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse pagina() {
             ReservaResponse r = new ReservaResponse();
             r.setId(10L);
             r.setEstado(EstadoReserva.SEÑADA);
-            return new com.LosCiruelos.padel_club_api.reservas.dto.ListadoReservasResponse(List.of(r), 0, 20, 57, 3,
-                    new com.LosCiruelos.padel_club_api.reservas.dto.ListadoReservasResponse.Totales(57,
+            return new com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse(List.of(r), 0, 20, 57, 3,
+                    new com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse.Totales(57,
                             new BigDecimal("855000.00"), new BigDecimal("690000.00"), new BigDecimal("410000.00"),
                             new BigDecimal("280000.00"), new BigDecimal("15000.00"), new BigDecimal("165000.00")));
         }

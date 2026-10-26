@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.CanchaResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.DisponibilidadResponse;
 import com.LosCiruelos.padel_club_api.Services.CanchaService;
-import com.LosCiruelos.padel_club_api.reservas.DisponibilidadService;
+import com.LosCiruelos.padel_club_api.reservas.service.DisponibilidadService;
 
 import lombok.RequiredArgsConstructor;
 

@@ -8,11 +8,11 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import com.LosCiruelos.padel_club_api.pagos.EstadoPago;
-import com.LosCiruelos.padel_club_api.reservas.GeneradorTurnosFijos;
-import com.LosCiruelos.padel_club_api.pagos.PagoService;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
+import com.LosCiruelos.padel_club_api.reservas.service.GeneradorTurnosFijos;
+import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
 import com.LosCiruelos.padel_club_api.Services.RecordatorioService;
-import com.LosCiruelos.padel_club_api.reservas.ReservaService;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 
 class ReservaJobsTest {
 

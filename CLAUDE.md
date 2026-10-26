@@ -32,6 +32,23 @@ Todo se escribe en **castellano rioplatense**: mensajes de error, textos de avis
 ## Arquitectura
 Paquetes **por dominio** (`usuarios`, `club`, `reservas`, `pagos`, `notificaciones`, `reportes`) más `common`, `config` y `security`. La reorganización se hace por etapas (ver el plan del repositorio); mientras dure, conviven los paquetes por capa (`Controller`, `Services`, `Repository`, `Entities`, `DTOs`) con los nuevos. Lo nuevo va en el paquete de su dominio.
 
+Cada dominio se divide en subpaquetes por tipo de clase (nunca todo junto en la raíz del dominio):
+
+```
+reservas/
+├── controller/      endpoints REST
+├── service/         casos de uso (@Transactional) y reglas de dominio con Spring (PoliticaCancelacion)
+├── repository/      repositories, consultas Criteria/Specifications y sus objetos (filtros, proyecciones)
+├── entity/          entidades JPA
+│   └── enums/       enums de las entidades
+├── dto/
+│   ├── request/     lo que entra (validado con Bean Validation)
+│   └── response/    lo que sale
+└── mapper/          entidad → DTO (ReservaMapper)
+```
+
+`pagos` sigue la misma forma y además tiene `payment/` (lo genérico para usar distintos proveedores de pago: `PaymentService`, `PaymentServiceFactory`, `PaymentProvider`, `PaymentResult`, `EstadoPagoExterno`) y `mercadopago/` (la implementación de Mercado Pago y su validador de webhooks). Un proveedor nuevo va en su propio subpaquete e implementa `PaymentService`.
+
 ### Responsabilidad de cada capa
 1. **Controller**: solo HTTP. Ruta, `@Valid`, rol (`@PreAuthorize` por método) y una llamada a un service. Sin lógica de negocio y sin repositories. Un controller por recurso: lo público y lo del ADMIN de un mismo recurso van en el mismo controller con roles por método.
 2. **Service**: un caso de uso de un dominio. Es el único lugar con `@Transactional`. No usa repositories de otro dominio (pide lo que necesita al service público de ese dominio), no presta helpers internos a otros services y no tiene métodos pasamanos (`save` que solo llama al repository).

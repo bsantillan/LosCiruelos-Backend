@@ -7,11 +7,12 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.LosCiruelos.padel_club_api.pagos.dto.PaymentResult;
-import com.LosCiruelos.padel_club_api.pagos.Pago;
-import com.LosCiruelos.padel_club_api.reservas.Reserva;
-import com.LosCiruelos.padel_club_api.pagos.EstadoPagoExterno;
-import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
+import com.LosCiruelos.padel_club_api.pagos.payment.PaymentResult;
+import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.pagos.payment.PaymentService;
+import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
+import com.LosCiruelos.padel_club_api.pagos.payment.EstadoPagoExterno;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReembolsoFallidoException;

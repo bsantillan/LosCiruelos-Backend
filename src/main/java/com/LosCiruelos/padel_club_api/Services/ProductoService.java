@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Catálogo de productos (sección Stock de la configuración). El stock que toman y devuelven las
- * reservas lo maneja {@link com.LosCiruelos.padel_club_api.reservas.StockService}.
+ * reservas lo maneja {@link com.LosCiruelos.padel_club_api.reservas.service.StockService}.
  */
 @Slf4j
 @Service
