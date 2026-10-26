@@ -38,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CancelacionService {
 
     private final ReservaService reservaService;
+    private final ReservaMapper reservaMapper;
     private final PagoService pagoService;
     private final PoliticaCancelacion politica;
     private final UsuarioService usuarioService;
@@ -103,7 +104,7 @@ public class CancelacionService {
         reservaService.cancelar(reserva);
         log.info("Reserva #{} cancelada por {} ({}): reembolso ${}", id, email, usuario.getRol(), reembolso);
         avisar(reserva, usuario, esPersonal, reembolso);
-        return reservaService.aResponse(reserva);
+        return reservaMapper.aResponse(reserva);
     }
 
     /**

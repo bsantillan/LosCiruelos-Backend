@@ -29,7 +29,6 @@ import com.LosCiruelos.padel_club_api.Entities.Cancha;
 import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
-import com.LosCiruelos.padel_club_api.pagos.Pago;
 import com.LosCiruelos.padel_club_api.Entities.Producto;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.pagos.EstadoPago;
@@ -78,7 +77,7 @@ public class ReservaService {
     private final CanchaRepository canchaRepository;
     private final PagoRepository pagoRepository;
     private final ProductoService productoService;
-    private final PoliticaCancelacion politicaCancelacion;
+    private final ReservaMapper mapper;
     private final TurnoFijoRepository turnoFijoRepository;
     private final Reloj reloj;
 
@@ -134,7 +133,7 @@ public class ReservaService {
         }
 
         Page<ReservaResponse> resultado = reservaRepository.findAll(filtro, PageRequest.of(pagina, tamanio, orden))
-                .map(r -> aResponsePara(r, usuario));
+                .map(r -> mapper.aResponsePara(r, usuario));
         return PaginaResponse.de(resultado);
     }
 
@@ -143,7 +142,7 @@ public class ReservaService {
         Usuario usuario = usuarioService.autenticado(email);
         Reserva reserva = reservaRepository.findById(id).orElseThrow(() -> new ReservaNoEncontradaException(id));
         verificarLectura(reserva, usuario);
-        return aResponsePara(reserva, usuario);
+        return mapper.aResponsePara(reserva, usuario);
     }
 
     public Reserva save(Reserva reserva) {
@@ -224,7 +223,7 @@ public class ReservaService {
         Optional<Long> existente = reservaRepository.findPendienteVigenteMismoInicio(cliente.getId(),
                 cancha.getId(), req.getFechaReserva(), req.getHoraInicio(), ahora, EstadoReserva.PENDIENTE);
         if (existente.isPresent()) {
-            return aResponse(actualizarPendiente(bloquear(existente.get()), req, duracion, config, ahora, aLiberar));
+            return mapper.aResponse(actualizarPendiente(bloquear(existente.get()), req, duracion, config, ahora, aLiberar));
         }
 
         // 3. Otras PENDIENTE del cliente en esa cancha y fecha sin pagos activos: eligió otro horario
@@ -261,7 +260,7 @@ public class ReservaService {
         log.info("Reserva #{} creada para el cliente {} en la cancha {} el {} de {} a {}",
                 reserva.getId(), cliente.getId(), cancha.getNumero(), reserva.getFechaReserva(),
                 reserva.getHoraInicio(), reserva.getHoraFin());
-        return aResponse(reserva);
+        return mapper.aResponse(reserva);
     }
 
     private Reserva actualizarPendiente(Reserva reserva, CrearReservaRequest req, long duracion,
@@ -538,7 +537,7 @@ public class ReservaService {
         productoService.registrarDevolucion(item, paletasDevueltas, ahora);
         log.info("Reserva #{}: {} de {} paletas devueltas (registró {})", id, paletasDevueltas, item.getCantidad(),
                 emailPersonal);
-        return aResponse(reserva);
+        return mapper.aResponse(reserva);
     }
 
     /** Reservas cuyo turno ya empezó y todavía tienen paletas sin devolver. */
@@ -547,7 +546,7 @@ public class ReservaService {
         LocalDateTime ahora = reloj.ahora();
         return reservaRepository.findConAlquileresSinDevolver(TipoProducto.ALQUILER, Reserva.ESTADOS_QUE_SE_JUEGAN,
                 ahora.toLocalDate(), ahora.toLocalTime()).stream()
-                .map(this::aResponse)
+                .map(mapper::aResponse)
                 .toList();
     }
 
@@ -561,7 +560,7 @@ public class ReservaService {
         return reservaRepository.findTerminadasConSaldo(
                 Reserva.ESTADOS_CON_SALDO,
                 ahora.toLocalDate(), ahora.toLocalTime()).stream()
-                .map(this::aResponse)
+                .map(mapper::aResponse)
                 .toList();
     }
 
@@ -593,37 +592,5 @@ public class ReservaService {
     /** Los pagos iniciados y nunca cobrados de la reserva quedan EXPIRADO (ya no se pueden cobrar). */
     private void expirarPagosPendientes(Reserva reserva) {
         reserva.expirarPagosPendientes().forEach(pagoRepository::save);
-    }
-
-    // ── Respuesta ────────────────────────────────────────────────────────
-
-    public ReservaResponse aResponse(Reserva reserva) {
-        ReservaResponse response = ReservaResponse.from(reserva);
-        response.setMontoSenia(configuracionService.calcularSenia(configuracionService.obtener(),
-                reserva.getMontoTotal()));
-
-        // si el cliente la cancelara ahora: si puede, hasta cuándo y cuánto se le devolvería
-        PoliticaCancelacion.Evaluacion cancelacion = politicaCancelacion.evaluarParaCliente(reserva,
-                reloj.ahora());
-        response.setCancelable(cancelacion.cancelable());
-        response.setCancelableHasta(cancelacion.cancelableHasta());
-        response.setMontoReembolso(cancelacion.montoReembolso());
-        response.setReembolsoTotalHasta(cancelacion.reembolsoTotalHasta());
-        response.setReembolsoSeniaHasta(cancelacion.reembolsoSeniaHasta());
-
-        // turno jugado pero sin pagar del todo: el front lo muestra como "Jugada · saldo pendiente"
-        boolean turnoTerminado = reserva.turnoTermino(reloj.ahora());
-        response.setTurnoTerminado(turnoTerminado);
-        response.setDebeSaldo(turnoTerminado && Reserva.ESTADOS_CON_SALDO.contains(reserva.getEstado()));
-        return response;
-    }
-
-    /** La respuesta para quien la pide: a un cliente no se le muestran los teléfonos de los otros jugadores. */
-    ReservaResponse aResponsePara(Reserva reserva, Usuario usuario) {
-        ReservaResponse response = aResponse(reserva);
-        if (!Roles.esPersonal(usuario)) {
-            response.getJugadores().forEach(j -> j.setTelefono(null));
-        }
-        return response;
     }
 }

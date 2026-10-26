@@ -71,6 +71,7 @@ class ReservaServiceTest {
     private CanchaRepository canchaRepository;
     private ProductoService productoService;
     private ReservaService reservaService;
+    private ReservaMapper mapper;
     private Configuracion config;
 
     private Usuario cliente;
@@ -92,9 +93,10 @@ class ReservaServiceTest {
 
         productoService = mock(ProductoService.class);
         ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository);
+        mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA));
         reservaService = new ReservaService(configuracionService, usuarioService,
                 clienteProfileService, reservaRepository, canchaRepository, pagoRepository, productoService,
-                new PoliticaCancelacion(configuracionService), turnoFijoRepository, TestData.reloj(AHORA));
+                mapper, turnoFijoRepository, TestData.reloj(AHORA));
 
         cliente = usuario(1L, Role.CLIENTE);
         otroCliente = usuario(2L, Role.CLIENTE);
@@ -570,13 +572,13 @@ class ReservaServiceTest {
             Reserva pagaYJugada = reserva(32L, cliente, EstadoReserva.COMPLETADA, "15000");
             pagaYJugada.setFechaReserva(HOY.minusDays(1));
 
-            ReservaResponse r = reservaService.aResponse(jugada);
+            ReservaResponse r = mapper.aResponse(jugada);
             assertThat(r.getTurnoTerminado()).isTrue();
             assertThat(r.getDebeSaldo()).isTrue();
 
-            assertThat(reservaService.aResponse(futura).getDebeSaldo()).isFalse();
-            assertThat(reservaService.aResponse(pagaYJugada).getTurnoTerminado()).isTrue();
-            assertThat(reservaService.aResponse(pagaYJugada).getDebeSaldo()).isFalse();
+            assertThat(mapper.aResponse(futura).getDebeSaldo()).isFalse();
+            assertThat(mapper.aResponse(pagaYJugada).getTurnoTerminado()).isTrue();
+            assertThat(mapper.aResponse(pagaYJugada).getDebeSaldo()).isFalse();
         }
 
         @Test

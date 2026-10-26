@@ -151,6 +151,34 @@ public class Reserva {
         return montoTotal.subtract(parte.multiply(BigDecimal.valueOf(Jugadores.POR_PARTIDO - 1)));
     }
 
+    /** Pagos (y bonificaciones) registrados a nombre del jugador. */
+    private java.util.stream.Stream<Pago> pagosDe(ReservaJugador jugador) {
+        return pagos.stream().filter(p -> p.getJugador() != null && p.getJugador().getId() != null
+                && p.getJugador().getId().equals(jugador.getId()));
+    }
+
+    /** Plata que pagó el jugador (sin bonificaciones, descontado lo devuelto). */
+    public BigDecimal pagadoPor(ReservaJugador jugador) {
+        return Dinero.sumar(pagosDe(jugador).filter(p -> !p.esBonificacion()).map(Pago::getMontoRetenido));
+    }
+
+    /** Lo que se le bonificó al jugador. */
+    public BigDecimal bonificadoA(ReservaJugador jugador) {
+        return Dinero.sumar(pagosDe(jugador).filter(Pago::esBonificacion).map(Pago::getMontoRetenido));
+    }
+
+    /**
+     * Lo que le falta al jugador de su parte, sin pasarse de lo que falta en la reserva. Si la
+     * reserva ya está cubierta (por ejemplo, otro pagó todo), nadie debe nada.
+     */
+    public BigDecimal debeDe(ReservaJugador jugador) {
+        if (getMontoPendiente().signum() <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return parteDe(jugador.getPosicion()).subtract(pagadoPor(jugador)).subtract(bonificadoA(jugador))
+                .max(BigDecimal.ZERO).min(getMontoPendiente());
+    }
+
     public boolean esJugador(Usuario usuario) {
         return jugadores.stream().anyMatch(j -> j.getUsuario() != null && j.getUsuario().getId().equals(usuario.getId()));
     }

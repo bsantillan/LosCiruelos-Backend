@@ -25,7 +25,6 @@ import com.LosCiruelos.padel_club_api.reservas.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.ReservaJugador;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
@@ -258,7 +257,7 @@ public class PagoService {
         if (pendiente.signum() <= 0) {
             throw new EstadoInvalidoException("La reserva ya está paga.");
         }
-        BigDecimal aBonificar = monto != null ? monto : jugador != null ? debeDe(reserva, jugador) : pendiente;
+        BigDecimal aBonificar = monto != null ? monto : jugador != null ? reserva.debeDe(jugador) : pendiente;
         if (monto == null && jugador != null && aBonificar.signum() <= 0) {
             throw new EstadoInvalidoException(jugador.nombreParaMostrar() + " ya cubrió su parte.");
         }
@@ -320,15 +319,6 @@ public class PagoService {
                 .filter(j -> j.getId().equals(jugadorId))
                 .findFirst()
                 .orElseThrow(() -> new ReservaException("El jugador " + jugadorId + " no es de este partido."));
-    }
-
-    /** Lo que le falta al jugador de su parte (sin pasarse de lo que falta en la reserva). */
-    private static BigDecimal debeDe(Reserva reserva, ReservaJugador jugador) {
-        return ReservaResponse.from(reserva).getJugadores().stream()
-                .filter(j -> j.getId().equals(jugador.getId()))
-                .map(j -> j.getDebe())
-                .findFirst()
-                .orElse(BigDecimal.ZERO);
     }
 
     private static void validarQueEsAdmin(Usuario usuario) {

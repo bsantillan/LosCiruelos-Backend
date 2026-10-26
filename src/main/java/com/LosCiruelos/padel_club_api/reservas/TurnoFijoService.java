@@ -48,6 +48,7 @@ public class TurnoFijoService {
     private final ReservaRepository reservaRepository;
     private final CanchaRepository canchaRepository;
     private final ReservaService reservaService;
+    private final ReservaMapper reservaMapper;
     private final PartidoService partidoService;
     private final CancelacionService cancelacionService;
     private final ProductoService productoService;
@@ -224,7 +225,7 @@ public class TurnoFijoService {
                 .build();
         liberada = reservaRepository.save(liberada);
         log.info("Turno fijo #{}: fecha {} dada de baja por {} antes de crear su partido", id, fecha, email);
-        return reservaService.aResponse(liberada);
+        return reservaMapper.aResponse(liberada);
     }
 
     // ── Auxiliares ───────────────────────────────────────────────────────

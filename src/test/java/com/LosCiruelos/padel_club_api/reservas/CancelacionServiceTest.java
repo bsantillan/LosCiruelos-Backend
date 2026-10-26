@@ -60,7 +60,8 @@ class CancelacionServiceTest {
         pagoService = mock(PagoService.class);
         usuarioService = mock(UsuarioService.class);
         eventos = mock(ApplicationEventPublisher.class);
-        cancelacion = new CancelacionService(reservaService, pagoService, politica, usuarioService,
+        cancelacion = new CancelacionService(reservaService, new ReservaMapper(new ConfiguracionService(configuracionRepository), politica,
+                TestData.reloj(AHORA)), pagoService, politica, usuarioService,
                 TestData.reloj(AHORA), eventos);
 
         cliente = usuario(1L, Role.CLIENTE);

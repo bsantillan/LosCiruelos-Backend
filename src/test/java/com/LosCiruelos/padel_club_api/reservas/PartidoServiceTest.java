@@ -75,14 +75,15 @@ class PartidoServiceTest {
         usuarioService = mock(UsuarioService.class);
         ProductoService productoService = mock(ProductoService.class);
 
+        ReservaMapper mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA));
         ReservaService reservaService = new ReservaService(configuracionService, usuarioService,
                 mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
-                productoService, new PoliticaCancelacion(configuracionService), turnoFijoRepository,
+                productoService, mapper, turnoFijoRepository,
                 TestData.reloj(AHORA));
         PagoService pagoService = new PagoService(mock(PaymentServiceFactory.class), reservaService,
                 mock(PagoRepository.class), configuracionService, usuarioService, productoService,
                 TestData.reloj(AHORA), mock(ApplicationEventPublisher.class));
-        partidos = new PartidoService(reservaService, pagoService, usuarioService, configuracionService,
+        partidos = new PartidoService(reservaService, mapper, pagoService, usuarioService, configuracionService,
                 productoService, canchaRepository, reservaRepository, turnoFijoRepository, TestData.reloj(AHORA));
 
         admin = usuario(3L, Role.ADMIN);

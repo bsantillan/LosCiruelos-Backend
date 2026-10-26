@@ -33,7 +33,7 @@ public class ReservaAdminService {
     public static final int TAMANIO_MAXIMO = 100;
 
     private final BusquedaReservasAdmin busqueda;
-    private final ReservaService reservaService;
+    private final ReservaMapper reservaMapper;
     private final Reloj reloj;
 
     /**
@@ -59,7 +59,7 @@ public class ReservaAdminService {
         PageRequest pageable = PageRequest.of(pagina, size,
                 Sort.by(direccion, "fechaReserva", "horaInicio").and(Sort.by(direccion, "id")));
 
-        Page<ReservaResponse> resultado = busqueda.buscar(filtro, pageable).map(reservaService::aResponse);
+        Page<ReservaResponse> resultado = busqueda.buscar(filtro, pageable).map(reservaMapper::aResponse);
         return ListadoReservasResponse.de(resultado, busqueda.totales(filtro));
     }
 

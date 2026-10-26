@@ -37,15 +37,15 @@ class ReservaAdminServiceTest {
             new BigDecimal("410000.00"), new BigDecimal("280000.00"), new BigDecimal("0.00"), new BigDecimal("165000.00"));
 
     private BusquedaReservasAdmin busqueda;
-    private ReservaService reservaService;
+    private ReservaMapper mapper;
     private ReservaAdminService listado;
     private Reserva unaReserva;
 
     @BeforeEach
     void setUp() {
         busqueda = mock(BusquedaReservasAdmin.class);
-        reservaService = mock(ReservaService.class);
-        listado = new ReservaAdminService(busqueda, reservaService, TestData.reloj(AHORA));
+        mapper = mock(ReservaMapper.class);
+        listado = new ReservaAdminService(busqueda, mapper, TestData.reloj(AHORA));
 
         unaReserva = reserva(10L, usuario(1L, Role.CLIENTE), EstadoReserva.SEÑADA, "15000");
         when(busqueda.buscar(any(), any())).thenAnswer(inv -> new PageImpl<>(List.of(unaReserva),
@@ -53,7 +53,7 @@ class ReservaAdminServiceTest {
         when(busqueda.totales(any())).thenReturn(TOTALES);
         ReservaResponse respuesta = new ReservaResponse();
         respuesta.setId(10L);
-        when(reservaService.aResponse(unaReserva)).thenReturn(respuesta);
+        when(mapper.aResponse(unaReserva)).thenReturn(respuesta);
     }
 
     private FiltroReservasAdmin filtro() {

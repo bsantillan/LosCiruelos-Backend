@@ -26,7 +26,6 @@ import com.LosCiruelos.padel_club_api.pagos.Pago;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
@@ -49,6 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PartidoService {
 
     private final ReservaService reservaService;
+    private final ReservaMapper reservaMapper;
     private final PagoService pagoService;
     private final UsuarioService usuarioService;
     private final ConfiguracionService configuracionService;
@@ -86,7 +86,7 @@ public class PartidoService {
         log.info("Partido #{} armado por {} en la cancha {} el {} de {} a {}", partido.getId(), email,
                 partido.getCancha().getNumero(), partido.getFechaReserva(), partido.getHoraInicio(),
                 partido.getHoraFin());
-        return reservaService.aResponse(partido);
+        return reservaMapper.aResponse(partido);
     }
 
     /**
@@ -227,7 +227,7 @@ public class PartidoService {
         pagoService.recalcularEstadoReserva(partido, false);
         partido = reservaService.guardarVerificandoSolapamiento(partido);
         log.info("Partido #{} modificado por {}", id, email);
-        return reservaService.aResponse(partido);
+        return reservaMapper.aResponse(partido);
     }
 
     /**

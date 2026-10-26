@@ -14,7 +14,6 @@ import com.LosCiruelos.padel_club_api.reservas.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.ReservaJugador;
 import com.LosCiruelos.padel_club_api.reservas.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.TipoReserva;
-import com.LosCiruelos.padel_club_api.common.Dinero;
 
 import lombok.Data;
 
@@ -103,20 +102,11 @@ public class ReservaResponse {
     }
 
     private static JugadorResponse jugador(Reserva reserva, ReservaJugador jugador) {
-        List<Pago> suyos = reserva.getPagos().stream()
-                .filter(p -> p.getJugador() != null && p.getJugador().getId() != null
-                        && p.getJugador().getId().equals(jugador.getId()))
-                .toList();
-        BigDecimal pagado = Dinero.sumar(suyos.stream().filter(p -> !p.esBonificacion()).map(Pago::getMontoRetenido));
-        BigDecimal bonificado = Dinero.sumar(suyos.stream().filter(Pago::esBonificacion).map(Pago::getMontoRetenido));
-        BigDecimal parte = reserva.parteDe(jugador.getPosicion());
-        // si la reserva ya está cubierta (por ejemplo, otro pagó todo) nadie debe nada
-        BigDecimal debe = reserva.getMontoPendiente().signum() <= 0 ? BigDecimal.ZERO
-                : parte.subtract(pagado).subtract(bonificado).max(BigDecimal.ZERO).min(reserva.getMontoPendiente());
         return new JugadorResponse(jugador.getId(), jugador.getPosicion(),
                 jugador.getUsuario() != null ? jugador.getUsuario().getId() : null, jugador.nombreParaMostrar(),
                 jugador.getUsuario() != null ? jugador.getUsuario().getTelefono() : jugador.getTelefono(),
-                jugador.esInvitado(), parte, pagado, bonificado, debe);
+                jugador.esInvitado(), reserva.parteDe(jugador.getPosicion()), reserva.pagadoPor(jugador),
+                reserva.bonificadoA(jugador), reserva.debeDe(jugador));
     }
 
     private static String nombreCompleto(Reserva reserva) {

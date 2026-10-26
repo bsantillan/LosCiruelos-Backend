@@ -16,8 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.pagos.Pago;
 import com.LosCiruelos.padel_club_api.reservas.ReservaService;
-import com.LosCiruelos.padel_club_api.reservas.dto.JugadorResponse;
-import com.LosCiruelos.padel_club_api.reservas.dto.ReservaResponse;
 import com.LosCiruelos.padel_club_api.reservas.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.ReservaJugador;
 import com.LosCiruelos.padel_club_api.pagos.EstadoPago;
@@ -110,14 +108,12 @@ public class RecordatorioService {
 
     /** Partido: a cada jugador registrado que recibe recordatorios, con lo que le falta de su parte. */
     private void avisarJugadores(Reserva reserva) {
-        List<JugadorResponse> montos = ReservaResponse.from(reserva).getJugadores();
         for (ReservaJugador jugador : reserva.getJugadores()) {
             if (jugador.getUsuario() == null
                     || !Boolean.TRUE.equals(jugador.getUsuario().getRecibeRecordatorios())) {
                 continue;
             }
-            BigDecimal debe = montos.stream().filter(m -> m.getId().equals(jugador.getId()))
-                    .map(JugadorResponse::getDebe).findFirst().orElse(BigDecimal.ZERO);
+            BigDecimal debe = reserva.debeDe(jugador);
             String detalle = debe.signum() > 0
                     ? "Tu parte a pagar en el club: " + Dinero.texto(debe) + "."
                     : "El partido está pago. ¡Que lo disfrutes!";
