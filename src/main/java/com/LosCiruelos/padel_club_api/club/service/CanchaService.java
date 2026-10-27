@@ -8,6 +8,7 @@ import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
 import com.LosCiruelos.padel_club_api.club.repository.CanchaRepository;
+import com.LosCiruelos.padel_club_api.mapper.CanchaMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 public class CanchaService {
 
     private final CanchaRepository canchaRepository;
+    private final CanchaMapper canchaMapper;
 
     public Cancha findByIdOrThrow(Long id) {
         return canchaRepository.findById(id)
@@ -35,7 +37,7 @@ public class CanchaService {
 
     public List<CanchaResponse> listarCanchas() {
         return canchaRepository.findAll().stream()
-                .map(CanchaResponse::from)
+                .map(canchaMapper::aResponse)
                 .toList();
     }
 }

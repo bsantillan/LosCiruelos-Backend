@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.LosCiruelos.padel_club_api.mapper.CanchaMapper;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
@@ -82,7 +83,7 @@ class TurnoFijoServiceTest {
         cancelacionService = mock(CancelacionService.class);
 
         ReservaMapper mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA), new PagoMapper());
-        DisponibilidadService disponibilidad = new DisponibilidadService(configuracionService, new CanchaService(canchaRepository), reservaRepository,
+        DisponibilidadService disponibilidad = new DisponibilidadService(configuracionService, new CanchaService(canchaRepository, new CanchaMapper()), reservaRepository,
                 turnoFijoRepository, TestData.reloj(AHORA));
         JugadoresService jugadoresService = new JugadoresService(usuarioService);
         ReservaService reservaService = new ReservaService(configuracionService, usuarioService,

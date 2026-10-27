@@ -18,6 +18,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
+import com.LosCiruelos.padel_club_api.mapper.CanchaMapper;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.TestData;
@@ -44,7 +45,7 @@ class DisponibilidadServiceTest {
         when(configuracionRepository.obtener()).thenReturn(TestData.configuracion());
         when(canchaRepository.findById(1L)).thenReturn(Optional.of(TestData.cancha()));
         return new DisponibilidadService(new ConfiguracionService(configuracionRepository),
-                new CanchaService(canchaRepository), reservaRepository, mock(TurnoFijoRepository.class),
+                new CanchaService(canchaRepository, new CanchaMapper()), reservaRepository, mock(TurnoFijoRepository.class),
                 TestData.reloj(ahora));
     }
 

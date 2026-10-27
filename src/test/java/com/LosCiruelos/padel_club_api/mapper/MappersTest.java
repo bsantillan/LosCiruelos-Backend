@@ -13,6 +13,10 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.TestData;
+import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
+import com.LosCiruelos.padel_club_api.club.dto.response.ProductoResponse;
+import com.LosCiruelos.padel_club_api.club.entity.Producto;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
@@ -67,5 +71,32 @@ class MappersTest {
         assertThat(r.getJugadores().get(1).telefono()).isEqualTo("11 5555-0000");
         assertThat(r.getProximosPartidos()).extracting(TurnoFijoResponse.Partido::montoPendiente)
                 .containsExactly(new BigDecimal("15000"), BigDecimal.ZERO);
+    }
+
+    @Test
+    void unaCancha() {
+        CanchaResponse r = new CanchaMapper().aResponse(TestData.cancha());
+
+        assertThat(r.getId()).isEqualTo(TestData.cancha().getId());
+        assertThat(r.getNumero()).isEqualTo(TestData.cancha().getNumero());
+        assertThat(r.getDescripcion()).isEqualTo(TestData.cancha().getDescripcion());
+    }
+
+    @Test
+    void unProductoConSuCodigoYSuStock() {
+        Producto paletas = Producto.builder().id(2L).codigo(Producto.CODIGO_PALETAS).nombre("Paletas")
+                .descripcion("Alquiler").tipo(TipoProducto.ALQUILER).precio(new BigDecimal("1500")).stock(20)
+                .activo(true).build();
+
+        ProductoResponse r = new ProductoMapper().aResponse(paletas);
+
+        assertThat(r.getId()).isEqualTo(2L);
+        assertThat(r.getCodigo()).isEqualTo(Producto.CODIGO_PALETAS);
+        assertThat(r.getNombre()).isEqualTo("Paletas");
+        assertThat(r.getDescripcion()).isEqualTo("Alquiler");
+        assertThat(r.getTipo()).isEqualTo(TipoProducto.ALQUILER);
+        assertThat(r.getPrecio()).isEqualByComparingTo("1500");
+        assertThat(r.getStock()).isEqualTo(20);
+        assertThat(r.getActivo()).isTrue();
     }
 }

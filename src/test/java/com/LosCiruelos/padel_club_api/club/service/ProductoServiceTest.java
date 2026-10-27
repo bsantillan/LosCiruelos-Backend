@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import com.LosCiruelos.padel_club_api.mapper.ProductoMapper;
 import com.LosCiruelos.padel_club_api.reservas.repository.UsoAlquiler;
 import com.LosCiruelos.padel_club_api.club.dto.request.ProductoRequest;
 import com.LosCiruelos.padel_club_api.club.entity.Producto;
@@ -51,7 +52,7 @@ class ProductoServiceTest {
         productoRepository = mock(ProductoRepository.class);
         reservaProductoRepository = mock(ReservaProductoRepository.class);
         EntityManager entityManager = mock(EntityManager.class);
-        servicio = new ProductoService(productoRepository);
+        servicio = new ProductoService(productoRepository, new ProductoMapper());
 
         pelotas = Producto.builder().id(1L).codigo(Producto.CODIGO_PELOTAS).nombre("Pelotas")
                 .tipo(TipoProducto.VENTA).precio(new BigDecimal("1500")).stock(10).build();

@@ -14,6 +14,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.ProductoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.StockInsuficienteException;
 import com.LosCiruelos.padel_club_api.club.repository.ProductoRepository;
+import com.LosCiruelos.padel_club_api.mapper.ProductoMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,17 +29,18 @@ import lombok.extern.slf4j.Slf4j;
 public class ProductoService {
 
     private final ProductoRepository productoRepository;
+    private final ProductoMapper productoMapper;
 
     // ── Catálogo ─────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<ProductoResponse> listarActivos() {
-        return productoRepository.findAllByActivoTrueOrderByNombreAsc().stream().map(ProductoResponse::from).toList();
+        return productoRepository.findAllByActivoTrueOrderByNombreAsc().stream().map(productoMapper::aResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public List<ProductoResponse> listarTodos() {
-        return productoRepository.findAllByOrderByNombreAsc().stream().map(ProductoResponse::from).toList();
+        return productoRepository.findAllByOrderByNombreAsc().stream().map(productoMapper::aResponse).toList();
     }
 
     @Transactional
@@ -54,7 +56,7 @@ public class ProductoService {
                 .stock(req.getStock())
                 .activo(req.getActivo() == null || req.getActivo())
                 .build();
-        return ProductoResponse.from(productoRepository.save(producto));
+        return productoMapper.aResponse(productoRepository.save(producto));
     }
 
     @Transactional
@@ -74,7 +76,7 @@ public class ProductoService {
             producto.setActivo(req.getActivo());
         }
         log.info("Producto #{} actualizado: precio ${}, stock {}", id, producto.getPrecio(), producto.getStock());
-        return ProductoResponse.from(productoRepository.save(producto));
+        return productoMapper.aResponse(productoRepository.save(producto));
     }
 
     /** Suma o resta unidades al stock (reposición, rotura). El stock no puede quedar negativo. */
@@ -88,7 +90,7 @@ public class ProductoService {
         }
         producto.setStock(nuevo);
         log.info("Stock de {} ajustado en {}: queda {}", producto.getNombre(), ajuste, nuevo);
-        return ProductoResponse.from(productoRepository.save(producto));
+        return productoMapper.aResponse(productoRepository.save(producto));
     }
 
     /** Baja lógica: deja de ofrecerse, pero se conserva en las reservas que ya lo tienen. */
@@ -96,7 +98,7 @@ public class ProductoService {
     public ProductoResponse desactivar(Long id) {
         Producto producto = bloquearProducto(id);
         producto.setActivo(false);
-        return ProductoResponse.from(productoRepository.save(producto));
+        return productoMapper.aResponse(productoRepository.save(producto));
     }
 
     /** Productos activos (los que se pueden pedir en una reserva). */

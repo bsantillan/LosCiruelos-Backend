@@ -8,6 +8,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.LosCiruelos.padel_club_api.mapper.CanchaMapper;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.club.repository.CanchaRepository;
 
@@ -17,7 +18,7 @@ class CanchaServiceTest {
 
     @Test
     void listaLasCanchas() {
-        CanchaService servicio = new CanchaService(canchaRepository);
+        CanchaService servicio = new CanchaService(canchaRepository, new CanchaMapper());
         when(canchaRepository.findAll()).thenReturn(List.of(TestData.cancha()));
         assertThat(servicio.listarCanchas()).hasSize(1);
         assertThat(servicio.listarCanchas().getFirst().getDescripcion()).isEqualTo("Cancha 1");
