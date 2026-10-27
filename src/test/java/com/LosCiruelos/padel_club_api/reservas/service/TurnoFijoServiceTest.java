@@ -99,7 +99,7 @@ class TurnoFijoServiceTest {
                 TestData.reloj(AHORA));
         turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, canchaRepository, reservaService,
                 disponibilidad, mapper, new TurnoFijoMapper(), partidoService, cancelacionService, stockService, configuracionService, usuarioService,
-                TestData.reloj(AHORA));
+                TestData.reloj(AHORA), 4);
 
         admin = usuario(3L, Role.ADMIN);
         empleado = usuario(4L, Role.EMPLEADO);
@@ -296,7 +296,7 @@ class TurnoFijoServiceTest {
                 .isInstanceOf(TurnoFijoNoEncontradoException.class);
     }
 
-    // ── Generador ────────────────────────────────────────────────────────
+    // ── Generación ───────────────────────────────────────────────────────
 
     @Test
     void elGeneradorCreaUnaFechaPorSemanaDentroDeLaAnticipacionEInformaLasQueNoPudo() {
@@ -305,10 +305,12 @@ class TurnoFijoServiceTest {
         when(partidoService.crearParaTurnoFijo(eq(8L), any())).thenReturn(Optional.of(1L));
         when(partidoService.crearParaTurnoFijo(8L, MANIANA.plusWeeks(2)))
                 .thenThrow(new HorarioOcupadoException());
-        GeneradorTurnosFijos generador = new GeneradorTurnosFijos(turnoFijoRepository, partidoService,
-                TestData.reloj(AHORA), 4);
+        turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, mock(CanchaRepository.class),
+                mock(ReservaService.class), mock(DisponibilidadService.class), mock(ReservaMapper.class),
+                new TurnoFijoMapper(), partidoService, cancelacionService, stockService,
+                mock(ConfiguracionService.class), mock(UsuarioService.class), TestData.reloj(AHORA), 4);
 
-        GeneradorTurnosFijos.Resultado r = generador.generar(8L);
+        TurnoFijoService.Generacion r = turnos.generar(8L);
 
         // del miércoles 14/10 al 4/11 (hoy + 4 semanas = martes 10/11): 4 fechas, una ocupada
         assertThat(r.creados()).hasSize(3);
@@ -317,6 +319,6 @@ class TurnoFijoServiceTest {
         verify(partidoService, times(4)).crearParaTurnoFijo(anyLong(), any());
 
         tf.setActivo(false);
-        assertThat(generador.generar(8L).creados()).isEmpty();
+        assertThat(turnos.generar(8L).creados()).isEmpty();
     }
 }

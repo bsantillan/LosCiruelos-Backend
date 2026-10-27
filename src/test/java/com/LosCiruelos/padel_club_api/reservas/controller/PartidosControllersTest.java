@@ -46,7 +46,6 @@ import com.LosCiruelos.padel_club_api.common.Fechas;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
-import com.LosCiruelos.padel_club_api.reservas.service.GeneradorTurnosFijos;
 import com.LosCiruelos.padel_club_api.reservas.service.PartidoService;
 import com.LosCiruelos.padel_club_api.reservas.service.TurnoFijoService;
 
@@ -60,7 +59,6 @@ class PartidosControllersTest {
 
     private PartidoService partidoService;
     private TurnoFijoService turnoFijoService;
-    private GeneradorTurnosFijos generador;
     private PagoService pagoService;
     private MockMvc mvc;
 
@@ -68,11 +66,10 @@ class PartidosControllersTest {
     void setUp() {
         partidoService = mock(PartidoService.class);
         turnoFijoService = mock(TurnoFijoService.class);
-        generador = mock(GeneradorTurnosFijos.class);
         pagoService = mock(PagoService.class);
         mvc = MockMvcBuilders.standaloneSetup(
                 new PartidoController(partidoService),
-                new TurnoFijoController(turnoFijoService, generador),
+                new TurnoFijoController(turnoFijoService),
                 new PagoController(pagoService, mock(MercadoPagoWebhookValidator.class)))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
@@ -155,7 +152,7 @@ class PartidosControllersTest {
     void crearUnTurnoFijoCreaSusPartidosEInformaLasFechasOmitidas() throws Exception {
         when(turnoFijoService.crear(any(TurnoFijoRequest.class), eq(EMAIL))).thenReturn(8L);
         LocalDate ocupada = LocalDate.of(2026, 10, 28);
-        when(generador.generar(8L)).thenReturn(new GeneradorTurnosFijos.Resultado(List.of(70L),
+        when(turnoFijoService.generar(8L)).thenReturn(new TurnoFijoService.Generacion(List.of(70L),
                 List.of(new TurnoFijoResponse.FechaOmitida(ocupada, "ocupado"))));
         TurnoFijoResponse tf = new TurnoFijoResponse();
         tf.setId(8L);
@@ -181,7 +178,7 @@ class PartidosControllersTest {
     @Test
     void modificarUnTurnoFijoDevuelveLosPartidosQueQuedaronSinCambiar() throws Exception {
         when(turnoFijoService.actualizar(eq(8L), any(), eq(EMAIL))).thenReturn(List.of(71L));
-        when(generador.generar(8L)).thenReturn(new GeneradorTurnosFijos.Resultado(List.of(), List.of()));
+        when(turnoFijoService.generar(8L)).thenReturn(new TurnoFijoService.Generacion(List.of(), List.of()));
         when(turnoFijoService.obtener(8L)).thenReturn(new TurnoFijoResponse());
 
         mvc.perform(json(put("/admin/turnos-fijos/8"), """

@@ -22,7 +22,6 @@ import com.LosCiruelos.padel_club_api.reservas.dto.request.TurnoFijoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.TurnoFijoResponse;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;
-import com.LosCiruelos.padel_club_api.reservas.service.GeneradorTurnosFijos;
 import com.LosCiruelos.padel_club_api.reservas.service.TurnoFijoService;
 
 import jakarta.validation.Valid;
@@ -40,7 +39,6 @@ import lombok.RequiredArgsConstructor;
 public class TurnoFijoController {
 
     private final TurnoFijoService turnoFijoService;
-    private final GeneradorTurnosFijos generador;
 
     /** @param activos true: solo activos · false: solo dados de baja · sin indicar: todos */
     @GetMapping
@@ -57,7 +55,7 @@ public class TurnoFijoController {
     public ResponseEntity<TurnoFijoResponse> crear(@Valid @RequestBody TurnoFijoRequest request,
             Authentication authentication) {
         Long id = turnoFijoService.crear(request, authentication.getName());
-        GeneradorTurnosFijos.Resultado resultado = generador.generar(id);
+        TurnoFijoService.Generacion resultado = turnoFijoService.generar(id);
         TurnoFijoResponse response = turnoFijoService.obtener(id);
         response.setFechasOmitidas(resultado.omitidas());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -71,7 +69,7 @@ public class TurnoFijoController {
     public ResponseEntity<TurnoFijoResponse> actualizar(@PathVariable Long id,
             @Valid @RequestBody TurnoFijoRequest request, Authentication authentication) {
         List<Long> sinCambiar = turnoFijoService.actualizar(id, request, authentication.getName());
-        GeneradorTurnosFijos.Resultado resultado = generador.generar(id);
+        TurnoFijoService.Generacion resultado = turnoFijoService.generar(id);
         TurnoFijoResponse response = turnoFijoService.obtener(id);
         response.setFechasOmitidas(resultado.omitidas());
         response.setPartidosSinCambiar(sinCambiar);

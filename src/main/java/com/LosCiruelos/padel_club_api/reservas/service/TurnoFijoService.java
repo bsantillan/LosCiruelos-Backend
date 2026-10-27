@@ -7,6 +7,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import com.LosCiruelos.padel_club_api.mapper.TurnoFijoMapper;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.TurnoFijoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.TurnoFijoResponse;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.TurnoFijoResponse.FechaOmitida;
 import com.LosCiruelos.padel_club_api.Entities.Cancha;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
@@ -45,8 +47,14 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Turnos fijos del ADMIN: el mismo partido todas las semanas. El horario queda bloqueado siempre
- * (ver {@link DisponibilidadService#turnosFijosQueBloquean}); los partidos de cada semana los crea
- * {@link GeneradorTurnosFijos}. Toda operación bloquea primero el turno fijo.
+ * (ver {@link DisponibilidadService#turnosFijosQueBloquean}). Toda operación bloquea primero el
+ * turno fijo.
+ * <p>
+ * Los partidos de cada semana se crean con {@code turnos-fijos.semanas-anticipacion} semanas de
+ * anticipación (4 por defecto) en {@link #generar}, que no es transaccional: cada fecha se crea en
+ * su propia transacción ({@link PartidoService#crearParaTurnoFijo}) y, si una no se puede
+ * (horario ocupado, el club no abre, falta stock), se informa y se sigue con las demás; el job lo
+ * vuelve a intentar.
  */
 @Slf4j
 @Service
@@ -66,6 +74,12 @@ public class TurnoFijoService {
     private final ConfiguracionService configuracionService;
     private final UsuarioService usuarioService;
     private final Reloj reloj;
+    @Value("${turnos-fijos.semanas-anticipacion:4}")
+    private final int semanasAnticipacion;
+
+    /** Partidos creados y fechas que no se pudieron crear. */
+    public record Generacion(List<Long> creados, List<FechaOmitida> omitidas) {
+    }
 
     // ── Consultas ────────────────────────────────────────────────────────
 
@@ -84,7 +98,7 @@ public class TurnoFijoService {
 
     // ── Crear ────────────────────────────────────────────────────────────
 
-    /** Crea el turno fijo. Sus partidos los crea después el generador (cada uno en su transacción). */
+    /** Crea el turno fijo. Sus partidos se crean después con {@link #generar}. */
     @Transactional
     public Long crear(TurnoFijoRequest req, String email) {
         Usuario admin = admin(email);
@@ -117,7 +131,7 @@ public class TurnoFijoService {
 
     /**
      * Cambia cancha, día, horario, jugadores o productos. Los partidos futuros sin pagos se borran
-     * para que el generador los vuelva a crear con los datos nuevos; los que tienen pagos quedan
+     * para que {@link #generar} los vuelva a crear con los datos nuevos; los que tienen pagos quedan
      * como estaban (se devuelven sus ids, para editarlos uno por uno).
      */
     @Transactional
@@ -191,7 +205,7 @@ public class TurnoFijoService {
     /**
      * Da de baja una sola fecha (por ejemplo, esa semana no vienen): se cancela su partido o, si
      * todavía no se creó, se registra la fecha como cancelada. El horario de esa fecha queda libre
-     * y el generador no la vuelve a crear.
+     * y {@link #generar} no la vuelve a crear.
      */
     @Transactional
     public ReservaResponse darDeBajaFecha(Long id, LocalDate fecha, OpcionReembolso reembolso, String email) {
@@ -237,6 +251,46 @@ public class TurnoFijoService {
         liberada = reservaRepository.save(liberada);
         log.info("Turno fijo #{}: fecha {} dada de baja por {} antes de crear su partido", id, fecha, email);
         return reservaMapper.aResponse(liberada);
+    }
+
+    // ── Generación de los partidos ───────────────────────────────────────
+
+    /** Crea los partidos que falten del turno fijo, desde hoy hasta la anticipación configurada. */
+    public Generacion generar(Long turnoFijoId) {
+        List<Long> creados = new ArrayList<>();
+        List<FechaOmitida> omitidas = new ArrayList<>();
+        TurnoFijo tf = turnoFijoRepository.findById(turnoFijoId).orElse(null);
+        if (tf == null || !Boolean.TRUE.equals(tf.getActivo())) {
+            return new Generacion(creados, omitidas);
+        }
+
+        LocalDateTime ahora = reloj.ahora();
+        LocalDate hasta = ahora.toLocalDate().plusWeeks(semanasAnticipacion);
+        for (LocalDate fecha = proximaFecha(tf.getDesde(), tf.getHoraInicio(), ahora);
+                !fecha.isAfter(hasta); fecha = fecha.plusWeeks(1)) {
+            try {
+                partidoService.crearParaTurnoFijo(turnoFijoId, fecha).ifPresent(creados::add);
+            } catch (RuntimeException e) {
+                omitidas.add(new FechaOmitida(fecha, e.getMessage()));
+            }
+        }
+        if (!omitidas.isEmpty()) {
+            log.info("Turno fijo #{}: no se pudieron crear los partidos de {}", turnoFijoId, omitidas);
+        }
+        return new Generacion(creados, omitidas);
+    }
+
+    /** Todos los turnos fijos activos (lo llama el job). @return cantidad de partidos creados */
+    public int generarTodos() {
+        int creados = 0;
+        for (Long id : turnoFijoRepository.findIdsActivos()) {
+            try {
+                creados += generar(id).creados().size();
+            } catch (Exception e) {
+                log.error("No se pudieron crear los partidos del turno fijo #{}", id, e);
+            }
+        }
+        return creados;
     }
 
     // ── Auxiliares ───────────────────────────────────────────────────────
