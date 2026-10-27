@@ -28,7 +28,7 @@ import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
-import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
+import com.LosCiruelos.padel_club_api.pagos.service.ReembolsoService;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
 import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
@@ -45,7 +45,7 @@ import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 class CancelacionServiceTest {
 
     private ReservaService reservaService;
-    private PagoService pagoService;
+    private ReembolsoService reembolsoService;
     private PoliticaCancelacion politica;
     private CancelacionService cancelacion;
     private ApplicationEventPublisher eventos;
@@ -62,11 +62,11 @@ class CancelacionServiceTest {
         politica = new PoliticaCancelacion(new ConfiguracionService(configuracionRepository));
 
         reservaService = mock(ReservaService.class);
-        pagoService = mock(PagoService.class);
+        reembolsoService = mock(ReembolsoService.class);
         usuarioService = mock(UsuarioService.class);
         eventos = mock(ApplicationEventPublisher.class);
         cancelacion = new CancelacionService(reservaService, new ReservaMapper(new ConfiguracionService(configuracionRepository), politica,
-                TestData.reloj(AHORA), new PagoMapper()), pagoService, politica, usuarioService,
+                TestData.reloj(AHORA), new PagoMapper()), reembolsoService, politica, usuarioService,
                 TestData.reloj(AHORA), eventos);
 
         cliente = usuario(1L, Role.CLIENTE);
@@ -102,7 +102,7 @@ class CancelacionServiceTest {
 
             cancelacion.cancelar(10L, cliente.getEmail(), null);
 
-            verify(pagoService).reembolsar(reserva, new BigDecimal("15000"));
+            verify(reembolsoService).reembolsar(reserva, new BigDecimal("15000"));
             verify(reservaService).cancelar(reserva);
         }
 
@@ -113,7 +113,7 @@ class CancelacionServiceTest {
 
             cancelacion.cancelar(10L, cliente.getEmail(), null);
 
-            verify(pagoService).reembolsar(reserva, new BigDecimal("7500.00"));
+            verify(reembolsoService).reembolsar(reserva, new BigDecimal("7500.00"));
         }
 
         @Test
@@ -124,7 +124,7 @@ class CancelacionServiceTest {
 
             cancelacion.cancelar(10L, cliente.getEmail(), null);
 
-            verify(pagoService).reembolsar(reserva, new BigDecimal("3000"));
+            verify(reembolsoService).reembolsar(reserva, new BigDecimal("3000"));
         }
 
         @Test
@@ -134,7 +134,7 @@ class CancelacionServiceTest {
 
             cancelacion.cancelar(10L, cliente.getEmail(), null);
 
-            verify(pagoService, never()).reembolsar(any(), any());
+            verify(reembolsoService, never()).reembolsar(any(), any());
             verify(reservaService).cancelar(reserva);
         }
 
@@ -163,7 +163,7 @@ class CancelacionServiceTest {
 
             cancelacion.cancelar(10L, cliente.getEmail(), null);
 
-            verify(pagoService, never()).reembolsar(any(), any());
+            verify(reembolsoService, never()).reembolsar(any(), any());
             verify(reservaService).cancelar(reserva);
         }
     }
@@ -180,7 +180,7 @@ class CancelacionServiceTest {
 
             cancelacion.cancelar(10L, empleado.getEmail(), OpcionReembolso.TOTAL);
 
-            verify(pagoService).reembolsar(reserva, new BigDecimal("15000"));
+            verify(reembolsoService).reembolsar(reserva, new BigDecimal("15000"));
         }
 
         @Test
@@ -190,7 +190,7 @@ class CancelacionServiceTest {
 
             cancelacion.cancelar(10L, empleado.getEmail(), OpcionReembolso.NADA);
 
-            verify(pagoService, never()).reembolsar(any(), any());
+            verify(reembolsoService, never()).reembolsar(any(), any());
             verify(reservaService).cancelar(reserva);
         }
 
@@ -211,7 +211,7 @@ class CancelacionServiceTest {
 
             cancelacion.cancelar(10L, empleado.getEmail(), OpcionReembolso.SENIA);
 
-            verify(pagoService).reembolsar(reserva, new BigDecimal("7500.00"));
+            verify(reembolsoService).reembolsar(reserva, new BigDecimal("7500.00"));
         }
 
         @Test
@@ -267,12 +267,12 @@ class CancelacionServiceTest {
         void elAvisoDiceLoQueHayQueDevolverAMano() {
             turnoEn(30);
             Pago enElClub = pago(1L, reserva, EstadoPago.APROBADO, "15000");
-            // lo que deja PagoService.reembolsar con un pago cobrado en el club
+            // lo que deja ReembolsoService.reembolsar con un pago cobrado en el club
             org.mockito.Mockito.doAnswer(inv -> {
                 enElClub.setMontoReembolsado(new BigDecimal("15000"));
                 enElClub.setEstado(EstadoPago.A_REEMBOLSAR);
                 return null;
-            }).when(pagoService).reembolsar(any(), any());
+            }).when(reembolsoService).reembolsar(any(), any());
 
             cancelacion.cancelar(10L, cliente.getEmail(), null);
 
@@ -379,7 +379,7 @@ class CancelacionServiceTest {
             assertThatThrownBy(() -> cancelacion.cancelar(20L, admin.getEmail(), null))
                     .isInstanceOf(ReservaException.class);
             cancelacion.cancelar(20L, admin.getEmail(), OpcionReembolso.TOTAL);
-            verify(pagoService).reembolsar(eq(partido), eq(new java.math.BigDecimal("7500")));
+            verify(reembolsoService).reembolsar(eq(partido), eq(new java.math.BigDecimal("7500")));
         }
 
         @Test

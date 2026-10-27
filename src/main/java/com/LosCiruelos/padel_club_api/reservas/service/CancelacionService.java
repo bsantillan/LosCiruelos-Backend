@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
-import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
+import com.LosCiruelos.padel_club_api.pagos.service.ReembolsoService;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
@@ -43,7 +43,7 @@ public class CancelacionService {
 
     private final ReservaService reservaService;
     private final ReservaMapper reservaMapper;
-    private final PagoService pagoService;
+    private final ReembolsoService reembolsoService;
     private final PoliticaCancelacion politica;
     private final UsuarioService usuarioService;
     private final Reloj reloj;
@@ -103,7 +103,7 @@ public class CancelacionService {
         }
 
         if (reembolso.signum() > 0) {
-            pagoService.reembolsar(reserva, reembolso);
+            reembolsoService.reembolsar(reserva, reembolso);
         }
         reservaService.cancelar(reserva);
         log.info("Reserva #{} cancelada por {} ({}): reembolso ${}", id, email, usuario.getRol(), reembolso);

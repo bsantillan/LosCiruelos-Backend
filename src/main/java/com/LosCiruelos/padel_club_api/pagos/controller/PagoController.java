@@ -20,7 +20,8 @@ import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.pagos.mercadopago.MercadoPagoWebhookValidator;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
-import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
+import com.LosCiruelos.padel_club_api.pagos.service.CobroService;
+import com.LosCiruelos.padel_club_api.pagos.service.PagoOnlineService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +33,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class PagoController {
 
-    private final PagoService pagoService;
+    private final PagoOnlineService pagoOnlineService;
+    private final CobroService cobroService;
     private final MercadoPagoWebhookValidator webhookValidator;
 
     /** Crea el pago (seña o total) y la preferencia de MP. Devuelve el preference_id en paymentToken. */
@@ -42,7 +44,7 @@ public class PagoController {
             @PathVariable Long reservaId,
             @RequestParam(defaultValue = "false") Boolean pagarTotal,
             Authentication authentication) {
-        return ResponseEntity.ok(pagoService.iniciarPago(reservaId, pagarTotal, authentication.getName()));
+        return ResponseEntity.ok(pagoOnlineService.iniciarPago(reservaId, pagarTotal, authentication.getName()));
     }
 
     /** Cobra con el formData del Payment Brick (token de tarjeta, cuotas, medio de pago, payer). */
@@ -52,7 +54,7 @@ public class PagoController {
             @PathVariable Long reservaId,
             @RequestBody Map<String, Object> formData,
             Authentication authentication) {
-        return ResponseEntity.ok(pagoService.procesarPago(reservaId, formData, authentication.getName()));
+        return ResponseEntity.ok(pagoOnlineService.procesarPago(reservaId, formData, authentication.getName()));
     }
 
     /**
@@ -99,7 +101,7 @@ public class PagoController {
         }
 
         try {
-            pagoService.procesarNotificacion(paymentId);
+            pagoOnlineService.procesarNotificacion(paymentId);
         } catch (PagoNoEncontradoException e) {
             // 200 para que MP no reintente: el pago no existe (ej. notificación simulada desde el panel)
             log.warn("Notificación de MP ignorada: {}", e.getMessage());
@@ -114,7 +116,7 @@ public class PagoController {
             @PathVariable Long reservaId,
             @Valid @RequestBody PagoManualRequest body,
             Authentication authentication) {
-        return ResponseEntity.ok(pagoService.registrarPagoManual(reservaId, body.getMonto(),
+        return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
                 PaymentProvider.MANUAL, body.getJugadorId(), authentication.getName()));
     }
 
@@ -129,7 +131,7 @@ public class PagoController {
             @Valid @RequestBody(required = false) BonificacionRequest body,
             Authentication authentication) {
         BonificacionRequest datos = body != null ? body : new BonificacionRequest();
-        return ResponseEntity.ok(pagoService.bonificar(reservaId, datos.getMonto(), datos.getMotivo(),
+        return ResponseEntity.ok(cobroService.bonificar(reservaId, datos.getMonto(), datos.getMotivo(),
                 datos.getJugadorId(), authentication.getName()));
     }
 
@@ -140,7 +142,7 @@ public class PagoController {
             @PathVariable Long reservaId,
             @Valid @RequestBody PagoManualRequest body,
             Authentication authentication) {
-        return ResponseEntity.ok(pagoService.registrarPagoManual(reservaId, body.getMonto(),
+        return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
                 PaymentProvider.MERCADO_PAGO, body.getJugadorId(), authentication.getName()));
     }
 }

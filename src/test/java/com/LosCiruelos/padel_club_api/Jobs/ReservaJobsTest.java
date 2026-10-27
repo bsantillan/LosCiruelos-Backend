@@ -10,17 +10,17 @@ import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.reservas.service.TurnoFijoService;
-import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
+import com.LosCiruelos.padel_club_api.pagos.service.ReembolsoService;
 import com.LosCiruelos.padel_club_api.Services.RecordatorioService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 
 class ReservaJobsTest {
 
     private final ReservaService reservaService = mock(ReservaService.class);
-    private final PagoService pagoService = mock(PagoService.class);
+    private final ReembolsoService reembolsoService = mock(ReembolsoService.class);
     private final RecordatorioService recordatorioService = mock(RecordatorioService.class);
     private final TurnoFijoService turnoFijoService = mock(TurnoFijoService.class);
-    private final ReservaJobs jobs = new ReservaJobs(reservaService, pagoService, recordatorioService, turnoFijoService);
+    private final ReservaJobs jobs = new ReservaJobs(reservaService, reembolsoService, recordatorioService, turnoFijoService);
 
     @Test
     void siUnaReservaFallaSeSigueConLasDemas() {
@@ -51,20 +51,20 @@ class ReservaJobsTest {
 
     @Test
     void siUnReembolsoFallaSeSigueConLosDemas() {
-        when(pagoService.idsReembolsosPendientes()).thenReturn(List.of(1L, 2L, 3L));
-        when(pagoService.reintentarReembolso(1L)).thenReturn(EstadoPago.DEVUELTO);
-        when(pagoService.reintentarReembolso(2L)).thenThrow(new IllegalStateException("falla"));
-        when(pagoService.reintentarReembolso(3L)).thenReturn(EstadoPago.REEMBOLSO_PENDIENTE);
+        when(reembolsoService.idsReembolsosPendientes()).thenReturn(List.of(1L, 2L, 3L));
+        when(reembolsoService.reintentarReembolso(1L)).thenReturn(EstadoPago.DEVUELTO);
+        when(reembolsoService.reintentarReembolso(2L)).thenThrow(new IllegalStateException("falla"));
+        when(reembolsoService.reintentarReembolso(3L)).thenReturn(EstadoPago.REEMBOLSO_PENDIENTE);
 
         jobs.reintentarReembolsos();
 
-        verify(pagoService).reintentarReembolso(3L);
+        verify(reembolsoService).reintentarReembolso(3L);
     }
 
     @Test
     void sinReembolsosPendientesNoHaceNada() {
-        when(pagoService.idsReembolsosPendientes()).thenReturn(List.of());
+        when(reembolsoService.idsReembolsosPendientes()).thenReturn(List.of());
         jobs.reintentarReembolsos();
-        verify(pagoService).idsReembolsosPendientes();
+        verify(reembolsoService).idsReembolsosPendientes();
     }
 }

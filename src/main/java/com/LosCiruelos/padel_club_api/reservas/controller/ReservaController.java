@@ -22,7 +22,7 @@ import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.DevolucionRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
-import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
+import com.LosCiruelos.padel_club_api.pagos.service.CobroService;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;
 import com.LosCiruelos.padel_club_api.reservas.service.CancelacionService;
@@ -41,7 +41,7 @@ public class ReservaController {
     private final ReservaService reservaService;
     private final ReservaConsultaService reservaConsultaService;
     private final CancelacionService cancelacionService;
-    private final PagoService pagoService;
+    private final CobroService cobroService;
 
     @PostMapping
     public ResponseEntity<ReservaResponse> crearReserva(
@@ -49,7 +49,7 @@ public class ReservaController {
             Authentication authentication) {
         // con "bonificacion" (solo ADMIN) se crea y se bonifica en la misma transacción
         ReservaResponse creada = request.getBonificacion() != null
-                ? pagoService.crearReservaBonificada(request, authentication.getName())
+                ? cobroService.crearReservaBonificada(request, authentication.getName())
                 : reservaService.crearReserva(request, authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(creada);
     }

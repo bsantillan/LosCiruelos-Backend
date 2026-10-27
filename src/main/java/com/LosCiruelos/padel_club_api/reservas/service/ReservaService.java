@@ -71,10 +71,6 @@ public class ReservaService {
     private final DisponibilidadService disponibilidad;
     private final Reloj reloj;
 
-    public Reserva save(Reserva reserva) {
-        return reservaRepository.save(reserva);
-    }
-
     // ── Bloqueo y acceso ─────────────────────────────────────────────────
 
     /** Carga la reserva con lock de escritura. Debe ser lo primero que se lee de ella en la transacción. */

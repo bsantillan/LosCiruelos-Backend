@@ -87,7 +87,7 @@ Antes de escribir lógica, buscar si ya existe. **Si algo se repite dos veces, v
 - Restricciones que se intercambian en un mismo flush (posiciones de jugadores) van `DEFERRABLE INITIALLY DEFERRED`.
 
 ## Tests
-- Services: tests unitarios con Mockito (patrón de `PagoServiceTest`, `ReservaServiceTest`); reglas de entidades y utilidades, sin Spring.
+- Services: tests unitarios con Mockito (patrón de `CobroServiceTest`, `ReservaServiceTest`); reglas de entidades y utilidades, sin Spring.
 - Controllers: MockMvc standalone con `GlobalExceptionHandler` (patrón de `ControllersTest`).
 - Consultas JPQL/Criteria nuevas: `@DataJpaTest` sobre H2 (patrón de `ResumenRepositoryTest`, `PartidosRepositoryTest`).
 - Datos de prueba en `TestData` (hoy es el martes 13/10/2026 10:00). Nombres de tests en castellano que describen el comportamiento (`unPartidoNoSePagaOnline`).

@@ -114,6 +114,20 @@ public class Pago {
     public static final Set<EstadoPago> ESTADOS_CON_DINERO = Set.of(EstadoPago.APROBADO, EstadoPago.DEVUELTO,
             EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE, EstadoPago.EN_PROCESO);
 
+    /**
+     * Cambia el estado y registra cuándo entró la plata a caja (un cobro de MP que queda devuelto o
+     * por devolver sin pasar por APROBADO también entró) y cuándo se devolvió.
+     */
+    public void cambiarEstado(EstadoPago nuevo, LocalDateTime ahora) {
+        if (paidAt == null && nuevo != EstadoPago.EN_PROCESO && ESTADOS_CON_DINERO.contains(nuevo)) {
+            paidAt = ahora;
+        }
+        if (nuevo == EstadoPago.DEVUELTO || nuevo == EstadoPago.A_REEMBOLSAR) {
+            reembolsadoAt = ahora;
+        }
+        estado = nuevo;
+    }
+
     /** Una bonificación cubre parte del turno sin que el cliente pague: no es plata. */
     public boolean esBonificacion() {
         return provider == PaymentProvider.BONIFICACION;

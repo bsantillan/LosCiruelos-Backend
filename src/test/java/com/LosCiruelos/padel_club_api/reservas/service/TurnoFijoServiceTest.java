@@ -23,7 +23,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.context.ApplicationEventPublisher;
 
 import com.LosCiruelos.padel_club_api.Services.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
@@ -32,7 +31,6 @@ import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
 import com.LosCiruelos.padel_club_api.mapper.TurnoFijoMapper;
-import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.JugadorRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.TurnoFijoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.TurnoFijoResponse;
@@ -47,7 +45,6 @@ import com.LosCiruelos.padel_club_api.Exceptions.TurnoFijoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
 import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
-import com.LosCiruelos.padel_club_api.pagos.payment.PaymentServiceFactory;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijo;
 import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijoJugador;
@@ -91,10 +88,7 @@ class TurnoFijoServiceTest {
                 mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
                 stockService, mapper, disponibilidad,
                 TestData.reloj(AHORA));
-        PagoService pagoService = new PagoService(mock(PaymentServiceFactory.class), reservaService, mock(ReservaConsultaService.class),
-                mock(PagoRepository.class), configuracionService, usuarioService, stockService,
-                TestData.reloj(AHORA), mock(ApplicationEventPublisher.class), new PagoMapper());
-        PartidoService partidoService = new PartidoService(reservaService, disponibilidad, mapper, pagoService, usuarioService,
+        PartidoService partidoService = new PartidoService(reservaService, disponibilidad, mapper, usuarioService,
                 configuracionService, stockService, canchaRepository, reservaRepository, turnoFijoRepository,
                 TestData.reloj(AHORA));
         turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, canchaRepository, reservaService,

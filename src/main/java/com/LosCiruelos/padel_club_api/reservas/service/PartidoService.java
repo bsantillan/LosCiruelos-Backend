@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
-import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.JugadorRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.PartidoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
@@ -58,7 +57,6 @@ public class PartidoService {
     private final ReservaService reservaService;
     private final DisponibilidadService disponibilidad;
     private final ReservaMapper reservaMapper;
-    private final PagoService pagoService;
     private final UsuarioService usuarioService;
     private final ConfiguracionService configuracionService;
     private final StockService stockService;
@@ -232,8 +230,8 @@ public class PartidoService {
                     .formatted(total, partido.getMontoCubierto()));
         }
         partido.setMontoTotal(total);
-        // el total pudo cambiar: el estado se vuelve a calcular con lo pagado (sin avisos)
-        pagoService.recalcularEstadoReserva(partido, false);
+        // el total pudo cambiar: el estado se vuelve a calcular con lo pagado (en un partido no hay avisos)
+        partido.recalcularEstado(configuracionService.calcularSenia(config, total), ahora);
         partido = reservaService.guardarVerificandoSolapamiento(partido);
         log.info("Partido #{} modificado por {}", id, email);
         return reservaMapper.aResponse(partido);

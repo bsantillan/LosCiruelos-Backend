@@ -6,7 +6,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
-import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
+import com.LosCiruelos.padel_club_api.pagos.service.ReembolsoService;
 import com.LosCiruelos.padel_club_api.reservas.service.TurnoFijoService;
 import com.LosCiruelos.padel_club_api.Services.RecordatorioService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ReservaJobs {
 
     private final ReservaService reservaService;
-    private final PagoService pagoService;
+    private final ReembolsoService reembolsoService;
     private final RecordatorioService recordatorioService;
     private final TurnoFijoService turnoFijoService;
 
@@ -55,7 +55,7 @@ public class ReservaJobs {
      */
     @Scheduled(fixedDelay = 120_000, initialDelay = 45_000)
     public void reintentarReembolsos() {
-        List<Long> pendientes = pagoService.idsReembolsosPendientes();
+        List<Long> pendientes = reembolsoService.idsReembolsosPendientes();
         if (pendientes.isEmpty()) {
             return;
         }
@@ -63,7 +63,7 @@ public class ReservaJobs {
         int devueltos = 0;
         for (Long id : pendientes) {
             try {
-                if (pagoService.reintentarReembolso(id) == EstadoPago.DEVUELTO) {
+                if (reembolsoService.reintentarReembolso(id) == EstadoPago.DEVUELTO) {
                     devueltos++;
                 }
             } catch (Exception e) {

@@ -67,7 +67,8 @@ import com.LosCiruelos.padel_club_api.Services.AuthService;
 import com.LosCiruelos.padel_club_api.Services.CanchaService;
 import com.LosCiruelos.padel_club_api.reservas.service.CancelacionService;
 import com.LosCiruelos.padel_club_api.Services.NotificacionesService;
-import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
+import com.LosCiruelos.padel_club_api.pagos.service.CobroService;
+import com.LosCiruelos.padel_club_api.pagos.service.PagoOnlineService;
 import com.LosCiruelos.padel_club_api.Services.PasswordResetService;
 import com.LosCiruelos.padel_club_api.Services.PerfilService;
 import com.LosCiruelos.padel_club_api.Services.ProductoService;
@@ -89,7 +90,8 @@ class ControllersTest {
 
     private ReservaService reservaService;
     private CancelacionService cancelacionService;
-    private PagoService pagoService;
+    private PagoOnlineService pagoOnlineService;
+    private CobroService cobroService;
     private MercadoPagoWebhookValidator webhookValidator;
     private AuthService authService;
     private VerificationService verificationService;
@@ -110,7 +112,8 @@ class ControllersTest {
     void setUp() {
         reservaService = mock(ReservaService.class);
         cancelacionService = mock(CancelacionService.class);
-        pagoService = mock(PagoService.class);
+        pagoOnlineService = mock(PagoOnlineService.class);
+        cobroService = mock(CobroService.class);
         webhookValidator = mock(MercadoPagoWebhookValidator.class);
         authService = mock(AuthService.class);
         verificationService = mock(VerificationService.class);
@@ -127,8 +130,8 @@ class ControllersTest {
         busquedaClientesService = mock(BusquedaClientesService.class);
 
         mvc = MockMvcBuilders.standaloneSetup(
-                new ReservaController(reservaService, reservaConsultaService, cancelacionService, pagoService),
-                new PagoController(pagoService, webhookValidator),
+                new ReservaController(reservaService, reservaConsultaService, cancelacionService, cobroService),
+                new PagoController(pagoOnlineService, cobroService, webhookValidator),
                 new AuthController(authService, verificationService, passwordResetService),
                 new PerfilController(perfilService),
                 new AdminController(adminService),
@@ -233,8 +236,8 @@ class ControllersTest {
 
         @Test
         void iniciarYCobrar() throws Exception {
-            when(pagoService.iniciarPago(4L, true, EMAIL)).thenReturn(new PagoResponse());
-            when(pagoService.procesarPago(eq(4L), anyMap(), eq(EMAIL))).thenReturn(new PagoResponse());
+            when(pagoOnlineService.iniciarPago(4L, true, EMAIL)).thenReturn(new PagoResponse());
+            when(pagoOnlineService.procesarPago(eq(4L), anyMap(), eq(EMAIL))).thenReturn(new PagoResponse());
 
             mvc.perform(post("/pagos/4/iniciar").param("pagarTotal", "true").principal(AUTH)).andExpect(status().isOk());
             mvc.perform(json(post("/pagos/4/pago"), "{\"token\":\"tok\",\"payment_method_id\":\"visa\"}"))
@@ -243,7 +246,7 @@ class ControllersTest {
 
         @Test
         void falloDeMercadoPagoDevuelve502() throws Exception {
-            when(pagoService.iniciarPago(4L, false, EMAIL)).thenThrow(new PagoProveedorException("MP caído"));
+            when(pagoOnlineService.iniciarPago(4L, false, EMAIL)).thenThrow(new PagoProveedorException("MP caído"));
 
             mvc.perform(post("/pagos/4/iniciar").principal(AUTH)).andExpect(status().isBadGateway());
         }
@@ -255,11 +258,11 @@ class ControllersTest {
                     .andExpect(jsonPath("$.errors.monto").exists());
             mvc.perform(json(post("/pagos/4/pago-efectivo"), "{}")).andExpect(status().isBadRequest());
 
-            when(pagoService.registrarPagoManual(any(), any(), any(), any(), anyString())).thenReturn(new PagoResponse());
+            when(cobroService.registrarPagoManual(any(), any(), any(), any(), anyString())).thenReturn(new PagoResponse());
             mvc.perform(json(post("/pagos/4/pago-efectivo"), "{\"monto\":7500}")).andExpect(status().isOk());
             mvc.perform(json(post("/pagos/4/pago-presencial"), "{\"monto\":7500}")).andExpect(status().isOk());
-            verify(pagoService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, EMAIL);
-            verify(pagoService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO, null, EMAIL);
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, EMAIL);
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO, null, EMAIL);
         }
 
         @Test
@@ -272,16 +275,16 @@ class ControllersTest {
                     .content("{\"type\":\"payment\",\"data\":{\"id\":\"333\"}}"))
                     .andExpect(status().isOk());
 
-            verify(pagoService).procesarNotificacion("111");
-            verify(pagoService).procesarNotificacion("222");
-            verify(pagoService).procesarNotificacion("333");
+            verify(pagoOnlineService).procesarNotificacion("111");
+            verify(pagoOnlineService).procesarNotificacion("222");
+            verify(pagoOnlineService).procesarNotificacion("333");
         }
 
         @Test
         void webhookDeUnPagoInexistenteResponde200() throws Exception {
             // "Simular notificación" del panel de MP manda un id que no existe: no hay que reintentar
             doThrow(new PagoNoEncontradoException("El pago 123456 no existe en Mercado Pago."))
-                    .when(pagoService).procesarNotificacion("123456");
+                    .when(pagoOnlineService).procesarNotificacion("123456");
 
             mvc.perform(post("/pagos/notificacion").param("type", "payment").param("data.id", "123456"))
                     .andExpect(status().isOk());
@@ -323,7 +326,7 @@ class ControllersTest {
                     .header("x-signature", "ts=1,v1=mal").header("x-request-id", "r"))
                     .andExpect(status().isUnauthorized());
 
-            verify(pagoService, never()).procesarNotificacion(anyString());
+            verify(pagoOnlineService, never()).procesarNotificacion(anyString());
         }
     }
 
@@ -879,19 +882,19 @@ class ControllersTest {
 
         @Test
         void bonificarSinBodyEsTodoLoQueFalta() throws Exception {
-            when(pagoService.bonificar(5L, null, null, null, EMAIL)).thenReturn(new PagoResponse());
+            when(cobroService.bonificar(5L, null, null, null, EMAIL)).thenReturn(new PagoResponse());
 
             mvc.perform(post("/pagos/5/bonificacion").principal(AUTH)).andExpect(status().isOk());
-            verify(pagoService).bonificar(5L, null, null, null, EMAIL);
+            verify(cobroService).bonificar(5L, null, null, null, EMAIL);
         }
 
         @Test
         void bonificarUnaParteConMotivo() throws Exception {
-            when(pagoService.bonificar(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
+            when(cobroService.bonificar(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
 
             mvc.perform(json(post("/pagos/5/bonificacion"), "{\"monto\":7500,\"motivo\":\"socio\"}"))
                     .andExpect(status().isOk());
-            verify(pagoService).bonificar(5L, new BigDecimal("7500"), "socio", null, EMAIL);
+            verify(cobroService).bonificar(5L, new BigDecimal("7500"), "socio", null, EMAIL);
 
             mvc.perform(json(post("/pagos/5/bonificacion"), "{\"monto\":0}"))
                     .andExpect(status().isBadRequest())
@@ -900,7 +903,7 @@ class ControllersTest {
 
         @Test
         void unEmpleadoNoPuedeBonificar() throws Exception {
-            when(pagoService.bonificar(any(), any(), any(), any(), any())).thenThrow(
+            when(cobroService.bonificar(any(), any(), any(), any(), any())).thenThrow(
                     new com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException(
                             "Solo el ADMIN puede bonificar una reserva."));
 
@@ -913,7 +916,7 @@ class ControllersTest {
         void crearConBonificacionVaPorElServicioDePagos() throws Exception {
             ReservaResponse r = new ReservaResponse();
             r.setId(9L);
-            when(pagoService.crearReservaBonificada(any(), eq(EMAIL))).thenReturn(r);
+            when(cobroService.crearReservaBonificada(any(), eq(EMAIL))).thenReturn(r);
 
             mvc.perform(json(post("/reservas"), """
                     {"canchaId":1,"fechaReserva":"2099-01-01","horaInicio":"18:00","horaFin":"19:30",

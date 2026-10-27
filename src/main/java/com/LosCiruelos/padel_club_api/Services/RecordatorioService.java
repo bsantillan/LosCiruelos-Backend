@@ -91,8 +91,7 @@ public class RecordatorioService {
             return false;
         }
 
-        reserva.setRecordatorioEnviadoAt(ahora);
-        reservaService.save(reserva);
+        reserva.setRecordatorioEnviadoAt(ahora); // la reserva bloqueada se guarda al terminar la transacción
         if (reserva.esPartido()) {
             avisarJugadores(reserva);
             return true;

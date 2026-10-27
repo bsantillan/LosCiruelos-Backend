@@ -291,6 +291,41 @@ public class Reserva {
         return estaPendienteVigente(ahora) || ESTADOS_CONFIRMADOS.contains(estado);
     }
 
+    /**
+     * El estado se deriva de lo cubierto (pagado + bonificado):
+     * nada → PENDIENTE · menos que la seña → PARCIALMENTE_PAGADA · seña o más → SEÑADA ·
+     * total → PAGADA (o COMPLETADA si el turno ya terminó, ej. el saldo se cobró en el club después
+     * de jugar; si no, la completa el job al terminar).
+     * Una reserva confirmada que queda sin nada cubierto (reembolso) pasa a CANCELADA. Un partido
+     * sin nada pagado queda CONFIRMADA (no vence ni se cancela por eso).
+     * CANCELADA, EXPIRADA y COMPLETADA no cambian.
+     *
+     * @return true si el estado cambió
+     */
+    public boolean recalcularEstado(BigDecimal senia, LocalDateTime ahora) {
+        if (estaInactiva() || estado == EstadoReserva.COMPLETADA) {
+            return false;
+        }
+        BigDecimal cubierto = getMontoCubierto();
+        EstadoReserva nuevo;
+        if (cubierto.signum() == 0 && esPartido()) {
+            nuevo = EstadoReserva.CONFIRMADA;
+        } else if (cubierto.signum() == 0) {
+            nuevo = estado == EstadoReserva.PENDIENTE ? EstadoReserva.PENDIENTE : EstadoReserva.CANCELADA;
+        } else if (cubierto.compareTo(montoTotal) >= 0) {
+            nuevo = turnoTermino(ahora) ? EstadoReserva.COMPLETADA : EstadoReserva.PAGADA;
+        } else if (cubierto.compareTo(senia) >= 0) {
+            nuevo = EstadoReserva.SEÑADA;
+        } else {
+            nuevo = EstadoReserva.PARCIALMENTE_PAGADA;
+        }
+        if (nuevo == estado) {
+            return false;
+        }
+        estado = nuevo;
+        return true;
+    }
+
     /** Fecha y horario de la reserva (duración, superposición, si empezó o terminó). */
     @Transient
     public Turno turno() {

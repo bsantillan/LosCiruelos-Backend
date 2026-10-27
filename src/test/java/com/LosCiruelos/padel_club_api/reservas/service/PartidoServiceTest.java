@@ -23,7 +23,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationEventPublisher;
 
 import com.LosCiruelos.padel_club_api.Services.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
@@ -31,7 +30,6 @@ import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
-import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.JugadorRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.PartidoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.JugadorResponse;
@@ -49,7 +47,6 @@ import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
 import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
 import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
-import com.LosCiruelos.padel_club_api.pagos.payment.PaymentServiceFactory;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijo;
 import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijoJugador;
@@ -59,7 +56,7 @@ import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.reservas.repository.TurnoFijoRepository;
 
-/** Partidos de 4 jugadores con ReservaService y PagoService reales y los repositorios simulados. */
+/** Partidos de 4 jugadores con ReservaService real y los repositorios simulados. */
 class PartidoServiceTest {
 
     private ReservaRepository reservaRepository;
@@ -91,10 +88,7 @@ class PartidoServiceTest {
                 mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
                 stockService, mapper, disponibilidad,
                 TestData.reloj(AHORA));
-        PagoService pagoService = new PagoService(mock(PaymentServiceFactory.class), reservaService, mock(ReservaConsultaService.class),
-                mock(PagoRepository.class), configuracionService, usuarioService, stockService,
-                TestData.reloj(AHORA), mock(ApplicationEventPublisher.class), new PagoMapper());
-        partidos = new PartidoService(reservaService, disponibilidad, mapper, pagoService, usuarioService, configuracionService,
+        partidos = new PartidoService(reservaService, disponibilidad, mapper, usuarioService, configuracionService,
                 stockService, canchaRepository, reservaRepository, turnoFijoRepository, TestData.reloj(AHORA));
 
         admin = usuario(3L, Role.ADMIN);
