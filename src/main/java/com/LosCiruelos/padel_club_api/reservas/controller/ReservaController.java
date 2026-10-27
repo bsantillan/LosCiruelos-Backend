@@ -74,7 +74,10 @@ public class ReservaController {
                 incluirDescartadas, page, size));
     }
 
-    /** Personal del club: turnos ya jugados que deben saldo (señados o parciales), del más viejo al más nuevo. */
+    /**
+     * Personal del club: turnos ya jugados que deben saldo (señados o parciales), del más viejo al más nuevo.
+     * Pendiente para la rama de feature: pasa a /admin/reservas.
+     */
     @GetMapping("/saldos-pendientes")
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
     public ResponseEntity<List<ReservaResponse>> saldosPendientes() {
@@ -87,14 +90,20 @@ public class ReservaController {
         return ResponseEntity.ok(reservaConsultaService.obtener(id, authentication.getName()));
     }
 
-    /** Personal del club: reservas cuyo turno empezó y tienen paletas sin devolver. */
+    /**
+     * Personal del club: reservas cuyo turno empezó y tienen paletas sin devolver.
+     * Pendiente para la rama de feature: pasa a /admin/reservas.
+     */
     @GetMapping("/devoluciones-pendientes")
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
     public ResponseEntity<List<ReservaResponse>> devolucionesPendientes() {
         return ResponseEntity.ok(reservaConsultaService.devolucionesPendientes());
     }
 
-    /** Personal del club: registra cuántas paletas devolvieron (las faltantes bajan el stock). */
+    /**
+     * Personal del club: registra cuántas paletas devolvieron (las faltantes bajan el stock).
+     * Pendiente para la rama de feature: pasa a /admin/reservas/{id}/devolucion.
+     */
     @PostMapping("/{id}/devolucion")
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
     public ResponseEntity<ReservaResponse> registrarDevolucion(

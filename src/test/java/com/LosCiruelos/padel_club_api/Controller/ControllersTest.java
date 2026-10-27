@@ -45,7 +45,7 @@ import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PerfilResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoResponse;
 import com.LosCiruelos.padel_club_api.reservas.service.DisponibilidadService;
-import com.LosCiruelos.padel_club_api.reservas.controller.PanelPersonalController;
+import com.LosCiruelos.padel_club_api.reservas.controller.ReservaAdminController;
 import com.LosCiruelos.padel_club_api.reservas.controller.ReservaController;
 import com.LosCiruelos.padel_club_api.reservas.service.StockService;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
@@ -137,7 +137,8 @@ class ControllersTest {
                 new AdminProductoController(productoService),
                 new NotificacionesController(notificacionesService),
                 new ResumenController(resumenService),
-                new PanelPersonalController(reservaConsultaService, busquedaClientesService))
+                new ReservaAdminController(reservaConsultaService),
+                new ClienteAdminController(busquedaClientesService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
                 // mismo formato de fechas que la app
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
@@ -778,7 +779,7 @@ class ControllersTest {
     // ─────────────────────────────────────────────────────────────────────
 
     @Nested
-    class PanelPersonal {
+    class ReservasYClientesDelPersonal {
 
         private com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse pagina() {
             ReservaResponse r = new ReservaResponse();
