@@ -16,7 +16,7 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
@@ -32,7 +32,7 @@ public class DataInitializer implements ApplicationRunner {
         private final UsuarioService usuarioService;
         private final CanchaService canchaService;
         private final ClienteProfileService clienteProfileService;
-        private final ConfiguracionRepository configuracionRepository;
+        private final ConfiguracionService configuracionService;
 
         @Value("${admin.email}")
         private String adminEmail;
@@ -77,12 +77,7 @@ public class DataInitializer implements ApplicationRunner {
         }
 
         private void crearCanchasSiNoExisten() {
-                if (canchaService.count() == 0) {
-                        canchaService.crearCancha(1, "Cancha de césped sintético con iluminación LED.");
-                        canchaService.crearCancha(2, "Cancha de césped sintético con iluminación LED.");
-                        canchaService.crearCancha(3, "Cancha de césped sintético con iluminación LED.");
-                        canchaService.crearCancha(4, "Cancha de césped sintético con iluminación LED.");
-
+                if (canchaService.crearCanchasSiNoHay(4, "Cancha de césped sintético con iluminación LED.")) {
                         log.info("4 canchas creadas.");
                 } else {
                         log.info("Canchas ya existen, no se crean nuevas.");
@@ -90,37 +85,35 @@ public class DataInitializer implements ApplicationRunner {
         }
 
         private void crearConfiguracionSiNoExiste() {
-                if (configuracionRepository.findById(1L).isEmpty()) {
+                List<DiaApertura> dias = List.of(
+                                DiaApertura.builder().dia("Lunes").horario_inicio(LocalTime.of(8, 0))
+                                                .horario_fin(LocalTime.of(23, 0)).build(),
+                                DiaApertura.builder().dia("Martes").horario_inicio(LocalTime.of(8, 0))
+                                                .horario_fin(LocalTime.of(23, 0)).build(),
+                                DiaApertura.builder().dia("Miércoles").horario_inicio(LocalTime.of(8, 0))
+                                                .horario_fin(LocalTime.of(23, 0)).build(),
+                                DiaApertura.builder().dia("Jueves").horario_inicio(LocalTime.of(8, 0))
+                                                .horario_fin(LocalTime.of(23, 0)).build(),
+                                DiaApertura.builder().dia("Viernes").horario_inicio(LocalTime.of(8, 0))
+                                                .horario_fin(LocalTime.of(23, 0)).build(),
+                                DiaApertura.builder().dia("Sábado").horario_inicio(LocalTime.of(9, 0))
+                                                .horario_fin(LocalTime.of(22, 0)).build(),
+                                DiaApertura.builder().dia("Domingo").horario_inicio(LocalTime.of(9, 0))
+                                                .horario_fin(LocalTime.of(20, 0)).build());
 
-                        List<DiaApertura> dias = List.of(
-                                        DiaApertura.builder().dia("Lunes").horario_inicio(LocalTime.of(8, 0))
-                                                        .horario_fin(LocalTime.of(23, 0)).build(),
-                                        DiaApertura.builder().dia("Martes").horario_inicio(LocalTime.of(8, 0))
-                                                        .horario_fin(LocalTime.of(23, 0)).build(),
-                                        DiaApertura.builder().dia("Miércoles").horario_inicio(LocalTime.of(8, 0))
-                                                        .horario_fin(LocalTime.of(23, 0)).build(),
-                                        DiaApertura.builder().dia("Jueves").horario_inicio(LocalTime.of(8, 0))
-                                                        .horario_fin(LocalTime.of(23, 0)).build(),
-                                        DiaApertura.builder().dia("Viernes").horario_inicio(LocalTime.of(8, 0))
-                                                        .horario_fin(LocalTime.of(23, 0)).build(),
-                                        DiaApertura.builder().dia("Sábado").horario_inicio(LocalTime.of(9, 0))
-                                                        .horario_fin(LocalTime.of(22, 0)).build(),
-                                        DiaApertura.builder().dia("Domingo").horario_inicio(LocalTime.of(9, 0))
-                                                        .horario_fin(LocalTime.of(20, 0)).build());
+                Configuracion configuracion = Configuracion.builder()
+                                .id(1L)
+                                .montoReserva(BigDecimal.ZERO)
+                                .porcentajeSenia(new BigDecimal("50"))
+                                .duracionMinimaTurno(90)
+                                .duracionMaximaTurno(180)
+                                .montoXMediaHora(new BigDecimal("5000"))
+                                .minutosReembolsoTotal(1440)
+                                .minutosReembolsoSenia(720)
+                                .dias_apertura(dias)
+                                .build();
 
-                        Configuracion configuracion = Configuracion.builder()
-                                        .id(1L)
-                                        .montoReserva(BigDecimal.ZERO)
-                                        .porcentajeSenia(new BigDecimal("50"))
-                                        .duracionMinimaTurno(90)
-                                        .duracionMaximaTurno(180)
-                                        .montoXMediaHora(new BigDecimal("5000"))
-                                        .minutosReembolsoTotal(1440)
-                                        .minutosReembolsoSenia(720)
-                                        .dias_apertura(dias)
-                                        .build();
-
-                        configuracionRepository.save(configuracion);
+                if (configuracionService.crearSiNoExiste(configuracion)) {
                         log.info("Configuración inicial creada.");
                 } else {
                         log.info("Configuración ya existe, no se crea una nueva.");

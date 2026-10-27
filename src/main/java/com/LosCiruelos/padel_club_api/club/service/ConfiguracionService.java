@@ -36,6 +36,17 @@ public class ConfiguracionService {
         return configuracionRepository.obtener();
     }
 
+    /** Arranque: guarda la configuración inicial si todavía no hay ninguna. @return si la creó */
+    @CacheEvict(value = ConfiguracionCache.NOMBRE, allEntries = true)
+    public boolean crearSiNoExiste(Configuracion inicial) {
+        if (configuracionRepository.existsById(1L)) {
+            return false;
+        }
+        inicial.setId(1L);
+        configuracionRepository.save(inicial);
+        return true;
+    }
+
     @CacheEvict(value = ConfiguracionCache.NOMBRE, allEntries = true)
     public Configuracion actualizar(Configuracion nueva) {
         nueva.setId(1L);

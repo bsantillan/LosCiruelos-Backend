@@ -21,12 +21,11 @@ import com.LosCiruelos.padel_club_api.reservas.dto.response.TurnoFijoResponse.Fe
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
-import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.TurnoFijoNoEncontradoException;
-import com.LosCiruelos.padel_club_api.club.repository.CanchaRepository;
+import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijo;
 import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijoJugador;
@@ -63,7 +62,7 @@ public class TurnoFijoService {
 
     private final TurnoFijoRepository turnoFijoRepository;
     private final ReservaRepository reservaRepository;
-    private final CanchaRepository canchaRepository;
+    private final CanchaService canchaService;
     private final ReservaService reservaService;
     private final DisponibilidadService disponibilidad;
     private final ReservaMapper reservaMapper;
@@ -104,8 +103,7 @@ public class TurnoFijoService {
         Usuario admin = admin(email);
         LocalDateTime ahora = reloj.ahora();
         validarTurno(req, ahora, null);
-        Cancha cancha = canchaRepository.findByIdForUpdate(req.getCanchaId())
-                .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + req.getCanchaId()));
+        Cancha cancha = canchaService.bloquear(req.getCanchaId());
         List<DatosJugador> jugadores = jugadoresService.resolverJugadores(req.getJugadores());
 
         TurnoFijo tf = TurnoFijo.builder()
@@ -140,8 +138,7 @@ public class TurnoFijoService {
         TurnoFijo tf = bloquearActivo(id);
         LocalDateTime ahora = reloj.ahora();
         validarTurno(req, ahora, tf);
-        Cancha cancha = canchaRepository.findByIdForUpdate(req.getCanchaId())
-                .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + req.getCanchaId()));
+        Cancha cancha = canchaService.bloquear(req.getCanchaId());
         List<DatosJugador> jugadores = jugadoresService.resolverJugadores(req.getJugadores());
 
         tf.setCancha(cancha);

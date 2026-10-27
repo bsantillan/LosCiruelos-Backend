@@ -83,10 +83,11 @@ class ReservaServicePartidosTest {
         StockService stockService = mock(StockService.class);
 
         ReservaMapper mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA), new PagoMapper());
-        DisponibilidadService disponibilidad = new DisponibilidadService(configuracionService, new CanchaService(canchaRepository, new CanchaMapper()), reservaRepository,
+        CanchaService canchaService = new CanchaService(canchaRepository, new CanchaMapper());
+        DisponibilidadService disponibilidad = new DisponibilidadService(configuracionService, canchaService, reservaRepository,
                 turnoFijoRepository, TestData.reloj(AHORA));
         reservas = new ReservaService(configuracionService, usuarioService,
-                mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
+                mock(ClienteProfileService.class), reservaRepository, canchaService, mock(PagoRepository.class),
                 stockService, mapper, disponibilidad, new JugadoresService(usuarioService), turnoFijoRepository,
                 TestData.reloj(AHORA));
 

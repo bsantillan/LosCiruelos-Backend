@@ -83,13 +83,14 @@ class TurnoFijoServiceTest {
         cancelacionService = mock(CancelacionService.class);
 
         ReservaMapper mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA), new PagoMapper());
-        DisponibilidadService disponibilidad = new DisponibilidadService(configuracionService, new CanchaService(canchaRepository, new CanchaMapper()), reservaRepository,
+        CanchaService canchaService = new CanchaService(canchaRepository, new CanchaMapper());
+        DisponibilidadService disponibilidad = new DisponibilidadService(configuracionService, canchaService, reservaRepository,
                 turnoFijoRepository, TestData.reloj(AHORA));
         JugadoresService jugadoresService = new JugadoresService(usuarioService);
         ReservaService reservaService = new ReservaService(configuracionService, usuarioService,
-                mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
+                mock(ClienteProfileService.class), reservaRepository, canchaService, mock(PagoRepository.class),
                 stockService, mapper, disponibilidad, jugadoresService, turnoFijoRepository, TestData.reloj(AHORA));
-        turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, canchaRepository, reservaService,
+        turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, canchaService, reservaService,
                 disponibilidad, mapper, new TurnoFijoMapper(), jugadoresService, cancelacionService, stockService, configuracionService, usuarioService,
                 TestData.reloj(AHORA), 4);
 
@@ -297,7 +298,7 @@ class TurnoFijoServiceTest {
         when(reservaService.crearPartidoDeTurnoFijo(eq(8L), any())).thenReturn(Optional.of(1L));
         when(reservaService.crearPartidoDeTurnoFijo(8L, MANIANA.plusWeeks(2)))
                 .thenThrow(new HorarioOcupadoException());
-        turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, mock(CanchaRepository.class),
+        turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, mock(CanchaService.class),
                 reservaService, mock(DisponibilidadService.class), mock(ReservaMapper.class),
                 new TurnoFijoMapper(), mock(JugadoresService.class), cancelacionService, stockService,
                 mock(ConfiguracionService.class), mock(UsuarioService.class), TestData.reloj(AHORA), 4);

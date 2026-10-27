@@ -26,13 +26,12 @@ import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaNoEncontradaException;
-import com.LosCiruelos.padel_club_api.club.repository.CanchaRepository;
+import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
@@ -71,7 +70,7 @@ public class ReservaService {
     private final UsuarioService usuarioService;
     private final ClienteProfileService clienteProfileService;
     private final ReservaRepository reservaRepository;
-    private final CanchaRepository canchaRepository;
+    private final CanchaService canchaService;
     private final PagoRepository pagoRepository;
     private final StockService stockService;
     private final ReservaMapper mapper;
@@ -121,8 +120,7 @@ public class ReservaService {
         long duracion = disponibilidad.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(), req.getHoraFin(), ahora);
 
         // Lock de la cancha: los pedidos simultáneos para esta cancha esperan su turno
-        Cancha cancha = canchaRepository.findByIdForUpdate(req.getCanchaId())
-                .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + req.getCanchaId()));
+        Cancha cancha = canchaService.bloquear(req.getCanchaId());
 
         // Reservas que dejan de estar activas en esta operación: su stock se devuelve al final
         List<Reserva> aLiberar = new ArrayList<>();
@@ -331,8 +329,7 @@ public class ReservaService {
             List<DatosJugador> jugadores, Integer pelotas, Integer paletas, TurnoFijo turnoFijo,
             Configuracion config, long duracion, LocalDateTime ahora) {
         // lock de la cancha: los pedidos simultáneos para esta cancha esperan su turno
-        Cancha cancha = canchaRepository.findByIdForUpdate(canchaId)
-                .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + canchaId));
+        Cancha cancha = canchaService.bloquear(canchaId);
         List<Reserva> aLiberar = expirarVencidasQueSeSuperponen(cancha.getId(), fecha, inicio, fin,
                 ahora);
         disponibilidad.validarLibre(cancha.getId(), fecha, inicio, fin, ahora, null,
@@ -396,8 +393,7 @@ public class ReservaService {
             }
             long duracion = disponibilidad.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(),
                     req.getHoraFin(), ahora);
-            Cancha cancha = canchaRepository.findByIdForUpdate(req.getCanchaId())
-                    .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + req.getCanchaId()));
+            Cancha cancha = canchaService.bloquear(req.getCanchaId());
             aLiberar.addAll(expirarVencidasQueSeSuperponen(cancha.getId(), req.getFechaReserva(),
                     req.getHoraInicio(), req.getHoraFin(), ahora));
             disponibilidad.validarLibre(cancha.getId(), req.getFechaReserva(), req.getHoraInicio(),
