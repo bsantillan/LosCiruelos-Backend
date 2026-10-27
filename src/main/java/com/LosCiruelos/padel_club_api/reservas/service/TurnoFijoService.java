@@ -36,7 +36,7 @@ import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
 import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.reservas.repository.TurnoFijoRepository;
-import com.LosCiruelos.padel_club_api.reservas.service.PartidoService.DatosJugador;
+import com.LosCiruelos.padel_club_api.reservas.service.JugadoresService.DatosJugador;
 import com.LosCiruelos.padel_club_api.common.Fechas;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.common.Roles;
@@ -52,7 +52,7 @@ import lombok.extern.slf4j.Slf4j;
  * <p>
  * Los partidos de cada semana se crean con {@code turnos-fijos.semanas-anticipacion} semanas de
  * anticipación (4 por defecto) en {@link #generar}, que no es transaccional: cada fecha se crea en
- * su propia transacción ({@link PartidoService#crearParaTurnoFijo}) y, si una no se puede
+ * su propia transacción ({@link ReservaService#crearPartidoDeTurnoFijo}) y, si una no se puede
  * (horario ocupado, el club no abre, falta stock), se informa y se sigue con las demás; el job lo
  * vuelve a intentar.
  */
@@ -68,7 +68,7 @@ public class TurnoFijoService {
     private final DisponibilidadService disponibilidad;
     private final ReservaMapper reservaMapper;
     private final TurnoFijoMapper turnoFijoMapper;
-    private final PartidoService partidoService;
+    private final JugadoresService jugadoresService;
     private final CancelacionService cancelacionService;
     private final StockService stockService;
     private final ConfiguracionService configuracionService;
@@ -106,7 +106,7 @@ public class TurnoFijoService {
         validarTurno(req, ahora, null);
         Cancha cancha = canchaRepository.findByIdForUpdate(req.getCanchaId())
                 .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + req.getCanchaId()));
-        List<DatosJugador> jugadores = partidoService.resolverJugadores(req.getJugadores());
+        List<DatosJugador> jugadores = jugadoresService.resolverJugadores(req.getJugadores());
 
         TurnoFijo tf = TurnoFijo.builder()
                 .cancha(cancha)
@@ -142,7 +142,7 @@ public class TurnoFijoService {
         validarTurno(req, ahora, tf);
         Cancha cancha = canchaRepository.findByIdForUpdate(req.getCanchaId())
                 .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + req.getCanchaId()));
-        List<DatosJugador> jugadores = partidoService.resolverJugadores(req.getJugadores());
+        List<DatosJugador> jugadores = jugadoresService.resolverJugadores(req.getJugadores());
 
         tf.setCancha(cancha);
         tf.setDiaSemana(req.getDesde().getDayOfWeek());
@@ -269,7 +269,7 @@ public class TurnoFijoService {
         for (LocalDate fecha = proximaFecha(tf.getDesde(), tf.getHoraInicio(), ahora);
                 !fecha.isAfter(hasta); fecha = fecha.plusWeeks(1)) {
             try {
-                partidoService.crearParaTurnoFijo(turnoFijoId, fecha).ifPresent(creados::add);
+                reservaService.crearPartidoDeTurnoFijo(turnoFijoId, fecha).ifPresent(creados::add);
             } catch (RuntimeException e) {
                 omitidas.add(new FechaOmitida(fecha, e.getMessage()));
             }

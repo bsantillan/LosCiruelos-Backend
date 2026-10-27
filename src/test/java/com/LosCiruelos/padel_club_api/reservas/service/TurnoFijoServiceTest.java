@@ -84,15 +84,12 @@ class TurnoFijoServiceTest {
         ReservaMapper mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA), new PagoMapper());
         DisponibilidadService disponibilidad = new DisponibilidadService(configuracionService, new CanchaService(canchaRepository), reservaRepository,
                 turnoFijoRepository, TestData.reloj(AHORA));
+        JugadoresService jugadoresService = new JugadoresService(usuarioService);
         ReservaService reservaService = new ReservaService(configuracionService, usuarioService,
                 mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
-                stockService, mapper, disponibilidad,
-                TestData.reloj(AHORA));
-        PartidoService partidoService = new PartidoService(reservaService, disponibilidad, mapper, usuarioService,
-                configuracionService, stockService, canchaRepository, reservaRepository, turnoFijoRepository,
-                TestData.reloj(AHORA));
+                stockService, mapper, disponibilidad, jugadoresService, turnoFijoRepository, TestData.reloj(AHORA));
         turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, canchaRepository, reservaService,
-                disponibilidad, mapper, new TurnoFijoMapper(), partidoService, cancelacionService, stockService, configuracionService, usuarioService,
+                disponibilidad, mapper, new TurnoFijoMapper(), jugadoresService, cancelacionService, stockService, configuracionService, usuarioService,
                 TestData.reloj(AHORA), 4);
 
         admin = usuario(3L, Role.ADMIN);
@@ -295,13 +292,13 @@ class TurnoFijoServiceTest {
     @Test
     void elGeneradorCreaUnaFechaPorSemanaDentroDeLaAnticipacionEInformaLasQueNoPudo() {
         TurnoFijo tf = turnoFijo();
-        PartidoService partidoService = mock(PartidoService.class);
-        when(partidoService.crearParaTurnoFijo(eq(8L), any())).thenReturn(Optional.of(1L));
-        when(partidoService.crearParaTurnoFijo(8L, MANIANA.plusWeeks(2)))
+        ReservaService reservaService = mock(ReservaService.class);
+        when(reservaService.crearPartidoDeTurnoFijo(eq(8L), any())).thenReturn(Optional.of(1L));
+        when(reservaService.crearPartidoDeTurnoFijo(8L, MANIANA.plusWeeks(2)))
                 .thenThrow(new HorarioOcupadoException());
         turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, mock(CanchaRepository.class),
-                mock(ReservaService.class), mock(DisponibilidadService.class), mock(ReservaMapper.class),
-                new TurnoFijoMapper(), partidoService, cancelacionService, stockService,
+                reservaService, mock(DisponibilidadService.class), mock(ReservaMapper.class),
+                new TurnoFijoMapper(), mock(JugadoresService.class), cancelacionService, stockService,
                 mock(ConfiguracionService.class), mock(UsuarioService.class), TestData.reloj(AHORA), 4);
 
         TurnoFijoService.Generacion r = turnos.generar(8L);
@@ -310,7 +307,7 @@ class TurnoFijoServiceTest {
         assertThat(r.creados()).hasSize(3);
         assertThat(r.omitidas()).extracting(TurnoFijoResponse.FechaOmitida::fecha)
                 .containsExactly(MANIANA.plusWeeks(2));
-        verify(partidoService, times(4)).crearParaTurnoFijo(anyLong(), any());
+        verify(reservaService, times(4)).crearPartidoDeTurnoFijo(anyLong(), any());
 
         tf.setActivo(false);
         assertThat(turnos.generar(8L).creados()).isEmpty();

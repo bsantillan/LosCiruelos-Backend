@@ -415,7 +415,7 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 
 ---
 
-## Partidos y turnos fijos — `/admin/partidos`, `/admin/turnos-fijos` (rol: ADMIN)
+## Partidos y turnos fijos — `/admin/reservas/partidos`, `/admin/turnos-fijos` (rol: ADMIN)
 
 Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **4 jugadores**: clientes registrados (`usuarioId`) o invitados sin cuenta (`nombre` y, opcional, `telefono`).
 - **No vence.** Sin nada pagado queda `CONFIRMADA`, ocupa la cancha y aparece como deuda si se juega sin pagar.
@@ -423,9 +423,9 @@ Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **4 jugado
 - **Su "cliente" es el ADMIN** que lo armó. Los jugadores registrados lo ven en `GET /reservas/mias` y en `GET /reservas/{id}` (sin los teléfonos de los demás), pero no lo pueden pagar ni cancelar.
 - **Lo cancela solo el ADMIN** (`DELETE /admin/reservas/{id}/cancelar`, con `reembolso` si hay plata cobrada). Se avisa a los jugadores registrados; a los ADMIN no se les avisa de los pagos ni de la cancelación.
 
-Los partidos se consultan, se cobran y se cancelan con los endpoints de siempre; estos son los nuevos.
+Los partidos se consultan, se cobran y se cancelan como cualquier reserva en `/admin/reservas/{id}`; solo el alta y la modificación tienen rutas propias.
 
-### `POST /admin/partidos` → `201 ReservaResponse`
+### `POST /admin/reservas/partidos` → `201 ReservaResponse`
 ```json
 {
   "canchaId": 1, "fechaReserva": "2026-10-28", "horaInicio": "18:00", "horaFin": "19:30",
@@ -442,7 +442,7 @@ Los partidos se consultan, se cobran y se cancelan con los endpoints de siempre;
 - Mismas reglas de horario, solapamiento, turnos fijos y stock que `POST /reservas`. El precio es el de siempre (cancha + productos).
 - Errores: `400` datos o jugadores inválidos · `403` no es ADMIN · `404` cancha · `409` turno ocupado (también por un turno fijo) o sin stock.
 
-### `PUT /admin/partidos/{id}` → `200 ReservaResponse`
+### `PUT /admin/reservas/partidos/{id}` → `200 ReservaResponse`
 Mismo body, completo. Cambia jugadores, cancha, fecha, horario o productos de un partido que todavía no se jugó.
 - Los jugadores se actualizan **por posición**. No se puede reemplazar a un jugador que ya pagó o tiene una bonificación (`409`); a ese mismo jugador sí se le puede cambiar el teléfono. Un invitado es "el mismo" si tiene el mismo nombre.
 - Si cambia el turno se recalcula el precio de la cancha; si no, se mantiene. El total nuevo no puede quedar por debajo de lo ya pagado (`409`). El estado se recalcula con lo pagado.

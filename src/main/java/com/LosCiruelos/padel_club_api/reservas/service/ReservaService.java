@@ -40,13 +40,19 @@ import com.LosCiruelos.padel_club_api.reservas.entity.ReservaProducto;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
+import com.LosCiruelos.padel_club_api.common.Roles;
+import com.LosCiruelos.padel_club_api.reservas.dto.request.PartidoRequest;
+import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijo;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
+import com.LosCiruelos.padel_club_api.reservas.repository.TurnoFijoRepository;
+import com.LosCiruelos.padel_club_api.reservas.service.JugadoresService.DatosJugador;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Ciclo de vida de las reservas: crear, cambiar una pendiente, expirar, completar y registrar la
- * devolución de paletas. Las consultas están en {@link ReservaConsultaService}.
+ * Ciclo de vida de las reservas: crear (normales y partidos), cambiar una pendiente o un partido,
+ * expirar, completar y registrar la devolución de paletas. Las consultas están en {@link ReservaConsultaService}.
  *
  * Regla de concurrencia: toda operación que modifica una reserva o sus pagos la
  * carga primero con {@link #bloquear(Long)} (SELECT ... FOR UPDATE) y después
@@ -70,6 +76,8 @@ public class ReservaService {
     private final StockService stockService;
     private final ReservaMapper mapper;
     private final DisponibilidadService disponibilidad;
+    private final JugadoresService jugadoresService;
+    private final TurnoFijoRepository turnoFijoRepository;
     private final Reloj reloj;
 
     // ── Bloqueo y acceso ─────────────────────────────────────────────────
@@ -264,6 +272,166 @@ public class ReservaService {
         if (!clienteProfileService.esPerfilCompleto(perfil)) {
             throw new PerfilIncompletoException(mensaje);
         }
+    }
+
+    // ── Partidos ─────────────────────────────────────────────────────────
+    // Reservas tipo PARTIDO que arma el ADMIN con 4 jugadores (sueltos o de un turno fijo): no
+    // vencen (sin nada pagado quedan CONFIRMADA), su "cliente" es el ADMIN que las armó y cada
+    // jugador paga su parte en el club. Mismas reglas de horario, solapamiento y stock que una
+    // reserva normal, con la cancha bloqueada mientras se crea o se cambia el turno.
+
+    @Transactional
+    public ReservaResponse crearPartido(PartidoRequest req, String email) {
+        Usuario admin = adminDePartidos(email);
+        LocalDateTime ahora = reloj.ahora();
+        Configuracion config = configuracionService.obtener();
+        long duracion = disponibilidad.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(),
+                req.getHoraFin(), ahora);
+        List<DatosJugador> jugadores = jugadoresService.resolverJugadores(req.getJugadores());
+
+        Reserva partido = armarPartido(admin, req.getCanchaId(), req.getFechaReserva(), req.getHoraInicio(),
+                req.getHoraFin(), jugadores, req.getCantidadPelotas(), req.getCantidadPaletas(), null, config,
+                duracion, ahora);
+        log.info("Partido #{} armado por {} en la cancha {} el {} de {} a {}", partido.getId(), email,
+                partido.getCancha().getNumero(), partido.getFechaReserva(), partido.getHoraInicio(),
+                partido.getHoraFin());
+        return mapper.aResponse(partido);
+    }
+
+    /**
+     * Crea el partido de un turno fijo para esa fecha, en su propia transacción y con el turno fijo
+     * bloqueado. No hace nada si el turno fijo ya no está activo, no se juega ese día o ya tiene su
+     * partido (o la fecha se dio de baja). Si el horario no se puede usar (ocupado, el club no abre,
+     * falta stock) lanza la excepción y no se crea nada.
+     *
+     * @return el id del partido creado
+     */
+    @Transactional
+    public Optional<Long> crearPartidoDeTurnoFijo(Long turnoFijoId, LocalDate fecha) {
+        TurnoFijo tf = turnoFijoRepository.findByIdForUpdate(turnoFijoId).orElse(null);
+        if (tf == null || !Boolean.TRUE.equals(tf.getActivo()) || !tf.seJuegaEl(fecha)
+                || reservaRepository.existsByTurnoFijoAndFechaReserva(tf, fecha)) {
+            return Optional.empty();
+        }
+        LocalDateTime ahora = reloj.ahora();
+        Configuracion config = configuracionService.obtener();
+        long duracion = disponibilidad.validarHorario(config, fecha, tf.getHoraInicio(), tf.getHoraFin(), ahora);
+        List<DatosJugador> jugadores = tf.getJugadores().stream()
+                .map(j -> new DatosJugador(j.getUsuario(), j.getNombre(), j.getTelefono()))
+                .toList();
+
+        Reserva partido = armarPartido(tf.getCreatedBy(), tf.getCancha().getId(), fecha, tf.getHoraInicio(),
+                tf.getHoraFin(), jugadores, tf.getCantidadPelotas(), tf.getCantidadPaletas(), tf, config, duracion,
+                ahora);
+        log.info("Partido #{} del turno fijo #{} creado para el {}", partido.getId(), tf.getId(), fecha);
+        return Optional.of(partido.getId());
+    }
+
+    private Reserva armarPartido(Usuario admin, Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin,
+            List<DatosJugador> jugadores, Integer pelotas, Integer paletas, TurnoFijo turnoFijo,
+            Configuracion config, long duracion, LocalDateTime ahora) {
+        // lock de la cancha: los pedidos simultáneos para esta cancha esperan su turno
+        Cancha cancha = canchaRepository.findByIdForUpdate(canchaId)
+                .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + canchaId));
+        List<Reserva> aLiberar = expirarVencidasQueSeSuperponen(cancha.getId(), fecha, inicio, fin,
+                ahora);
+        disponibilidad.validarLibre(cancha.getId(), fecha, inicio, fin, ahora, null,
+                turnoFijo != null ? turnoFijo.getId() : null);
+
+        Reserva partido = Reserva.builder()
+                .cancha(cancha)
+                .cliente(admin)
+                .createdBy(admin)
+                .fechaReserva(fecha)
+                .horaInicio(inicio)
+                .horaFin(fin)
+                .estado(EstadoReserva.CONFIRMADA)
+                .tipo(TipoReserva.PARTIDO)
+                .turnoFijo(turnoFijo)
+                .createdAt(ahora)
+                .build();
+        JugadoresService.asignar(partido, jugadores);
+
+        stockService.moverStock(aLiberar, partido, pedidoDeProductos(pelotas, paletas), ahora);
+        partido.setMontoTotal(configuracionService.calcularMontoTurno(config, duracion)
+                .add(partido.getMontoProductos()));
+        return guardarVerificandoSolapamiento(partido);
+    }
+
+    /**
+     * Cambia jugadores, cancha, horario o productos de un partido que todavía no se jugó. No se
+     * puede reemplazar a un jugador que ya pagó (o tiene una bonificación), y el total nuevo no puede
+     * quedar por debajo de lo ya pagado. Si no cambia el turno, se mantiene el precio de la cancha.
+     */
+    @Transactional
+    public ReservaResponse actualizarPartido(Long id, PartidoRequest req, String email) {
+        adminDePartidos(email);
+        Reserva partido = bloquear(id);
+        LocalDateTime ahora = reloj.ahora();
+        if (!partido.esPartido()) {
+            throw new ReservaException("La reserva #" + id + " no es un partido.");
+        }
+        if (!Reserva.ESTADOS_CONFIRMADOS.contains(partido.getEstado())) {
+            throw new EstadoInvalidoException("No se puede modificar un partido " + partido.getEstado() + ".");
+        }
+        if (partido.turnoTermino(ahora)) {
+            throw new EstadoInvalidoException("El partido ya se jugó: no se puede modificar.");
+        }
+        List<DatosJugador> jugadores = jugadoresService.resolverJugadores(req.getJugadores());
+        Configuracion config = configuracionService.obtener();
+
+        boolean cambiaTurno = !partido.getCancha().getId().equals(req.getCanchaId())
+                || !partido.getFechaReserva().equals(req.getFechaReserva())
+                || !partido.getHoraInicio().equals(req.getHoraInicio())
+                || !partido.getHoraFin().equals(req.getHoraFin());
+        BigDecimal montoCancha = partido.getMontoCancha();
+        List<Reserva> aLiberar = new ArrayList<>();
+        if (cambiaTurno) {
+            if (partido.getTurnoFijo() != null && !partido.getFechaReserva().equals(req.getFechaReserva())) {
+                throw new ReservaException("Un partido de un turno fijo no cambia de fecha: dá de baja esa fecha "
+                        + "del turno fijo y armá un partido aparte.");
+            }
+            if (partido.turnoEmpezo(ahora)) {
+                throw new EstadoInvalidoException("El partido ya empezó: no se puede cambiar el turno.");
+            }
+            long duracion = disponibilidad.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(),
+                    req.getHoraFin(), ahora);
+            Cancha cancha = canchaRepository.findByIdForUpdate(req.getCanchaId())
+                    .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + req.getCanchaId()));
+            aLiberar.addAll(expirarVencidasQueSeSuperponen(cancha.getId(), req.getFechaReserva(),
+                    req.getHoraInicio(), req.getHoraFin(), ahora));
+            disponibilidad.validarLibre(cancha.getId(), req.getFechaReserva(), req.getHoraInicio(),
+                    req.getHoraFin(), ahora, partido.getId(),
+                    partido.getTurnoFijo() != null ? partido.getTurnoFijo().getId() : null);
+            partido.setCancha(cancha);
+            partido.setFechaReserva(req.getFechaReserva());
+            partido.setHoraInicio(req.getHoraInicio());
+            partido.setHoraFin(req.getHoraFin());
+            montoCancha = configuracionService.calcularMontoTurno(config, duracion);
+        }
+
+        JugadoresService.actualizar(partido, jugadores);
+        // devuelve el stock de los productos anteriores y toma los nuevos (los alquileres se
+        // vuelven a validar porque pudo cambiar el horario)
+        stockService.moverStock(aLiberar, partido,
+                pedidoDeProductos(req.getCantidadPelotas(), req.getCantidadPaletas()), ahora);
+        BigDecimal total = montoCancha.add(partido.getMontoProductos());
+        if (total.compareTo(partido.getMontoCubierto()) < 0) {
+            throw new EstadoInvalidoException("El total nuevo ($%s) es menor que lo ya pagado ($%s)."
+                    .formatted(total, partido.getMontoCubierto()));
+        }
+        partido.setMontoTotal(total);
+        // el total pudo cambiar: el estado se vuelve a calcular con lo pagado (en un partido no hay avisos)
+        partido.recalcularEstado(configuracionService.calcularSenia(config, total), ahora);
+        partido = guardarVerificandoSolapamiento(partido);
+        log.info("Partido #{} modificado por {}", id, email);
+        return mapper.aResponse(partido);
+    }
+
+    private Usuario adminDePartidos(String email) {
+        Usuario usuario = usuarioService.autenticado(email);
+        Roles.exigirAdmin(usuario, "Solo el ADMIN puede armar partidos.");
+        return usuario;
     }
 
     // ── Cancelación y expiración ─────────────────────────────────────────

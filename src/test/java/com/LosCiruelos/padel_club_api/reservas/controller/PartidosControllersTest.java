@@ -45,7 +45,9 @@ import com.LosCiruelos.padel_club_api.common.Fechas;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
-import com.LosCiruelos.padel_club_api.reservas.service.PartidoService;
+import com.LosCiruelos.padel_club_api.reservas.service.CancelacionService;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 import com.LosCiruelos.padel_club_api.reservas.service.TurnoFijoService;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -56,18 +58,19 @@ class PartidosControllersTest {
     private static final String EMAIL = "admin@test.com";
     private static final Authentication AUTH = new UsernamePasswordAuthenticationToken(EMAIL, null, List.of());
 
-    private PartidoService partidoService;
+    private ReservaService reservaService;
     private TurnoFijoService turnoFijoService;
     private CobroService cobroService;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        partidoService = mock(PartidoService.class);
+        reservaService = mock(ReservaService.class);
         turnoFijoService = mock(TurnoFijoService.class);
         cobroService = mock(CobroService.class);
         mvc = MockMvcBuilders.standaloneSetup(
-                new PartidoController(partidoService),
+                new ReservaAdminController(reservaService, mock(ReservaConsultaService.class),
+                        mock(CancelacionService.class), mock(CobroService.class)),
                 new TurnoFijoController(turnoFijoService),
                 new CobroAdminController(cobroService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
@@ -94,9 +97,9 @@ class PartidosControllersTest {
         r.setEstado(EstadoReserva.CONFIRMADA);
         r.setJugadores(List.of(new JugadorResponse(201L, 1, 1L, "Ana", null, false, new BigDecimal("3750"),
                 BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("3750"))));
-        when(partidoService.crear(any(), eq(EMAIL))).thenReturn(r);
+        when(reservaService.crearPartido(any(), eq(EMAIL))).thenReturn(r);
 
-        mvc.perform(json(post("/admin/partidos"), PARTIDO))
+        mvc.perform(json(post("/admin/reservas/partidos"), PARTIDO))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.tipo").value("PARTIDO"))
                 .andExpect(jsonPath("$.estado").value("CONFIRMADA"))
@@ -104,7 +107,7 @@ class PartidosControllersTest {
                 .andExpect(jsonPath("$.jugadores[0].debe").value(3750));
 
         ArgumentCaptor<PartidoRequest> req = ArgumentCaptor.forClass(PartidoRequest.class);
-        verify(partidoService).crear(req.capture(), eq(EMAIL));
+        verify(reservaService).crearPartido(req.capture(), eq(EMAIL));
         assertThat(req.getValue().getJugadores()).hasSize(4);
         assertThat(req.getValue().getJugadores().get(3).getTelefono()).isEqualTo("11 5555-0000");
         assertThat(req.getValue().getCantidadPelotas()).isEqualTo(2);
@@ -112,20 +115,20 @@ class PartidosControllersTest {
 
     @Test
     void sonCuatroJugadores() throws Exception {
-        mvc.perform(json(post("/admin/partidos"), """
+        mvc.perform(json(post("/admin/reservas/partidos"), """
                 {"canchaId":1,"fechaReserva":"2026-10-14","horaInicio":"18:00","horaFin":"19:30",
                  "jugadores":[{"usuarioId":1},{"nombre":"Juan"}]}
                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.jugadores").value("Un partido tiene 4 jugadores"));
-        verify(partidoService, never()).crear(any(), any());
+        verify(reservaService, never()).crearPartido(any(), any());
     }
 
     @Test
     void modificarUnPartidoOcupado() throws Exception {
-        when(partidoService.actualizar(eq(60L), any(), eq(EMAIL))).thenThrow(new HorarioOcupadoException());
+        when(reservaService.actualizarPartido(eq(60L), any(), eq(EMAIL))).thenThrow(new HorarioOcupadoException());
 
-        mvc.perform(json(put("/admin/partidos/60"), PARTIDO)).andExpect(status().isConflict());
+        mvc.perform(json(put("/admin/reservas/partidos/60"), PARTIDO)).andExpect(status().isConflict());
     }
 
     @Test

@@ -15,7 +15,7 @@ Controller ──► Services ──► Repository ──► PostgreSQL
 
 | Paquete | Responsabilidad |
 |---|---|
-| `reservas` (dominio) | Reservas, partidos y turnos fijos, en subpaquetes: `controller` (`ReservaController`: `/reservas`, solo el cliente; `ReservaAdminController`: `/admin/reservas`, el personal; `PartidoController`, `TurnoFijoController`), `service` (`ReservaService` (ciclo de vida), `ReservaConsultaService` (consultas y listado del personal), `PartidoService`, `TurnoFijoService` (también crea los partidos de cada semana), `CancelacionService`, `PoliticaCancelacion`, `DisponibilidadService`, `StockService`), `repository` (repositories; `ReservaRepository` suma el fragmento `ReservaConsultas` + `ReservaConsultasImpl` con los totales del listado; `ReservaSpecification`, `FiltroReservas`, `UsoAlquiler`), `entity` y `entity/enums`, `dto/request` y `dto/response` |
+| `reservas` (dominio) | Reservas, partidos y turnos fijos, en subpaquetes: `controller` (`ReservaController`: `/reservas`, solo el cliente; `ReservaAdminController`: `/admin/reservas`, el personal, también el alta y la modificación de partidos; `TurnoFijoController`: `/admin/turnos-fijos`), `service` (`ReservaService` (ciclo de vida de reservas normales y partidos), `ReservaConsultaService` (consultas y listado del personal), `JugadoresService` (valida y asigna los jugadores), `TurnoFijoService` (también crea los partidos de cada semana), `CancelacionService`, `PoliticaCancelacion`, `DisponibilidadService`, `StockService`), `repository` (repositories; `ReservaRepository` suma el fragmento `ReservaConsultas` + `ReservaConsultasImpl` con los totales del listado; `ReservaSpecification`, `FiltroReservas`, `UsoAlquiler`), `entity` y `entity/enums`, `dto/request` y `dto/response` |
 | `pagos` (dominio) | `controller` (`PagoController`: `/pagos`, pagos online del cliente; `MercadoPagoWebhookController`: `/pagos/notificacion`; `CobroAdminController`: `/admin/reservas/{id}/cobros/…` y `/bonificacion`, el personal), `service` (`PagoOnlineService`: iniciar, Brick y webhook; `CobroService`: pagos en el club y bonificaciones; `ReembolsoService`: reembolsos y reintentos; `EstadosDePago`: lo que comparten los tres), `repository`, `entity` y `entity/enums` (`Pago`, `EstadoPago`), `dto/request`, `dto/response`, `payment` (contrato genérico de proveedores: `PaymentService`, `PaymentServiceFactory`, `PaymentProvider`, `PaymentResult`, `EstadoPayment`) y `mercadopago` (`MercadoPagoPaymentService`, `MercadoPagoWebhookValidator`) |
 | `Controller` | Endpoints REST de los dominios que todavía no se mudaron: `AuthController`, `PerfilController`, `AdminController` (`/admin/usuarios`), `ClienteAdminController` (`/admin/clientes`), `CanchaController`, … |
 | `Services` | Lógica de negocio: `AuthService`, `VerificationService`, `PasswordResetService`, `UsuarioService`, `ClienteProfileService`, `PerfilService`, `AdminService`, `CanchaService`, `ConfiguracionService` (horarios, precio, seña), `ProductoService` (catálogo y stock) |
@@ -63,7 +63,8 @@ Email y pagos se resuelven por nombre de bean:
 | `/admin/reservas/**` (reservas y cobros del personal), `GET /admin/clientes` | `ADMIN`, `EMPLEADO` |
 | `/reservas/**`, `/pagos/**` (salvo el webhook) | `CLIENTE` |
 | `GET /admin/resumen` | `ADMIN` (cualquier período), `EMPLEADO` (solo hoy) |
-| `/admin/**` | `ADMIN` (incluye `/admin/partidos` y `/admin/turnos-fijos`) |
+| `/admin/reservas/partidos/**` | `ADMIN` |
+| `/admin/**` | `ADMIN` (incluye `/admin/turnos-fijos`) |
 | cualquier otra | autenticado |
 
 - Además, `@EnableMethodSecurity` activa los `@PreAuthorize` de los controllers (el rol del actor en la clase y lo que es solo del ADMIN por método).

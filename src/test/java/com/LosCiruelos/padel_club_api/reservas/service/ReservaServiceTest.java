@@ -100,7 +100,7 @@ class ReservaServiceTest {
                 turnoFijoRepository, TestData.reloj(AHORA));
         reservaService = new ReservaService(configuracionService, usuarioService,
                 clienteProfileService, reservaRepository, canchaRepository, pagoRepository, stockService,
-                mapper, disponibilidad, TestData.reloj(AHORA));
+                mapper, disponibilidad, new JugadoresService(usuarioService), turnoFijoRepository, TestData.reloj(AHORA));
 
         cliente = usuario(1L, Role.CLIENTE);
         otroCliente = usuario(2L, Role.CLIENTE);

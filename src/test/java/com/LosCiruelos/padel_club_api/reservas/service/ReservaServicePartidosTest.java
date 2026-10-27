@@ -56,13 +56,13 @@ import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.reservas.repository.TurnoFijoRepository;
 
-/** Partidos de 4 jugadores con ReservaService real y los repositorios simulados. */
-class PartidoServiceTest {
+/** Partidos de 4 jugadores en ReservaService (alta, modificación y los de un turno fijo), con los repositorios simulados. */
+class ReservaServicePartidosTest {
 
     private ReservaRepository reservaRepository;
     private TurnoFijoRepository turnoFijoRepository;
     private UsuarioService usuarioService;
-    private PartidoService partidos;
+    private ReservaService reservas;
 
     private Usuario admin;
     private Usuario empleado;
@@ -84,12 +84,10 @@ class PartidoServiceTest {
         ReservaMapper mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA), new PagoMapper());
         DisponibilidadService disponibilidad = new DisponibilidadService(configuracionService, new CanchaService(canchaRepository), reservaRepository,
                 turnoFijoRepository, TestData.reloj(AHORA));
-        ReservaService reservaService = new ReservaService(configuracionService, usuarioService,
+        reservas = new ReservaService(configuracionService, usuarioService,
                 mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
-                stockService, mapper, disponibilidad,
+                stockService, mapper, disponibilidad, new JugadoresService(usuarioService), turnoFijoRepository,
                 TestData.reloj(AHORA));
-        partidos = new PartidoService(reservaService, disponibilidad, mapper, usuarioService, configuracionService,
-                stockService, canchaRepository, reservaRepository, turnoFijoRepository, TestData.reloj(AHORA));
 
         admin = usuario(3L, Role.ADMIN);
         empleado = usuario(4L, Role.EMPLEADO);
@@ -132,7 +130,7 @@ class PartidoServiceTest {
 
         @Test
         void quedaConfirmadoSinVencimientoConLosCuatroJugadoresYElAdminComoTitular() {
-            ReservaResponse r = partidos.crear(pedidoBasico(), admin.getEmail());
+            ReservaResponse r = reservas.crearPartido(pedidoBasico(), admin.getEmail());
 
             assertThat(r.getTipo()).isEqualTo(TipoReserva.PARTIDO);
             assertThat(r.getEstado()).isEqualTo(EstadoReserva.CONFIRMADA);
@@ -155,7 +153,7 @@ class PartidoServiceTest {
 
         @Test
         void soloElAdmin() {
-            assertThatThrownBy(() -> partidos.crear(pedidoBasico(), empleado.getEmail()))
+            assertThatThrownBy(() -> reservas.crearPartido(pedidoBasico(), empleado.getEmail()))
                     .isInstanceOf(PermisoDenegadoException.class)
                     .hasMessage("Solo el ADMIN puede armar partidos.");
             verify(reservaRepository, never()).saveAndFlush(any());
@@ -165,31 +163,31 @@ class PartidoServiceTest {
         void validaLosJugadores() {
             PartidoRequest tres = pedidoBasico();
             tres.getJugadores().remove(3);
-            assertThatThrownBy(() -> partidos.crear(tres, admin.getEmail()))
+            assertThatThrownBy(() -> reservas.crearPartido(tres, admin.getEmail()))
                     .isInstanceOf(ReservaException.class).hasMessage("Un partido tiene 4 jugadores.");
 
             PartidoRequest repetido = pedido(MANIANA, "18:00", "19:30", JugadorRequest.registrado(1L),
                     JugadorRequest.registrado(1L), JugadorRequest.invitado("A B"), JugadorRequest.invitado("C D"));
-            assertThatThrownBy(() -> partidos.crear(repetido, admin.getEmail()))
+            assertThatThrownBy(() -> reservas.crearPartido(repetido, admin.getEmail()))
                     .hasMessage("El mismo cliente no puede estar dos veces en el partido.");
 
             PartidoRequest sinNombre = pedido(MANIANA, "18:00", "19:30", JugadorRequest.registrado(1L),
                     JugadorRequest.invitado("  "), JugadorRequest.invitado("A B"), JugadorRequest.invitado("C D"));
-            assertThatThrownBy(() -> partidos.crear(sinNombre, admin.getEmail()))
+            assertThatThrownBy(() -> reservas.crearPartido(sinNombre, admin.getEmail()))
                     .hasMessage("Indicá el cliente (usuarioId) o el nombre del jugador 2.");
 
             PartidoRequest noCliente = pedido(MANIANA, "18:00", "19:30", JugadorRequest.registrado(4L),
                     JugadorRequest.invitado("X Y"), JugadorRequest.invitado("A B"), JugadorRequest.invitado("C D"));
-            assertThatThrownBy(() -> partidos.crear(noCliente, admin.getEmail()))
+            assertThatThrownBy(() -> reservas.crearPartido(noCliente, admin.getEmail()))
                     .hasMessage("El jugador 1 no es un cliente.");
 
             PartidoRequest inexistente = pedido(MANIANA, "18:00", "19:30", JugadorRequest.registrado(99L),
                     JugadorRequest.invitado("X Y"), JugadorRequest.invitado("A B"), JugadorRequest.invitado("C D"));
-            assertThatThrownBy(() -> partidos.crear(inexistente, admin.getEmail()))
+            assertThatThrownBy(() -> reservas.crearPartido(inexistente, admin.getEmail()))
                     .hasMessage("El jugador 1 no existe (usuario 99).");
 
             otroCliente.setEnabled(false);
-            assertThatThrownBy(() -> partidos.crear(pedidoBasico(), admin.getEmail()))
+            assertThatThrownBy(() -> reservas.crearPartido(pedidoBasico(), admin.getEmail()))
                     .hasMessage("La cuenta del jugador 2 está desactivada.");
             verify(reservaRepository, never()).saveAndFlush(any());
         }
@@ -200,7 +198,7 @@ class PartidoServiceTest {
             when(reservaRepository.findQueOcupan(eq(1L), eq(MANIANA), any(), any(), any(), any(), any(), any()))
                     .thenReturn(List.of(otra));
 
-            assertThatThrownBy(() -> partidos.crear(pedidoBasico(), admin.getEmail()))
+            assertThatThrownBy(() -> reservas.crearPartido(pedidoBasico(), admin.getEmail()))
                     .isInstanceOf(HorarioOcupadoException.class);
         }
 
@@ -210,14 +208,14 @@ class PartidoServiceTest {
             when(turnoFijoRepository.findQueBloquean(eq(1L), eq(MANIANA.getDayOfWeek()), eq(MANIANA), any(), any()))
                     .thenReturn(List.of(tf));
 
-            assertThatThrownBy(() -> partidos.crear(pedidoBasico(), admin.getEmail()))
+            assertThatThrownBy(() -> reservas.crearPartido(pedidoBasico(), admin.getEmail()))
                     .isInstanceOf(HorarioOcupadoException.class)
                     .hasMessage("Ese horario es un turno fijo del club en esa cancha.");
         }
 
         @Test
         void validaElHorarioComoUnaReservaNormal() {
-            assertThatThrownBy(() -> partidos.crear(pedido(AHORA.toLocalDate(), "09:00", "10:30",
+            assertThatThrownBy(() -> reservas.crearPartido(pedido(AHORA.toLocalDate(), "09:00", "10:30",
                     pedidoBasico().getJugadores().toArray(JugadorRequest[]::new)), admin.getEmail()))
                     .hasMessage("No podés reservar un horario que ya pasó.");
         }
@@ -242,7 +240,7 @@ class PartidoServiceTest {
 
         @Test
         void reemplazaAUnJugadorQueNoPagoEnSuLugar() {
-            ReservaResponse r = partidos.actualizar(60L, mismosDatos(JugadorRequest.registrado(1L),
+            ReservaResponse r = reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
                     JugadorRequest.registrado(2L), JugadorRequest.invitado("Invitado 3"),
                     JugadorRequest.invitado("Invitado 4")), admin.getEmail());
 
@@ -258,14 +256,14 @@ class PartidoServiceTest {
             pago.setProvider(PaymentProvider.MANUAL);
             pago.setJugador(partido.getJugadores().get(1));
 
-            assertThatThrownBy(() -> partidos.actualizar(60L, mismosDatos(JugadorRequest.registrado(1L),
+            assertThatThrownBy(() -> reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
                     JugadorRequest.registrado(2L), JugadorRequest.invitado("Invitado 3"),
                     JugadorRequest.invitado("Invitado 4")), admin.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class)
                     .hasMessage("Invitado 2 ya pagó o tiene una bonificación: no se lo puede reemplazar.");
 
             // al mismo jugador (mismo nombre de invitado) sí se le puede cambiar el teléfono
-            ReservaResponse r = partidos.actualizar(60L, mismosDatos(JugadorRequest.registrado(1L),
+            ReservaResponse r = reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
                     new JugadorRequest(null, "invitado 2", "11 4444-0000"), JugadorRequest.invitado("Invitado 3"),
                     JugadorRequest.invitado("Invitado 4")), admin.getEmail());
             assertThat(r.getJugadores().get(1).getTelefono()).isEqualTo("11 4444-0000");
@@ -275,7 +273,7 @@ class PartidoServiceTest {
 
         @Test
         void cambiarElHorarioRecalculaElPrecioYNoPuedeQuedarPorDebajoDeLoPagado() {
-            ReservaResponse r = partidos.actualizar(60L, pedido(partido.getFechaReserva(), "18:00", "21:00",
+            ReservaResponse r = reservas.actualizarPartido(60L, pedido(partido.getFechaReserva(), "18:00", "21:00",
                     partido.getJugadores().stream().map(j -> j.getUsuario() != null
                             ? JugadorRequest.registrado(j.getUsuario().getId())
                             : JugadorRequest.invitado(j.getNombre())).toArray(JugadorRequest[]::new)),
@@ -284,7 +282,7 @@ class PartidoServiceTest {
             assertThat(r.getHoraFin()).isEqualTo(LocalTime.of(21, 0));
 
             TestData.pago(1L, partido, EstadoPago.APROBADO, "20000").setJugador(partido.getJugadores().get(0));
-            assertThatThrownBy(() -> partidos.actualizar(60L, mismosDatos(JugadorRequest.registrado(1L),
+            assertThatThrownBy(() -> reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
                     JugadorRequest.invitado("Invitado 2"), JugadorRequest.invitado("Invitado 3"),
                     JugadorRequest.invitado("Invitado 4")), admin.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class)
@@ -295,7 +293,7 @@ class PartidoServiceTest {
         void unPartidoDeUnTurnoFijoNoCambiaDeFecha() {
             partido.setTurnoFijo(TurnoFijo.builder().id(8L).build());
 
-            assertThatThrownBy(() -> partidos.actualizar(60L, pedido(partido.getFechaReserva().plusDays(1), "18:00",
+            assertThatThrownBy(() -> reservas.actualizarPartido(60L, pedido(partido.getFechaReserva().plusDays(1), "18:00",
                     "19:30", JugadorRequest.registrado(1L), JugadorRequest.invitado("Invitado 2"),
                     JugadorRequest.invitado("Invitado 3"), JugadorRequest.invitado("Invitado 4")), admin.getEmail()))
                     .isInstanceOf(ReservaException.class)
@@ -306,17 +304,17 @@ class PartidoServiceTest {
         void soloPartidosConfirmadosYQueNoSeJugaron() {
             Reserva normal = TestData.reserva(61L, cliente, EstadoReserva.SEÑADA, "15000");
             when(reservaRepository.findByIdForUpdate(61L)).thenReturn(Optional.of(normal));
-            assertThatThrownBy(() -> partidos.actualizar(61L, pedidoBasico(), admin.getEmail()))
+            assertThatThrownBy(() -> reservas.actualizarPartido(61L, pedidoBasico(), admin.getEmail()))
                     .hasMessage("La reserva #61 no es un partido.");
 
             partido.setEstado(EstadoReserva.CANCELADA);
-            assertThatThrownBy(() -> partidos.actualizar(60L, pedidoBasico(), admin.getEmail()))
+            assertThatThrownBy(() -> reservas.actualizarPartido(60L, pedidoBasico(), admin.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class)
                     .hasMessage("No se puede modificar un partido CANCELADA.");
 
             partido.setEstado(EstadoReserva.CONFIRMADA);
             partido.setFechaReserva(AHORA.toLocalDate().minusDays(1));
-            assertThatThrownBy(() -> partidos.actualizar(60L, pedidoBasico(), admin.getEmail()))
+            assertThatThrownBy(() -> reservas.actualizarPartido(60L, pedidoBasico(), admin.getEmail()))
                     .hasMessage("El partido ya se jugó: no se puede modificar.");
         }
     }
@@ -346,7 +344,7 @@ class PartidoServiceTest {
             // el propio turno fijo todavía no tiene partido ese día: no se bloquea a sí mismo
             when(turnoFijoRepository.findQueBloquean(anyLong(), any(), any(), any(), any())).thenReturn(List.of(tf));
 
-            assertThat(partidos.crearParaTurnoFijo(8L, MANIANA)).contains(60L);
+            assertThat(reservas.crearPartidoDeTurnoFijo(8L, MANIANA)).contains(60L);
 
             org.mockito.ArgumentCaptor<Reserva> guardada = org.mockito.ArgumentCaptor.forClass(Reserva.class);
             verify(reservaRepository).saveAndFlush(guardada.capture());
@@ -362,13 +360,13 @@ class PartidoServiceTest {
         @Test
         void noHaceNadaSiYaTienePartidoSiNoSeJuegaEseDiaOSiEstaDadoDeBaja() {
             when(reservaRepository.existsByTurnoFijoAndFechaReserva(tf, MANIANA)).thenReturn(true);
-            assertThat(partidos.crearParaTurnoFijo(8L, MANIANA)).isEmpty();
+            assertThat(reservas.crearPartidoDeTurnoFijo(8L, MANIANA)).isEmpty();
 
-            assertThat(partidos.crearParaTurnoFijo(8L, MANIANA.plusDays(1))).isEmpty();
-            assertThat(partidos.crearParaTurnoFijo(8L, MANIANA.minusWeeks(1))).isEmpty();
+            assertThat(reservas.crearPartidoDeTurnoFijo(8L, MANIANA.plusDays(1))).isEmpty();
+            assertThat(reservas.crearPartidoDeTurnoFijo(8L, MANIANA.minusWeeks(1))).isEmpty();
 
             tf.setActivo(false);
-            assertThat(partidos.crearParaTurnoFijo(8L, MANIANA.plusWeeks(1))).isEmpty();
+            assertThat(reservas.crearPartidoDeTurnoFijo(8L, MANIANA.plusWeeks(1))).isEmpty();
             verify(reservaRepository, never()).saveAndFlush(any());
         }
 
@@ -377,7 +375,7 @@ class PartidoServiceTest {
             when(reservaRepository.findQueOcupan(eq(1L), eq(MANIANA), any(), any(), any(), any(), any(), any()))
                     .thenReturn(List.of(TestData.reserva(7L, cliente, EstadoReserva.SEÑADA, "15000")));
 
-            assertThatThrownBy(() -> partidos.crearParaTurnoFijo(8L, MANIANA))
+            assertThatThrownBy(() -> reservas.crearPartidoDeTurnoFijo(8L, MANIANA))
                     .isInstanceOf(HorarioOcupadoException.class);
         }
     }

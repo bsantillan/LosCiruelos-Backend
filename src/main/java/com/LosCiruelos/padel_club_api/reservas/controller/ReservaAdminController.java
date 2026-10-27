@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.LosCiruelos.padel_club_api.pagos.service.CobroService;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaAdminRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.DevolucionRequest;
+import com.LosCiruelos.padel_club_api.reservas.dto.request.PartidoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
@@ -34,7 +36,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Reservas en el panel del personal del club (ADMIN y EMPLEADO): cualquier reserva de cualquier
- * cliente. Lo que es solo del ADMIN (bonificar, cancelar un partido) lo controla el service.
+ * cliente, normales y partidos. Armar y modificar partidos es solo del ADMIN (por método); cancelar
+ * un partido también, y eso lo controla el service.
  */
 @RestController
 @RequestMapping("/admin/reservas")
@@ -76,6 +79,26 @@ public class ReservaAdminController {
                 ? cobroService.crearReservaBonificada(request, authentication.getName())
                 : reservaService.crearParaCliente(request, authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(creada);
+    }
+
+    /**
+     * Solo ADMIN: arma un partido de 4 jugadores (clientes registrados o invitados). Se consulta,
+     * se cobra y se cancela como cualquier reserva.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/partidos")
+    public ResponseEntity<ReservaResponse> crearPartido(@Valid @RequestBody PartidoRequest request,
+            Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(reservaService.crearPartido(request, authentication.getName()));
+    }
+
+    /** Solo ADMIN: se manda el partido completo (cancha, fecha, horario, los 4 jugadores y productos). */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/partidos/{id}")
+    public ResponseEntity<ReservaResponse> actualizarPartido(@PathVariable Long id,
+            @Valid @RequestBody PartidoRequest request, Authentication authentication) {
+        return ResponseEntity.ok(reservaService.actualizarPartido(id, request, authentication.getName()));
     }
 
     /** Detalle de cualquier reserva, con sus pagos. */
