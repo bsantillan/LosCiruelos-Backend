@@ -245,7 +245,7 @@ Se pueden consultar sin iniciar sesión (un visitante ve los horarios libres y l
 
 ---
 
-## Reservas — `/reservas` (rol: CLIENTE, ADMIN, EMPLEADO)
+## Reservas — `/reservas` (rol: CLIENTE)
 
 Un CLIENTE solo ve y opera sus propias reservas, y además **ve** (sin pagar ni cancelar) los partidos en los que juega. ADMIN y EMPLEADO, cualquiera. Una reserva ajena responde `404`.
 
@@ -274,23 +274,22 @@ Un CLIENTE solo ve y opera sus propias reservas, y además **ve** (sin pagar ni 
 }
 ```
 
+Todas las rutas de `/reservas` son **solo del CLIENTE** (el personal recibe `403`); el cliente es siempre el usuario autenticado. Lo del personal está en `/admin/reservas` (Panel del personal, más abajo).
+
 | Método y ruta | Descripción | Errores |
 |---|---|---|
-| `POST /reservas` → `201` | Crea una reserva `PENDIENTE` que vence en 15 min si no se paga. Body abajo. | `400` horario o datos inválidos · `403` perfil incompleto · `404` cancha · `409` turno ocupado, sin stock o reserva con pago en curso |
+| `POST /reservas` → `201` | Crea una reserva `PENDIENTE` para el cliente autenticado, que vence en 15 min si no se paga. Body abajo. | `400` horario o datos inválidos · `403` perfil incompleto · `404` cancha · `409` turno ocupado, sin stock o reserva con pago en curso |
 | `GET /reservas/mias` → `200` | Reservas del usuario autenticado, **paginadas y filtradas** (ver abajo). | `400` parámetros inválidos |
-| `GET /reservas/{id}` → `200` | Detalle con los pagos. Sirve para consultar el resultado de un pago en proceso. | `404` |
-| `DELETE /reservas/{id}/cancelar` → `200 ReservaResponse` | Cancela la reserva y hace los reembolsos según la política (ver abajo). ADMIN y EMPLEADO indican `?reembolso=TOTAL\|SENIA\|NADA`. Devuelve la reserva con los pagos actualizados. | `400` reembolso faltante o elegido por un cliente · `404` · `409` turno empezado/terminado, reserva finalizada o pago en proceso. Si Mercado Pago no acepta el reembolso, **se cancela igual** (`200`) y el pago queda `REEMBOLSO_PENDIENTE` |
-| `GET /reservas/devoluciones-pendientes` → `200` | **ADMIN, EMPLEADO.** Reservas cuyo turno ya empezó y tienen paletas sin devolver. | |
-| `GET /reservas/saldos-pendientes` → `200` | **ADMIN, EMPLEADO.** *Se mantiene por compatibilidad: el panel usa `GET /admin/reservas?pendientes=true`.* Turnos ya jugados que deben saldo (`SEÑADA` o `PARCIALMENTE_PAGADA` con el turno terminado), del más viejo al más nuevo. Se cobran con `pago-efectivo` / `pago-presencial`. | `403` cliente |
-| `POST /reservas/{id}/devolucion` → `200` | **ADMIN, EMPLEADO.** Body `{ "paletasDevueltas": 3 }`. Registra la devolución; las faltantes se descuentan del stock. Devuelve la reserva. | `400` cantidad fuera de rango · `404` · `409` turno sin empezar, reserva sin paletas, no confirmada o devolución ya registrada |
+| `GET /reservas/{id}` → `200` | Detalle con los pagos: una reserva propia o un partido en el que juega. Sirve para consultar el resultado de un pago en proceso. | `404` |
+| `DELETE /reservas/{id}/cancelar` → `200 ReservaResponse` | Cancela la reserva y hace los reembolsos según la política (ver abajo). Devuelve la reserva con los pagos actualizados. El personal cancela con `DELETE /admin/reservas/{id}/cancelar`. | `403` partido (lo cancela el ADMIN) · `404` · `409` turno empezado/terminado, reserva finalizada o pago en proceso. Si Mercado Pago no acepta el reembolso, **se cancela igual** (`200`) y el pago queda `REEMBOLSO_PENDIENTE` |
 | `POST /reservas/{id}/expirar` → `200` | Expira una `PENDIENTE` cuyo plazo ya venció (lo mismo que hace el job). | `404` · `409` todavía en plazo o no está pendiente |
 
-### `DELETE /reservas/{id}/cancelar` — política de cancelación
+### Cancelar — política de cancelación
 
 | Quién | Hasta cuándo | Qué se devuelve |
 |---|---|---|
-| Cliente | hasta que empieza el turno | faltan ≥ `minutosReembolsoTotal` (24 h): **todo lo pagado** · faltan ≥ `minutosReembolsoSenia` (12 h): **la seña** (o lo pagado, si es menos) · menos: **nada** |
-| ADMIN / EMPLEADO | hasta que termina el turno | lo que indique en `?reembolso=TOTAL\|SENIA\|NADA` (obligatorio si la reserva tiene dinero cobrado) |
+| Cliente (`DELETE /reservas/{id}/cancelar`) | hasta que empieza el turno | faltan ≥ `minutosReembolsoTotal` (24 h): **todo lo pagado** · faltan ≥ `minutosReembolsoSenia` (12 h): **la seña** (o lo pagado, si es menos) · menos: **nada** |
+| ADMIN / EMPLEADO (`DELETE /admin/reservas/{id}/cancelar`) | hasta que termina el turno | lo que indique en `?reembolso=TOTAL\|SENIA\|NADA` (obligatorio si la reserva tiene dinero cobrado) |
 
 - Una reserva `PENDIENTE` se cancela sin reembolso (no tiene dinero cobrado).
 - Los reembolsos se reparten primero sobre los pagos online de Mercado Pago (se devuelven por API y quedan `DEVUELTO`) y después sobre los cobrados en el club (quedan `A_REEMBOLSAR` para que el personal los devuelva). `montoReembolsado` de cada pago dice cuánto se devolvió.
@@ -336,21 +335,18 @@ Orden fijo: `proximas` de la más cercana a la más lejana; `historial` y sin `t
 
 Errores `400`: `size` fuera de 1–50, `page` negativa, `desde` posterior a `hasta` ("La fecha desde no puede ser posterior a hasta."), `tipo` o `estado` inexistente, fecha mal formada.
 
-Body de `POST /reservas`:
+Body de `POST /reservas` (el de `POST /admin/reservas` suma `clienteId` y `bonificacion`):
 ```json
 {
   "canchaId": 1,
   "fechaReserva": "2026-10-15",
   "horaInicio": "18:00",
   "horaFin": "19:30",
-  "clienteId": null,
   "cantidadPelotas": 2,
-  "cantidadPaletas": 3,
-  "bonificacion": { "monto": null, "motivo": "socio" }
+  "cantidadPaletas": 3
 }
 ```
-- `bonificacion` (opcional, **solo ADMIN**): la reserva se crea y se bonifica en la misma operación, igual que `POST /pagos/{id}/bonificacion`. `monto` null bonifica el total. Un EMPLEADO o CLIENTE que lo mande recibe `403` y no se crea nada.
-- `fechaReserva`: hoy o futuro. `clienteId`: `null` para un CLIENTE; para ADMIN/EMPLEADO, el id de un CLIENTE habilitado.
+- `fechaReserva`: hoy o futuro.
 - `cantidadPelotas` (0 a 50) y `cantidadPaletas` (0 a 20) son opcionales; por defecto 0. El total es `montoCancha + Σ cantidad × precio unitario`, y la seña se calcula sobre ese total.
 - Sin stock suficiente responde `409`, por ejemplo `"Paletas: hay 1 unidad disponible para ese horario."`.
 - Los precios unitarios quedan congelados en la reserva: un cambio de precio posterior no la modifica.
@@ -425,7 +421,7 @@ Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **4 jugado
 - **No vence.** Sin nada pagado queda `CONFIRMADA`, ocupa la cancha y aparece como deuda si se juega sin pagar.
 - **Se cobra en el club.** Cada jugador paga su parte (`pago-efectivo` / `pago-presencial` con `jugadorId`) y el ADMIN puede bonificarle a un jugador. No se paga online (`409`).
 - **Su "cliente" es el ADMIN** que lo armó. Los jugadores registrados lo ven en `GET /reservas/mias` y en `GET /reservas/{id}` (sin los teléfonos de los demás), pero no lo pueden pagar ni cancelar.
-- **Lo cancela solo el ADMIN** (`DELETE /reservas/{id}/cancelar`, con `reembolso` si hay plata cobrada). Se avisa a los jugadores registrados; a los ADMIN no se les avisa de los pagos ni de la cancelación.
+- **Lo cancela solo el ADMIN** (`DELETE /admin/reservas/{id}/cancelar`, con `reembolso` si hay plata cobrada). Se avisa a los jugadores registrados; a los ADMIN no se les avisa de los pagos ni de la cancelación.
 
 Los partidos se consultan, se cobran y se cancelan con los endpoints de siempre; estos son los nuevos.
 
@@ -548,7 +544,7 @@ Errores: `400` si `desde` es posterior a `hasta`, un estado no existe (`errors.e
 El filtrado, el orden, el paginado y los totales se hacen en la base (índices de V14).
 
 ### `GET /admin/clientes?buscar=perez&soloActivos=true` → `200 [ ClienteBusquedaResponse ]`
-Búsqueda de clientes para el filtro por cliente y para reservar a nombre de uno (`POST /reservas` con `clienteId`).
+Búsqueda de clientes para el filtro por cliente y para reservar a nombre de uno (`POST /admin/reservas` con `clienteId`).
 
 | Parámetro | Obligatorio | Qué hace |
 |---|---|---|
@@ -566,15 +562,18 @@ Devuelve hasta 20 clientes ordenados por apellido y nombre. **Solo usuarios CLIE
 
 Errores: `400 errors.buscar` si falta · `400` si tiene menos de 2 caracteres · `403` CLIENTE o PROFESOR.
 
-### Lo que usa el panel además de esto
-| Acción | Endpoint |
-|---|---|
-| Ver el detalle de cualquier reserva | `GET /reservas/{id}` |
-| Cobrar en el club la seña, el saldo o el total | `POST /pagos/{reservaId}/pago-efectivo` y `/pago-presencial`, body `{ "monto": 7500 }`. Aceptan reservas `SEÑADA` y `PARCIALMENTE_PAGADA` aunque el turno no se haya jugado, y `PENDIENTE` mientras esté en plazo (15 min) |
-| Cancelar | `DELETE /reservas/{id}/cancelar?reembolso=TOTAL\|SENIA\|NADA` |
-| Reservar a nombre de un cliente | `POST /reservas` con `clienteId` (el cliente tiene que tener el perfil completo) |
+### El resto de `/admin/reservas`
 
-`GET /reservas/saldos-pendientes` sigue funcionando por compatibilidad, pero el panel usa `GET /admin/reservas?pendientes=true`.
+| Método y ruta | Descripción | Errores |
+|---|---|---|
+| `POST /admin/reservas` → `201` | Reserva a nombre de un cliente. Mismo body que `POST /reservas` más `clienteId` (obligatorio: un CLIENTE habilitado con el perfil completo) y `bonificacion` (opcional, **solo ADMIN**: se crea y se bonifica en la misma operación, igual que `POST /pagos/{id}/bonificacion`; `monto` null bonifica el total). | Los de `POST /reservas` · `400` "ADMIN y EMPLEADO deben indicar el clienteId de la reserva.", "El usuario indicado no es un cliente." o cuenta desactivada · `403` bonificación de un EMPLEADO (no se crea nada) |
+| `GET /admin/reservas/{id}` → `200` | Detalle de cualquier reserva, con los pagos. | `404` |
+| `DELETE /admin/reservas/{id}/cancelar?reembolso=TOTAL\|SENIA\|NADA` → `200 ReservaResponse` | Cancela cualquier reserva hasta que termina el turno. `reembolso` es obligatorio si tiene dinero cobrado. Un partido lo cancela solo el ADMIN. | `400` reembolso faltante · `403` EMPLEADO con un partido · `404` · `409` como en `/reservas` |
+| `GET /admin/reservas/saldos-pendientes` → `200` | Turnos ya jugados que deben saldo (`SEÑADA` o `PARCIALMENTE_PAGADA` con el turno terminado), del más viejo al más nuevo. El listado con `?pendientes=true` también los muestra. | |
+| `GET /admin/reservas/devoluciones-pendientes` → `200` | Reservas cuyo turno ya empezó y tienen paletas sin devolver. | |
+| `POST /admin/reservas/{id}/devolucion` → `200` | Body `{ "paletasDevueltas": 3 }`. Registra la devolución; las faltantes se descuentan del stock. Devuelve la reserva. | `400` cantidad fuera de rango · `404` · `409` turno sin empezar, reserva sin paletas, no confirmada o devolución ya registrada |
+
+Cobrar en el club la seña, el saldo o el total: `POST /pagos/{reservaId}/pago-efectivo` y `/pago-presencial`, body `{ "monto": 7500 }`. Aceptan reservas `SEÑADA` y `PARCIALMENTE_PAGADA` aunque el turno no se haya jugado, y `PENDIENTE` mientras esté en plazo (15 min).
 
 ---
 

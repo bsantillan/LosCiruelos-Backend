@@ -18,7 +18,7 @@ import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
-import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest;
+import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaAdminRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.ReservaJugador;
@@ -151,11 +151,11 @@ public class CobroService {
         return pagoMapper.aResponse(bonificacion);
     }
 
-    /** POST /reservas con bonificación (solo ADMIN): se crea y se bonifica en la misma transacción. */
+    /** POST /admin/reservas con bonificación (solo ADMIN): se crea y se bonifica en la misma transacción. */
     @Transactional
-    public ReservaResponse crearReservaBonificada(CrearReservaRequest req, String email) {
+    public ReservaResponse crearReservaBonificada(CrearReservaAdminRequest req, String email) {
         validarQueEsAdmin(usuarioService.autenticado(email));
-        ReservaResponse creada = reservaService.crearReserva(req, email);
+        ReservaResponse creada = reservaService.crearParaCliente(req, email);
         bonificar(creada.getId(), req.getBonificacion().getMonto(), req.getBonificacion().getMotivo(), null, email);
         return reservaConsultaService.obtener(creada.getId(), email);
     }

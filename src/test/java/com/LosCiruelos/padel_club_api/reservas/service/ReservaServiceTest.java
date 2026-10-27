@@ -37,6 +37,7 @@ import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
+import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaAdminRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
@@ -141,6 +142,19 @@ class ReservaServiceTest {
         return req;
     }
 
+    /** Lo que carga el personal: el mismo pedido de mañana 18:00 a 19:30, para un cliente. */
+    private static CrearReservaAdminRequest pedidoParaCliente(Long clienteId) {
+        CrearReservaAdminRequest req = new CrearReservaAdminRequest();
+        req.setCanchaId(1L);
+        req.setFechaReserva(MANIANA);
+        req.setHoraInicio(LocalTime.parse("18:00"));
+        req.setHoraFin(LocalTime.parse("19:30"));
+        req.setCantidadPelotas(0);
+        req.setCantidadPaletas(0);
+        req.setClienteId(clienteId);
+        return req;
+    }
+
     private void sinOtrasReservas() {
         when(reservaRepository.findQueOcupan(anyLong(), any(), any(), any(), any(), anyCollection(), any(),
                 anyCollection())).thenReturn(List.of());
@@ -199,7 +213,7 @@ class ReservaServiceTest {
         void creaUnaReservaPendienteQueVenceEn15Minutos() {
             sinOtrasReservas();
 
-            ReservaResponse r = reservaService.crearReserva(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail());
+            ReservaResponse r = reservaService.crearParaMi(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail());
 
             assertThat(r.getEstado()).isEqualTo(EstadoReserva.PENDIENTE);
             assertThat(r.getMontoTotal()).isEqualByComparingTo("15000");
@@ -223,7 +237,7 @@ class ReservaServiceTest {
             req.setCantidadPelotas(2);
             req.setCantidadPaletas(4);
 
-            ReservaResponse r = reservaService.crearReserva(req, cliente.getEmail());
+            ReservaResponse r = reservaService.crearParaMi(req, cliente.getEmail());
 
             assertThat(r.getMontoCancha()).isEqualByComparingTo("15000");
             assertThat(r.getMontoProductos()).isEqualByComparingTo("11000");
@@ -241,7 +255,7 @@ class ReservaServiceTest {
             when(reservaRepository.findQueOcupan(anyLong(), any(), any(), any(), any(), anyCollection(), any(),
                     anyCollection())).thenReturn(List.of(reserva(9L, otroCliente, EstadoReserva.PAGADA, "15000")));
 
-            assertThatThrownBy(() -> reservaService.crearReserva(pedido(MANIANA, "18:30", "20:00"), cliente.getEmail()))
+            assertThatThrownBy(() -> reservaService.crearParaMi(pedido(MANIANA, "18:30", "20:00"), cliente.getEmail()))
                     .isInstanceOf(HorarioOcupadoException.class);
             verify(reservaRepository, never()).saveAndFlush(any());
         }
@@ -251,7 +265,7 @@ class ReservaServiceTest {
             sinOtrasReservas();
             when(reservaRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("exclusion"));
 
-            assertThatThrownBy(() -> reservaService.crearReserva(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail()))
+            assertThatThrownBy(() -> reservaService.crearParaMi(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail()))
                     .isInstanceOf(HorarioOcupadoException.class);
         }
 
@@ -265,7 +279,7 @@ class ReservaServiceTest {
                     anyCollection())).thenReturn(List.of(9L));
             when(reservaRepository.findByIdForUpdate(9L)).thenReturn(Optional.of(vencida));
 
-            reservaService.crearReserva(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail());
+            reservaService.crearParaMi(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail());
 
             assertThat(vencida.getEstado()).isEqualTo(EstadoReserva.EXPIRADA);
             assertThat(iniciado.getEstado()).isEqualTo(EstadoPago.EXPIRADO);
@@ -281,30 +295,18 @@ class ReservaServiceTest {
                     anyCollection())).thenReturn(List.of(8L));
             when(reservaRepository.findByIdForUpdate(8L)).thenReturn(Optional.of(anterior));
 
-            reservaService.crearReserva(pedido(MANIANA, "20:00", "21:30"), cliente.getEmail());
+            reservaService.crearParaMi(pedido(MANIANA, "20:00", "21:30"), cliente.getEmail());
 
             assertThat(anterior.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
         }
 
-        @Test
-        void unClienteNoPuedeReservarParaOtro() {
-            CrearReservaRequest req = pedido(MANIANA, "18:00", "19:30");
-            req.setClienteId(2L);
-
-            assertThatThrownBy(() -> reservaService.crearReserva(req, cliente.getEmail()))
-                    .isInstanceOf(ReservaException.class)
-                    .hasMessageContaining("sí mismo");
-        }
-
-        @Test
+    @Test
         void elAdminDebeIndicarUnClienteValido() {
-            assertThatThrownBy(() -> reservaService.crearReserva(pedido(MANIANA, "18:00", "19:30"), admin.getEmail()))
+            assertThatThrownBy(() -> reservaService.crearParaCliente(pedidoParaCliente(null), admin.getEmail()))
                     .isInstanceOf(ReservaException.class)
                     .hasMessageContaining("clienteId");
 
-            CrearReservaRequest paraAdmin = pedido(MANIANA, "18:00", "19:30");
-            paraAdmin.setClienteId(3L);
-            assertThatThrownBy(() -> reservaService.crearReserva(paraAdmin, admin.getEmail()))
+            assertThatThrownBy(() -> reservaService.crearParaCliente(pedidoParaCliente(3L), admin.getEmail()))
                     .isInstanceOf(ReservaException.class)
                     .hasMessageContaining("no es un cliente");
         }
@@ -312,10 +314,7 @@ class ReservaServiceTest {
         @Test
         void elAdminReservaParaUnCliente() {
             sinOtrasReservas();
-            CrearReservaRequest req = pedido(MANIANA, "18:00", "19:30");
-            req.setClienteId(1L);
-
-            ReservaResponse r = reservaService.crearReserva(req, admin.getEmail());
+            ReservaResponse r = reservaService.crearParaCliente(pedidoParaCliente(1L), admin.getEmail());
 
             assertThat(r.getClienteId()).isEqualTo(1L);
         }
@@ -324,7 +323,7 @@ class ReservaServiceTest {
         void perfilIncompletoNoPuedeReservar() {
             when(clienteProfileService.esPerfilCompleto(any())).thenReturn(false);
 
-            assertThatThrownBy(() -> reservaService.crearReserva(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail()))
+            assertThatThrownBy(() -> reservaService.crearParaMi(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail()))
                     .isInstanceOf(PerfilIncompletoException.class);
         }
     }
@@ -349,7 +348,7 @@ class ReservaServiceTest {
         void extiendeLaReservaYRecalculaElMonto() {
             Pago iniciado = pago(1L, existente, EstadoPago.PENDIENTE, "7500");
 
-            ReservaResponse r = reservaService.crearReserva(pedido(MANIANA, "18:00", "21:00"), cliente.getEmail());
+            ReservaResponse r = reservaService.crearParaMi(pedido(MANIANA, "18:00", "21:00"), cliente.getEmail());
 
             assertThat(r.getId()).isEqualTo(7L);
             assertThat(r.getHoraFin()).isEqualTo(LocalTime.of(21, 0));
@@ -364,7 +363,7 @@ class ReservaServiceTest {
             when(reservaRepository.findQueOcupan(anyLong(), any(), any(), any(), any(), anyCollection(), any(),
                     anyCollection())).thenReturn(List.of(existente, reserva(9L, otroCliente, EstadoReserva.PAGADA, "1")));
 
-            assertThatThrownBy(() -> reservaService.crearReserva(pedido(MANIANA, "18:00", "21:00"), cliente.getEmail()))
+            assertThatThrownBy(() -> reservaService.crearParaMi(pedido(MANIANA, "18:00", "21:00"), cliente.getEmail()))
                     .isInstanceOf(HorarioOcupadoException.class);
         }
 
@@ -377,7 +376,7 @@ class ReservaServiceTest {
             CrearReservaRequest req = pedido(MANIANA, "18:00", "19:30");
             req.setCantidadPelotas(3);
 
-            ReservaResponse r = reservaService.crearReserva(req, cliente.getEmail());
+            ReservaResponse r = reservaService.crearParaMi(req, cliente.getEmail());
 
             assertThat(r.getId()).isEqualTo(7L);
             assertThat(r.getMontoTotal()).isEqualByComparingTo("18000");
@@ -385,7 +384,7 @@ class ReservaServiceTest {
 
         @Test
         void sinCambiosNoTocaNada() {
-            ReservaResponse r = reservaService.crearReserva(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail());
+            ReservaResponse r = reservaService.crearParaMi(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail());
 
             assertThat(r.getMontoTotal()).isEqualByComparingTo("15000");
             verify(stockService).moverStock(eq(List.of()), isNull(), eq(Map.of()), any());
@@ -395,7 +394,7 @@ class ReservaServiceTest {
         void conUnPagoEnCursoNoSePuedeModificar() {
             pago(1L, existente, EstadoPago.EN_PROCESO, "7500");
 
-            assertThatThrownBy(() -> reservaService.crearReserva(pedido(MANIANA, "18:00", "21:00"), cliente.getEmail()))
+            assertThatThrownBy(() -> reservaService.crearParaMi(pedido(MANIANA, "18:00", "21:00"), cliente.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class);
         }
     }

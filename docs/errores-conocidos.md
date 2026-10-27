@@ -74,6 +74,17 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
   - `GET /admin/reservas` suma el filtro `tipo` y `pendientes=true` incluye `CONFIRMADA`. El resumen cuenta los partidos `CONFIRMADA` como turnos (deuda si ya se jugaron).
 - **Bonificaciones (solo ADMIN)**: `POST /pagos/{id}/bonificacion` y `bonificacion` en `POST /reservas` para no cobrarle al cliente todo o una parte. `ReservaResponse` suma `montoBonificado` (`montoPagado` es solo plata); `PagoResponse` suma `motivo`; el provider `BONIFICACION`; el resumen y los totales del listado suman `montoBonificado`.
 - **Panel del personal**: `GET /admin/reservas` (listado paginado con filtros por fechas, estado, cliente, cancha y "pendientes", más totales del filtro) y `GET /admin/clientes?buscar=` (búsqueda de clientes), para ADMIN y EMPLEADO. `GET /reservas/saldos-pendientes` queda solo por compatibilidad.
+- **Rutas de reservas separadas por actor** (mismas reglas, respuestas y errores; cambia solo la ruta). `/reservas` queda **solo para el CLIENTE** (el personal recibe `403`) y lo del personal pasa a `/admin/reservas` (un CLIENTE recibe `403`):
+  | Antes (personal) | Ahora |
+  |---|---|
+  | `POST /reservas` con `clienteId` (y `bonificacion`, solo ADMIN) | `POST /admin/reservas` (mismo body) |
+  | `GET /reservas/{id}` | `GET /admin/reservas/{id}` |
+  | `DELETE /reservas/{id}/cancelar?reembolso=…` | `DELETE /admin/reservas/{id}/cancelar?reembolso=…` |
+  | `GET /reservas/saldos-pendientes` | `GET /admin/reservas/saldos-pendientes` |
+  | `GET /reservas/devoluciones-pendientes` | `GET /admin/reservas/devoluciones-pendientes` |
+  | `POST /reservas/{id}/devolucion` | `POST /admin/reservas/{id}/devolucion` |
+
+  Para el cliente no cambia nada, salvo que en `POST /reservas` ya no se leen `clienteId` ni `bonificacion` (antes daban `400` o `403`; ahora se ignoran) y en `DELETE /reservas/{id}/cancelar` ya no se lee `reembolso` (antes `400`; ahora se aplica la política). Los cobros del personal siguen en `/pagos/{id}/pago-efectivo`, `/pago-presencial` y `/bonificacion`.
 - **Cambio de contrato en `GET /admin/resumen`** (mismos parámetros y permisos): la respuesta pasa a `{ desde, hasta, jugados, porJugar, caja, cancelaciones, productos }`. Se separan los turnos jugados (con su `deuda`) de los por jugar (`aCobrar`), y `caja` es el cierre de caja por fecha de pago. Se sacaron `montoEsperado`, `montoCobrado`, `cobradoOnline`, `cobradoEnClub`, `cobradoEfectivo`, `cobradoMercadoPago`, `montoBonificado`, `montoPendiente`, `retenidoCancelaciones`, `partidosJugados` y `partidosCancelados`. Ver `docs/api.md`.
 - **Nuevo endpoint del panel**: `GET /admin/resumen?desde&hasta` (ADMIN cualquier período; EMPLEADO solo hoy, sin fechas) con montos esperados, cobrados (online y en el club), pendientes, retenido por cancelaciones, partidos y productos del período. Ver `docs/api.md`.
 - **`PUT /perfil`: `telefono` es opcional.** Si no viene no se toca el celular ni su verificación; el celular se edita en `PUT /perfil/notificaciones`. El mismo número en otro formato no pierde la verificación.

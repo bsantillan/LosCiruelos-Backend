@@ -100,7 +100,7 @@ class CancelacionServiceTest {
             turnoEn(30);
             pagada("15000");
 
-            cancelacion.cancelar(10L, cliente.getEmail(), null);
+            cancelacion.cancelarComoCliente(10L, cliente.getEmail());
 
             verify(reembolsoService).reembolsar(reserva, new BigDecimal("15000"));
             verify(reservaService).cancelar(reserva);
@@ -111,7 +111,7 @@ class CancelacionServiceTest {
             turnoEn(20);
             pagada("15000");
 
-            cancelacion.cancelar(10L, cliente.getEmail(), null);
+            cancelacion.cancelarComoCliente(10L, cliente.getEmail());
 
             verify(reembolsoService).reembolsar(reserva, new BigDecimal("7500.00"));
         }
@@ -122,7 +122,7 @@ class CancelacionServiceTest {
             reserva.setEstado(EstadoReserva.PARCIALMENTE_PAGADA);
             pagada("3000");
 
-            cancelacion.cancelar(10L, cliente.getEmail(), null);
+            cancelacion.cancelarComoCliente(10L, cliente.getEmail());
 
             verify(reembolsoService).reembolsar(reserva, new BigDecimal("3000"));
         }
@@ -132,7 +132,7 @@ class CancelacionServiceTest {
             turnoEn(5);
             pagada("15000");
 
-            cancelacion.cancelar(10L, cliente.getEmail(), null);
+            cancelacion.cancelarComoCliente(10L, cliente.getEmail());
 
             verify(reembolsoService, never()).reembolsar(any(), any());
             verify(reservaService).cancelar(reserva);
@@ -143,17 +143,10 @@ class CancelacionServiceTest {
             turnoEn(-1);
             pagada("15000");
 
-            assertThatThrownBy(() -> cancelacion.cancelar(10L, cliente.getEmail(), null))
+            assertThatThrownBy(() -> cancelacion.cancelarComoCliente(10L, cliente.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class)
                     .hasMessageContaining("empezó");
             verify(reservaService, never()).cancelar(any());
-        }
-
-        @Test
-        void noPuedeElegirElReembolso() {
-            assertThatThrownBy(() -> cancelacion.cancelar(10L, cliente.getEmail(), OpcionReembolso.TOTAL))
-                    .isInstanceOf(ReservaException.class)
-                    .hasMessageContaining("personal");
         }
 
         @Test
@@ -161,7 +154,7 @@ class CancelacionServiceTest {
             turnoEn(30);
             reserva.setEstado(EstadoReserva.PENDIENTE);
 
-            cancelacion.cancelar(10L, cliente.getEmail(), null);
+            cancelacion.cancelarComoCliente(10L, cliente.getEmail());
 
             verify(reembolsoService, never()).reembolsar(any(), any());
             verify(reservaService).cancelar(reserva);
@@ -178,7 +171,7 @@ class CancelacionServiceTest {
             turnoEn(2);
             pagada("15000");
 
-            cancelacion.cancelar(10L, empleado.getEmail(), OpcionReembolso.TOTAL);
+            cancelacion.cancelarComoPersonal(10L, OpcionReembolso.TOTAL, empleado.getEmail());
 
             verify(reembolsoService).reembolsar(reserva, new BigDecimal("15000"));
         }
@@ -188,7 +181,7 @@ class CancelacionServiceTest {
             turnoEn(40);
             pagada("15000");
 
-            cancelacion.cancelar(10L, empleado.getEmail(), OpcionReembolso.NADA);
+            cancelacion.cancelarComoPersonal(10L, OpcionReembolso.NADA, empleado.getEmail());
 
             verify(reembolsoService, never()).reembolsar(any(), any());
             verify(reservaService).cancelar(reserva);
@@ -199,7 +192,7 @@ class CancelacionServiceTest {
             turnoEn(40);
             pagada("15000");
 
-            assertThatThrownBy(() -> cancelacion.cancelar(10L, empleado.getEmail(), null))
+            assertThatThrownBy(() -> cancelacion.cancelarComoPersonal(10L, null, empleado.getEmail()))
                     .isInstanceOf(ReservaException.class)
                     .hasMessageContaining("TOTAL, SENIA o NADA");
         }
@@ -209,7 +202,7 @@ class CancelacionServiceTest {
             turnoEn(-1); // empezó hace 1 h, dura 90 min
             pagada("15000");
 
-            cancelacion.cancelar(10L, empleado.getEmail(), OpcionReembolso.SENIA);
+            cancelacion.cancelarComoPersonal(10L, OpcionReembolso.SENIA, empleado.getEmail());
 
             verify(reembolsoService).reembolsar(reserva, new BigDecimal("7500.00"));
         }
@@ -219,7 +212,7 @@ class CancelacionServiceTest {
             turnoEn(-3);
             pagada("15000");
 
-            assertThatThrownBy(() -> cancelacion.cancelar(10L, empleado.getEmail(), OpcionReembolso.TOTAL))
+            assertThatThrownBy(() -> cancelacion.cancelarComoPersonal(10L, OpcionReembolso.TOTAL, empleado.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class)
                     .hasMessageContaining("terminó");
         }
@@ -241,7 +234,7 @@ class CancelacionServiceTest {
             turnoEn(30);
             pagada("15000");
 
-            cancelacion.cancelar(10L, cliente.getEmail(), null);
+            cancelacion.cancelarComoCliente(10L, cliente.getEmail());
 
             List<AvisoReserva> avisos = publicados();
             assertThat(avisos).extracting(AvisoReserva::tipo).containsExactly(TipoAviso.RESERVA_CANCELADA);
@@ -253,7 +246,7 @@ class CancelacionServiceTest {
             turnoEn(30);
             pagada("15000");
 
-            cancelacion.cancelar(10L, empleado.getEmail(), OpcionReembolso.TOTAL);
+            cancelacion.cancelarComoPersonal(10L, OpcionReembolso.TOTAL, empleado.getEmail());
 
             List<AvisoReserva> avisos = publicados();
             assertThat(avisos).extracting(AvisoReserva::tipo)
@@ -274,7 +267,7 @@ class CancelacionServiceTest {
                 return null;
             }).when(reembolsoService).reembolsar(any(), any());
 
-            cancelacion.cancelar(10L, cliente.getEmail(), null);
+            cancelacion.cancelarComoCliente(10L, cliente.getEmail());
 
             assertThat(publicados().getFirst().detalle()).contains("Hay que devolver $15.000 a mano");
         }
@@ -306,13 +299,13 @@ class CancelacionServiceTest {
         turnoEn(30);
         for (EstadoReserva estado : List.of(EstadoReserva.COMPLETADA, EstadoReserva.CANCELADA, EstadoReserva.EXPIRADA)) {
             reserva.setEstado(estado);
-            assertThatThrownBy(() -> cancelacion.cancelar(10L, cliente.getEmail(), null))
+            assertThatThrownBy(() -> cancelacion.cancelarComoCliente(10L, cliente.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class);
         }
 
         reserva.setEstado(EstadoReserva.PENDIENTE);
         pago(2L, reserva, EstadoPago.EN_PROCESO, "7500");
-        assertThatThrownBy(() -> cancelacion.cancelar(10L, cliente.getEmail(), null))
+        assertThatThrownBy(() -> cancelacion.cancelarComoCliente(10L, cliente.getEmail()))
                 .isInstanceOf(EstadoInvalidoException.class)
                 .hasMessageContaining("en proceso");
     }
@@ -353,7 +346,7 @@ class CancelacionServiceTest {
 
         @Test
         void soloElAdminCancelaUnPartido() {
-            assertThatThrownBy(() -> cancelacion.cancelar(20L, empleado.getEmail(), OpcionReembolso.NADA))
+            assertThatThrownBy(() -> cancelacion.cancelarComoPersonal(20L, OpcionReembolso.NADA, empleado.getEmail()))
                     .isInstanceOf(com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException.class)
                     .hasMessage("Solo el ADMIN puede cancelar un partido.");
             verify(reservaService, never()).cancelar(any());
@@ -361,7 +354,7 @@ class CancelacionServiceTest {
 
         @Test
         void sinPagosSeCancelaYSeAvisaACadaJugadorRegistrado() {
-            cancelacion.cancelar(20L, admin.getEmail(), null);
+            cancelacion.cancelarComoPersonal(20L, null, admin.getEmail());
 
             verify(reservaService).cancelar(partido);
             ArgumentCaptor<AvisoReserva> aviso = ArgumentCaptor.forClass(AvisoReserva.class);
@@ -376,9 +369,9 @@ class CancelacionServiceTest {
             pago(1L, partido, EstadoPago.APROBADO, "7500");
             partido.setEstado(EstadoReserva.SEÑADA);
 
-            assertThatThrownBy(() -> cancelacion.cancelar(20L, admin.getEmail(), null))
+            assertThatThrownBy(() -> cancelacion.cancelarComoPersonal(20L, null, admin.getEmail()))
                     .isInstanceOf(ReservaException.class);
-            cancelacion.cancelar(20L, admin.getEmail(), OpcionReembolso.TOTAL);
+            cancelacion.cancelarComoPersonal(20L, OpcionReembolso.TOTAL, admin.getEmail());
             verify(reembolsoService).reembolsar(eq(partido), eq(new java.math.BigDecimal("7500")));
         }
 

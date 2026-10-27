@@ -130,7 +130,7 @@ class ControllersTest {
         busquedaClientesService = mock(BusquedaClientesService.class);
 
         mvc = MockMvcBuilders.standaloneSetup(
-                new ReservaController(reservaService, reservaConsultaService, cancelacionService, cobroService),
+                new ReservaController(reservaService, reservaConsultaService, cancelacionService),
                 new PagoController(pagoOnlineService, cobroService, webhookValidator),
                 new AuthController(authService, verificationService, passwordResetService),
                 new PerfilController(perfilService),
@@ -140,7 +140,7 @@ class ControllersTest {
                 new AdminProductoController(productoService),
                 new NotificacionesController(notificacionesService),
                 new ResumenController(resumenService),
-                new ReservaAdminController(reservaConsultaService),
+                new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService),
                 new ClienteAdminController(busquedaClientesService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
                 // mismo formato de fechas que la app
@@ -167,7 +167,7 @@ class ControllersTest {
             ReservaResponse r = new ReservaResponse();
             r.setId(5L);
             r.setEstado(EstadoReserva.PENDIENTE);
-            when(reservaService.crearReserva(any(), eq(EMAIL))).thenReturn(r);
+            when(reservaService.crearParaMi(any(), eq(EMAIL))).thenReturn(r);
 
             mvc.perform(json(post("/reservas"), RESERVA_VALIDA))
                     .andExpect(status().isCreated())
@@ -185,7 +185,7 @@ class ControllersTest {
 
         @Test
         void turnoOcupadoDevuelve409() throws Exception {
-            when(reservaService.crearReserva(any(), anyString())).thenThrow(new HorarioOcupadoException());
+            when(reservaService.crearParaMi(any(), anyString())).thenThrow(new HorarioOcupadoException());
 
             mvc.perform(json(post("/reservas"), RESERVA_VALIDA))
                     .andExpect(status().isConflict())
@@ -196,12 +196,12 @@ class ControllersTest {
         void elPersonalEligeElReembolsoAlCancelar() throws Exception {
             ReservaResponse cancelada = new ReservaResponse();
             cancelada.setEstado(EstadoReserva.CANCELADA);
-            when(cancelacionService.cancelar(4L, EMAIL, OpcionReembolso.SENIA)).thenReturn(cancelada);
+            when(cancelacionService.cancelarComoPersonal(4L, OpcionReembolso.SENIA, EMAIL)).thenReturn(cancelada);
 
-            mvc.perform(delete("/reservas/4/cancelar").param("reembolso", "SENIA").principal(AUTH))
+            mvc.perform(delete("/admin/reservas/4/cancelar").param("reembolso", "SENIA").principal(AUTH))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.estado").value("CANCELADA"));
-            mvc.perform(delete("/reservas/4/cancelar").param("reembolso", "MITAD").principal(AUTH))
+            mvc.perform(delete("/admin/reservas/4/cancelar").param("reembolso", "MITAD").principal(AUTH))
                     .andExpect(status().isBadRequest());
         }
 
@@ -210,6 +210,17 @@ class ControllersTest {
             when(reservaConsultaService.obtener(7L, EMAIL)).thenThrow(new ReservaNoEncontradaException(7L));
 
             mvc.perform(get("/reservas/7").principal(AUTH)).andExpect(status().isNotFound());
+        }
+
+        @Test
+        void elPersonalVeElDetalleDeCualquierReserva() throws Exception {
+            ReservaResponse r = new ReservaResponse();
+            r.setId(7L);
+            when(reservaConsultaService.obtener(7L, EMAIL)).thenReturn(r);
+
+            mvc.perform(get("/admin/reservas/7").principal(AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(7));
         }
 
         @Test
@@ -224,7 +235,7 @@ class ControllersTest {
             mvc.perform(delete("/reservas/3/cancelar").principal(AUTH)).andExpect(status().isOk());
             mvc.perform(post("/reservas/3/expirar").principal(AUTH)).andExpect(status().isOk());
 
-            verify(cancelacionService).cancelar(3L, EMAIL, null);
+            verify(cancelacionService).cancelarComoCliente(3L, EMAIL);
             verify(reservaService).expirarPorUsuario(3L, EMAIL);
         }
     }
@@ -512,11 +523,11 @@ class ControllersTest {
             when(reservaConsultaService.devolucionesPendientes()).thenReturn(List.of(new ReservaResponse()));
             when(reservaService.registrarDevolucion(5L, 2, EMAIL)).thenReturn(new ReservaResponse());
 
-            mvc.perform(get("/reservas/devoluciones-pendientes").principal(AUTH))
+            mvc.perform(get("/admin/reservas/devoluciones-pendientes").principal(AUTH))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(1));
-            mvc.perform(json(post("/reservas/5/devolucion"), "{\"paletasDevueltas\":2}")).andExpect(status().isOk());
-            mvc.perform(json(post("/reservas/5/devolucion"), "{\"paletasDevueltas\":-1}"))
+            mvc.perform(json(post("/admin/reservas/5/devolucion"), "{\"paletasDevueltas\":2}")).andExpect(status().isOk());
+            mvc.perform(json(post("/admin/reservas/5/devolucion"), "{\"paletasDevueltas\":-1}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.paletasDevueltas").exists());
             verify(reservaService).registrarDevolucion(5L, 2, EMAIL);
@@ -526,14 +537,14 @@ class ControllersTest {
         void saldosPendientes() throws Exception {
             when(reservaConsultaService.saldosPendientes()).thenReturn(List.of(new ReservaResponse(), new ReservaResponse()));
 
-            mvc.perform(get("/reservas/saldos-pendientes").principal(AUTH))
+            mvc.perform(get("/admin/reservas/saldos-pendientes").principal(AUTH))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(2));
         }
 
         @Test
         void stockInsuficienteDevuelve409() throws Exception {
-            when(reservaService.crearReserva(any(), anyString()))
+            when(reservaService.crearParaMi(any(), anyString()))
                     .thenThrow(new StockInsuficienteException("Solo quedan 2 paletas disponibles para ese horario."));
 
             mvc.perform(json(post("/reservas"), RESERVA_VALIDA))
@@ -918,13 +929,27 @@ class ControllersTest {
             r.setId(9L);
             when(cobroService.crearReservaBonificada(any(), eq(EMAIL))).thenReturn(r);
 
-            mvc.perform(json(post("/reservas"), """
+            mvc.perform(json(post("/admin/reservas"), """
                     {"canchaId":1,"fechaReserva":"2099-01-01","horaInicio":"18:00","horaFin":"19:30",
                      "clienteId":7,"bonificacion":{"motivo":"torneo"}}
                     """))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.id").value(9));
-            verify(reservaService, never()).crearReserva(any(), anyString());
+            verify(reservaService, never()).crearParaCliente(any(), anyString());
+        }
+
+        @Test
+        void elPersonalCreaUnaReservaParaUnCliente() throws Exception {
+            ReservaResponse r = new ReservaResponse();
+            r.setId(10L);
+            when(reservaService.crearParaCliente(any(), eq(EMAIL))).thenReturn(r);
+
+            mvc.perform(json(post("/admin/reservas"), """
+                    {"canchaId":1,"fechaReserva":"2099-01-01","horaInicio":"18:00","horaFin":"19:30","clienteId":7}
+                    """))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.id").value(10));
+            verify(cobroService, never()).crearReservaBonificada(any(), anyString());
         }
     }
 }

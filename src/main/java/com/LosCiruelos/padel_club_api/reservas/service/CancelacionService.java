@@ -12,7 +12,6 @@ import com.LosCiruelos.padel_club_api.pagos.service.ReembolsoService;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
@@ -49,23 +48,32 @@ public class CancelacionService {
     private final Reloj reloj;
     private final ApplicationEventPublisher eventos;
 
+    /** El cliente cancela su reserva: el reembolso lo decide la política de cancelación. */
+    @Transactional
+    public ReservaResponse cancelarComoCliente(Long id, String email) {
+        Usuario cliente = usuarioService.autenticado(email);
+        Reserva reserva = reservaService.bloquearConAcceso(id, cliente);
+        exigirAdminSiEsPartido(reserva, cliente);
+        return cancelarBloqueada(reserva, cliente, false, null);
+    }
+
     /**
-     * @param opcionPersonal solo para ADMIN o EMPLEADO (obligatoria si la reserva tiene dinero
-     *                       cobrado): qué se devuelve. El cliente no la elige: se aplica la política.
+     * El personal (ADMIN o EMPLEADO) cancela cualquier reserva; un partido, solo el ADMIN.
+     *
+     * @param reembolso qué se devuelve; obligatorio si la reserva tiene dinero cobrado
      */
     @Transactional
-    public ReservaResponse cancelar(Long id, String email, OpcionReembolso opcionPersonal) {
-        Usuario usuario = usuarioService.autenticado(email);
-        boolean esPersonal = Roles.esPersonal(usuario);
-        if (opcionPersonal != null && !esPersonal) {
-            throw new ReservaException("Solo el personal del club puede elegir el reembolso.");
-        }
+    public ReservaResponse cancelarComoPersonal(Long id, OpcionReembolso reembolso, String email) {
+        Usuario personal = usuarioService.autenticado(email);
+        Reserva reserva = reservaService.bloquearConAcceso(id, personal);
+        exigirAdminSiEsPartido(reserva, personal);
+        return cancelarBloqueada(reserva, personal, true, reembolso);
+    }
 
-        Reserva reserva = reservaService.bloquearConAcceso(id, usuario);
-        if (reserva.esPartido() && usuario.getRol() != Role.ADMIN) {
+    private static void exigirAdminSiEsPartido(Reserva reserva, Usuario usuario) {
+        if (reserva.esPartido() && !Roles.esAdmin(usuario)) {
             throw new PermisoDenegadoException("Solo el ADMIN puede cancelar un partido.");
         }
-        return cancelarBloqueada(reserva, usuario, esPersonal, opcionPersonal);
     }
 
     /** Cancela una reserva ya bloqueada (también la usan las bajas de los turnos fijos). */

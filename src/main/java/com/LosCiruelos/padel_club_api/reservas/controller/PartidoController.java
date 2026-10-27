@@ -20,8 +20,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Partidos de 4 jugadores que arma el ADMIN. Se consultan, se cobran y se cancelan con los
- * endpoints de siempre: GET /reservas/{id}, POST /pagos/{id}/pago-efectivo (con jugadorId) y
- * DELETE /reservas/{id}/cancelar.
+ * endpoints de siempre: GET /admin/reservas/{id}, POST /pagos/{id}/pago-efectivo (con jugadorId) y
+ * DELETE /admin/reservas/{id}/cancelar.
  */
 @RestController
 @RequestMapping("/admin/partidos")

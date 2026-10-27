@@ -39,10 +39,10 @@
 - Si la fecha es hoy, el primer turno es el próximo bloque de 30 min contado desde la apertura (`horarioMinimoInicio`).
 - **Ocupa el turno** toda reserva que no esté `CANCELADA` ni `EXPIRADA`, salvo una `PENDIENTE` vencida sin pagos aprobados ni en proceso: esa ya no bloquea, aunque el job todavía no la haya marcado. Es la misma definición que usa la creación.
 
-### 2. Crear la reserva — `POST /reservas`
+### 2. Crear la reserva — `POST /reservas` (cliente) o `POST /admin/reservas` (personal)
 
 Validaciones, en orden:
-1. **Quién**: un CLIENTE reserva para sí mismo. ADMIN y EMPLEADO indican `clienteId`, que tiene que ser un CLIENTE habilitado. PROFESOR no reserva.
+1. **Quién**: un CLIENTE reserva para sí mismo en `/reservas` (el cliente sale del token). ADMIN y EMPLEADO reservan en `/admin/reservas` e indican `clienteId`, que tiene que ser un CLIENTE habilitado. PROFESOR no reserva.
 2. El cliente tiene el **perfil completo** (nombre, apellido, teléfono, categoría, posición).
 3. **Horario**: fecha hoy o futura; si es hoy, el inicio no pasó; inicio < fin; duración múltiplo de 30 y entre el mínimo y el máximo configurados (90–180); dentro del horario del día; inicio alineado a bloques de 30 min desde la apertura.
 
@@ -119,7 +119,7 @@ Si cualquier paso falla, la transacción se revierte entera: no quedan reservas 
 - Si había un pago online iniciado y sin cobrar, se descarta.
 
 ### 4 bis. Bonificar (no cobrar) — `POST /pagos/{reservaId}/bonificacion`, solo ADMIN
-- El dueño a veces no le cobra a un cliente (socio, torneo, cortesía). Puede bonificar **todo o una parte**, al crear la reserva (campo `bonificacion` en `POST /reservas`, todo en una transacción) o después.
+- El dueño a veces no le cobra a un cliente (socio, torneo, cortesía). Puede bonificar **todo o una parte**, al crear la reserva (campo `bonificacion` en `POST /admin/reservas`, todo en una transacción) o después.
 - Body opcional `{ "monto": 7500, "motivo": "socio" }`: sin `monto` bonifica todo lo pendiente; más que lo pendiente → `400`. EMPLEADO o CLIENTE → `403`.
 - Se acepta en las mismas reservas que un pago en el club, con el mismo `409` si hay un pago online en proceso.
 - Queda un pago `provider = BONIFICACION`, `APROBADO`, con `registrado_por_id` y `motivo`. Cubre el monto para el estado de la reserva, pero **no es plata**: no suma en `montoPagado` ni en lo cobrado del resumen y del listado (va en `montoBonificado`), no se devuelve al cancelar y no manda aviso.
@@ -128,7 +128,7 @@ Si cualquier paso falla, la transacción se revierte entera: no quedan reservas 
 - **Armar un partido** (`POST /admin/partidos`): el ADMIN elige cancha, fecha, horario y 4 jugadores, cada uno un cliente registrado o un invitado (nombre y teléfono opcional). Mismas reglas de horario, solapamiento y stock que una reserva normal. Queda `CONFIRMADA`: no vence y ocupa la cancha aunque nadie haya pagado. Su "cliente" es el ADMIN.
 - **Cobrar**: en el club, cada pago (o bonificación) se registra a nombre de un jugador (`jugadorId`). Cada jugador tiene su parte (total / 4) y la respuesta muestra cuánto pagó y cuánto debe; uno puede pagar por otros. El estado de la reserva sigue la tabla de abajo con lo pagado entre todos. No se paga online y no se le avisa al ADMIN de cada pago.
 - **Modificar** (`PUT /admin/partidos/{id}`): jugadores por posición (no se reemplaza a quien ya pagó), cancha, horario y productos, mientras no se haya jugado. El total no puede quedar por debajo de lo pagado.
-- **Cancelar**: solo el ADMIN, con `DELETE /reservas/{id}/cancelar` (reembolso si hay plata). Se avisa a los jugadores registrados.
+- **Cancelar**: solo el ADMIN, con `DELETE /admin/reservas/{id}/cancelar` (reembolso si hay plata). Se avisa a los jugadores registrados.
 - **Jugadores registrados**: ven el partido en "Mis reservas" y su detalle, sin poder pagarlo ni cancelarlo; reciben el recordatorio con lo que les falta de su parte.
 - **Turno fijo** (`/admin/turnos-fijos`): el mismo partido todas las semanas (el día de `desde`). Bloquea el horario siempre, también en la disponibilidad. Un job crea cada hora los partidos de las próximas 4 semanas (cada uno se paga aparte); si una fecha está ocupada se informa y se reintenta.
   - **Baja de una fecha**: se cancela ese partido (o se registra la fecha como cancelada si todavía no se creó) y el horario queda libre ese día.
@@ -148,7 +148,7 @@ Se recalcula siempre a partir de los pagos `APROBADO` (plata más bonificaciones
 
 `CANCELADA`, `EXPIRADA` y `COMPLETADA` no cambian por pagos. Una reserva `COMPLETADA` siempre está totalmente paga.
 
-### 6. Cancelar — `DELETE /reservas/{id}/cancelar`
+### 6. Cancelar — `DELETE /reservas/{id}/cancelar` (cliente) o `DELETE /admin/reservas/{id}/cancelar` (personal)
 - **Quién**: el dueño de la reserva, o ADMIN/EMPLEADO (un partido, solo el ADMIN). Se pueden cancelar reservas `PENDIENTE`, `CONFIRMADA`, `SEÑADA`, `PARCIALMENTE_PAGADA` y `PAGADA`, sin pagos en proceso.
 - **Cliente**: puede cancelar hasta que empieza el turno y el reembolso lo define la política (configurable en `configuracion`):
 

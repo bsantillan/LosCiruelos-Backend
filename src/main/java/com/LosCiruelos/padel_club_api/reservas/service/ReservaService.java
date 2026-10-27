@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
+import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaAdminRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Cancha;
@@ -88,14 +89,26 @@ public class ReservaService {
 
     // ── Creación ─────────────────────────────────────────────────────────
 
+    /** El cliente reserva para sí. */
     @Transactional
-    public ReservaResponse crearReserva(CrearReservaRequest req, String emailSolicitante) {
+    public ReservaResponse crearParaMi(CrearReservaRequest req, String email) {
+        Usuario cliente = usuarioService.autenticado(email);
+        validarPerfilCompleto(cliente, "Debés completar tu perfil antes de reservar.");
+        return crear(req, cliente, cliente);
+    }
+
+    /** El personal (ADMIN o EMPLEADO) carga la reserva de un cliente. */
+    @Transactional
+    public ReservaResponse crearParaCliente(CrearReservaAdminRequest req, String emailPersonal) {
+        Usuario personal = usuarioService.autenticado(emailPersonal);
+        Usuario cliente = clienteDeLaReserva(req.getClienteId());
+        validarPerfilCompleto(cliente, "El cliente %s %s debe completar su perfil antes de reservar."
+                .formatted(cliente.getNombre(), cliente.getApellido()));
+        return crear(req, cliente, personal);
+    }
+
+    private ReservaResponse crear(CrearReservaRequest req, Usuario cliente, Usuario solicitante) {
         LocalDateTime ahora = reloj.ahora();
-
-        Usuario solicitante = usuarioService.autenticado(emailSolicitante);
-        Usuario cliente = resolverCliente(req.getClienteId(), solicitante);
-        validarPerfilCompleto(cliente, solicitante);
-
         Configuracion config = configuracionService.obtener();
         long duracion = disponibilidad.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(), req.getHoraFin(), ahora);
 
@@ -232,38 +245,24 @@ public class ReservaService {
         }
     }
 
-    private Usuario resolverCliente(Long clienteId, Usuario solicitante) {
-        return switch (solicitante.getRol()) {
-            case CLIENTE -> {
-                if (clienteId != null && !clienteId.equals(solicitante.getId())) {
-                    throw new ReservaException("Un cliente solo puede reservar para sí mismo.");
-                }
-                yield solicitante;
-            }
-            case ADMIN, EMPLEADO -> {
-                if (clienteId == null) {
-                    throw new ReservaException("ADMIN y EMPLEADO deben indicar el clienteId de la reserva.");
-                }
-                Usuario cliente = usuarioService.findByIdOrThrow(clienteId);
-                if (cliente.getRol() != Role.CLIENTE) {
-                    throw new ReservaException("El usuario indicado no es un cliente.");
-                }
-                if (!cliente.getEnabled()) {
-                    throw new ReservaException("La cuenta del cliente está desactivada.");
-                }
-                yield cliente;
-            }
-            case PROFESOR -> throw new ReservaException("Los profesores no pueden crear reservas de canchas.");
-        };
+    private Usuario clienteDeLaReserva(Long clienteId) {
+        if (clienteId == null) {
+            throw new ReservaException("ADMIN y EMPLEADO deben indicar el clienteId de la reserva.");
+        }
+        Usuario cliente = usuarioService.findByIdOrThrow(clienteId);
+        if (cliente.getRol() != Role.CLIENTE) {
+            throw new ReservaException("El usuario indicado no es un cliente.");
+        }
+        if (!cliente.getEnabled()) {
+            throw new ReservaException("La cuenta del cliente está desactivada.");
+        }
+        return cliente;
     }
 
-    private void validarPerfilCompleto(Usuario cliente, Usuario solicitante) {
+    private void validarPerfilCompleto(Usuario cliente, String mensaje) {
         ClienteProfile perfil = clienteProfileService.findByUsuario(cliente);
         if (!clienteProfileService.esPerfilCompleto(perfil)) {
-            throw new PerfilIncompletoException(solicitante.getRol() == Role.CLIENTE
-                    ? "Debés completar tu perfil antes de reservar."
-                    : "El cliente %s %s debe completar su perfil antes de reservar."
-                            .formatted(cliente.getNombre(), cliente.getApellido()));
+            throw new PerfilIncompletoException(mensaje);
         }
     }
 

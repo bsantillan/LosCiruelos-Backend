@@ -70,9 +70,11 @@ public class SecurityConfig {
 
                         // Resumen del período: también lo ve el personal
                         .requestMatchers(HttpMethod.GET, "/admin/resumen").hasAnyRole("ADMIN", "EMPLEADO")
-                        // Panel del personal: listado de reservas y búsqueda de clientes
-                        .requestMatchers(HttpMethod.GET, "/admin/reservas", "/admin/clientes")
-                        .hasAnyRole("ADMIN", "EMPLEADO")
+                        // Panel del personal: reservas y búsqueda de clientes
+                        .requestMatchers("/admin/reservas", "/admin/reservas/**").hasAnyRole("ADMIN", "EMPLEADO")
+                        .requestMatchers(HttpMethod.GET, "/admin/clientes").hasAnyRole("ADMIN", "EMPLEADO")
+                        // Reservas del cliente (las del personal están en /admin/reservas)
+                        .requestMatchers("/reservas", "/reservas/**").hasRole("CLIENTE")
 
                         // Solo ADMIN
                         .requestMatchers("/admin/**").hasRole("ADMIN")

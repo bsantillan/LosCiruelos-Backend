@@ -359,13 +359,13 @@ class CobroServiceTest extends PagosTestBase {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             ReservaResponse creada = new ReservaResponse();
             creada.setId(10L);
-            com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest req =
-                    new com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest();
+            com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaAdminRequest req =
+                    new com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaAdminRequest();
             com.LosCiruelos.padel_club_api.pagos.dto.request.BonificacionRequest bonif =
                     new com.LosCiruelos.padel_club_api.pagos.dto.request.BonificacionRequest();
             bonif.setMotivo("torneo");
             req.setBonificacion(bonif);
-            when(reservaService.crearReserva(req, admin.getEmail())).thenReturn(creada);
+            when(reservaService.crearParaCliente(req, admin.getEmail())).thenReturn(creada);
             when(reservaConsultaService.obtener(10L, admin.getEmail())).thenReturn(creada);
 
             assertThat(cobroService.crearReservaBonificada(req, admin.getEmail())).isSameAs(creada);
@@ -374,7 +374,7 @@ class CobroServiceTest extends PagosTestBase {
             // un empleado no llega a crearla
             assertThatThrownBy(() -> cobroService.crearReservaBonificada(req, empleado.getEmail()))
                     .isInstanceOf(com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException.class);
-            verify(reservaService, org.mockito.Mockito.times(1)).crearReserva(any(), anyString());
+            verify(reservaService, org.mockito.Mockito.times(1)).crearParaCliente(any(), anyString());
         }
     }
 }
