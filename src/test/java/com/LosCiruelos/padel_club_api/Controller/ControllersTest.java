@@ -40,6 +40,8 @@ import com.LosCiruelos.padel_club_api.DTOs.Responses.CanchaResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.DisponibilidadResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.LoginResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
+import com.LosCiruelos.padel_club_api.pagos.controller.CobroAdminController;
+import com.LosCiruelos.padel_club_api.pagos.controller.MercadoPagoWebhookController;
 import com.LosCiruelos.padel_club_api.pagos.controller.PagoController;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PerfilResponse;
@@ -131,7 +133,9 @@ class ControllersTest {
 
         mvc = MockMvcBuilders.standaloneSetup(
                 new ReservaController(reservaService, reservaConsultaService, cancelacionService),
-                new PagoController(pagoOnlineService, cobroService, webhookValidator),
+                new PagoController(pagoOnlineService),
+                new MercadoPagoWebhookController(pagoOnlineService, webhookValidator),
+                new CobroAdminController(cobroService),
                 new AuthController(authService, verificationService, passwordResetService),
                 new PerfilController(perfilService),
                 new AdminController(adminService),
@@ -264,14 +268,14 @@ class ControllersTest {
 
         @Test
         void pagoManualValidaElMonto() throws Exception {
-            mvc.perform(json(post("/pagos/4/pago-efectivo"), "{\"monto\":-1}"))
+            mvc.perform(json(post("/admin/reservas/4/cobros/efectivo"), "{\"monto\":-1}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.monto").exists());
-            mvc.perform(json(post("/pagos/4/pago-efectivo"), "{}")).andExpect(status().isBadRequest());
+            mvc.perform(json(post("/admin/reservas/4/cobros/efectivo"), "{}")).andExpect(status().isBadRequest());
 
             when(cobroService.registrarPagoManual(any(), any(), any(), any(), anyString())).thenReturn(new PagoResponse());
-            mvc.perform(json(post("/pagos/4/pago-efectivo"), "{\"monto\":7500}")).andExpect(status().isOk());
-            mvc.perform(json(post("/pagos/4/pago-presencial"), "{\"monto\":7500}")).andExpect(status().isOk());
+            mvc.perform(json(post("/admin/reservas/4/cobros/efectivo"), "{\"monto\":7500}")).andExpect(status().isOk());
+            mvc.perform(json(post("/admin/reservas/4/cobros/presencial"), "{\"monto\":7500}")).andExpect(status().isOk());
             verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, EMAIL);
             verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO, null, EMAIL);
         }
@@ -895,7 +899,7 @@ class ControllersTest {
         void bonificarSinBodyEsTodoLoQueFalta() throws Exception {
             when(cobroService.bonificar(5L, null, null, null, EMAIL)).thenReturn(new PagoResponse());
 
-            mvc.perform(post("/pagos/5/bonificacion").principal(AUTH)).andExpect(status().isOk());
+            mvc.perform(post("/admin/reservas/5/bonificacion").principal(AUTH)).andExpect(status().isOk());
             verify(cobroService).bonificar(5L, null, null, null, EMAIL);
         }
 
@@ -903,11 +907,11 @@ class ControllersTest {
         void bonificarUnaParteConMotivo() throws Exception {
             when(cobroService.bonificar(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
 
-            mvc.perform(json(post("/pagos/5/bonificacion"), "{\"monto\":7500,\"motivo\":\"socio\"}"))
+            mvc.perform(json(post("/admin/reservas/5/bonificacion"), "{\"monto\":7500,\"motivo\":\"socio\"}"))
                     .andExpect(status().isOk());
             verify(cobroService).bonificar(5L, new BigDecimal("7500"), "socio", null, EMAIL);
 
-            mvc.perform(json(post("/pagos/5/bonificacion"), "{\"monto\":0}"))
+            mvc.perform(json(post("/admin/reservas/5/bonificacion"), "{\"monto\":0}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.monto").exists());
         }
@@ -918,7 +922,7 @@ class ControllersTest {
                     new com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException(
                             "Solo el ADMIN puede bonificar una reserva."));
 
-            mvc.perform(post("/pagos/5/bonificacion").principal(AUTH))
+            mvc.perform(post("/admin/reservas/5/bonificacion").principal(AUTH))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.error").value("Solo el ADMIN puede bonificar una reserva."));
         }

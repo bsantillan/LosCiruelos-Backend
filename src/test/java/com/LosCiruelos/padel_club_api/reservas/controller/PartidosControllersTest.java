@@ -30,7 +30,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.pagos.controller.PagoController;
+import com.LosCiruelos.padel_club_api.pagos.controller.CobroAdminController;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.PartidoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.TurnoFijoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.JugadorResponse;
@@ -41,8 +41,6 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
 import com.LosCiruelos.padel_club_api.Handlers.GlobalExceptionHandler;
 import com.LosCiruelos.padel_club_api.pagos.service.CobroService;
-import com.LosCiruelos.padel_club_api.pagos.service.PagoOnlineService;
-import com.LosCiruelos.padel_club_api.pagos.mercadopago.MercadoPagoWebhookValidator;
 import com.LosCiruelos.padel_club_api.common.Fechas;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;
@@ -60,7 +58,6 @@ class PartidosControllersTest {
 
     private PartidoService partidoService;
     private TurnoFijoService turnoFijoService;
-    private PagoOnlineService pagoOnlineService;
     private CobroService cobroService;
     private MockMvc mvc;
 
@@ -68,12 +65,11 @@ class PartidosControllersTest {
     void setUp() {
         partidoService = mock(PartidoService.class);
         turnoFijoService = mock(TurnoFijoService.class);
-        pagoOnlineService = mock(PagoOnlineService.class);
         cobroService = mock(CobroService.class);
         mvc = MockMvcBuilders.standaloneSetup(
                 new PartidoController(partidoService),
                 new TurnoFijoController(turnoFijoService),
-                new PagoController(pagoOnlineService, cobroService, mock(MercadoPagoWebhookValidator.class)))
+                new CobroAdminController(cobroService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
                         JsonMapper.builder().addModule(Fechas.moduloJackson()).build()))
@@ -137,16 +133,16 @@ class PartidosControllersTest {
         when(cobroService.registrarPagoManual(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
         when(cobroService.bonificar(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
 
-        mvc.perform(json(post("/pagos/60/pago-efectivo"), "{\"monto\":3750,\"jugadorId\":202}"))
+        mvc.perform(json(post("/admin/reservas/60/cobros/efectivo"), "{\"monto\":3750,\"jugadorId\":202}"))
                 .andExpect(status().isOk());
         verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.MANUAL, 202L, EMAIL);
 
-        mvc.perform(json(post("/pagos/60/pago-presencial"), "{\"monto\":3750,\"jugadorId\":201}"))
+        mvc.perform(json(post("/admin/reservas/60/cobros/presencial"), "{\"monto\":3750,\"jugadorId\":201}"))
                 .andExpect(status().isOk());
         verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.MERCADO_PAGO, 201L,
                 EMAIL);
 
-        mvc.perform(json(post("/pagos/60/bonificacion"), "{\"jugadorId\":203,\"motivo\":\"socio\"}"))
+        mvc.perform(json(post("/admin/reservas/60/bonificacion"), "{\"jugadorId\":203,\"motivo\":\"socio\"}"))
                 .andExpect(status().isOk());
         verify(cobroService).bonificar(60L, null, "socio", 203L, EMAIL);
     }

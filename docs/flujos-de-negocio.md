@@ -109,16 +109,16 @@ Si cualquier paso falla, la transacción se revierte entera: no quedan reservas 
 - Si MP dice que el pago no existe (por ejemplo, "Simular notificación" del panel, que usa un id ficticio) → `200` y un warning en el log, para que MP no reintente.
 - Otros errores de MP al consultar → `502`, para que MP reintente la notificación.
 
-### 4. Pagar en el club — `POST /pagos/{reservaId}/pago-efectivo` y `/pago-presencial`
+### 4. Pagar en el club — `POST /admin/reservas/{reservaId}/cobros/efectivo` y `/cobros/presencial`
 - Solo ADMIN y EMPLEADO (controlado por URL y por `@PreAuthorize`).
 - Body `{ "monto": 7500 }`: mayor a 0, como máximo lo pendiente, hasta 2 decimales.
-- `pago-efectivo` registra `provider = MANUAL`; `pago-presencial` registra `MERCADO_PAGO` (tarjeta o QR en el mostrador).
+- `cobros/efectivo` registra `provider = MANUAL`; `cobros/presencial` registra `MERCADO_PAGO` (tarjeta o QR en el mostrador).
 - Se acepta en reservas `PENDIENTE` dentro del plazo, `SEÑADA` y `PARCIALMENTE_PAGADA`, también después del turno (el saldo se suele cobrar después de jugar).
 - Si el pago deja la reserva **totalmente paga y el turno ya terminó**, pasa a `COMPLETADA` en el acto. Si se paga antes o durante el turno, queda `PAGADA` y la completa el job cuando termina.
 - Si hay un pago online `EN_PROCESO` responde `409`, para evitar cobrar dos veces.
 - Si había un pago online iniciado y sin cobrar, se descarta.
 
-### 4 bis. Bonificar (no cobrar) — `POST /pagos/{reservaId}/bonificacion`, solo ADMIN
+### 4 bis. Bonificar (no cobrar) — `POST /admin/reservas/{reservaId}/bonificacion`, solo ADMIN
 - El dueño a veces no le cobra a un cliente (socio, torneo, cortesía). Puede bonificar **todo o una parte**, al crear la reserva (campo `bonificacion` en `POST /admin/reservas`, todo en una transacción) o después.
 - Body opcional `{ "monto": 7500, "motivo": "socio" }`: sin `monto` bonifica todo lo pendiente; más que lo pendiente → `400`. EMPLEADO o CLIENTE → `403`.
 - Se acepta en las mismas reservas que un pago en el club, con el mismo `409` si hay un pago online en proceso.

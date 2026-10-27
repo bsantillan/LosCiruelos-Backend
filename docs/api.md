@@ -387,7 +387,7 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 
 ---
 
-## Pagos — `/pagos`
+## Pagos — `/pagos` (cliente y webhook) y cobros del personal en `/admin/reservas/{id}`
 
 **`PagoResponse`**
 ```json
@@ -406,12 +406,12 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 
 | Método y ruta | Rol | Descripción | Errores |
 |---|---|---|---|
-| `POST /pagos/{reservaId}/iniciar?pagarTotal=false` | CLIENTE (dueño), ADMIN, EMPLEADO | Un partido no se paga online (`409`). Crea el pago `PENDIENTE` y la preferencia de MP (sirve para el Payment Brick y para el Wallet Brick; vuelve a `FRONTEND_URL/pago/resultado` y vence con la reserva). `pagarTotal=true` cobra todo el saldo; `false` (por defecto) lo que falta para la seña. Si ya hay uno iniciado por el mismo monto, lo devuelve. | `404` · `409` vencida, estado inválido, seña ya paga o pago en proceso · `502` MP |
-| `POST /pagos/{reservaId}/pago` | CLIENTE (dueño), ADMIN, EMPLEADO | Cobra con el `formData` del Payment Brick (`token`, `payment_method_id`, `installments`, `issuer_id`, `payer`). El monto lo define el servidor. | `400` datos de tarjeta · `404` · `409` sin pago iniciado o reserva fuera de plazo · `502` MP |
+| `POST /pagos/{reservaId}/iniciar?pagarTotal=false` | CLIENTE (dueño) | Un partido no se paga online (`409`). Crea el pago `PENDIENTE` y la preferencia de MP (sirve para el Payment Brick y para el Wallet Brick; vuelve a `FRONTEND_URL/pago/resultado` y vence con la reserva). `pagarTotal=true` cobra todo el saldo; `false` (por defecto) lo que falta para la seña. Si ya hay uno iniciado por el mismo monto, lo devuelve. | `404` · `409` vencida, estado inválido, seña ya paga o pago en proceso · `502` MP |
+| `POST /pagos/{reservaId}/pago` | CLIENTE (dueño) | Cobra con el `formData` del Payment Brick (`token`, `payment_method_id`, `installments`, `issuer_id`, `payer`). El monto lo define el servidor. | `400` datos de tarjeta · `404` · `409` sin pago iniciado o reserva fuera de plazo · `502` MP |
 | `POST /pagos/notificacion` | público (Mercado Pago) | Webhook. Acepta `?type=payment&data.id=…`, body `{"type":"payment","data":{"id":…}}` o `?topic=payment&id=…`. Valida `x-signature` si está configurado `MP_WEBHOOK_SECRET`. | `200` también si el pago no existe en MP (se ignora) · `401` firma inválida · `502` error al consultar MP (MP reintenta) |
-| `POST /pagos/{reservaId}/bonificacion` | **ADMIN** | Bonifica la reserva cuando no se le cobra al cliente (socio, torneo, cortesía): todo o una parte. Body opcional `{ "monto": 7500, "motivo": "socio" }`; sin `monto` bonifica todo lo que falta. En un **partido** va `jugadorId` (obligatorio) y sin `monto` se bonifica lo que le falta de su parte a ese jugador. Queda un pago `provider = BONIFICACION` que cubre el monto (la reserva se confirma o queda paga) pero **no es plata**: no cuenta como cobrado, no se devuelve si se cancela y no manda aviso. Se acepta en las mismas reservas que un pago en el club. | `400` monto inválido o mayor al pendiente · `403` EMPLEADO o CLIENTE · `409` reserva paga, vencida o con pago online en proceso |
-| `POST /pagos/{reservaId}/pago-efectivo` | ADMIN, EMPLEADO | Pago en efectivo ya aprobado (`provider = MANUAL`). Body `{ "monto": 5000 }`; en un **partido**, `{ "monto": 3750, "jugadorId": 41 }` (obligatorio: qué jugador paga; en una reserva normal no se manda). Si deja la reserva paga y el turno ya terminó, la reserva pasa a `COMPLETADA`. | `400` monto inválido o mayor al pendiente · `409` estado o pago online en proceso |
-| `POST /pagos/{reservaId}/pago-presencial` | ADMIN, EMPLEADO | Igual, con tarjeta o QR en el club (`provider = MERCADO_PAGO`). | igual |
+| `POST /admin/reservas/{reservaId}/bonificacion` | **ADMIN** | Bonifica la reserva cuando no se le cobra al cliente (socio, torneo, cortesía): todo o una parte. Body opcional `{ "monto": 7500, "motivo": "socio" }`; sin `monto` bonifica todo lo que falta. En un **partido** va `jugadorId` (obligatorio) y sin `monto` se bonifica lo que le falta de su parte a ese jugador. Queda un pago `provider = BONIFICACION` que cubre el monto (la reserva se confirma o queda paga) pero **no es plata**: no cuenta como cobrado, no se devuelve si se cancela y no manda aviso. Se acepta en las mismas reservas que un pago en el club. | `400` monto inválido o mayor al pendiente · `403` EMPLEADO o CLIENTE · `409` reserva paga, vencida o con pago online en proceso |
+| `POST /admin/reservas/{reservaId}/cobros/efectivo` | ADMIN, EMPLEADO | Pago en efectivo ya aprobado (`provider = MANUAL`). Body `{ "monto": 5000 }`; en un **partido**, `{ "monto": 3750, "jugadorId": 41 }` (obligatorio: qué jugador paga; en una reserva normal no se manda). Si deja la reserva paga y el turno ya terminó, la reserva pasa a `COMPLETADA`. | `400` monto inválido o mayor al pendiente · `409` estado o pago online en proceso |
+| `POST /admin/reservas/{reservaId}/cobros/presencial` | ADMIN, EMPLEADO | Igual, con tarjeta o QR en el club (`provider = MERCADO_PAGO`). | igual |
 
 ---
 
@@ -419,7 +419,7 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 
 Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **4 jugadores**: clientes registrados (`usuarioId`) o invitados sin cuenta (`nombre` y, opcional, `telefono`).
 - **No vence.** Sin nada pagado queda `CONFIRMADA`, ocupa la cancha y aparece como deuda si se juega sin pagar.
-- **Se cobra en el club.** Cada jugador paga su parte (`pago-efectivo` / `pago-presencial` con `jugadorId`) y el ADMIN puede bonificarle a un jugador. No se paga online (`409`).
+- **Se cobra en el club.** Cada jugador paga su parte (`cobros/efectivo` / `cobros/presencial` con `jugadorId`) y el ADMIN puede bonificarle a un jugador. No se paga online (`409`).
 - **Su "cliente" es el ADMIN** que lo armó. Los jugadores registrados lo ven en `GET /reservas/mias` y en `GET /reservas/{id}` (sin los teléfonos de los demás), pero no lo pueden pagar ni cancelar.
 - **Lo cancela solo el ADMIN** (`DELETE /admin/reservas/{id}/cancelar`, con `reembolso` si hay plata cobrada). Se avisa a los jugadores registrados; a los ADMIN no se les avisa de los pagos ni de la cancelación.
 
@@ -536,7 +536,7 @@ Reservas pasadas y futuras de cualquier cliente, para consultarlas y cobrar en e
 - `montoTotal`: suma de `montoTotal`.
 - `montoCobrado`: lo que el club se quedó de los pagos (aprobado menos lo devuelto o por devolver; de una cancelada sin reembolso, lo pagado).
 - `montoBonificado`: lo que el ADMIN bonificó (no es plata y no está en `montoCobrado`).
-- `cobradoEfectivo` y `cobradoMercadoPago`: `montoCobrado` por medio de pago. Efectivo son los `pago-efectivo`; Mercado Pago, los cobros online (Brick o Wallet) y con tarjeta o QR en el mostrador (`pago-presencial`). Siempre suman `montoCobrado`.
+- `cobradoEfectivo` y `cobradoMercadoPago`: `montoCobrado` por medio de pago. Efectivo son los `cobros/efectivo`; Mercado Pago, los cobros online (Brick o Wallet) y con tarjeta o QR en el mostrador (`cobros/presencial`). Siempre suman `montoCobrado`.
 - `montoPendiente`: lo que deben las `SEÑADA` y `PARCIALMENTE_PAGADA` (las canceladas, vencidas o pendientes no deben).
 
 Errores: `400` si `desde` es posterior a `hasta`, un estado no existe (`errors.estado`), una fecha no tiene el formato, `size` está fuera de 1 a 100, `page` es negativa u `orden` no es `asc`/`desc` · `403` CLIENTE o PROFESOR.
@@ -566,14 +566,14 @@ Errores: `400 errors.buscar` si falta · `400` si tiene menos de 2 caracteres ·
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
-| `POST /admin/reservas` → `201` | Reserva a nombre de un cliente. Mismo body que `POST /reservas` más `clienteId` (obligatorio: un CLIENTE habilitado con el perfil completo) y `bonificacion` (opcional, **solo ADMIN**: se crea y se bonifica en la misma operación, igual que `POST /pagos/{id}/bonificacion`; `monto` null bonifica el total). | Los de `POST /reservas` · `400` "ADMIN y EMPLEADO deben indicar el clienteId de la reserva.", "El usuario indicado no es un cliente." o cuenta desactivada · `403` bonificación de un EMPLEADO (no se crea nada) |
+| `POST /admin/reservas` → `201` | Reserva a nombre de un cliente. Mismo body que `POST /reservas` más `clienteId` (obligatorio: un CLIENTE habilitado con el perfil completo) y `bonificacion` (opcional, **solo ADMIN**: se crea y se bonifica en la misma operación, igual que `POST /admin/reservas/{id}/bonificacion`; `monto` null bonifica el total). | Los de `POST /reservas` · `400` "ADMIN y EMPLEADO deben indicar el clienteId de la reserva.", "El usuario indicado no es un cliente." o cuenta desactivada · `403` bonificación de un EMPLEADO (no se crea nada) |
 | `GET /admin/reservas/{id}` → `200` | Detalle de cualquier reserva, con los pagos. | `404` |
 | `DELETE /admin/reservas/{id}/cancelar?reembolso=TOTAL\|SENIA\|NADA` → `200 ReservaResponse` | Cancela cualquier reserva hasta que termina el turno. `reembolso` es obligatorio si tiene dinero cobrado. Un partido lo cancela solo el ADMIN. | `400` reembolso faltante · `403` EMPLEADO con un partido · `404` · `409` como en `/reservas` |
 | `GET /admin/reservas/saldos-pendientes` → `200` | Turnos ya jugados que deben saldo (`SEÑADA` o `PARCIALMENTE_PAGADA` con el turno terminado), del más viejo al más nuevo. El listado con `?pendientes=true` también los muestra. | |
 | `GET /admin/reservas/devoluciones-pendientes` → `200` | Reservas cuyo turno ya empezó y tienen paletas sin devolver. | |
 | `POST /admin/reservas/{id}/devolucion` → `200` | Body `{ "paletasDevueltas": 3 }`. Registra la devolución; las faltantes se descuentan del stock. Devuelve la reserva. | `400` cantidad fuera de rango · `404` · `409` turno sin empezar, reserva sin paletas, no confirmada o devolución ya registrada |
 
-Cobrar en el club la seña, el saldo o el total: `POST /pagos/{reservaId}/pago-efectivo` y `/pago-presencial`, body `{ "monto": 7500 }`. Aceptan reservas `SEÑADA` y `PARCIALMENTE_PAGADA` aunque el turno no se haya jugado, y `PENDIENTE` mientras esté en plazo (15 min).
+Cobrar en el club la seña, el saldo o el total: `POST /admin/reservas/{reservaId}/cobros/efectivo` y `/cobros/presencial`, body `{ "monto": 7500 }`. Aceptan reservas `SEÑADA` y `PARCIALMENTE_PAGADA` aunque el turno no se haya jugado, y `PENDIENTE` mientras esté en plazo (15 min).
 
 ---
 
@@ -636,9 +636,9 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 
 | Campo | Cómo se calcula |
 |---|---|
-| `efectivo` | Monto completo de los pagos `MANUAL` (`pago-efectivo`) cobrados en el período |
+| `efectivo` | Monto completo de los pagos `MANUAL` (`cobros/efectivo`) cobrados en el período |
 | `mercadoPagoOnline` | Pagos `MERCADO_PAGO` con id de pago de MP (Brick o Wallet) cobrados en el período |
-| `mercadoPagoPresencial` | Pagos `MERCADO_PAGO` sin id de MP: tarjeta o QR en el mostrador (`pago-presencial`) |
+| `mercadoPagoPresencial` | Pagos `MERCADO_PAGO` sin id de MP: tarjeta o QR en el mostrador (`cobros/presencial`) |
 | `total` | `efectivo + mercadoPagoOnline + mercadoPagoPresencial` |
 | `devoluciones` | Lo devuelto (`montoReembolsado`) de los pagos `DEVUELTO` cuyo reembolso se hizo en el período |
 | `neto` | `total − devoluciones` (puede ser negativo un día con devoluciones y sin cobros) |

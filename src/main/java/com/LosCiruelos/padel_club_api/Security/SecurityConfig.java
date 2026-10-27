@@ -71,19 +71,17 @@ public class SecurityConfig {
                         // Resumen del período: también lo ve el personal
                         .requestMatchers(HttpMethod.GET, "/admin/resumen").hasAnyRole("ADMIN", "EMPLEADO")
                         // Panel del personal: reservas y búsqueda de clientes
+                        // Bonificar (no cobrarle al cliente): solo ADMIN
+                        .requestMatchers(HttpMethod.POST, "/admin/reservas/*/bonificacion").hasRole("ADMIN")
                         .requestMatchers("/admin/reservas", "/admin/reservas/**").hasAnyRole("ADMIN", "EMPLEADO")
                         .requestMatchers(HttpMethod.GET, "/admin/clientes").hasAnyRole("ADMIN", "EMPLEADO")
                         // Reservas del cliente (las del personal están en /admin/reservas)
                         .requestMatchers("/reservas", "/reservas/**").hasRole("CLIENTE")
+                        // Pagos online del cliente (el webhook es público, más arriba)
+                        .requestMatchers("/pagos/**").hasRole("CLIENTE")
 
                         // Solo ADMIN
                         .requestMatchers("/admin/**").hasRole("ADMIN")
-
-                        // Pagos que registra el personal del club (además del @PreAuthorize)
-                        // Bonificar (no cobrarle al cliente): solo ADMIN
-                        .requestMatchers(HttpMethod.POST, "/pagos/*/bonificacion").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/pagos/*/pago-efectivo", "/pagos/*/pago-presencial")
-                        .hasAnyRole("ADMIN", "EMPLEADO")
 
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
