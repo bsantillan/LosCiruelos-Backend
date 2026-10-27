@@ -83,7 +83,7 @@ public final class ReservaSpecification {
      * Listado del personal: combina todos los filtros que vengan (los null no filtran). A diferencia
      * de "Mis reservas", incluye las canceladas y vencidas sin pago.
      */
-    public static Specification<Reserva> paraPersonal(FiltroReservasAdmin filtro) {
+    public static Specification<Reserva> paraPersonal(FiltroReservas filtro) {
         return (root, query, cb) -> {
             List<Predicate> condiciones = new ArrayList<>();
             if (filtro.desde() != null) {

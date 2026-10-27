@@ -11,10 +11,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +18,6 @@ import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Cancha;
 import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
@@ -30,7 +25,6 @@ import com.LosCiruelos.padel_club_api.Entities.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.Producto;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
@@ -39,21 +33,19 @@ import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaNoEncontradaException;
 import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
-import com.LosCiruelos.padel_club_api.common.Paginacion;
 import com.LosCiruelos.padel_club_api.common.Reloj;
-import com.LosCiruelos.padel_club_api.common.Roles;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.ReservaProducto;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
-import com.LosCiruelos.padel_club_api.reservas.repository.ReservaSpecification;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Reservas de canchas.
+ * Ciclo de vida de las reservas: crear, cambiar una pendiente, expirar, completar y registrar la
+ * devolución de paletas. Las consultas están en {@link ReservaConsultaService}.
  *
  * Regla de concurrencia: toda operación que modifica una reserva o sus pagos la
  * carga primero con {@link #bloquear(Long)} (SELECT ... FOR UPDATE) y después
@@ -79,87 +71,8 @@ public class ReservaService {
     private final DisponibilidadService disponibilidad;
     private final Reloj reloj;
 
-    // ── Consultas ────────────────────────────────────────────────────────
-
-    public static final int TAMANIO_MAXIMO_PAGINA = 50;
-
-    /**
-     * Reservas del usuario, filtradas y paginadas.
-     *
-     * @param tipo "proximas" (turno sin terminar que ocupa la cancha), "historial" (el resto) o null (todas)
-     * @param incluirDescartadas si es false (por defecto) no se muestran las canceladas y vencidas sin
-     *                           ningún pago que haya movido dinero, aunque se filtre por esos estados
-     * Orden fijo: próximas de la más cercana a la más lejana; historial y todas, de la más nueva a la más vieja.
-     */
-    @Transactional(readOnly = true)
-    public PaginaResponse<ReservaResponse> misReservas(String email, String tipo, List<EstadoReserva> estados,
-            LocalDate desde, LocalDate hasta, boolean incluirDescartadas, int pagina, int tamanio) {
-        Paginacion.validar(pagina, tamanio, TAMANIO_MAXIMO_PAGINA);
-        if (desde != null && hasta != null && desde.isAfter(hasta)) {
-            throw new ReservaException("La fecha desde no puede ser posterior a hasta.");
-        }
-
-        Usuario usuario = usuarioService.autenticado(email);
-        LocalDateTime ahora = reloj.ahora();
-
-        // las suyas y los partidos en los que juega
-        Specification<Reserva> filtro = ReservaSpecification.delClienteOJugador(usuario);
-        Sort orden = Sort.by(Sort.Direction.DESC, "fechaReserva", "horaInicio");
-        if (tipo != null && !tipo.isBlank()) {
-            switch (tipo.trim().toLowerCase()) {
-                case "proximas" -> {
-                    filtro = filtro.and(ReservaSpecification.proximas(ahora));
-                    orden = Sort.by(Sort.Direction.ASC, "fechaReserva", "horaInicio");
-                }
-                case "historial" -> filtro = filtro.and(ReservaSpecification.historial(ahora));
-                default -> throw new ReservaException("El tipo tiene que ser 'proximas' o 'historial'.");
-            }
-        }
-        if (estados != null && !estados.isEmpty()) {
-            filtro = filtro.and(ReservaSpecification.conEstados(estados));
-        }
-        // las descartadas se ocultan siempre (también filtrando por estado); como es parte del
-        // filtro, el conteo del paginado (totalElementos) también las excluye
-        if (!incluirDescartadas) {
-            filtro = filtro.and(ReservaSpecification.sinDescartadas());
-        }
-        if (desde != null) {
-            filtro = filtro.and(ReservaSpecification.desde(desde));
-        }
-        if (hasta != null) {
-            filtro = filtro.and(ReservaSpecification.hasta(hasta));
-        }
-
-        Page<ReservaResponse> resultado = reservaRepository.findAll(filtro, PageRequest.of(pagina, tamanio, orden))
-                .map(r -> mapper.aResponsePara(r, usuario));
-        return PaginaResponse.de(resultado);
-    }
-
-    @Transactional(readOnly = true)
-    public ReservaResponse obtener(Long id, String email) {
-        Usuario usuario = usuarioService.autenticado(email);
-        Reserva reserva = reservaRepository.findById(id).orElseThrow(() -> new ReservaNoEncontradaException(id));
-        verificarLectura(reserva, usuario);
-        return mapper.aResponsePara(reserva, usuario);
-    }
-
     public Reserva save(Reserva reserva) {
         return reservaRepository.save(reserva);
-    }
-
-    public long contarPorEstado(Usuario cliente, EstadoReserva estado) {
-        return reservaRepository.countByClienteAndEstado(cliente, estado);
-    }
-
-    public Long countPartidosEsteMes(Long clienteId, EstadoReserva estado) {
-        LocalDate hoy = reloj.hoy();
-        return reservaRepository.countPartidosEsteMes(
-                clienteId, estado, hoy.withDayOfMonth(1), hoy.withDayOfMonth(hoy.lengthOfMonth()));
-    }
-
-    public Optional<Reserva> ultimaReservaCompletada(Usuario cliente) {
-        return reservaRepository.findFirstByClienteAndEstadoOrderByFechaReservaDescHoraInicioDesc(
-                cliente, EstadoReserva.COMPLETADA);
     }
 
     // ── Bloqueo y acceso ─────────────────────────────────────────────────
@@ -171,26 +84,10 @@ public class ReservaService {
 
     public Reserva bloquearConAcceso(Long id, Usuario usuario) {
         Reserva reserva = bloquear(id);
-        verificarAcceso(reserva, usuario);
+        if (!reserva.puedeOperarla(usuario)) {
+            throw new ReservaNoEncontradaException(id);
+        }
         return reserva;
-    }
-
-    /**
-     * Un CLIENTE solo puede operar sus propias reservas; ADMIN y EMPLEADO, cualquiera.
-     * Si no tiene acceso se responde "no encontrada" para no revelar ids ajenos.
-     */
-    public void verificarAcceso(Reserva reserva, Usuario usuario) {
-        boolean esDuenio = reserva.getCliente().getId().equals(usuario.getId());
-        if (!Roles.esPersonal(usuario) && !esDuenio) {
-            throw new ReservaNoEncontradaException(reserva.getId());
-        }
-    }
-
-    /** Para ver la reserva alcanza con jugar el partido (pero no para pagarlo ni cancelarlo). */
-    void verificarLectura(Reserva reserva, Usuario usuario) {
-        if (!reserva.esPartido() || !reserva.esJugador(usuario)) {
-            verificarAcceso(reserva, usuario);
-        }
     }
 
     // ── Creación ─────────────────────────────────────────────────────────
@@ -465,30 +362,6 @@ public class ReservaService {
         log.info("Reserva #{}: {} de {} paletas devueltas (registró {})", id, paletasDevueltas, item.getCantidad(),
                 emailPersonal);
         return mapper.aResponse(reserva);
-    }
-
-    /** Reservas cuyo turno ya empezó y todavía tienen paletas sin devolver. */
-    @Transactional(readOnly = true)
-    public List<ReservaResponse> devolucionesPendientes() {
-        LocalDateTime ahora = reloj.ahora();
-        return reservaRepository.findConAlquileresSinDevolver(TipoProducto.ALQUILER, Reserva.ESTADOS_QUE_SE_JUEGAN,
-                ahora.toLocalDate(), ahora.toLocalTime()).stream()
-                .map(mapper::aResponse)
-                .toList();
-    }
-
-    /**
-     * Turnos ya jugados que deben saldo (SEÑADA o PARCIALMENTE_PAGADA con el turno terminado),
-     * del más viejo al más nuevo. Al registrar el pago del saldo pasan a COMPLETADA.
-     */
-    @Transactional(readOnly = true)
-    public List<ReservaResponse> saldosPendientes() {
-        LocalDateTime ahora = reloj.ahora();
-        return reservaRepository.findTerminadasConSaldo(
-                Reserva.ESTADOS_CON_SALDO,
-                ahora.toLocalDate(), ahora.toLocalTime()).stream()
-                .map(mapper::aResponse)
-                .toList();
     }
 
     /** Expira la reserva (ya bloqueada) y devuelve su stock. */

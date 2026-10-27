@@ -28,7 +28,8 @@ import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 
 import jakarta.persistence.LockModeType;
 
-public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpecificationExecutor<Reserva> {
+public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpecificationExecutor<Reserva>,
+        ReservaConsultas {
 
     /**
      * Carga la reserva con un lock de escritura (SELECT ... FOR UPDATE).

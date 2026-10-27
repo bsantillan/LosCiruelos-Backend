@@ -11,6 +11,7 @@ import java.util.Set;
 
 import com.LosCiruelos.padel_club_api.Entities.Cancha;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
+import com.LosCiruelos.padel_club_api.common.Roles;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.common.Dinero;
@@ -179,6 +180,19 @@ public class Reserva {
         }
         return parteDe(jugador.getPosicion()).subtract(pagadoPor(jugador)).subtract(bonificadoA(jugador))
                 .max(BigDecimal.ZERO).min(getMontoPendiente());
+    }
+
+    /**
+     * La puede operar (pagar, cancelar, modificar): su cliente o el personal. Si no puede, se
+     * responde "no encontrada" para no revelar ids ajenos.
+     */
+    public boolean puedeOperarla(Usuario usuario) {
+        return Roles.esPersonal(usuario) || cliente.getId().equals(usuario.getId());
+    }
+
+    /** La puede ver: quien la puede operar, o un jugador del partido. */
+    public boolean puedeVerla(Usuario usuario) {
+        return puedeOperarla(usuario) || (esPartido() && esJugador(usuario));
     }
 
     public boolean esJugador(Usuario usuario) {

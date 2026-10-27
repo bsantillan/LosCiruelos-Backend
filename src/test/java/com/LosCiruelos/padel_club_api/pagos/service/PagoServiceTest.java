@@ -38,6 +38,7 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentResult;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 import com.LosCiruelos.padel_club_api.reservas.service.StockService;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
@@ -60,6 +61,7 @@ class PagoServiceTest {
 
     private PaymentService mercadoPago;
     private ReservaService reservaService;
+    private ReservaConsultaService reservaConsultaService;
     private PagoRepository pagoRepository;
     private UsuarioService usuarioService;
     private PagoService pagoService;
@@ -95,7 +97,8 @@ class PagoServiceTest {
         when(usuarioService.autenticado(cliente.getEmail())).thenReturn(cliente);
         when(usuarioService.autenticado(empleado.getEmail())).thenReturn(empleado);
 
-        pagoService = new PagoService(factory, reservaService, pagoRepository,
+        pagoService = new PagoService(factory, reservaService, reservaConsultaService = mock(ReservaConsultaService.class),
+                pagoRepository,
                 new ConfiguracionService(configuracionRepository), usuarioService, mock(StockService.class),
                 TestData.reloj(AHORA), eventos = mock(ApplicationEventPublisher.class), new PagoMapper());
     }
@@ -1011,7 +1014,7 @@ class PagoServiceTest {
             bonif.setMotivo("torneo");
             req.setBonificacion(bonif);
             when(reservaService.crearReserva(req, admin.getEmail())).thenReturn(creada);
-            when(reservaService.obtener(10L, admin.getEmail())).thenReturn(creada);
+            when(reservaConsultaService.obtener(10L, admin.getEmail())).thenReturn(creada);
 
             assertThat(pagoService.crearReservaBonificada(req, admin.getEmail())).isSameAs(creada);
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.PAGADA);

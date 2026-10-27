@@ -26,6 +26,7 @@ import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;
 import com.LosCiruelos.padel_club_api.reservas.service.CancelacionService;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 
 import jakarta.validation.Valid;
@@ -38,6 +39,7 @@ import lombok.RequiredArgsConstructor;
 public class ReservaController {
 
     private final ReservaService reservaService;
+    private final ReservaConsultaService reservaConsultaService;
     private final CancelacionService cancelacionService;
     private final PagoService pagoService;
 
@@ -68,7 +70,7 @@ public class ReservaController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             Authentication authentication) {
-        return ResponseEntity.ok(reservaService.misReservas(authentication.getName(), tipo, estado, desde, hasta,
+        return ResponseEntity.ok(reservaConsultaService.misReservas(authentication.getName(), tipo, estado, desde, hasta,
                 incluirDescartadas, page, size));
     }
 
@@ -76,20 +78,20 @@ public class ReservaController {
     @GetMapping("/saldos-pendientes")
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
     public ResponseEntity<List<ReservaResponse>> saldosPendientes() {
-        return ResponseEntity.ok(reservaService.saldosPendientes());
+        return ResponseEntity.ok(reservaConsultaService.saldosPendientes());
     }
 
     /** Detalle con sus pagos (el front lo consulta para ver el resultado de un pago en proceso). */
     @GetMapping("/{id}")
     public ResponseEntity<ReservaResponse> obtenerReserva(@PathVariable Long id, Authentication authentication) {
-        return ResponseEntity.ok(reservaService.obtener(id, authentication.getName()));
+        return ResponseEntity.ok(reservaConsultaService.obtener(id, authentication.getName()));
     }
 
     /** Personal del club: reservas cuyo turno empezó y tienen paletas sin devolver. */
     @GetMapping("/devoluciones-pendientes")
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
     public ResponseEntity<List<ReservaResponse>> devolucionesPendientes() {
-        return ResponseEntity.ok(reservaService.devolucionesPendientes());
+        return ResponseEntity.ok(reservaConsultaService.devolucionesPendientes());
     }
 
     /** Personal del club: registra cuántas paletas devolvieron (las faltantes bajan el stock). */

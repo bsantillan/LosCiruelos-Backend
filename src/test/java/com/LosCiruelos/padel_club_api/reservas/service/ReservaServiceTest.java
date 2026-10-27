@@ -29,11 +29,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import com.LosCiruelos.padel_club_api.Services.CanchaService;
@@ -43,7 +38,6 @@ import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.Entities.ClienteProfile;
 import com.LosCiruelos.padel_club_api.Entities.Configuracion;
@@ -58,7 +52,6 @@ import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaNoEncontradaException;
 import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
 import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
@@ -507,117 +500,9 @@ class ReservaServiceTest {
                     .hasMessageContaining("no tiene paletas");
         }
 
-        @Test
-        void listaLasDevolucionesPendientes() {
-            when(reservaRepository.findConAlquileresSinDevolver(eq(TipoProducto.ALQUILER),
-                    eq(Reserva.ESTADOS_QUE_SE_JUEGAN), eq(HOY), eq(AHORA.toLocalTime()))).thenReturn(List.of(jugada));
-
-            assertThat(reservaService.devolucionesPendientes()).extracting(ReservaResponse::getId).containsExactly(20L);
-        }
-    }
-
-    @Test
-    void obtenerUnaReservaAjenaDevuelveNoEncontrada() {
-        Reserva ajena = reserva(11L, otroCliente, EstadoReserva.PENDIENTE, "15000");
-        when(reservaRepository.findById(11L)).thenReturn(Optional.of(ajena));
-
-        assertThatThrownBy(() -> reservaService.obtener(11L, cliente.getEmail()))
-                .isInstanceOf(ReservaNoEncontradaException.class);
-        assertThat(reservaService.obtener(11L, otroCliente.getEmail()).getId()).isEqualTo(11L);
     }
 
     // ─────────────────────────────────────────────────────────────────────
-
-    @Nested
-    class MisReservas {
-
-        @BeforeEach
-        void unaPagina() {
-            when(reservaRepository.findAll(org.mockito.ArgumentMatchers.<Specification<Reserva>>any(),
-                    any(Pageable.class))).thenAnswer(inv -> {
-                        Pageable p = inv.getArgument(1);
-                        return new PageImpl<>(List.of(reserva(1L, cliente, EstadoReserva.PAGADA, "15000")), p, 37);
-                    });
-        }
-
-        private Pageable pedido() {
-            ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-            verify(reservaRepository).findAll(org.mockito.ArgumentMatchers.<Specification<Reserva>>any(),
-                    captor.capture());
-            return captor.getValue();
-        }
-
-        @Test
-        void devuelveUnaPaginaConElTotal() {
-            PaginaResponse<ReservaResponse> r = reservaService.misReservas(cliente.getEmail(), "historial",
-                    List.of(EstadoReserva.COMPLETADA), HOY.minusDays(30), HOY, false, 2, 10);
-
-            assertThat(r.contenido()).hasSize(1);
-            assertThat(r.pagina()).isEqualTo(2);
-            assertThat(r.tamanio()).isEqualTo(10);
-            assertThat(r.totalElementos()).isEqualTo(37);
-            assertThat(r.totalPaginas()).isEqualTo(4);
-            assertThat(pedido().getSort()).isEqualTo(Sort.by(Sort.Direction.DESC, "fechaReserva", "horaInicio"));
-        }
-
-        @Test
-        void lasProximasVanDeLaMasCercanaALaMasLejana() {
-            reservaService.misReservas(cliente.getEmail(), "PROXIMAS", null, null, null, false, 0, 50);
-
-            assertThat(pedido().getSort()).isEqualTo(Sort.by(Sort.Direction.ASC, "fechaReserva", "horaInicio"));
-        }
-
-        @Test
-        void sinTipoOrdenaDeLaMasNuevaALaMasVieja() {
-            reservaService.misReservas(cliente.getEmail(), null, null, null, null, false, 0, 10);
-
-            assertThat(pedido().getSort()).isEqualTo(Sort.by(Sort.Direction.DESC, "fechaReserva", "horaInicio"));
-        }
-
-        @Test
-        void unaReservaJugadaSinPagarDelTodoDebeSaldo() {
-            Reserva jugada = reserva(30L, cliente, EstadoReserva.SEÑADA, "15000");
-            jugada.setFechaReserva(HOY.minusDays(1));
-            Reserva futura = reserva(31L, cliente, EstadoReserva.SEÑADA, "15000");
-            Reserva pagaYJugada = reserva(32L, cliente, EstadoReserva.COMPLETADA, "15000");
-            pagaYJugada.setFechaReserva(HOY.minusDays(1));
-
-            ReservaResponse r = mapper.aResponse(jugada);
-            assertThat(r.getTurnoTerminado()).isTrue();
-            assertThat(r.getDebeSaldo()).isTrue();
-
-            assertThat(mapper.aResponse(futura).getDebeSaldo()).isFalse();
-            assertThat(mapper.aResponse(pagaYJugada).getTurnoTerminado()).isTrue();
-            assertThat(mapper.aResponse(pagaYJugada).getDebeSaldo()).isFalse();
-        }
-
-        @Test
-        void listaLosTurnosJugadosQueDebenSaldo() {
-            Reserva jugada = reserva(30L, cliente, EstadoReserva.PARCIALMENTE_PAGADA, "15000");
-            jugada.setFechaReserva(HOY.minusDays(1));
-            when(reservaRepository.findTerminadasConSaldo(Reserva.ESTADOS_CON_SALDO, HOY, AHORA.toLocalTime()))
-                    .thenReturn(List.of(jugada));
-
-            assertThat(reservaService.saldosPendientes()).extracting(ReservaResponse::getId).containsExactly(30L);
-        }
-
-        @Test
-        void validaLosParametros() {
-            assertThatThrownBy(() -> reservaService.misReservas(cliente.getEmail(), null, null, null, null, false, -1, 10))
-                    .isInstanceOf(ReservaException.class);
-            assertThatThrownBy(() -> reservaService.misReservas(cliente.getEmail(), null, null, null, null, false, 0, 51))
-                    .isInstanceOf(ReservaException.class);
-            assertThatThrownBy(() -> reservaService.misReservas(cliente.getEmail(), null, null, null, null, false, 0, 0))
-                    .isInstanceOf(ReservaException.class);
-            assertThatThrownBy(() -> reservaService.misReservas(cliente.getEmail(), null, null, HOY, HOY.minusDays(1),
-                    false, 0, 10))
-                    .isInstanceOf(ReservaException.class)
-                    .hasMessage("La fecha desde no puede ser posterior a hasta.");
-            assertThatThrownBy(() -> reservaService.misReservas(cliente.getEmail(), "futuras", null, null, null, false, 0, 10))
-                    .isInstanceOf(ReservaException.class)
-                    .hasMessageContaining("proximas");
-        }
-    }
 
     @Test
     void elJobSoloCompletaReservasPagadas() {

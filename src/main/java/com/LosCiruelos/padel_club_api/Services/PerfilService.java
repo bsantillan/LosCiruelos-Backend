@@ -18,7 +18,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
 import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
 import com.LosCiruelos.padel_club_api.Security.JWTUtil;
 import com.LosCiruelos.padel_club_api.common.Reloj;
-import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,7 +28,7 @@ public class PerfilService {
 
     private final UsuarioService usuarioService;
     private final ClienteProfileService clienteProfileService;
-    private final ReservaService reservaService;
+    private final ReservaConsultaService reservaConsultaService;
     private final JWTUtil jwtUtil;
     private final Reloj reloj;
 
@@ -111,9 +111,9 @@ public class PerfilService {
         response.setPerfilCompleto(clienteProfileService.perfilCompleto(usuario));
 
         response.setCantDiasMiembro((int) ChronoUnit.DAYS.between(usuario.getTermsAcceptedAt(), ahora));
-        response.setCantPartidos((int) reservaService.contarPorEstado(usuario, EstadoReserva.COMPLETADA));
-        response.setCantPartidosEsteMes(reservaService.countPartidosEsteMes(usuario.getId(), EstadoReserva.COMPLETADA));
-        response.setDiasDesdeUltimoPartido(reservaService.ultimaReservaCompletada(usuario)
+        response.setCantPartidos((int) reservaConsultaService.contarPorEstado(usuario, EstadoReserva.COMPLETADA));
+        response.setCantPartidosEsteMes(reservaConsultaService.countPartidosEsteMes(usuario.getId(), EstadoReserva.COMPLETADA));
+        response.setDiasDesdeUltimoPartido(reservaConsultaService.ultimaReservaCompletada(usuario)
                 .map(r -> Math.toIntExact(ChronoUnit.DAYS.between(r.getFechaReserva(), reloj.hoy())))
                 .orElse(null));
 

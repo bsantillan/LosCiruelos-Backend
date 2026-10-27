@@ -73,7 +73,7 @@ import com.LosCiruelos.padel_club_api.Services.PerfilService;
 import com.LosCiruelos.padel_club_api.Services.ProductoService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 import com.LosCiruelos.padel_club_api.Services.ResumenService;
-import com.LosCiruelos.padel_club_api.reservas.service.ReservaAdminService;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 import com.LosCiruelos.padel_club_api.Services.BusquedaClientesService;
 import com.LosCiruelos.padel_club_api.Services.VerificationService;
 import com.LosCiruelos.padel_club_api.pagos.mercadopago.MercadoPagoWebhookValidator;
@@ -102,7 +102,7 @@ class ControllersTest {
     private StockService stockService;
     private NotificacionesService notificacionesService;
     private ResumenService resumenService;
-    private ReservaAdminService reservaAdminService;
+    private ReservaConsultaService reservaConsultaService;
     private BusquedaClientesService busquedaClientesService;
     private MockMvc mvc;
 
@@ -123,11 +123,11 @@ class ControllersTest {
         stockService = mock(StockService.class);
         notificacionesService = mock(NotificacionesService.class);
         resumenService = mock(ResumenService.class);
-        reservaAdminService = mock(ReservaAdminService.class);
+        reservaConsultaService = mock(ReservaConsultaService.class);
         busquedaClientesService = mock(BusquedaClientesService.class);
 
         mvc = MockMvcBuilders.standaloneSetup(
-                new ReservaController(reservaService, cancelacionService, pagoService),
+                new ReservaController(reservaService, reservaConsultaService, cancelacionService, pagoService),
                 new PagoController(pagoService, webhookValidator),
                 new AuthController(authService, verificationService, passwordResetService),
                 new PerfilController(perfilService),
@@ -137,7 +137,7 @@ class ControllersTest {
                 new AdminProductoController(productoService),
                 new NotificacionesController(notificacionesService),
                 new ResumenController(resumenService),
-                new PanelPersonalController(reservaAdminService, busquedaClientesService))
+                new PanelPersonalController(reservaConsultaService, busquedaClientesService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
                 // mismo formato de fechas que la app
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
@@ -203,14 +203,14 @@ class ControllersTest {
 
         @Test
         void reservaAjenaDevuelve404() throws Exception {
-            when(reservaService.obtener(7L, EMAIL)).thenThrow(new ReservaNoEncontradaException(7L));
+            when(reservaConsultaService.obtener(7L, EMAIL)).thenThrow(new ReservaNoEncontradaException(7L));
 
             mvc.perform(get("/reservas/7").principal(AUTH)).andExpect(status().isNotFound());
         }
 
         @Test
         void misReservasCancelarYExpirar() throws Exception {
-            when(reservaService.misReservas(EMAIL, null, null, null, null, false, 0, 10))
+            when(reservaConsultaService.misReservas(EMAIL, null, null, null, null, false, 0, 10))
                     .thenReturn(new PaginaResponse<>(List.of(new ReservaResponse()), 0, 10, 1, 1));
 
             mvc.perform(get("/reservas/mias").principal(AUTH))
@@ -293,7 +293,7 @@ class ControllersTest {
             r.setCreatedAt(java.time.LocalDateTime.of(2099, 1, 1, 18, 0));
             r.setFechaReserva(java.time.LocalDate.of(2099, 1, 2));
             r.setHoraInicio(java.time.LocalTime.of(18, 0));
-            when(reservaService.obtener(9L, EMAIL)).thenReturn(r);
+            when(reservaConsultaService.obtener(9L, EMAIL)).thenReturn(r);
 
             mvc.perform(get("/reservas/9").principal(AUTH))
                     .andExpect(jsonPath("$.expiresAt").value("2099-01-01T18:15:00.123-03:00"))
@@ -304,7 +304,7 @@ class ControllersTest {
 
         @Test
         void elTimestampDeLosErroresUsaElMismoFormato() throws Exception {
-            when(reservaService.obtener(9L, EMAIL)).thenThrow(new ReservaNoEncontradaException(9L));
+            when(reservaConsultaService.obtener(9L, EMAIL)).thenThrow(new ReservaNoEncontradaException(9L));
 
             mvc.perform(get("/reservas/9").principal(AUTH))
                     .andExpect(jsonPath("$.timestamp").value("2026-10-13T10:00:00.000-03:00"));
@@ -505,7 +505,7 @@ class ControllersTest {
 
         @Test
         void devolucionDePaletas() throws Exception {
-            when(reservaService.devolucionesPendientes()).thenReturn(List.of(new ReservaResponse()));
+            when(reservaConsultaService.devolucionesPendientes()).thenReturn(List.of(new ReservaResponse()));
             when(reservaService.registrarDevolucion(5L, 2, EMAIL)).thenReturn(new ReservaResponse());
 
             mvc.perform(get("/reservas/devoluciones-pendientes").principal(AUTH))
@@ -520,7 +520,7 @@ class ControllersTest {
 
         @Test
         void saldosPendientes() throws Exception {
-            when(reservaService.saldosPendientes()).thenReturn(List.of(new ReservaResponse(), new ReservaResponse()));
+            when(reservaConsultaService.saldosPendientes()).thenReturn(List.of(new ReservaResponse(), new ReservaResponse()));
 
             mvc.perform(get("/reservas/saldos-pendientes").principal(AUTH))
                     .andExpect(status().isOk())
@@ -555,7 +555,7 @@ class ControllersTest {
 
         @Test
         void pasaLosFiltrosAlServicio() throws Exception {
-            when(reservaService.misReservas(any(), any(), any(), any(), any(), anyBoolean(), anyInt(), anyInt()))
+            when(reservaConsultaService.misReservas(any(), any(), any(), any(), any(), anyBoolean(), anyInt(), anyInt()))
                     .thenReturn(new PaginaResponse<>(List.of(), 1, 5, 0, 0));
 
             mvc.perform(get("/reservas/mias").principal(AUTH)
@@ -565,20 +565,20 @@ class ControllersTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.pagina").value(1));
 
-            verify(reservaService).misReservas(EMAIL, "historial",
+            verify(reservaConsultaService).misReservas(EMAIL, "historial",
                     List.of(EstadoReserva.SEÑADA, EstadoReserva.PAGADA),
                     java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31), false, 1, 5);
         }
 
         @Test
         void pideLasDescartadas() throws Exception {
-            when(reservaService.misReservas(any(), any(), any(), any(), any(), anyBoolean(), anyInt(), anyInt()))
+            when(reservaConsultaService.misReservas(any(), any(), any(), any(), any(), anyBoolean(), anyInt(), anyInt()))
                     .thenReturn(new PaginaResponse<>(List.of(), 0, 10, 0, 0));
 
             mvc.perform(get("/reservas/mias").principal(AUTH).param("incluirDescartadas", "true"))
                     .andExpect(status().isOk());
 
-            verify(reservaService).misReservas(EMAIL, null, null, null, null, true, 0, 10);
+            verify(reservaConsultaService).misReservas(EMAIL, null, null, null, null, true, 0, 10);
         }
 
         @Test
@@ -602,19 +602,19 @@ class ControllersTest {
 
         @Test
         void sinPermisosDevuelve403() throws Exception {
-            when(reservaService.misReservas(EMAIL, null, null, null, null, false, 0, 10)).thenThrow(new AccessDeniedException("no"));
+            when(reservaConsultaService.misReservas(EMAIL, null, null, null, null, false, 0, 10)).thenThrow(new AccessDeniedException("no"));
             mvc.perform(get("/reservas/mias").principal(AUTH)).andExpect(status().isForbidden());
         }
 
         @Test
         void conflictoDeIntegridadDevuelve409() throws Exception {
-            when(reservaService.misReservas(EMAIL, null, null, null, null, false, 0, 10)).thenThrow(new DataIntegrityViolationException("dup"));
+            when(reservaConsultaService.misReservas(EMAIL, null, null, null, null, false, 0, 10)).thenThrow(new DataIntegrityViolationException("dup"));
             mvc.perform(get("/reservas/mias").principal(AUTH)).andExpect(status().isConflict());
         }
 
         @Test
         void errorInesperadoDevuelve500SinDetallesInternos() throws Exception {
-            when(reservaService.misReservas(EMAIL, null, null, null, null, false, 0, 10)).thenThrow(new IllegalStateException("password=secreta"));
+            when(reservaConsultaService.misReservas(EMAIL, null, null, null, null, false, 0, 10)).thenThrow(new IllegalStateException("password=secreta"));
             mvc.perform(get("/reservas/mias").principal(AUTH))
                     .andExpect(status().isInternalServerError())
                     .andExpect(jsonPath("$.error").value("Ocurrió un error inesperado. Intentá de nuevo."));
@@ -792,7 +792,7 @@ class ControllersTest {
 
         @Test
         void listaConTodosLosFiltrosYLosTotales() throws Exception {
-            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenReturn(pagina());
 
             mvc.perform(get("/admin/reservas").principal(AUTH)
@@ -809,19 +809,19 @@ class ControllersTest {
                     .andExpect(jsonPath("$.totales.montoBonificado").value(15000.00))
                     .andExpect(jsonPath("$.totales.montoPendiente").value(165000.00));
 
-            verify(reservaAdminService).listar(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31),
+            verify(reservaConsultaService).listar(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31),
                     List.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA), 7L, "pérez", 2L, null, true, 1, 50,
                     "desc");
         }
 
         @Test
         void sinParametrosUsaLosValoresPorDefecto() throws Exception {
-            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenReturn(pagina());
 
             mvc.perform(get("/admin/reservas").principal(AUTH)).andExpect(status().isOk());
 
-            verify(reservaAdminService).listar(null, null, null, null, null, null, null, false, 0, null, null);
+            verify(reservaConsultaService).listar(null, null, null, null, null, null, null, false, 0, null, null);
         }
 
         @Test
@@ -836,7 +836,7 @@ class ControllersTest {
 
         @Test
         void losErroresDelServicioSeRespetan() throws Exception {
-            when(reservaAdminService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.ReservaException(
                             "El tamaño de página tiene que estar entre 1 y 100."));
 

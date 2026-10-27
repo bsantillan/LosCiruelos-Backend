@@ -20,6 +20,7 @@ import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentResult;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 import com.LosCiruelos.padel_club_api.reservas.service.StockService;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest;
@@ -60,6 +61,7 @@ public class PagoService {
 
     private final PaymentServiceFactory paymentServiceFactory;
     private final ReservaService reservaService;
+    private final ReservaConsultaService reservaConsultaService;
     private final PagoRepository pagoRepository;
     private final ConfiguracionService configuracionService;
     private final UsuarioService usuarioService;
@@ -304,7 +306,7 @@ public class PagoService {
         validarQueEsAdmin(usuario(email));
         ReservaResponse creada = reservaService.crearReserva(req, email);
         bonificar(creada.getId(), req.getBonificacion().getMonto(), req.getBonificacion().getMotivo(), null, email);
-        return reservaService.obtener(creada.getId(), email);
+        return reservaConsultaService.obtener(creada.getId(), email);
     }
 
     /**

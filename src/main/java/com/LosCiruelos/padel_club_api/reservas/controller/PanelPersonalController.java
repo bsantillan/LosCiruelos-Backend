@@ -16,7 +16,7 @@ import com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasRespo
 import com.LosCiruelos.padel_club_api.Services.BusquedaClientesService;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
-import com.LosCiruelos.padel_club_api.reservas.service.ReservaAdminService;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,7 +27,7 @@ import lombok.RequiredArgsConstructor;
 @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
 public class PanelPersonalController {
 
-    private final ReservaAdminService reservaAdminService;
+    private final ReservaConsultaService reservaConsultaService;
     private final BusquedaClientesService busquedaClientesService;
 
     /**
@@ -47,7 +47,7 @@ public class PanelPersonalController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String orden) {
-        return ResponseEntity.ok(reservaAdminService.listar(desde, hasta, estado, clienteId, cliente, canchaId,
+        return ResponseEntity.ok(reservaConsultaService.listar(desde, hasta, estado, clienteId, cliente, canchaId,
                 tipo, pendientes, page, size, orden));
     }
 

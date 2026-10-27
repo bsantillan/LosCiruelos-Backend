@@ -31,13 +31,13 @@ import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
 import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
 import com.LosCiruelos.padel_club_api.Repository.ClienteProfileRepository;
 import com.LosCiruelos.padel_club_api.Security.JWTUtil;
-import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 
 class PerfilServiceTest {
 
     private UsuarioService usuarioService;
     private ClienteProfileRepository clienteProfileRepository;
-    private ReservaService reservaService;
+    private ReservaConsultaService reservaConsultaService;
     private JWTUtil jwtUtil;
     private PerfilService perfilService;
 
@@ -48,10 +48,10 @@ class PerfilServiceTest {
     void setUp() {
         usuarioService = mock(UsuarioService.class);
         clienteProfileRepository = mock(ClienteProfileRepository.class);
-        reservaService = mock(ReservaService.class);
+        reservaConsultaService = mock(ReservaConsultaService.class);
         jwtUtil = mock(JWTUtil.class);
         perfilService = new PerfilService(usuarioService, new ClienteProfileService(clienteProfileRepository),
-                reservaService, jwtUtil, TestData.reloj(AHORA));
+                reservaConsultaService, jwtUtil, TestData.reloj(AHORA));
 
         cliente = usuario(1L, Role.CLIENTE);
         perfil = ClienteProfile.builder().id(1L).usuario(cliente).categoria(Categoria.Cuarta).posicion(Posicion.Drive)
@@ -61,7 +61,7 @@ class PerfilServiceTest {
         when(usuarioService.updateUsuario(any(), any(), any(), any())).thenAnswer(inv -> inv.getArgument(0));
         when(clienteProfileRepository.findByUsuario(cliente)).thenReturn(Optional.of(perfil));
         when(clienteProfileRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(reservaService.ultimaReservaCompletada(any())).thenReturn(Optional.empty());
+        when(reservaConsultaService.ultimaReservaCompletada(any())).thenReturn(Optional.empty());
     }
 
     private static PerfilRequest pedido(Categoria categoria, Posicion posicion, String telefono) {
@@ -155,9 +155,9 @@ class PerfilServiceTest {
     void estadisticasCuentanSoloPartidosCompletados() {
         Reserva jugada = TestData.reserva(1L, cliente, EstadoReserva.COMPLETADA, "15000");
         jugada.setFechaReserva(AHORA.toLocalDate().minusDays(3));
-        when(reservaService.contarPorEstado(cliente, EstadoReserva.COMPLETADA)).thenReturn(4L);
-        when(reservaService.countPartidosEsteMes(1L, EstadoReserva.COMPLETADA)).thenReturn(2L);
-        when(reservaService.ultimaReservaCompletada(cliente)).thenReturn(Optional.of(jugada));
+        when(reservaConsultaService.contarPorEstado(cliente, EstadoReserva.COMPLETADA)).thenReturn(4L);
+        when(reservaConsultaService.countPartidosEsteMes(1L, EstadoReserva.COMPLETADA)).thenReturn(2L);
+        when(reservaConsultaService.ultimaReservaCompletada(cliente)).thenReturn(Optional.of(jugada));
 
         PerfilResponse r = perfilService.getPerfil(cliente.getEmail());
 
@@ -195,7 +195,7 @@ class PerfilServiceTest {
             when(usuarioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
             UsuarioService real = new UsuarioService(usuarioRepository,
                     mock(org.springframework.security.crypto.password.PasswordEncoder.class));
-            perfiles = new PerfilService(real, new ClienteProfileService(clienteProfileRepository), reservaService,
+            perfiles = new PerfilService(real, new ClienteProfileService(clienteProfileRepository), reservaConsultaService,
                     jwtUtil, TestData.reloj(AHORA));
         }
 

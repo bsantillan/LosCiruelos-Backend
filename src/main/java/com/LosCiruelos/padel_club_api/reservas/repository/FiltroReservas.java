@@ -15,7 +15,7 @@ import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
  * @param textoCliente   texto a buscar en nombre, apellido o email del cliente, ya normalizado
  *                       (minúsculas y sin tildes)
  */
-public record FiltroReservasAdmin(
+public record FiltroReservas(
         LocalDate desde,
         LocalDate hasta,
         Set<EstadoReserva> estados,

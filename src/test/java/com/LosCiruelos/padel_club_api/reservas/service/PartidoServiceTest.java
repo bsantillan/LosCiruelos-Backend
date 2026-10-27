@@ -91,7 +91,7 @@ class PartidoServiceTest {
                 mock(ClienteProfileService.class), reservaRepository, canchaRepository, mock(PagoRepository.class),
                 stockService, mapper, disponibilidad,
                 TestData.reloj(AHORA));
-        PagoService pagoService = new PagoService(mock(PaymentServiceFactory.class), reservaService,
+        PagoService pagoService = new PagoService(mock(PaymentServiceFactory.class), reservaService, mock(ReservaConsultaService.class),
                 mock(PagoRepository.class), configuracionService, usuarioService, stockService,
                 TestData.reloj(AHORA), mock(ApplicationEventPublisher.class), new PagoMapper());
         partidos = new PartidoService(reservaService, disponibilidad, mapper, pagoService, usuarioService, configuracionService,

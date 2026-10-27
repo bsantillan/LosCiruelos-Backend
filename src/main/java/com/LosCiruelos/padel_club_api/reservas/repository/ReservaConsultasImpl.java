@@ -3,18 +3,15 @@ package com.LosCiruelos.padel_club_api.reservas.repository;
 import java.math.BigDecimal;
 import java.util.Set;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Component;
 
-import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
-import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
-import com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse.Totales;
+import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
-import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse.Totales;
+import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -26,37 +23,20 @@ import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 
-/**
- * Listado de reservas del personal: la página (con cancha y cliente en la misma consulta) y los
- * totales del filtro completo, todo calculado en la base.
- */
-@Component
-public class BusquedaReservasAdmin {
+/** Implementación de {@link ReservaConsultas}: los totales se calculan en la base con Criteria. */
+public class ReservaConsultasImpl implements ReservaConsultas {
 
     /** Las que deben plata: confirmadas que todavía no están pagas. */
-    public static final Set<EstadoReserva> DEBEN = Reserva.ESTADOS_CON_SALDO;
+    private static final Set<EstadoReserva> DEBEN = Reserva.ESTADOS_CON_SALDO;
 
     private static final Set<EstadoPago> DEVUELTOS = Set.of(EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR,
             EstadoPago.REEMBOLSO_PENDIENTE);
 
-    private final ReservaRepository reservaRepository;
-
     @PersistenceContext
     private EntityManager em;
 
-    public BusquedaReservasAdmin(ReservaRepository reservaRepository) {
-        this.reservaRepository = reservaRepository;
-    }
-
-    public Page<Reserva> buscar(FiltroReservasAdmin filtro, Pageable pageable) {
-        return reservaRepository.findAll(ReservaSpecification.paraPersonal(filtro), pageable);
-    }
-
-    /**
-     * Totales del filtro completo: cantidad de reservas, suma de sus montos, lo cobrado (aprobado
-     * menos lo devuelto) en efectivo y con Mercado Pago, y lo que deben las SEÑADA y PARCIALMENTE_PAGADA.
-     */
-    public Totales totales(FiltroReservasAdmin filtro) {
+    @Override
+    public Totales totalesParaPersonal(FiltroReservas filtro) {
         Specification<Reserva> spec = ReservaSpecification.paraPersonal(filtro);
         CriteriaBuilder cb = em.getCriteriaBuilder();
 
