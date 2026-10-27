@@ -22,7 +22,7 @@ import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.context.ApplicationEventPublisher;
 
-import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
@@ -37,7 +37,7 @@ import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentService;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentServiceFactory;
 import com.LosCiruelos.padel_club_api.common.Reloj;

@@ -16,7 +16,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.data.domain.Pageable;
 
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.Entities.Cancha;
+import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;

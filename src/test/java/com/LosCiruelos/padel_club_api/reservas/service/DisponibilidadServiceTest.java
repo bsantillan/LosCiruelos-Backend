@@ -18,18 +18,18 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
-import com.LosCiruelos.padel_club_api.Services.CanchaService;
-import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
+import com.LosCiruelos.padel_club_api.club.service.CanchaService;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.DisponibilidadResponse;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.DisponibilidadResponse.Turno;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.DisponibilidadResponse;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.DisponibilidadResponse.Turno;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
-import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
-import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.club.repository.CanchaRepository;
+import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.reservas.repository.TurnoFijoRepository;
 

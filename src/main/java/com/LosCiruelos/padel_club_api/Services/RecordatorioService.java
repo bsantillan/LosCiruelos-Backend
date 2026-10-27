@@ -13,7 +13,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.LosCiruelos.padel_club_api.Entities.Configuracion;
+import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;

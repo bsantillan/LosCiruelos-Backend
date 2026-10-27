@@ -7,9 +7,9 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.LosCiruelos.padel_club_api.Entities.Configuracion;
+import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
-import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Reloj;

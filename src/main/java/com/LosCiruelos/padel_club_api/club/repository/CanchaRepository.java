@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Repository;
+package com.LosCiruelos.padel_club_api.club.repository;
 
 import java.util.Optional;
 
@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import com.LosCiruelos.padel_club_api.Entities.Cancha;
+import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 
 import jakarta.persistence.LockModeType;
 

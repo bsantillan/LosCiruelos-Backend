@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Entities;
+package com.LosCiruelos.padel_club_api.club.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

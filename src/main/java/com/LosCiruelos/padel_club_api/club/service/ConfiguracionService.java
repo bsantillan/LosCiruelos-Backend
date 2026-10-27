@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Services;
+package com.LosCiruelos.padel_club_api.club.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -9,11 +9,11 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import com.LosCiruelos.padel_club_api.Config.AppConfig.ConfiguracionCache;
-import com.LosCiruelos.padel_club_api.Entities.Configuracion;
-import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
+import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
+import com.LosCiruelos.padel_club_api.club.entity.DiaApertura;
 import com.LosCiruelos.padel_club_api.Exceptions.DiaSinAperturaException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
-import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Fechas;
 

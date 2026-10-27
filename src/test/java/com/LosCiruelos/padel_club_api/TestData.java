@@ -8,9 +8,9 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.LosCiruelos.padel_club_api.Entities.Cancha;
-import com.LosCiruelos.padel_club_api.Entities.Configuracion;
-import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
+import com.LosCiruelos.padel_club_api.club.entity.Cancha;
+import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
+import com.LosCiruelos.padel_club_api.club.entity.DiaApertura;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.ReservaJugador;

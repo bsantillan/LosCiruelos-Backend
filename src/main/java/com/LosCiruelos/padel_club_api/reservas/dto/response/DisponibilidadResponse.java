@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.DTOs.Responses;
+package com.LosCiruelos.padel_club_api.reservas.dto.response;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;

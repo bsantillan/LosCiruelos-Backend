@@ -3,8 +3,8 @@ package com.LosCiruelos.padel_club_api.reservas.entity;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
-import com.LosCiruelos.padel_club_api.Entities.Producto;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
+import com.LosCiruelos.padel_club_api.club.entity.Producto;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -9,15 +9,15 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-import com.LosCiruelos.padel_club_api.Entities.Configuracion;
-import com.LosCiruelos.padel_club_api.Entities.DiaApertura;
+import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
+import com.LosCiruelos.padel_club_api.club.entity.DiaApertura;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
-import com.LosCiruelos.padel_club_api.Services.CanchaService;
+import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 

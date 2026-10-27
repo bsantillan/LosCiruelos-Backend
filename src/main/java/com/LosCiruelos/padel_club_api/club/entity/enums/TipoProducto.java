@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Entities.Enum;
+package com.LosCiruelos.padel_club_api.club.entity.enums;
 
 public enum TipoProducto {
     VENTA,      // se entrega y no vuelve: el stock baja al reservar (ej. pelotas)

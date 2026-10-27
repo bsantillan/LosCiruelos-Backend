@@ -28,7 +28,7 @@ import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
-import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.ResumenRepository;

@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Services;
+package com.LosCiruelos.padel_club_api.club.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -9,7 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
+import com.LosCiruelos.padel_club_api.club.repository.CanchaRepository;
 
 class CanchaServiceTest {
 

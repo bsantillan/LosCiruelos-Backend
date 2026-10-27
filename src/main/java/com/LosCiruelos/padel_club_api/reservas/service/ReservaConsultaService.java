@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
-import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaNoEncontradaException;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;

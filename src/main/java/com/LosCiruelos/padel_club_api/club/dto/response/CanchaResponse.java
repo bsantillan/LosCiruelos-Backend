@@ -1,6 +1,6 @@
-package com.LosCiruelos.padel_club_api.DTOs.Responses;
+package com.LosCiruelos.padel_club_api.club.dto.response;
 
-import com.LosCiruelos.padel_club_api.Entities.Cancha;
+import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 
 import lombok.Data;
 

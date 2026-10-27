@@ -1,13 +1,13 @@
-package com.LosCiruelos.padel_club_api.Services;
+package com.LosCiruelos.padel_club_api.club.service;
 
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import com.LosCiruelos.padel_club_api.DTOs.Responses.CanchaResponse;
-import com.LosCiruelos.padel_club_api.Entities.Cancha;
+import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
+import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
-import com.LosCiruelos.padel_club_api.Repository.CanchaRepository;
+import com.LosCiruelos.padel_club_api.club.repository.CanchaRepository;
 
 import lombok.RequiredArgsConstructor;
 

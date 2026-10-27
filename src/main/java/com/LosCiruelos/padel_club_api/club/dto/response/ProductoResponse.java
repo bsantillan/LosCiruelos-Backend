@@ -1,9 +1,9 @@
-package com.LosCiruelos.padel_club_api.DTOs.Responses;
+package com.LosCiruelos.padel_club_api.club.dto.response;
 
 import java.math.BigDecimal;
 
-import com.LosCiruelos.padel_club_api.Entities.Producto;
-import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
+import com.LosCiruelos.padel_club_api.club.entity.Producto;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 
 import lombok.Data;
 

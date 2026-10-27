@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Entities;
+package com.LosCiruelos.padel_club_api.club.entity;
 
 import java.time.LocalTime;
 import java.util.Set;

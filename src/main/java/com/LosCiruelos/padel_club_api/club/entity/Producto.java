@@ -1,8 +1,8 @@
-package com.LosCiruelos.padel_club_api.Entities;
+package com.LosCiruelos.padel_club_api.club.entity;
 
 import java.math.BigDecimal;
 
-import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

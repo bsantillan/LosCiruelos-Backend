@@ -7,7 +7,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
-import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
 import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
 import com.LosCiruelos.padel_club_api.common.Reloj;

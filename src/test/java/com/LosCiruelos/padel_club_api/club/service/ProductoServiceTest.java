@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Services;
+package com.LosCiruelos.padel_club_api.club.service;
 
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static com.LosCiruelos.padel_club_api.TestData.MANIANA;
@@ -23,16 +23,16 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.reservas.repository.UsoAlquiler;
-import com.LosCiruelos.padel_club_api.DTOs.Requests.ProductoRequest;
-import com.LosCiruelos.padel_club_api.Entities.Producto;
+import com.LosCiruelos.padel_club_api.club.dto.request.ProductoRequest;
+import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.StockInsuficienteException;
-import com.LosCiruelos.padel_club_api.Repository.ProductoRepository;
+import com.LosCiruelos.padel_club_api.club.repository.ProductoRepository;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaProductoRepository;
 
 import jakarta.persistence.EntityManager;

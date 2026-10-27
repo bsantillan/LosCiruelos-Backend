@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.DTOs.Requests;
+package com.LosCiruelos.padel_club_api.club.dto.request;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;

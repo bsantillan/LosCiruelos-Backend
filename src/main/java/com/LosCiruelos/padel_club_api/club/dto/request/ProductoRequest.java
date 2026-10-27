@@ -1,8 +1,8 @@
-package com.LosCiruelos.padel_club_api.DTOs.Requests;
+package com.LosCiruelos.padel_club_api.club.dto.request;
 
 import java.math.BigDecimal;
 
-import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;

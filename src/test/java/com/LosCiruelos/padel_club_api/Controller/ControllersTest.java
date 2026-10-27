@@ -36,8 +36,11 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.CanchaResponse;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.DisponibilidadResponse;
+import com.LosCiruelos.padel_club_api.club.controller.AdminProductoController;
+import com.LosCiruelos.padel_club_api.club.controller.CanchaController;
+import com.LosCiruelos.padel_club_api.club.controller.ProductoController;
+import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.DisponibilidadResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.LoginResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
 import com.LosCiruelos.padel_club_api.pagos.controller.CobroAdminController;
@@ -45,7 +48,7 @@ import com.LosCiruelos.padel_club_api.pagos.controller.MercadoPagoWebhookControl
 import com.LosCiruelos.padel_club_api.pagos.controller.PagoController;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PerfilResponse;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoResponse;
+import com.LosCiruelos.padel_club_api.club.dto.response.ProductoResponse;
 import com.LosCiruelos.padel_club_api.reservas.service.DisponibilidadService;
 import com.LosCiruelos.padel_club_api.reservas.controller.ReservaAdminController;
 import com.LosCiruelos.padel_club_api.reservas.controller.ReservaController;
@@ -66,14 +69,14 @@ import com.LosCiruelos.padel_club_api.Exceptions.StockInsuficienteException;
 import com.LosCiruelos.padel_club_api.Handlers.GlobalExceptionHandler;
 import com.LosCiruelos.padel_club_api.Services.AdminService;
 import com.LosCiruelos.padel_club_api.Services.AuthService;
-import com.LosCiruelos.padel_club_api.Services.CanchaService;
+import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.reservas.service.CancelacionService;
 import com.LosCiruelos.padel_club_api.Services.NotificacionesService;
 import com.LosCiruelos.padel_club_api.pagos.service.CobroService;
 import com.LosCiruelos.padel_club_api.pagos.service.PagoOnlineService;
 import com.LosCiruelos.padel_club_api.Services.PasswordResetService;
 import com.LosCiruelos.padel_club_api.Services.PerfilService;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
+import com.LosCiruelos.padel_club_api.club.service.ProductoService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 import com.LosCiruelos.padel_club_api.Services.ResumenService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
@@ -725,7 +728,7 @@ class ControllersTest {
                     new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Cancelaciones(3,
                             new BigDecimal("7500.00")),
                     List.of(new com.LosCiruelos.padel_club_api.DTOs.Resumen.ProductoVendido(1L, "Pelotas",
-                            com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto.VENTA, 40L,
+                            com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto.VENTA, 40L,
                             new BigDecimal("200000.00")))));
 
             mvc.perform(get("/admin/resumen").principal(ADMIN).param("desde", "2026-10-01").param("hasta", "2026-10-31"))

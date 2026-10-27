@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Services;
+package com.LosCiruelos.padel_club_api.club.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -10,9 +10,9 @@ import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.Entities.Configuracion;
+import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.Exceptions.DiaSinAperturaException;
-import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
 
 class ConfiguracionServiceTest {
 

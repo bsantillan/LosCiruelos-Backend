@@ -24,18 +24,19 @@ import com.LosCiruelos.padel_club_api.DTOs.Requests.SuscripcionesRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.NotificacionesResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PruebaAvisoResponse;
 import com.LosCiruelos.padel_club_api.Entities.AvisosAdmin;
-import com.LosCiruelos.padel_club_api.Entities.Configuracion;
+import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.Entities.Usuario;
 import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.AvisosAdminRepository;
-import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisosService;
 import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppService;
 import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 
 class NotificacionesServiceTest {
 

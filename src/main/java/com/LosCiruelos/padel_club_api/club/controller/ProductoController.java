@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Controller;
+package com.LosCiruelos.padel_club_api.club.controller;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -11,9 +11,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoDisponibleResponse;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoResponse;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ProductoDisponibleResponse;
+import com.LosCiruelos.padel_club_api.club.dto.response.ProductoResponse;
+import com.LosCiruelos.padel_club_api.club.service.ProductoService;
 import com.LosCiruelos.padel_club_api.reservas.service.StockService;
 
 import lombok.RequiredArgsConstructor;

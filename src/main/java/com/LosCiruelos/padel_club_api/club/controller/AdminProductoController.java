@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Controller;
+package com.LosCiruelos.padel_club_api.club.controller;
 
 import java.util.List;
 
@@ -14,10 +14,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.LosCiruelos.padel_club_api.DTOs.Requests.AjusteStockRequest;
-import com.LosCiruelos.padel_club_api.DTOs.Requests.ProductoRequest;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoResponse;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
+import com.LosCiruelos.padel_club_api.club.dto.request.AjusteStockRequest;
+import com.LosCiruelos.padel_club_api.club.dto.request.ProductoRequest;
+import com.LosCiruelos.padel_club_api.club.dto.response.ProductoResponse;
+import com.LosCiruelos.padel_club_api.club.service.ProductoService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

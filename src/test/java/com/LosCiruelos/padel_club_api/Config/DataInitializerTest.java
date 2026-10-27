@@ -21,8 +21,8 @@ import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
-import com.LosCiruelos.padel_club_api.Services.CanchaService;
+import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 

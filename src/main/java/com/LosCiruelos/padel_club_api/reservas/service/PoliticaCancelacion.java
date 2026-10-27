@@ -6,8 +6,8 @@ import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Component;
 
-import com.LosCiruelos.padel_club_api.Entities.Configuracion;
-import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
+import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;

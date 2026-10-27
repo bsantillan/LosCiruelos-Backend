@@ -13,12 +13,12 @@ import java.util.TreeSet;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoDisponibleResponse;
-import com.LosCiruelos.padel_club_api.Entities.Producto;
-import com.LosCiruelos.padel_club_api.Entities.Enum.TipoProducto;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ProductoDisponibleResponse;
+import com.LosCiruelos.padel_club_api.club.entity.Producto;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.StockInsuficienteException;
-import com.LosCiruelos.padel_club_api.Services.ProductoService;
+import com.LosCiruelos.padel_club_api.club.service.ProductoService;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.ReservaProducto;

@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Services;
+package com.LosCiruelos.padel_club_api.club.service;
 
 import java.util.Collection;
 import java.util.List;
@@ -6,14 +6,14 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.LosCiruelos.padel_club_api.DTOs.Requests.ProductoRequest;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ProductoResponse;
-import com.LosCiruelos.padel_club_api.Entities.Producto;
+import com.LosCiruelos.padel_club_api.club.dto.request.ProductoRequest;
+import com.LosCiruelos.padel_club_api.club.dto.response.ProductoResponse;
+import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ProductoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.StockInsuficienteException;
-import com.LosCiruelos.padel_club_api.Repository.ProductoRepository;
+import com.LosCiruelos.padel_club_api.club.repository.ProductoRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
