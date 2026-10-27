@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
-import com.LosCiruelos.padel_club_api.reservas.mapper.ReservaMapper;
+import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.reservas.repository.BusquedaReservasAdmin;
 import com.LosCiruelos.padel_club_api.reservas.repository.FiltroReservasAdmin;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse;

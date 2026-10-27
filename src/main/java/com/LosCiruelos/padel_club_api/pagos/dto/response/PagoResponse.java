@@ -3,10 +3,9 @@ package com.LosCiruelos.padel_club_api.pagos.dto.response;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
-import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 
 import lombok.Data;
 
@@ -33,22 +32,4 @@ public class PagoResponse {
     EstadoReserva estadoReserva;
     // detalle del proveedor al cobrar (ej. motivo del rechazo); solo en la respuesta del cobro
     String detalle;
-
-    public static PagoResponse from(Pago pago) {
-        PagoResponse response = new PagoResponse();
-        response.setId(pago.getId());
-        response.setReservaId(pago.getReserva().getId());
-        response.setMonto(pago.getMonto());
-        response.setEstado(pago.getEstado());
-        response.setProvider(pago.getProvider());
-        response.setPaymentToken(pago.getPaymentToken());
-        response.setExternalPaymentId(pago.getExternalPaymentId());
-        response.setCreatedAt(pago.getCreatedAt());
-        response.setPaidAt(pago.getPaidAt());
-        response.setMontoReembolsado(pago.getMontoReembolsado());
-        response.setMotivo(pago.getMotivo());
-        response.setJugadorId(pago.getJugador() != null ? pago.getJugador().getId() : null);
-        response.setEstadoReserva(pago.getReserva().getEstado());
-        return response;
-    }
 }

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
+import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
@@ -65,6 +66,7 @@ public class PagoService {
     private final StockService stockService;
     private final Reloj reloj;
     private final ApplicationEventPublisher eventos;
+    private final PagoMapper pagoMapper;
 
     // ── 1. Iniciar un pago online ────────────────────────────────────────
 
@@ -91,7 +93,7 @@ public class PagoService {
                 .findFirst();
         if (iniciado.isPresent() && iniciado.get().getMonto().compareTo(monto) == 0
                 && iniciado.get().getPaymentToken() != null) {
-            return PagoResponse.from(iniciado.get());
+            return pagoMapper.aResponse(iniciado.get());
         }
         // un pago iniciado por otro monto se descarta
         iniciado.ifPresent(p -> cambiarEstado(p, EstadoPago.EXPIRADO));
@@ -110,7 +112,7 @@ public class PagoService {
         pago = pagoRepository.save(pago);
 
         log.info("Pago #{} iniciado para la reserva #{} por ${}", pago.getId(), reserva.getId(), monto);
-        return PagoResponse.from(pago);
+        return pagoMapper.aResponse(pago);
     }
 
     BigDecimal calcularMontoAPagar(Reserva reserva, boolean pagarTotal) {
@@ -148,7 +150,7 @@ public class PagoService {
         PaymentResult resultado = paymentServiceFactory.getService().cobrar(pago, formData);
         aplicarResultado(reserva, pago, resultado);
 
-        PagoResponse response = PagoResponse.from(pago);
+        PagoResponse response = pagoMapper.aResponse(pago);
         response.setDetalle(resultado.getDetalle());
         return response;
     }
@@ -233,7 +235,7 @@ public class PagoService {
         recalcularEstadoReserva(reserva);
         log.info("Pago manual {} #{} — reserva #{} — monto ${} — registrado por {}",
                 provider, pago.getId(), reserva.getId(), monto, email);
-        return PagoResponse.from(pago);
+        return pagoMapper.aResponse(pago);
     }
 
     // ── 4 bis. Bonificación del ADMIN ────────────────────────────────────
@@ -293,7 +295,7 @@ public class PagoService {
         recalcularEstadoReserva(reserva, false);
         log.info("Bonificación #{} — reserva #{} — ${} — {} — por {}", bonificacion.getId(), reserva.getId(),
                 aBonificar, bonificacion.getMotivo() != null ? bonificacion.getMotivo() : "sin motivo", email);
-        return PagoResponse.from(bonificacion);
+        return pagoMapper.aResponse(bonificacion);
     }
 
     /** POST /reservas con bonificación (solo ADMIN): se crea y se bonifica en la misma transacción. */

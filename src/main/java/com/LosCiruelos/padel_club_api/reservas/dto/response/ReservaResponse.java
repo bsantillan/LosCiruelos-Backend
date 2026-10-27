@@ -4,14 +4,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.Comparator;
 import java.util.List;
 
-import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
-import com.LosCiruelos.padel_club_api.Entities.Producto;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
-import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
-import com.LosCiruelos.padel_club_api.reservas.entity.ReservaJugador;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
 
@@ -68,50 +63,4 @@ public class ReservaResponse {
     Boolean turnoTerminado;
     // turno jugado sin pagar del todo (SEÑADA o PARCIALMENTE_PAGADA): falta cobrar montoPendiente
     Boolean debeSaldo;
-
-    public static ReservaResponse from(Reserva reserva) {
-        ReservaResponse response = new ReservaResponse();
-        response.setId(reserva.getId());
-        response.setCanchaId(reserva.getCancha().getId());
-        response.setCanchaNumero(reserva.getCancha().getNumero());
-        response.setFechaReserva(reserva.getFechaReserva());
-        response.setHoraInicio(reserva.getHoraInicio());
-        response.setHoraFin(reserva.getHoraFin());
-        response.setMontoTotal(reserva.getMontoTotal());
-        response.setMontoCancha(reserva.getMontoCancha());
-        response.setMontoProductos(reserva.getMontoProductos());
-        response.setMontoPagado(reserva.getMontoPagado());
-        response.setMontoBonificado(reserva.getMontoBonificado());
-        response.setMontoPendiente(reserva.getMontoPendiente());
-        response.setCantidadPelotas(reserva.cantidadDe(Producto.CODIGO_PELOTAS));
-        response.setCantidadPaletas(reserva.cantidadDe(Producto.CODIGO_PALETAS));
-        response.setProductos(reserva.getProductos().stream().map(ReservaProductoResponse::from).toList());
-        response.setEstado(reserva.getEstado());
-        response.setTipo(reserva.getTipo());
-        response.setTurnoFijoId(reserva.getTurnoFijo() != null ? reserva.getTurnoFijo().getId() : null);
-        response.setJugadores(reserva.getJugadores().stream().map(j -> jugador(reserva, j)).toList());
-        response.setClienteId(reserva.getCliente().getId());
-        response.setClienteNombre(nombreCompleto(reserva));
-        response.setCreatedAt(reserva.getCreatedAt());
-        response.setExpiresAt(reserva.getExpiresAt());
-        response.setPagos(reserva.getPagos().stream()
-                .sorted(Comparator.comparing(Pago::getCreatedAt))
-                .map(PagoResponse::from)
-                .toList());
-        return response;
-    }
-
-    private static JugadorResponse jugador(Reserva reserva, ReservaJugador jugador) {
-        return new JugadorResponse(jugador.getId(), jugador.getPosicion(),
-                jugador.getUsuario() != null ? jugador.getUsuario().getId() : null, jugador.nombreParaMostrar(),
-                jugador.getUsuario() != null ? jugador.getUsuario().getTelefono() : jugador.getTelefono(),
-                jugador.esInvitado(), reserva.parteDe(jugador.getPosicion()), reserva.pagadoPor(jugador),
-                reserva.bonificadoA(jugador), reserva.debeDe(jugador));
-    }
-
-    private static String nombreCompleto(Reserva reserva) {
-        String nombre = reserva.getCliente().getNombre();
-        String apellido = reserva.getCliente().getApellido();
-        return ((nombre != null ? nombre : "") + " " + (apellido != null ? apellido : "")).trim();
-    }
 }

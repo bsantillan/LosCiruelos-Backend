@@ -37,7 +37,7 @@ import com.LosCiruelos.padel_club_api.reservas.entity.ReservaJugador;
 import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijo;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
-import com.LosCiruelos.padel_club_api.reservas.mapper.ReservaMapper;
+import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.reservas.repository.TurnoFijoRepository;
 

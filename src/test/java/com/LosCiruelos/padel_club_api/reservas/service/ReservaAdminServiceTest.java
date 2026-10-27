@@ -25,7 +25,7 @@ import org.springframework.data.domain.Sort;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
-import com.LosCiruelos.padel_club_api.reservas.mapper.ReservaMapper;
+import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.reservas.repository.BusquedaReservasAdmin;
 import com.LosCiruelos.padel_club_api.reservas.repository.FiltroReservasAdmin;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse;

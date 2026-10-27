@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
+import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.service.PagoService;
 import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
@@ -39,7 +40,7 @@ import com.LosCiruelos.padel_club_api.Repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;
-import com.LosCiruelos.padel_club_api.reservas.mapper.ReservaMapper;
+import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 
 class CancelacionServiceTest {
 
@@ -65,7 +66,7 @@ class CancelacionServiceTest {
         usuarioService = mock(UsuarioService.class);
         eventos = mock(ApplicationEventPublisher.class);
         cancelacion = new CancelacionService(reservaService, new ReservaMapper(new ConfiguracionService(configuracionRepository), politica,
-                TestData.reloj(AHORA)), pagoService, politica, usuarioService,
+                TestData.reloj(AHORA), new PagoMapper()), pagoService, politica, usuarioService,
                 TestData.reloj(AHORA), eventos);
 
         cliente = usuario(1L, Role.CLIENTE);

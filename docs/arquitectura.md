@@ -15,7 +15,7 @@ Controller ──► Services ──► Repository ──► PostgreSQL
 
 | Paquete | Responsabilidad |
 |---|---|
-| `reservas` (dominio) | Reservas, partidos y turnos fijos, en subpaquetes: `controller` (`ReservaController`, `PanelPersonalController`, `PartidoController`, `TurnoFijoController`), `service` (`ReservaService`, `ReservaAdminService`, `PartidoService`, `TurnoFijoService`, `GeneradorTurnosFijos`, `CancelacionService`, `PoliticaCancelacion`, `DisponibilidadService`, `StockService`), `repository` (repositories, `BusquedaReservasAdmin`, `ReservaSpecification`, `FiltroReservasAdmin`, `UsoAlquiler`), `entity` y `entity/enums`, `dto/request`, `dto/response` y `mapper` (`ReservaMapper`) |
+| `reservas` (dominio) | Reservas, partidos y turnos fijos, en subpaquetes: `controller` (`ReservaController`, `PanelPersonalController`, `PartidoController`, `TurnoFijoController`), `service` (`ReservaService`, `ReservaAdminService`, `PartidoService`, `TurnoFijoService`, `GeneradorTurnosFijos`, `CancelacionService`, `PoliticaCancelacion`, `DisponibilidadService`, `StockService`), `repository` (repositories, `BusquedaReservasAdmin`, `ReservaSpecification`, `FiltroReservasAdmin`, `UsoAlquiler`), `entity` y `entity/enums`, `dto/request` y `dto/response` |
 | `pagos` (dominio) | `controller` (`PagoController`), `service` (`PagoService`), `repository`, `entity` y `entity/enums` (`Pago`, `EstadoPago`), `dto/request`, `dto/response`, `payment` (contrato genérico de proveedores: `PaymentService`, `PaymentServiceFactory`, `PaymentProvider`, `PaymentResult`, `EstadoPayment`) y `mercadopago` (`MercadoPagoPaymentService`, `MercadoPagoWebhookValidator`) |
 | `Controller` | Endpoints REST de los dominios que todavía no se mudaron: `AuthController`, `PerfilController`, `AdminController`, `CanchaController`, … |
 | `Services` | Lógica de negocio: `AuthService`, `VerificationService`, `PasswordResetService`, `UsuarioService`, `ClienteProfileService`, `PerfilService`, `AdminService`, `CanchaService`, `ConfiguracionService` (horarios, precio, seña), `ProductoService` (catálogo y stock), `ReservaService` (creación, cancelación, expiración), `PagoService` |
@@ -31,6 +31,7 @@ Controller ──► Services ──► Repository ──► PostgreSQL
 | `Exceptions` | Excepciones de negocio |
 | `Jobs` | `ReservaJobs` (expiración y reservas completadas) |
 | `Config` | `AppConfig` (`Reloj`, caché), `DataInitializer`, `MercadoPagoConfiguration`, `SwaggerConfig` |
+| `mapper` | Mapeo entidad → DTO, uno por entidad: `ReservaMapper`, `PagoMapper`, `TurnoFijoMapper`. Los DTOs quedan solo con datos |
 | `common` | Utilidades compartidas, de uso obligatorio (detalle en `CLAUDE.md`): `Reloj` (hora del club), `Turno` (duración, superposición, si empezó o terminó), `ConsultasDeTurno` (las mismas condiciones en JPQL y Criteria), `Fechas` (zona, formato de la API y textos de fechas y días), `Dinero` (redondeo, sumas y texto en pesos), `Paginacion`, `Roles`, `Busquedas` (búsqueda sin tildes) y `Telefonos` (normalización del celular) |
 
 ## Proveedores intercambiables (patrón factory)

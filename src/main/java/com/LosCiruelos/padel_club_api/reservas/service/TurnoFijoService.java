@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
+import com.LosCiruelos.padel_club_api.mapper.TurnoFijoMapper;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.TurnoFijoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.TurnoFijoResponse;
@@ -30,7 +31,7 @@ import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijoJugador;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
-import com.LosCiruelos.padel_club_api.reservas.mapper.ReservaMapper;
+import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.reservas.repository.TurnoFijoRepository;
 import com.LosCiruelos.padel_club_api.reservas.service.PartidoService.DatosJugador;
@@ -58,6 +59,7 @@ public class TurnoFijoService {
     private final ReservaService reservaService;
     private final DisponibilidadService disponibilidad;
     private final ReservaMapper reservaMapper;
+    private final TurnoFijoMapper turnoFijoMapper;
     private final PartidoService partidoService;
     private final CancelacionService cancelacionService;
     private final StockService stockService;
@@ -318,33 +320,14 @@ public class TurnoFijoService {
         return Fechas.nombreDia(dia);
     }
 
+    /** La respuesta con los partidos del turno fijo que todavía no empezaron. */
     TurnoFijoResponse aResponse(TurnoFijo tf) {
-        TurnoFijoResponse response = new TurnoFijoResponse();
-        response.setId(tf.getId());
-        response.setCanchaId(tf.getCancha().getId());
-        response.setCanchaNumero(tf.getCancha().getNumero());
-        response.setDiaSemana(tf.getDiaSemana());
-        response.setHoraInicio(tf.getHoraInicio());
-        response.setHoraFin(tf.getHoraFin());
-        response.setDesde(tf.getDesde());
-        response.setCantidadPelotas(tf.getCantidadPelotas());
-        response.setCantidadPaletas(tf.getCantidadPaletas());
-        response.setActivo(tf.getActivo());
-        response.setCreatedAt(tf.getCreatedAt());
-        response.setDadoDeBajaAt(tf.getDadoDeBajaAt());
-        response.setJugadores(tf.getJugadores().stream()
-                .map(j -> new TurnoFijoResponse.Jugador(j.getPosicion(),
-                        j.getUsuario() != null ? j.getUsuario().getId() : null, j.nombreParaMostrar(),
-                        j.getUsuario() != null ? j.getUsuario().getTelefono() : j.getTelefono(), j.getUsuario() == null))
-                .toList());
         LocalDateTime ahora = reloj.ahora();
-        response.setProximosPartidos(reservaRepository.findIdsFuturosDelTurnoFijo(tf.getId(), ahora.toLocalDate(),
+        List<Reserva> proximos = reservaRepository.findIdsFuturosDelTurnoFijo(tf.getId(), ahora.toLocalDate(),
                 ahora.toLocalTime()).stream()
                 .map(reservaRepository::findById)
                 .flatMap(java.util.Optional::stream)
-                .map(r -> new TurnoFijoResponse.Partido(r.getId(), r.getFechaReserva(), r.getEstado(),
-                        r.getMontoTotal(), r.estaInactiva() ? java.math.BigDecimal.ZERO : r.getMontoPendiente()))
-                .toList());
-        return response;
+                .toList();
+        return turnoFijoMapper.aResponse(tf, proximos);
     }
 }

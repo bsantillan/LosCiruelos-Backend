@@ -43,9 +43,10 @@ reservas/
 │   └── enums/       enums de las entidades
 ├── dto/
 │   ├── request/     lo que entra (validado con Bean Validation)
-│   └── response/    lo que sale
-└── mapper/          entidad → DTO (ReservaMapper)
+│   └── response/    lo que sale (solo datos: sin from() ni lógica)
 ```
+
+El mapeo entidad → DTO va en la carpeta general **`mapper/`** (al lado de `common/`), un mapper por entidad (`ReservaMapper`, `PagoMapper`, `TurnoFijoMapper`…). Un mapper no consulta la base: lo que necesita (por ejemplo, los próximos partidos de un turno fijo) se lo pasa el service.
 
 `pagos` sigue la misma forma y además tiene `payment/` (lo genérico para usar distintos proveedores de pago: `PaymentService`, `PaymentServiceFactory`, `PaymentProvider`, `PaymentResult`, `EstadoPayment`) y `mercadopago/` (la implementación de Mercado Pago y su validador de webhooks). Un proveedor nuevo va en su propio subpaquete e implementa `PaymentService`.
 
@@ -54,7 +55,7 @@ reservas/
 2. **Service**: un caso de uso de un dominio. Es el único lugar con `@Transactional`. No usa repositories de otro dominio (pide lo que necesita al service público de ese dominio), no presta helpers internos a otros services y no tiene métodos pasamanos (`save` que solo llama al repository).
 3. **Reglas del negocio**: en las entidades (`Reserva.recalcularEstado`, `Reserva.admitePagos`, `Reserva.expirarPagosPendientes`, `Pago.getMontoRetenido`) o en clases de dominio chicas sin Spring (`PoliticaCancelacion`), para probarlas sin mocks.
 4. **Repository**: uno por raíz de agregado; las entidades hijas se guardan por cascada. Las consultas de listados y reportes van en repositories de solo lectura (`…Consultas`, `ResumenRepository`). No dejar métodos sin uso.
-5. **DTOs**: el mapeo se hace en mappers (`ReservaMapper`) o en `from` estáticos, no en los services. Los requests se validan con Bean Validation y mensajes en castellano.
+5. **DTOs**: solo datos. El mapeo se hace en los mappers de `mapper/`, nunca en los services ni con `from()` estáticos en los DTOs. Los requests se validan con Bean Validation y mensajes en castellano.
 6. **Transversal**: los avisos se publican como eventos y se envían después del commit (`AvisosListener`); los jobs (`ReservaJobs`) solo llaman a services.
 
 ### Utilidades obligatorias (`common`)

@@ -30,6 +30,7 @@ import org.mockito.ArgumentCaptor;
 import com.LosCiruelos.padel_club_api.Services.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
+import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.EstadoPayment;
@@ -96,7 +97,7 @@ class PagoServiceTest {
 
         pagoService = new PagoService(factory, reservaService, pagoRepository,
                 new ConfiguracionService(configuracionRepository), usuarioService, mock(StockService.class),
-                TestData.reloj(AHORA), eventos = mock(ApplicationEventPublisher.class));
+                TestData.reloj(AHORA), eventos = mock(ApplicationEventPublisher.class), new PagoMapper());
     }
 
     private Reserva reservaBloqueada(EstadoReserva estado) {
@@ -834,17 +835,16 @@ class PagoServiceTest {
             assertThat(partido.getPagos().get(0).getJugador().getId()).isEqualTo(202L);
             assertThat(partido.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
             // el jugador 2 cubrió su parte (3750) y la del 3: la reserva sigue debiendo 7500
-            ReservaResponse estado = ReservaResponse.from(partido);
-            assertThat(estado.getJugadores().get(1).getPagado()).isEqualByComparingTo("7500");
-            assertThat(estado.getJugadores().get(1).getDebe()).isEqualByComparingTo("0");
-            assertThat(estado.getJugadores().get(0).getDebe()).isEqualByComparingTo("3750");
+            assertThat(partido.pagadoPor(partido.getJugadores().get(1))).isEqualByComparingTo("7500");
+            assertThat(partido.debeDe(partido.getJugadores().get(1))).isEqualByComparingTo("0");
+            assertThat(partido.debeDe(partido.getJugadores().get(0))).isEqualByComparingTo("3750");
 
             pagoService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO, 201L,
                     empleado.getEmail());
             assertThat(partido.getEstado()).isEqualTo(EstadoReserva.PAGADA);
             // pagado entre dos: nadie debe nada
-            assertThat(ReservaResponse.from(partido).getJugadores())
-                    .allSatisfy(j -> assertThat(j.getDebe()).isEqualByComparingTo("0"));
+            assertThat(partido.getJugadores())
+                    .allSatisfy(j -> assertThat(partido.debeDe(j)).isEqualByComparingTo("0"));
             // los pagos de un partido no le mandan avisos al ADMIN (lo arma y lo sigue él)
             verify(eventos, never()).publishEvent(any());
         }
