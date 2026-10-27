@@ -36,7 +36,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.club.controller.AdminProductoController;
+import com.LosCiruelos.padel_club_api.club.controller.ProductoAdminController;
 import com.LosCiruelos.padel_club_api.club.controller.CanchaController;
 import com.LosCiruelos.padel_club_api.club.controller.ProductoController;
 import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
@@ -144,7 +144,7 @@ class ControllersTest {
                 new AdminController(adminService),
                 new CanchaController(canchaService, disponibilidadService),
                 new ProductoController(productoService, stockService),
-                new AdminProductoController(productoService),
+                new ProductoAdminController(productoService),
                 new NotificacionesController(notificacionesService),
                 new ResumenController(resumenService),
                 new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService),
