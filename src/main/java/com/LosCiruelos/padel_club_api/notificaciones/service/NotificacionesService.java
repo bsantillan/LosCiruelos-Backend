@@ -25,6 +25,7 @@ import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva.Destinat
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
 import com.LosCiruelos.padel_club_api.notificaciones.whatsapp.WhatsAppServiceFactory;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
+import com.LosCiruelos.padel_club_api.mapper.NotificacionesMapper;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.usuarios.service.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.usuarios.service.TelefonoService;
@@ -47,6 +48,7 @@ public class NotificacionesService {
     private final AvisosService avisosService;
     private final ConfiguracionService configuracionService;
     private final WhatsAppServiceFactory whatsApp;
+    private final NotificacionesMapper notificacionesMapper;
     private final Reloj reloj;
 
     // ── Canal y teléfono (cualquier rol) ─────────────────────────────────
@@ -91,7 +93,7 @@ public class NotificacionesService {
     @Transactional(readOnly = true)
     public SuscripcionesResponse suscripciones(String email) {
         Usuario cliente = usuario(email);
-        return SuscripcionesResponse.from(cliente, clienteProfileService.perfilCompleto(cliente));
+        return notificacionesMapper.aSuscripciones(cliente, clienteProfileService.perfilCompleto(cliente));
     }
 
     /** Recordatorios y novedades/promociones; solo con el perfil completo (celular verificado). */
@@ -102,7 +104,7 @@ public class NotificacionesService {
             throw new PerfilIncompletoException("Completá tu perfil y verificá tu celular para elegir tus avisos.");
         }
         cliente.elegirSuscripciones(req.getRecordatorios(), req.getPromociones());
-        return SuscripcionesResponse.from(cliente, true);
+        return notificacionesMapper.aSuscripciones(cliente, true);
     }
 
     // ── Avisos del ADMIN ─────────────────────────────────────────────────
@@ -110,7 +112,7 @@ public class NotificacionesService {
     @Transactional(readOnly = true)
     public AvisosAdminResponse avisosAdmin(String email) {
         Usuario admin = usuario(email);
-        return AvisosAdminResponse.from(avisosAdminRepository.findById(admin.getId())
+        return notificacionesMapper.aAvisosAdmin(avisosAdminRepository.findById(admin.getId())
                 .orElse(AvisosAdmin.porDefecto(admin.getId())));
     }
 
@@ -121,7 +123,7 @@ public class NotificacionesService {
                 .orElse(AvisosAdmin.porDefecto(admin.getId()));
         avisos.elegir(req.getActivos(), req.getReservaConfirmada(), req.getSaldoCobrado(), req.getReservaCancelada(),
                 req.getReembolsoManual());
-        return AvisosAdminResponse.from(avisosAdminRepository.save(avisos));
+        return notificacionesMapper.aAvisosAdmin(avisosAdminRepository.save(avisos));
     }
 
     /** Manda un aviso de ejemplo al ADMIN por su canal, para comprobar que le llegan. */
@@ -157,9 +159,8 @@ public class NotificacionesService {
     // ── helpers ──────────────────────────────────────────────────────────
 
     private NotificacionesResponse aResponse(Usuario usuario) {
-        return new NotificacionesResponse(usuario.getCanalNotificaciones(),
-                avisosService.canalPara(Destinatario.de(usuario)), usuario.getTelefono(),
-                Boolean.TRUE.equals(usuario.getTelefonoVerificado()), whatsApp.getService().estaConfigurado());
+        return notificacionesMapper.aResponse(usuario, avisosService.canalPara(Destinatario.de(usuario)),
+                whatsApp.getService().estaConfigurado());
     }
 
     private Usuario usuario(String email) {

@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.LosCiruelos.padel_club_api.TestData;
+import com.LosCiruelos.padel_club_api.mapper.NotificacionesMapper;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.AvisosAdminRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.RecordatorioConfigRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.SuscripcionesRequest;
@@ -66,7 +67,8 @@ class NotificacionesServiceTest {
         when(fabricaWhatsApp.getService()).thenReturn(whatsApp);
         when(whatsApp.estaConfigurado()).thenReturn(true);
         notificaciones = new NotificacionesService(usuarioService, telefonoService, clienteProfileService, avisosAdminRepository,
-                avisosService, new ConfiguracionService(configuracionRepository), fabricaWhatsApp, TestData.reloj(AHORA));
+                avisosService, new ConfiguracionService(configuracionRepository), fabricaWhatsApp,
+                new NotificacionesMapper(), TestData.reloj(AHORA));
 
         usuario = usuario(1L, Role.CLIENTE);
         usuario.setTelefono("5491122334455");

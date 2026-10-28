@@ -12,6 +12,11 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
+import com.LosCiruelos.padel_club_api.notificaciones.entity.AvisosAdmin;
+import com.LosCiruelos.padel_club_api.notificaciones.dto.response.SuscripcionesResponse;
+import com.LosCiruelos.padel_club_api.notificaciones.dto.response.NotificacionesResponse;
+import com.LosCiruelos.padel_club_api.notificaciones.dto.response.AvisosAdminResponse;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ProductoResponse;
@@ -71,6 +76,27 @@ class MappersTest {
         assertThat(r.getJugadores().get(1).telefono()).isEqualTo("11 5555-0000");
         assertThat(r.getProximosPartidos()).extracting(TurnoFijoResponse.Partido::montoPendiente)
                 .containsExactly(new BigDecimal("15000"), BigDecimal.ZERO);
+    }
+
+    @Test
+    void lasPreferenciasDeAvisoDelUsuario() {
+        Usuario usuario = TestData.usuario(1L, Role.CLIENTE);
+        usuario.setTelefono("5491122334455");
+        usuario.setTelefonoVerificado(null);
+        usuario.setCanalNotificaciones(CanalNotificacion.WHATSAPP);
+        usuario.setRecibeRecordatorios(null);
+        usuario.setRecibePromociones(true);
+        NotificacionesMapper mapper = new NotificacionesMapper();
+
+        NotificacionesResponse canal = mapper.aResponse(usuario, CanalNotificacion.EMAIL, true);
+        SuscripcionesResponse suscripciones = mapper.aSuscripciones(usuario, false);
+        AvisosAdminResponse admin = mapper.aAvisosAdmin(AvisosAdmin.porDefecto(1L));
+
+        assertThat(canal).isEqualTo(new NotificacionesResponse(CanalNotificacion.WHATSAPP, CanalNotificacion.EMAIL,
+                "5491122334455", false, true));
+        // las cancelaciones se avisan siempre; un valor null cuenta como no
+        assertThat(suscripciones).isEqualTo(new SuscripcionesResponse(true, false, true, false));
+        assertThat(admin).isEqualTo(new AvisosAdminResponse(true, true, true, true, true));
     }
 
     @Test
