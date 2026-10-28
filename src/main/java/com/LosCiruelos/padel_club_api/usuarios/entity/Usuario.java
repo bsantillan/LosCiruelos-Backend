@@ -109,11 +109,19 @@ public class Usuario {
     private AuthProvider provider = AuthProvider.LOCAL;
 
     // =========================
-    // ClienteProfile
+    // PERFIL DE CADA ROL
     // =========================
 
     @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private ClienteProfile clienteProfile;
+
+    @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private AdminProfile adminProfile;
+
+    /** Los avisos que elige el ADMIN; sin perfil todavía, recibe todos. */
+    public AdminProfile avisosAdmin() {
+        return adminProfile != null ? adminProfile : AdminProfile.porDefecto(this);
+    }
 
     /** Nombre, apellido y celular verificado con el código de WhatsApp (igual que el mail). */
     public boolean datosPersonalesCompletos() {

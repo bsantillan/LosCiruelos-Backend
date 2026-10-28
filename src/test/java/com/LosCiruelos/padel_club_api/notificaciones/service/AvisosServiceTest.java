@@ -3,7 +3,6 @@ package com.LosCiruelos.padel_club_api.notificaciones.service;
 import static com.LosCiruelos.padel_club_api.TestData.reserva;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -20,12 +19,11 @@ import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
-import com.LosCiruelos.padel_club_api.notificaciones.entity.AvisosAdmin;
+import com.LosCiruelos.padel_club_api.usuarios.entity.AdminProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.notificaciones.repository.AvisosAdminRepository;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva.Destinatario;
 import com.LosCiruelos.padel_club_api.notificaciones.email.EmailService;
@@ -37,7 +35,6 @@ import com.LosCiruelos.padel_club_api.common.Dinero;
 class AvisosServiceTest {
 
     private UsuarioService usuarioService;
-    private AvisosAdminRepository avisosAdminRepository;
     private WhatsAppService whatsApp;
     private EmailService email;
     private AvisosService avisos;
@@ -48,7 +45,6 @@ class AvisosServiceTest {
     @BeforeEach
     void setUp() {
         usuarioService = mock(UsuarioService.class);
-        avisosAdminRepository = mock(AvisosAdminRepository.class);
         whatsApp = mock(WhatsAppService.class);
         WhatsAppServiceFactory fabricaWhatsApp = mock(WhatsAppServiceFactory.class);
         when(fabricaWhatsApp.getService()).thenReturn(whatsApp);
@@ -57,7 +53,7 @@ class AvisosServiceTest {
         when(factory.getService()).thenReturn(email);
         when(whatsApp.estaConfigurado()).thenReturn(true);
         when(whatsApp.enviarPlantilla(anyString(), anyString(), anyList())).thenReturn(true);
-        avisos = new AvisosService(usuarioService, avisosAdminRepository, fabricaWhatsApp, factory);
+        avisos = new AvisosService(usuarioService, fabricaWhatsApp, factory);
 
         adminWhatsapp = usuario(1L, Role.ADMIN);
         adminWhatsapp.setTelefono("5491122334455");
@@ -65,7 +61,6 @@ class AvisosServiceTest {
         adminWhatsapp.setCanalNotificaciones(CanalNotificacion.WHATSAPP);
         adminMail = usuario(2L, Role.ADMIN);
         when(usuarioService.adminsActivos()).thenReturn(List.of(adminWhatsapp, adminMail));
-        when(avisosAdminRepository.findAllById(any())).thenReturn(List.of());
     }
 
     private AvisoReserva confirmada() {
@@ -84,9 +79,9 @@ class AvisosServiceTest {
 
     @Test
     void unAdminQueApagoEseAvisoNoLoRecibe() {
-        AvisosAdmin sinConfirmadas = AvisosAdmin.porDefecto(2L);
+        AdminProfile sinConfirmadas = AdminProfile.porDefecto(adminMail);
         sinConfirmadas.setReservaConfirmada(false);
-        when(avisosAdminRepository.findAllById(any())).thenReturn(List.of(sinConfirmadas));
+        adminMail.setAdminProfile(sinConfirmadas);
 
         avisos.enviar(confirmada());
 
@@ -96,11 +91,11 @@ class AvisosServiceTest {
 
     @Test
     void conLosAvisosDesactivadosNoRecibeNinguno() {
-        AvisosAdmin pausados = AvisosAdmin.porDefecto(1L);
-        pausados.setActivos(false);
-        AvisosAdmin delOtro = AvisosAdmin.porDefecto(2L);
-        delOtro.setActivos(false);
-        when(avisosAdminRepository.findAllById(any())).thenReturn(List.of(pausados, delOtro));
+        for (Usuario admin : List.of(adminWhatsapp, adminMail)) {
+            AdminProfile pausados = AdminProfile.porDefecto(admin);
+            pausados.setActivos(false);
+            admin.setAdminProfile(pausados);
+        }
 
         avisos.enviar(confirmada());
 

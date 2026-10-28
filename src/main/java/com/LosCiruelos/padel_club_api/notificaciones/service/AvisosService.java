@@ -1,18 +1,11 @@
 package com.LosCiruelos.padel_club_api.notificaciones.service;
 
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
-import com.LosCiruelos.padel_club_api.notificaciones.entity.AvisosAdmin;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
-import com.LosCiruelos.padel_club_api.notificaciones.repository.AvisosAdminRepository;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva.Destinatario;
 import com.LosCiruelos.padel_club_api.notificaciones.email.EmailServiceFactory;
@@ -32,7 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 public class AvisosService {
 
     private final UsuarioService usuarioService;
-    private final AvisosAdminRepository avisosAdminRepository;
     private final WhatsAppServiceFactory whatsApp;
     private final EmailServiceFactory emailServiceFactory;
 
@@ -42,13 +34,8 @@ public class AvisosService {
             entregar(aviso.cliente(), aviso);
             return;
         }
-        List<Usuario> admins = usuarioService.adminsActivos();
-        Map<Long, AvisosAdmin> preferencias = avisosAdminRepository
-                .findAllById(admins.stream().map(Usuario::getId).toList()).stream()
-                .collect(Collectors.toMap(AvisosAdmin::getUsuarioId, Function.identity()));
-        for (Usuario admin : admins) {
-            AvisosAdmin prefs = preferencias.getOrDefault(admin.getId(), AvisosAdmin.porDefecto(admin.getId()));
-            if (prefs.quiere(aviso.tipo())) {
+        for (Usuario admin : usuarioService.adminsActivos()) {
+            if (admin.avisosAdmin().quiere(aviso.tipo())) {
                 entregar(Destinatario.de(admin), aviso);
             }
         }

@@ -1,9 +1,13 @@
-package com.LosCiruelos.padel_club_api.notificaciones.entity;
+package com.LosCiruelos.padel_club_api.usuarios.entity;
 
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.MapsId;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,19 +15,24 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** Qué avisos de reservas recibe cada ADMIN. Si un ADMIN no tiene fila, recibe todos. */
+/** Perfil del ADMIN: qué avisos de reservas recibe. */
 @Entity
-@Table(name = "avisos_admin")
+@Table(name = "admins")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class AvisosAdmin {
+public class AdminProfile {
 
     @Id
     @Column(name = "usuario_id")
     private Long usuarioId;
+
+    @MapsId
+    @OneToOne(optional = false)
+    @JoinColumn(name = "usuario_id")
+    private Usuario usuario;
 
     // Interruptor general: en false no recibe ningún aviso (se conserva la elección de cada uno)
     @Builder.Default
@@ -46,8 +55,9 @@ public class AvisosAdmin {
     @Column(name = "reembolso_manual", nullable = false)
     private Boolean reembolsoManual = true;
 
-    public static AvisosAdmin porDefecto(Long usuarioId) {
-        return AvisosAdmin.builder().usuarioId(usuarioId).build();
+    /** Perfil nuevo: recibe todos los avisos. */
+    public static AdminProfile porDefecto(Usuario admin) {
+        return AdminProfile.builder().usuario(admin).build();
     }
 
     /** Lo que eligió el ADMIN; {@code activos} null deja el interruptor general como estaba. */

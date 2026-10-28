@@ -13,7 +13,6 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
-import com.LosCiruelos.padel_club_api.notificaciones.entity.AvisosAdmin;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.SuscripcionesResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.NotificacionesResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.AvisosAdminResponse;
@@ -22,6 +21,7 @@ import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ProductoResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
+import com.LosCiruelos.padel_club_api.usuarios.entity.AdminProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
@@ -92,7 +92,7 @@ class MappersTest {
 
         NotificacionesResponse canal = mapper.aResponse(usuario, CanalNotificacion.EMAIL, true);
         SuscripcionesResponse suscripciones = mapper.aSuscripciones(usuario, false);
-        AvisosAdminResponse admin = mapper.aAvisosAdmin(AvisosAdmin.porDefecto(1L));
+        AvisosAdminResponse admin = mapper.aAvisosAdmin(AdminProfile.porDefecto(usuario));
 
         assertThat(canal).isEqualTo(new NotificacionesResponse(CanalNotificacion.WHATSAPP, CanalNotificacion.EMAIL,
                 "5491122334455", false, true));
