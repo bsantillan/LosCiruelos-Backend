@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.DTOs.Resumen;
+package com.LosCiruelos.padel_club_api.reportes.repository;
 
 import java.math.BigDecimal;
 

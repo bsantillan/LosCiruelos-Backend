@@ -40,6 +40,7 @@ import com.LosCiruelos.padel_club_api.club.controller.ProductoAdminController;
 import com.LosCiruelos.padel_club_api.club.controller.CanchaController;
 import com.LosCiruelos.padel_club_api.club.controller.ProductoController;
 import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
+import com.LosCiruelos.padel_club_api.reportes.controller.ResumenController;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.DisponibilidadResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.LoginResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
@@ -78,7 +79,7 @@ import com.LosCiruelos.padel_club_api.Services.PasswordResetService;
 import com.LosCiruelos.padel_club_api.Services.PerfilService;
 import com.LosCiruelos.padel_club_api.club.service.ProductoService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
-import com.LosCiruelos.padel_club_api.Services.ResumenService;
+import com.LosCiruelos.padel_club_api.reportes.service.ResumenService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 import com.LosCiruelos.padel_club_api.Services.BusquedaClientesService;
 import com.LosCiruelos.padel_club_api.Services.VerificationService;
@@ -714,20 +715,20 @@ class ControllersTest {
         void devuelveElResumenConMontosYFechasEnElFormatoDeSiempre() throws Exception {
             java.time.LocalDate desde = java.time.LocalDate.of(2026, 10, 1);
             java.time.LocalDate hasta = java.time.LocalDate.of(2026, 10, 31);
-            when(resumenService.resumen(desde, hasta, false)).thenReturn(new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse(
+            when(resumenService.resumen(desde, hasta, false)).thenReturn(new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse(
                     desde, hasta,
-                    new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Jugados(28,
+                    new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Jugados(28,
                             new BigDecimal("420000.00"), new BigDecimal("380000.00"), new BigDecimal("15000.00"),
                             new BigDecimal("25000.00")),
-                    new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.PorJugar(6,
+                    new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.PorJugar(6,
                             new BigDecimal("90000.00"), new BigDecimal("45000.00"), new BigDecimal("0.00"),
                             new BigDecimal("45000.00")),
-                    new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Caja(
+                    new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Caja(
                             new BigDecimal("230000.00"), new BigDecimal("90000.00"), new BigDecimal("100000.00"),
                             new BigDecimal("40000.00"), new BigDecimal("7500.00"), new BigDecimal("222500.00")),
-                    new com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Cancelaciones(3,
+                    new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Cancelaciones(3,
                             new BigDecimal("7500.00")),
-                    List.of(new com.LosCiruelos.padel_club_api.DTOs.Resumen.ProductoVendido(1L, "Pelotas",
+                    List.of(new com.LosCiruelos.padel_club_api.reportes.repository.ProductoVendido(1L, "Pelotas",
                             com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto.VENTA, 40L,
                             new BigDecimal("200000.00")))));
 

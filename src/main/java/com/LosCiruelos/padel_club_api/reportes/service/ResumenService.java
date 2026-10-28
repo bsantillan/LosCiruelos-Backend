@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Services;
+package com.LosCiruelos.padel_club_api.reportes.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -10,21 +10,21 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.CobrosDelPeriodo;
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.EntradasDeCaja;
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.TurnosDelPeriodo;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Caja;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Cancelaciones;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.Jugados;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse.PorJugar;
+import com.LosCiruelos.padel_club_api.reportes.repository.CobrosDelPeriodo;
+import com.LosCiruelos.padel_club_api.reportes.repository.EntradasDeCaja;
+import com.LosCiruelos.padel_club_api.reportes.repository.TurnosDelPeriodo;
+import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse;
+import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Caja;
+import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Cancelaciones;
+import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Jugados;
+import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.PorJugar;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
-import com.LosCiruelos.padel_club_api.Repository.ResumenRepository;
+import com.LosCiruelos.padel_club_api.reportes.repository.ResumenRepository;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 

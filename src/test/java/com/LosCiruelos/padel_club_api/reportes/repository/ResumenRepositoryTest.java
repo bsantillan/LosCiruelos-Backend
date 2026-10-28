@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Repository;
+package com.LosCiruelos.padel_club_api.reportes.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -14,7 +14,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse;
+import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
@@ -23,7 +23,7 @@ import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.Services.ResumenService;
+import com.LosCiruelos.padel_club_api.reportes.service.ResumenService;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 
 /**

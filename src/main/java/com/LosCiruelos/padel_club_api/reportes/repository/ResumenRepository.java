@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Repository;
+package com.LosCiruelos.padel_club_api.reportes.repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -11,10 +11,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.CobrosDelPeriodo;
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.EntradasDeCaja;
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.ProductoVendido;
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.TurnosDelPeriodo;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
@@ -41,7 +37,7 @@ public interface ResumenRepository extends Repository<Reserva, Long> {
                   WHEN p.estado IN :devueltos THEN p.monto - COALESCE(p.montoReembolsado, p.monto)
                   ELSE 0 END)""";
 
-    @Query("SELECT new com.LosCiruelos.padel_club_api.DTOs.Resumen.TurnosDelPeriodo("
+    @Query("SELECT new com.LosCiruelos.padel_club_api.reportes.repository.TurnosDelPeriodo("
             + "SUM(CASE WHEN " + JUGADA + " THEN 1 ELSE 0 END), "
             + "COALESCE(SUM(CASE WHEN " + JUGADA + " THEN r.montoTotal ELSE 0 END), 0), "
             + "SUM(CASE WHEN " + POR_JUGAR + " THEN 1 ELSE 0 END), "
@@ -57,7 +53,7 @@ public interface ResumenRepository extends Repository<Reserva, Long> {
             @Param("juegan") Collection<EstadoReserva> juegan,
             @Param("cancelada") EstadoReserva cancelada);
 
-    @Query("SELECT new com.LosCiruelos.padel_club_api.DTOs.Resumen.CobrosDelPeriodo("
+    @Query("SELECT new com.LosCiruelos.padel_club_api.reportes.repository.CobrosDelPeriodo("
             + "COALESCE(SUM(CASE WHEN " + JUGADA + " AND p.provider <> :bonificacion THEN " + RETENIDO
             + " ELSE 0 END), 0), "
             + "COALESCE(SUM(CASE WHEN " + JUGADA + " AND p.provider = :bonificacion THEN " + RETENIDO
@@ -87,7 +83,7 @@ public interface ResumenRepository extends Repository<Reserva, Long> {
      * por la fecha del reembolso.
      */
     @Query("""
-            SELECT new com.LosCiruelos.padel_club_api.DTOs.Resumen.EntradasDeCaja(
+            SELECT new com.LosCiruelos.padel_club_api.reportes.repository.EntradasDeCaja(
                    COALESCE(SUM(CASE WHEN p.provider = :efectivo THEN p.monto ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN p.provider = :mercadoPago AND p.externalPaymentId IS NOT NULL
                                      THEN p.monto ELSE 0 END), 0),
@@ -121,7 +117,7 @@ public interface ResumenRepository extends Repository<Reserva, Long> {
             @Param("bonificacion") PaymentProvider bonificacion);
 
     @Query("""
-            SELECT new com.LosCiruelos.padel_club_api.DTOs.Resumen.ProductoVendido(pr.id, pr.nombre, pr.tipo,
+            SELECT new com.LosCiruelos.padel_club_api.reportes.repository.ProductoVendido(pr.id, pr.nombre, pr.tipo,
                    SUM(rp.cantidad), SUM(rp.cantidad * rp.precioUnitario))
             FROM ReservaProducto rp JOIN rp.reserva r JOIN rp.producto pr
             WHERE r.fechaReserva BETWEEN :desde AND :hasta AND r.estado IN :estados

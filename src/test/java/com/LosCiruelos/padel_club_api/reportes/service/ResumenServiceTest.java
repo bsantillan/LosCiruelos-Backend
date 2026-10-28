@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Services;
+package com.LosCiruelos.padel_club_api.reportes.service;
 
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,11 +19,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.CobrosDelPeriodo;
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.EntradasDeCaja;
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.ProductoVendido;
-import com.LosCiruelos.padel_club_api.DTOs.Resumen.TurnosDelPeriodo;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.ResumenResponse;
+import com.LosCiruelos.padel_club_api.reportes.repository.CobrosDelPeriodo;
+import com.LosCiruelos.padel_club_api.reportes.repository.EntradasDeCaja;
+import com.LosCiruelos.padel_club_api.reportes.repository.ProductoVendido;
+import com.LosCiruelos.padel_club_api.reportes.repository.TurnosDelPeriodo;
+import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
@@ -31,7 +31,7 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
-import com.LosCiruelos.padel_club_api.Repository.ResumenRepository;
+import com.LosCiruelos.padel_club_api.reportes.repository.ResumenRepository;
 
 /** Cómo arma el servicio la respuesta. Las consultas en sí se prueban en ResumenRepositoryTest. */
 class ResumenServiceTest {
