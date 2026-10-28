@@ -1,5 +1,6 @@
-package com.LosCiruelos.padel_club_api.reportes.service;
+package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
@@ -23,11 +24,12 @@ import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.mapper.ResumenMapper;
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.reportes.repository.CobrosDelPeriodo;
-import com.LosCiruelos.padel_club_api.reportes.repository.EntradasDeCaja;
-import com.LosCiruelos.padel_club_api.reportes.repository.ProductoVendido;
-import com.LosCiruelos.padel_club_api.reportes.repository.TurnosDelPeriodo;
-import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse;
+
+import com.LosCiruelos.padel_club_api.reservas.repository.CobrosDelPeriodo;
+import com.LosCiruelos.padel_club_api.reservas.repository.EntradasDeCaja;
+import com.LosCiruelos.padel_club_api.reservas.repository.ProductoVendido;
+import com.LosCiruelos.padel_club_api.reservas.repository.TurnosDelPeriodo;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
@@ -35,10 +37,10 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
-import com.LosCiruelos.padel_club_api.reportes.repository.ResumenRepository;
+import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 
-/** Cómo arma el servicio la respuesta. Las consultas en sí se prueban en ResumenRepositoryTest. */
-class ResumenServiceTest {
+/** Cómo arma el servicio la respuesta. Las consultas en sí se prueban en ReservaRepositoryResumenTest. */
+class ReservaConsultaServiceResumenTest {
 
     private static final LocalDate DESDE = LocalDate.of(2026, 10, 1);
     private static final LocalDate HASTA = LocalDate.of(2026, 10, 31);
@@ -46,25 +48,26 @@ class ResumenServiceTest {
     private static final String ADMIN = "admin@test.com";
     private static final String EMPLEADO = "emp@test.com";
 
-    private ResumenRepository repo;
+    private ReservaRepository repo;
     private UsuarioService usuarioService;
-    private ResumenService resumen;
+    private ReservaConsultaService resumen;
 
     @BeforeEach
     void setUp() {
-        repo = mock(ResumenRepository.class);
+        repo = mock(ReservaRepository.class);
         usuarioService = mock(UsuarioService.class);
         when(usuarioService.autenticado(ADMIN)).thenReturn(usuario(1L, Role.ADMIN));
         when(usuarioService.autenticado(EMPLEADO)).thenReturn(usuario(2L, Role.EMPLEADO));
-        resumen = new ResumenService(repo, new ResumenMapper(), usuarioService, TestData.reloj(AHORA));
+        resumen = new ReservaConsultaService(usuarioService, repo, mock(ReservaMapper.class), new ResumenMapper(),
+                TestData.reloj(AHORA));
         // sin reservas ni pagos: las cantidades vienen en null y los montos en 0
-        when(repo.turnos(any(), any(), any(), any(), any(), any()))
+        when(repo.resumenTurnos(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new TurnosDelPeriodo(null, $("0"), null, $("0"), null));
-        when(repo.cobros(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        when(repo.resumenCobros(any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new CobrosDelPeriodo($("0"), $("0"), $("0"), $("0"), $("0")));
-        when(repo.entradasDeCaja(any(), any(), any(), any(), any(), any()))
+        when(repo.resumenEntradasDeCaja(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new EntradasDeCaja($("0"), $("0"), $("0")));
-        when(repo.devoluciones(any(), any(), any(), any())).thenReturn($("0"));
+        when(repo.resumenDevoluciones(any(), any(), any(), any())).thenReturn($("0"));
     }
 
     private static BigDecimal $(String monto) {
@@ -73,21 +76,21 @@ class ResumenServiceTest {
 
     @Test
     void armaElResumenDelPeriodo() {
-        when(repo.turnos(DESDE, HASTA, AHORA.toLocalDate(), AHORA.toLocalTime(), Reserva.ESTADOS_QUE_SE_JUEGAN,
+        when(repo.resumenTurnos(DESDE, HASTA, AHORA.toLocalDate(), AHORA.toLocalTime(), Reserva.ESTADOS_QUE_SE_JUEGAN,
                 EstadoReserva.CANCELADA)).thenReturn(new TurnosDelPeriodo(28L, $("420000"), 6L, $("90000"), 3L));
-        when(repo.cobros(eq(DESDE), eq(HASTA), eq(AHORA.toLocalDate()), eq(AHORA.toLocalTime()),
+        when(repo.resumenCobros(eq(DESDE), eq(HASTA), eq(AHORA.toLocalDate()), eq(AHORA.toLocalTime()),
                 eq(Reserva.ESTADOS_QUE_SE_JUEGAN), eq(EstadoReserva.CANCELADA), eq(EstadoPago.APROBADO), any(),
                 eq(PaymentProvider.BONIFICACION)))
                 .thenReturn(new CobrosDelPeriodo($("380000"), $("15000"), $("45000"), $("0"), $("7500")));
-        when(repo.entradasDeCaja(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay(),
+        when(repo.resumenEntradasDeCaja(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay(),
                 Set.of(EstadoPago.APROBADO, EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR,
                         EstadoPago.REEMBOLSO_PENDIENTE),
                 PaymentProvider.MANUAL, PaymentProvider.MERCADO_PAGO, PaymentProvider.BONIFICACION))
                 .thenReturn(new EntradasDeCaja($("90000"), $("100000"), $("40000")));
-        when(repo.devoluciones(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay(), EstadoPago.DEVUELTO,
+        when(repo.resumenDevoluciones(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay(), EstadoPago.DEVUELTO,
                 PaymentProvider.BONIFICACION)).thenReturn($("7500"));
         ProductoVendido pelotas = new ProductoVendido(1L, "Pelotas", TipoProducto.VENTA, 40L, $("200000"));
-        when(repo.productos(DESDE, HASTA, Reserva.ESTADOS_QUE_SE_JUEGAN)).thenReturn(List.of(pelotas));
+        when(repo.resumenProductos(DESDE, HASTA, Reserva.ESTADOS_QUE_SE_JUEGAN)).thenReturn(List.of(pelotas));
 
         ResumenResponse r = resumen.resumen(DESDE, HASTA);
 
@@ -108,7 +111,7 @@ class ResumenServiceTest {
     void elRetenidoCuentaLoQueNoSeDevolvioDeLosPagosDevueltosOPorDevolver() {
         resumen.resumen(DESDE, HASTA);
 
-        verify(repo).cobros(DESDE, HASTA, AHORA.toLocalDate(), AHORA.toLocalTime(), Reserva.ESTADOS_QUE_SE_JUEGAN,
+        verify(repo).resumenCobros(DESDE, HASTA, AHORA.toLocalDate(), AHORA.toLocalTime(), Reserva.ESTADOS_QUE_SE_JUEGAN,
                 EstadoReserva.CANCELADA, EstadoPago.APROBADO,
                 Set.of(EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE),
                 PaymentProvider.BONIFICACION);
@@ -133,9 +136,9 @@ class ResumenServiceTest {
 
         assertThat(r.desde()).isEqualTo(hoy);
         assertThat(r.hasta()).isEqualTo(hoy);
-        verify(repo).turnos(hoy, hoy, hoy, AHORA.toLocalTime(), Reserva.ESTADOS_QUE_SE_JUEGAN,
+        verify(repo).resumenTurnos(hoy, hoy, hoy, AHORA.toLocalTime(), Reserva.ESTADOS_QUE_SE_JUEGAN,
                 EstadoReserva.CANCELADA);
-        verify(repo).devoluciones(hoy.atStartOfDay(), hoy.plusDays(1).atStartOfDay(), EstadoPago.DEVUELTO,
+        verify(repo).resumenDevoluciones(hoy.atStartOfDay(), hoy.plusDays(1).atStartOfDay(), EstadoPago.DEVUELTO,
                 PaymentProvider.BONIFICACION);
     }
 
@@ -168,8 +171,9 @@ class ResumenServiceTest {
 
     @Test
     void validaElPeriodo() {
-        ResumenRepository sinUso = mock(ResumenRepository.class);
-        ResumenService servicio = new ResumenService(sinUso, new ResumenMapper(), usuarioService, TestData.reloj(AHORA));
+        ReservaRepository sinUso = mock(ReservaRepository.class);
+        ReservaConsultaService servicio = new ReservaConsultaService(usuarioService, sinUso, mock(ReservaMapper.class),
+                new ResumenMapper(), TestData.reloj(AHORA));
         assertThatThrownBy(() -> servicio.resumen(HASTA, DESDE))
                 .isInstanceOf(ReservaException.class)
                 .hasMessage("La fecha desde no puede ser posterior a hasta.");

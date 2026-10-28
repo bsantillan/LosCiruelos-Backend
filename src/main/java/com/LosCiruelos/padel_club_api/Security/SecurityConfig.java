@@ -68,8 +68,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/admin/configuracion/productos/*/stock")
                         .hasAnyRole("ADMIN", "EMPLEADO")
 
-                        // Resumen del período: también lo ve el personal
-                        .requestMatchers(HttpMethod.GET, "/admin/resumen").hasAnyRole("ADMIN", "EMPLEADO")
                         // Panel del personal: reservas y búsqueda de clientes
                         // Bonificar (no cobrarle al cliente): solo ADMIN
                         .requestMatchers(HttpMethod.POST, "/admin/reservas/*/bonificacion").hasRole("ADMIN")

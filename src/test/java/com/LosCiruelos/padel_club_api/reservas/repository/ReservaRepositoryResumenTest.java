@@ -1,5 +1,6 @@
-package com.LosCiruelos.padel_club_api.reportes.repository;
+package com.LosCiruelos.padel_club_api.reservas.repository;
 
+import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 import static org.mockito.Mockito.mock;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,7 +18,8 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 
 import com.LosCiruelos.padel_club_api.mapper.ResumenMapper;
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse;
+
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
@@ -26,7 +28,7 @@ import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
-import com.LosCiruelos.padel_club_api.reportes.service.ResumenService;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 
 /**
@@ -35,7 +37,7 @@ import com.LosCiruelos.padel_club_api.common.Reloj;
  */
 @DataJpaTest(properties = { "spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop", 
         "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect" })
-class ResumenRepositoryTest {
+class ReservaRepositoryResumenTest {
 
     private static final LocalDate HOY = TestData.HOY; // 13/10/2026
     private static final LocalDate OCT_1 = LocalDate.of(2026, 10, 1);
@@ -45,7 +47,7 @@ class ResumenRepositoryTest {
     private TestEntityManager em;
 
     @Autowired
-    private ResumenRepository repo;
+    private ReservaRepository repo;
 
     private Usuario cliente;
     private Cancha cancha;
@@ -119,7 +121,8 @@ class ResumenRepositoryTest {
 
     private ResumenResponse resumen(LocalDate desde, LocalDate hasta, LocalDateTime ahora) {
         Reloj reloj = TestData.reloj(ahora);
-        return new ResumenService(repo, new ResumenMapper(), mock(UsuarioService.class), reloj).resumen(desde, hasta);
+        return new ReservaConsultaService(mock(UsuarioService.class), repo, mock(ReservaMapper.class), new ResumenMapper(),
+                reloj).resumen(desde, hasta);
     }
 
     private static BigDecimal $(String monto) {

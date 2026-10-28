@@ -40,7 +40,6 @@ import com.LosCiruelos.padel_club_api.club.controller.ProductoAdminController;
 import com.LosCiruelos.padel_club_api.club.controller.CanchaController;
 import com.LosCiruelos.padel_club_api.club.controller.ProductoController;
 import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
-import com.LosCiruelos.padel_club_api.reportes.controller.ResumenController;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.DisponibilidadResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.LoginResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
@@ -79,7 +78,6 @@ import com.LosCiruelos.padel_club_api.Services.PasswordResetService;
 import com.LosCiruelos.padel_club_api.Services.PerfilService;
 import com.LosCiruelos.padel_club_api.club.service.ProductoService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
-import com.LosCiruelos.padel_club_api.reportes.service.ResumenService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 import com.LosCiruelos.padel_club_api.Services.BusquedaClientesService;
 import com.LosCiruelos.padel_club_api.Services.VerificationService;
@@ -109,7 +107,6 @@ class ControllersTest {
     private ProductoService productoService;
     private StockService stockService;
     private NotificacionesService notificacionesService;
-    private ResumenService resumenService;
     private ReservaConsultaService reservaConsultaService;
     private BusquedaClientesService busquedaClientesService;
     private MockMvc mvc;
@@ -131,7 +128,6 @@ class ControllersTest {
         productoService = mock(ProductoService.class);
         stockService = mock(StockService.class);
         notificacionesService = mock(NotificacionesService.class);
-        resumenService = mock(ResumenService.class);
         reservaConsultaService = mock(ReservaConsultaService.class);
         busquedaClientesService = mock(BusquedaClientesService.class);
 
@@ -147,7 +143,6 @@ class ControllersTest {
                 new ProductoController(productoService, stockService),
                 new ProductoAdminController(productoService),
                 new NotificacionesController(notificacionesService),
-                new ResumenController(resumenService),
                 new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService),
                 new ClienteAdminController(busquedaClientesService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
@@ -715,24 +710,24 @@ class ControllersTest {
         void devuelveElResumenConMontosYFechasEnElFormatoDeSiempre() throws Exception {
             java.time.LocalDate desde = java.time.LocalDate.of(2026, 10, 1);
             java.time.LocalDate hasta = java.time.LocalDate.of(2026, 10, 31);
-            when(resumenService.resumen(desde, hasta, "admin@test.com")).thenReturn(new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse(
+            when(reservaConsultaService.resumen(desde, hasta, "admin@test.com")).thenReturn(new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse(
                     desde, hasta,
-                    new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Jugados(28,
+                    new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Jugados(28,
                             new BigDecimal("420000.00"), new BigDecimal("380000.00"), new BigDecimal("15000.00"),
                             new BigDecimal("25000.00")),
-                    new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.PorJugar(6,
+                    new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.PorJugar(6,
                             new BigDecimal("90000.00"), new BigDecimal("45000.00"), new BigDecimal("0.00"),
                             new BigDecimal("45000.00")),
-                    new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Caja(
+                    new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Caja(
                             new BigDecimal("230000.00"), new BigDecimal("90000.00"), new BigDecimal("100000.00"),
                             new BigDecimal("40000.00"), new BigDecimal("7500.00"), new BigDecimal("222500.00")),
-                    new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Cancelaciones(3,
+                    new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Cancelaciones(3,
                             new BigDecimal("7500.00")),
-                    List.of(new com.LosCiruelos.padel_club_api.reportes.repository.ProductoVendido(1L, "Pelotas",
+                    List.of(new com.LosCiruelos.padel_club_api.reservas.repository.ProductoVendido(1L, "Pelotas",
                             com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto.VENTA, 40L,
                             new BigDecimal("200000.00")))));
 
-            mvc.perform(get("/admin/resumen").principal(ADMIN).param("desde", "2026-10-01").param("hasta", "2026-10-31"))
+            mvc.perform(get("/admin/reservas/resumen").principal(ADMIN).param("desde", "2026-10-01").param("hasta", "2026-10-31"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.desde").value("2026-10-01"))
                     .andExpect(jsonPath("$.hasta").value("2026-10-31"))
@@ -765,34 +760,34 @@ class ControllersTest {
 
         @Test
         void pasaQuienPideElResumenParaQueElServiceDecidaElPeriodo() throws Exception {
-            mvc.perform(get("/admin/resumen").principal(EMPLEADO)).andExpect(status().isOk());
-            verify(resumenService).resumen(null, null, "emp@test.com");
+            mvc.perform(get("/admin/reservas/resumen").principal(EMPLEADO)).andExpect(status().isOk());
+            verify(reservaConsultaService).resumen(null, null, "emp@test.com");
 
-            mvc.perform(get("/admin/resumen").principal(ADMIN)).andExpect(status().isOk());
-            verify(resumenService).resumen(null, null, "admin@test.com");
+            mvc.perform(get("/admin/reservas/resumen").principal(ADMIN)).andExpect(status().isOk());
+            verify(reservaConsultaService).resumen(null, null, "admin@test.com");
 
-            when(resumenService.resumen(any(), any(), eq("emp@test.com")))
+            when(reservaConsultaService.resumen(any(), any(), eq("emp@test.com")))
                     .thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException(
                             "Solo podés ver el resumen de hoy."));
-            mvc.perform(get("/admin/resumen").principal(EMPLEADO).param("desde", "2026-10-01").param("hasta", "2026-10-31"))
+            mvc.perform(get("/admin/reservas/resumen").principal(EMPLEADO).param("desde", "2026-10-01").param("hasta", "2026-10-31"))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.error").value("Solo podés ver el resumen de hoy."));
         }
 
         @Test
         void unaFechaConFormatoInvalidoDevuelve400() throws Exception {
-            mvc.perform(get("/admin/resumen").principal(ADMIN).param("desde", "01/10/2026").param("hasta", "2026-10-31"))
+            mvc.perform(get("/admin/reservas/resumen").principal(ADMIN).param("desde", "01/10/2026").param("hasta", "2026-10-31"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.desde").exists());
         }
 
         @Test
         void unPeriodoInvalidoDevuelve400() throws Exception {
-            when(resumenService.resumen(any(), any(), eq("admin@test.com")))
+            when(reservaConsultaService.resumen(any(), any(), eq("admin@test.com")))
                     .thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.ReservaException(
                             "La fecha desde no puede ser posterior a hasta."));
 
-            mvc.perform(get("/admin/resumen").principal(ADMIN).param("desde", "2026-10-31").param("hasta", "2026-10-01"))
+            mvc.perform(get("/admin/reservas/resumen").principal(ADMIN).param("desde", "2026-10-31").param("hasta", "2026-10-01"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error").value("La fecha desde no puede ser posterior a hasta."));
         }

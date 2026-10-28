@@ -1,5 +1,17 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.reservas.repository.TurnosDelPeriodo;
+import com.LosCiruelos.padel_club_api.reservas.repository.EntradasDeCaja;
+import com.LosCiruelos.padel_club_api.reservas.repository.CobrosDelPeriodo;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse;
+import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
+import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.mapper.ResumenMapper;
+import com.LosCiruelos.padel_club_api.common.Roles;
+import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
+import java.time.temporal.ChronoUnit;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
@@ -37,8 +49,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Consultas de reservas (solo lectura): "Mis reservas", el detalle, el listado del personal con
- * sus totales, los turnos jugados que deben saldo, las paletas sin devolver y los números del
- * perfil del jugador.
+ * sus totales, el resumen del período, los turnos jugados que deben saldo, las paletas sin
+ * devolver y los números del perfil del jugador.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,10 +59,12 @@ public class ReservaConsultaService {
     public static final int TAMANIO_MAXIMO_MIS_RESERVAS = 50;
     public static final int TAMANIO_POR_DEFECTO_LISTADO = 20;
     public static final int TAMANIO_MAXIMO_LISTADO = 100;
+    public static final int DIAS_MAXIMOS_RESUMEN = 366;
 
     private final UsuarioService usuarioService;
     private final ReservaRepository reservaRepository;
     private final ReservaMapper mapper;
+    private final ResumenMapper resumenMapper;
     private final Reloj reloj;
 
     // ── Del cliente ──────────────────────────────────────────────────────
@@ -172,6 +186,63 @@ public class ReservaConsultaService {
                 ahora.toLocalDate(), ahora.toLocalTime()).stream()
                 .map(mapper::aResponse)
                 .toList();
+    }
+
+    // ── Resumen del período (panel del club) ─────────────────────────────
+    // jugados, porJugar, cancelaciones y productos: reservas cuyo turno (fechaReserva) cae entre
+    // desde y hasta, inclusive (jugados: confirmados que ya terminaron; por jugar: los que no).
+    // caja: pagos cobrados y devueltos en esas fechas, sea cual sea el turno (cierre de caja).
+
+    /**
+     * El ADMIN ve cualquier período; el EMPLEADO, solo el día de hoy (no el historial).
+     *
+     * @param desde null junto con hasta: el día de hoy
+     */
+    @Transactional(readOnly = true)
+    public ResumenResponse resumen(LocalDate desde, LocalDate hasta, String email) {
+        boolean soloHoy = !Roles.esAdmin(usuarioService.autenticado(email));
+        LocalDate hoy = reloj.hoy();
+        if ((desde == null) != (hasta == null)) {
+            throw new ReservaException("Indicá las dos fechas (desde y hasta) o ninguna para ver el día de hoy.");
+        }
+        if (desde == null) {
+            desde = hoy;
+            hasta = hoy;
+        }
+        if (soloHoy && !(desde.equals(hoy) && hasta.equals(hoy))) {
+            throw new PermisoDenegadoException("Solo podés ver el resumen de hoy.");
+        }
+        return resumen(desde, hasta);
+    }
+
+    /** Resumen de cualquier período (ADMIN). */
+    @Transactional(readOnly = true)
+    public ResumenResponse resumen(LocalDate desde, LocalDate hasta) {
+        if (desde.isAfter(hasta)) {
+            throw new ReservaException("La fecha desde no puede ser posterior a hasta.");
+        }
+        if (ChronoUnit.DAYS.between(desde, hasta) + 1 > DIAS_MAXIMOS_RESUMEN) {
+            throw new ReservaException("El período no puede superar los " + DIAS_MAXIMOS_RESUMEN + " días.");
+        }
+
+        // las que se juegan o se jugaron: señadas, parciales, pagas y completadas
+        Set<EstadoReserva> juegan = Reserva.ESTADOS_QUE_SE_JUEGAN;
+        LocalDateTime ahora = reloj.ahora();
+
+        TurnosDelPeriodo t = reservaRepository.resumenTurnos(desde, hasta, ahora.toLocalDate(), ahora.toLocalTime(),
+                juegan, EstadoReserva.CANCELADA);
+        CobrosDelPeriodo c = reservaRepository.resumenCobros(desde, hasta, ahora.toLocalDate(), ahora.toLocalTime(),
+                juegan, EstadoReserva.CANCELADA, EstadoPago.APROBADO, Pago.ESTADOS_DEVUELTOS, PaymentProvider.BONIFICACION);
+
+        // caja: de las 00:00 de desde a las 00:00 del día siguiente a hasta
+        LocalDateTime inicio = desde.atStartOfDay();
+        LocalDateTime fin = hasta.plusDays(1).atStartOfDay();
+        EntradasDeCaja e = reservaRepository.resumenEntradasDeCaja(inicio, fin, Pago.ESTADOS_COBRADOS, PaymentProvider.MANUAL,
+                PaymentProvider.MERCADO_PAGO, PaymentProvider.BONIFICACION);
+        BigDecimal devoluciones = reservaRepository.resumenDevoluciones(inicio, fin, EstadoPago.DEVUELTO,
+                PaymentProvider.BONIFICACION);
+        return resumenMapper.aResponse(desde, hasta, t, c, e, devoluciones,
+                reservaRepository.resumenProductos(desde, hasta, juegan));
     }
 
     // ── Números del perfil del jugador ───────────────────────────────────

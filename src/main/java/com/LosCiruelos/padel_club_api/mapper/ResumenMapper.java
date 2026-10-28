@@ -7,15 +7,15 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.common.Dinero;
-import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse;
-import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Caja;
-import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Cancelaciones;
-import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Jugados;
-import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.PorJugar;
-import com.LosCiruelos.padel_club_api.reportes.repository.CobrosDelPeriodo;
-import com.LosCiruelos.padel_club_api.reportes.repository.EntradasDeCaja;
-import com.LosCiruelos.padel_club_api.reportes.repository.ProductoVendido;
-import com.LosCiruelos.padel_club_api.reportes.repository.TurnosDelPeriodo;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Caja;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Cancelaciones;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Jugados;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.PorJugar;
+import com.LosCiruelos.padel_club_api.reservas.repository.CobrosDelPeriodo;
+import com.LosCiruelos.padel_club_api.reservas.repository.EntradasDeCaja;
+import com.LosCiruelos.padel_club_api.reservas.repository.ProductoVendido;
+import com.LosCiruelos.padel_club_api.reservas.repository.TurnosDelPeriodo;
 
 /**
  * Las proyecciones del resumen → ResumenResponse: lo que falta cobrar (monto − cobrado −

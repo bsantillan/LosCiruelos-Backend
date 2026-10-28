@@ -1,10 +1,10 @@
-package com.LosCiruelos.padel_club_api.reportes.dto.response;
+package com.LosCiruelos.padel_club_api.reservas.dto.response;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-import com.LosCiruelos.padel_club_api.reportes.repository.ProductoVendido;
+import com.LosCiruelos.padel_club_api.reservas.repository.ProductoVendido;
 
 /**
  * Resumen del período para el panel del club. jugados, porJugar, cancelaciones y productos

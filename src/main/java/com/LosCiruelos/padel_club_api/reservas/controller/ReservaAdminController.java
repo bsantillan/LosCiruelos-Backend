@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.controller;
 
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -115,6 +116,18 @@ public class ReservaAdminController {
     public ResponseEntity<ReservaResponse> cancelar(@PathVariable Long id,
             @RequestParam(required = false) OpcionReembolso reembolso, Authentication authentication) {
         return ResponseEntity.ok(cancelacionService.cancelarComoPersonal(id, reembolso, authentication.getName()));
+    }
+
+    /**
+     * Resumen del período para el panel (montos, turnos, caja y productos). El ADMIN ve cualquier
+     * período; el EMPLEADO, solo el día de hoy. Sin fechas, el resumen es de hoy.
+     */
+    @GetMapping("/resumen")
+    public ResponseEntity<ResumenResponse> resumen(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            Authentication authentication) {
+        return ResponseEntity.ok(reservaConsultaService.resumen(desde, hasta, authentication.getName()));
     }
 
     /** Turnos ya jugados que deben saldo (señados o parciales), del más viejo al más nuevo. */

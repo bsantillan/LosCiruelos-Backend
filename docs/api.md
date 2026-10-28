@@ -577,9 +577,9 @@ Cobrar en el club la seña, el saldo o el total: `POST /admin/reservas/{reservaI
 
 ---
 
-## Resumen del club — `/admin/resumen` (rol: ADMIN, EMPLEADO)
+## Resumen del club — `/admin/reservas/resumen` (rol: ADMIN, EMPLEADO)
 
-### `GET /admin/resumen?desde=2026-10-01&hasta=2026-10-31` → `200 ResumenResponse`
+### `GET /admin/reservas/resumen?desde=2026-10-01&hasta=2026-10-31` → `200 ResumenResponse`
 Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-dd`) y van las dos juntas o ninguna: **sin fechas, el resumen es del día de hoy**.
 
 - `jugados`, `porJugar`, `cancelaciones` y `productos` toman las **reservas cuyo turno (`fechaReserva`) cae en el período**.
@@ -588,7 +588,7 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 | Rol | Qué puede ver |
 |---|---|
 | ADMIN | Cualquier período (hasta 366 días) |
-| EMPLEADO | **Solo el día de hoy**: `GET /admin/resumen` sin fechas, o con `desde` y `hasta` iguales a hoy. Otro período → `403` "Solo podés ver el resumen de hoy." |
+| EMPLEADO | **Solo el día de hoy**: `GET /admin/reservas/resumen` sin fechas, o con `desde` y `hasta` iguales a hoy. Otro período → `403` "Solo podés ver el resumen de hoy." |
 
 ```json
 {
