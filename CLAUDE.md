@@ -30,7 +30,7 @@ Todo se escribe en **castellano rioplatense**: mensajes de error, textos de avis
 - Los tests de repositorio usan H2 con `spring.flyway.enabled=false`, `ddl-auto=create-drop` y `hibernate.dialect=org.hibernate.dialect.H2Dialect` (sin el dialecto de H2 fallan los CHECK que genera Hibernate).
 
 ## Arquitectura
-Paquetes **por dominio** (`usuarios`, `club`, `reservas`, `pagos`, `notificaciones`) más `common`, `config` y `security`. La reorganización se hace por etapas (ya están `reservas`, `pagos`, `club` y `usuarios`; el resumen del período quedó dentro de `reservas`); mientras dure, conviven los paquetes por capa (`Controller`, `Services`, `Repository`, `Entities`, `DTOs`) con los nuevos. Lo nuevo va en el paquete de su dominio.
+Paquetes **por dominio** (`usuarios`, `club`, `reservas`, `pagos`, `notificaciones`) más `common`, `config` y `security`. La reorganización se hace por etapas (ya están `reservas`, `pagos`, `club`, `usuarios` y `notificaciones`; el resumen del período y el recordatorio del turno quedaron dentro de `reservas`); falta la limpieza final de los paquetes transversales (`Config`, `Security`, `Exceptions`, `Handlers`, `Jobs` y lo que queda en `DTOs`). Lo nuevo va en el paquete de su dominio.
 
 Cada dominio se divide en subpaquetes por tipo de clase (nunca todo junto en la raíz del dominio):
 
@@ -46,11 +46,13 @@ reservas/
 │   └── response/    lo que sale (solo datos: sin from() ni lógica)
 ```
 
-El mapeo entidad → DTO va en la carpeta general **`mapper/`** (al lado de `common/`), un mapper por entidad (`ReservaMapper`, `PagoMapper`, `TurnoFijoMapper`, `CanchaMapper`, `ProductoMapper`, `ResumenMapper`, `UsuarioMapper`…). Un mapper no consulta la base: lo que necesita (por ejemplo, los próximos partidos de un turno fijo) se lo pasa el service.
+El mapeo entidad → DTO va en la carpeta general **`mapper/`** (al lado de `common/`), un mapper por entidad (`ReservaMapper`, `PagoMapper`, `TurnoFijoMapper`, `CanchaMapper`, `ProductoMapper`, `ResumenMapper`, `ConfiguracionMapper`, `UsuarioMapper`, `NotificacionesMapper`…). Un mapper no consulta la base: lo que necesita (por ejemplo, los próximos partidos de un turno fijo) se lo pasa el service.
 
 `club` (canchas, configuración del club y catálogo de productos) sigue la misma forma. Los otros dominios no usan sus repositories: bloquean la cancha con `CanchaService.bloquear`, leen la configuración con `ConfiguracionService.obtener` (sus reglas son métodos de `Configuracion`) y piden los productos a `ProductoService`. La disponibilidad (de canchas y de productos) la calcula `reservas`.
 
 `usuarios` (cuentas, login, perfil y el panel de usuarios) sigue la misma forma. Los otros dominios no usan sus repositories: piden el usuario de la sesión con `UsuarioService.autenticado`, un usuario por id con `findByIdOrThrow` y si el perfil está completo con `ClienteProfileService.perfilCompleto`. Las reglas del perfil son de las entidades (`Usuario.datosPersonalesCompletos`, `ClienteProfile.estaCompleto`, `ClienteProfile.cambiarCategoria`).
+
+`notificaciones` (canal de avisos y teléfono de cada usuario, los avisos que elige el cliente y cada ADMIN, y el envío) sigue la misma forma y además tiene `aviso/` (el evento `AvisoReserva`, `TipoAviso` con las plantillas y `AvisosListener`), `email/` y `whatsapp/` (los proveedores, como `mercadopago/` en pagos). Los otros dominios no usan sus services ni su repository: para avisar publican un `AvisoReserva` (`AvisoReserva.de` o `.para`) y para mandar un código por mail o WhatsApp usan `EmailServiceFactory`, `WhatsAppServiceFactory` y `EnvioPostCommit`. El recordatorio del turno es de `reservas` (`RecordatorioService`: bloquea y marca la reserva) y su configuración, de `club` (`ConfiguracionAdminController`). Las reglas son de las entidades (`Usuario.elegirCanal`, `Usuario.elegirSuscripciones`, `AvisosAdmin.quiere`).
 
 `pagos` sigue la misma forma y además tiene `payment/` (lo genérico para usar distintos proveedores de pago: `PaymentService`, `PaymentServiceFactory`, `PaymentProvider`, `PaymentResult`, `EstadoPayment`) y `mercadopago/` (la implementación de Mercado Pago y su validador de webhooks). Un proveedor nuevo va en su propio subpaquete e implementa `PaymentService`.
 
