@@ -48,16 +48,16 @@ public class VerificationToken {
     @Column(nullable = false)
     private Integer intentos = 0;
 
-    public boolean esExpirado() {
-        return fechaExpiracion.isBefore(Instant.now());
+    public boolean esExpirado(Instant ahora) {
+        return fechaExpiracion.isBefore(ahora);
     }
 
     public boolean estaBloqueado() {
         return intentos >= MAX_INTENTOS;
     }
 
-    public boolean esValido(String codigo) {
-        return !esExpirado() && !estaBloqueado() && token.equals(codigo);
+    public boolean esValido(String codigo, Instant ahora) {
+        return !esExpirado(ahora) && !estaBloqueado() && token.equals(codigo);
     }
 
     public void registrarIntentoFallido() {

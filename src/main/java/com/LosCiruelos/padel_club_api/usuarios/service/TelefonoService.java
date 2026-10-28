@@ -164,7 +164,7 @@ public class TelefonoService {
             return;
         }
         VerificationToken token = VerificationService.validarCodigo(tokenRepository, usuario,
-                TokenType.VERIFY_PHONE, codigo);
+                TokenType.VERIFY_PHONE, codigo, reloj.instante());
         // otra cuenta activa lo pudo haber verificado mientras tanto
         if (usuarioService.telefonoVerificadoEnOtraCuenta(usuario.getTelefono(), usuario.getId())) {
             throw new EstadoInvalidoException(UsuarioService.MENSAJE_CELULAR_EN_USO);

@@ -1,7 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import org.springframework.stereotype.Service;
 
@@ -19,13 +18,15 @@ public class ClienteProfileService {
 
     private final ClienteProfileRepository clienteProfileRepository;
 
+    private final Reloj reloj;
+
     public ClienteProfile crearClienteProfile(Usuario user, Categoria categoria, Posicion posicion) {
 
         return clienteProfileRepository.save(ClienteProfile.builder()
                 .categoria(categoria)
                 .posicion(posicion)
                 .usuario(user)
-                .categoriaActualizadaAt(categoria != null ? LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS) : null)
+                .categoriaActualizadaAt(categoria != null ? reloj.ahora() : null)
                 .build());
     }
 

@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.common.Reloj;
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,7 +52,7 @@ class PerfilServiceTest {
         clienteProfileRepository = mock(ClienteProfileRepository.class);
         reservaConsultaService = mock(ReservaConsultaService.class);
         jwtUtil = mock(JWTUtil.class);
-        perfilService = new PerfilService(usuarioService, new ClienteProfileService(clienteProfileRepository),
+        perfilService = new PerfilService(usuarioService, new ClienteProfileService(clienteProfileRepository, Reloj.delSistema()),
                 clienteProfileRepository,
                 reservaConsultaService, jwtUtil, new UsuarioMapper(), TestData.reloj(AHORA));
 
@@ -196,8 +197,8 @@ class PerfilServiceTest {
             when(usuarioRepository.findByEmail(cliente.getEmail())).thenReturn(Optional.of(cliente));
             when(usuarioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
             UsuarioService real = new UsuarioService(usuarioRepository,
-                    mock(org.springframework.security.crypto.password.PasswordEncoder.class));
-            perfiles = new PerfilService(real, new ClienteProfileService(clienteProfileRepository),
+                    mock(org.springframework.security.crypto.password.PasswordEncoder.class), Reloj.delSistema());
+            perfiles = new PerfilService(real, new ClienteProfileService(clienteProfileRepository, Reloj.delSistema()),
                     clienteProfileRepository, reservaConsultaService, jwtUtil, new UsuarioMapper(),
                     TestData.reloj(AHORA));
         }

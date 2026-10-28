@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.common.Reloj;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -19,7 +20,7 @@ import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileReposito
 class ClienteProfileServiceTest {
 
     private final ClienteProfileRepository repo = mock(ClienteProfileRepository.class);
-    private final ClienteProfileService perfiles = new ClienteProfileService(repo);
+    private final ClienteProfileService perfiles = new ClienteProfileService(repo, Reloj.delSistema());
 
     @Test
     void elClienteNecesitaElCelularVerificadoParaTenerElPerfilCompleto() {

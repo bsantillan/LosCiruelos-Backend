@@ -1,7 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +28,7 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Reloj reloj;
 
     public Usuario findByEmail(String email) {
         return usuarioRepository.findByEmail(email).orElse(null);
@@ -104,7 +104,7 @@ public class UsuarioService {
                 .rol(rol)
                 .provider(provider)
                 .termsAccepted(termsAccepted)
-                .termsAcceptedAt(LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS))
+                .termsAcceptedAt(reloj.ahora())
                 .emailVerificado(emailVerificado)
                 .enabled(enabled)
                 .build());

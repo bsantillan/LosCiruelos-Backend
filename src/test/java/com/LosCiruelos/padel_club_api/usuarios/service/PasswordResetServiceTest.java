@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,7 +54,8 @@ class PasswordResetServiceTest {
         jwtUtil = mock(JWTUtil.class);
         EmailServiceFactory factory = mock(EmailServiceFactory.class);
         when(factory.getService()).thenReturn(emailService);
-        servicio = new PasswordResetService(usuarioService, mock(UsuarioRepository.class), tokenRepository, passwordEncoder, factory, jwtUtil);
+        servicio = new PasswordResetService(usuarioService, mock(UsuarioRepository.class), tokenRepository, passwordEncoder, factory, jwtUtil,
+                Reloj.delSistema());
 
         usuario = usuario(1L, Role.CLIENTE);
         token = VerificationToken.builder().usuario(usuario).token("654321").type(TokenType.PASSWORD_RESET)

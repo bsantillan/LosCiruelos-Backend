@@ -199,7 +199,7 @@ class TelefonoServiceTest {
     @Test
     void cambiarElTelefonoLoDejaSinVerificar() {
         UsuarioService real = new UsuarioService(mock(com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository.class),
-                mock(org.springframework.security.crypto.password.PasswordEncoder.class));
+                mock(org.springframework.security.crypto.password.PasswordEncoder.class), TestData.reloj(AHORA));
         usuario.setTelefonoVerificado(true);
 
         real.cambiarTelefono(usuario, "+54 9 11 2233-4455"); // el mismo número escrito distinto

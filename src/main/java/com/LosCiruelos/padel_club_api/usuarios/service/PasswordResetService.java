@@ -1,7 +1,7 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
-import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
@@ -33,6 +33,7 @@ public class PasswordResetService {
         private final PasswordEncoder passwordEncoder;
         private final EmailServiceFactory emailServiceFactory;
         private final JWTUtil jwtUtil;
+        private final Reloj reloj;
 
         @Transactional
         public void enviarToken(String email) {
@@ -46,7 +47,7 @@ public class PasswordResetService {
                                 .usuario(usuario)
                                 .token(VerificationToken.generarCodigo())
                                 .type(TokenType.PASSWORD_RESET)
-                                .fechaExpiracion(Instant.now().plus(15, ChronoUnit.MINUTES))
+                                .fechaExpiracion(reloj.instante().plus(15, ChronoUnit.MINUTES))
                                 .build());
 
                 Map<String, Object> datos = Map.of("nombre", VerificationService.nombre(usuario), "codigo",
@@ -60,7 +61,7 @@ public class PasswordResetService {
                 Usuario usuario = usuarioService.autenticado(email);
 
                 VerificationToken token = VerificationService.validarCodigo(tokenRepository, usuario,
-                                TokenType.PASSWORD_RESET, codigo);
+                                TokenType.PASSWORD_RESET, codigo, reloj.instante());
                 token.setVerificado(true);
                 tokenRepository.save(token);
         }
@@ -76,7 +77,7 @@ public class PasswordResetService {
                                 .findByUsuarioAndType(usuario, TokenType.PASSWORD_RESET)
                                 .orElseThrow(() -> new CredencialesInvalidasException("Flujo inválido"));
 
-                if (!token.getVerificado() || token.esExpirado()) {
+                if (!token.getVerificado() || token.esExpirado(reloj.instante())) {
                         throw new CredencialesInvalidasException("Flujo inválido");
                 }
 

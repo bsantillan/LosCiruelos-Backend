@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -27,6 +28,7 @@ public class VerificationService {
     private final UsuarioRepository usuarioRepository;
     private final VerificationTokenRepository tokenRepository;
     private final EmailServiceFactory emailServiceFactory;
+    private final Reloj reloj;
 
     @Transactional
     public void enviarToken(String email) {
@@ -35,7 +37,7 @@ public class VerificationService {
             return;
         }
 
-        VerificationToken token = crearToken(usuario, TokenType.VERIFY_EMAIL, Instant.now().plus(1, ChronoUnit.DAYS));
+        VerificationToken token = crearToken(usuario, TokenType.VERIFY_EMAIL, reloj.instante().plus(1, ChronoUnit.DAYS));
         Map<String, Object> datos = Map.of("nombre", nombre(usuario), "codigo", token.getToken());
         EnvioPostCommit.ejecutar("verificación a " + usuario.getEmail(),
                 () -> emailServiceFactory.getService().sendVerificationEmail(usuario.getEmail(), datos));
@@ -53,7 +55,7 @@ public class VerificationService {
             throw new CuentaVerificadaException();
         }
 
-        VerificationToken token = validarCodigo(tokenRepository, usuario, TokenType.VERIFY_EMAIL, codigo);
+        VerificationToken token = validarCodigo(tokenRepository, usuario, TokenType.VERIFY_EMAIL, codigo, reloj.instante());
 
         // Solo marca el email como verificado: "enabled" es para cuentas desactivadas
         usuario.setEmailVerificado(true);
@@ -65,7 +67,7 @@ public class VerificationService {
     public void enviarBienvenida(String email, String passwordTemporal) {
         Usuario usuario = usuarioService.autenticado(email);
 
-        VerificationToken token = crearToken(usuario, TokenType.VERIFY_EMAIL, Instant.now().plus(1, ChronoUnit.DAYS));
+        VerificationToken token = crearToken(usuario, TokenType.VERIFY_EMAIL, reloj.instante().plus(1, ChronoUnit.DAYS));
         Map<String, Object> datos = Map.of(
                 "nombre", nombre(usuario),
                 "password", passwordTemporal,
@@ -86,17 +88,17 @@ public class VerificationService {
 
     /** Valida el código del usuario; si no coincide suma un intento fallido. */
     static VerificationToken validarCodigo(VerificationTokenRepository repo, Usuario usuario, TokenType tipo,
-            String codigo) {
+            String codigo, Instant ahora) {
         VerificationToken token = repo.findByUsuarioAndType(usuario, tipo)
                 .orElseThrow(() -> new CodigoInvalidoException("Código inválido"));
 
-        if (token.esExpirado()) {
+        if (token.esExpirado(ahora)) {
             throw new CodigoInvalidoException("El código expiró. Pedí uno nuevo.");
         }
         if (token.estaBloqueado()) {
             throw new CodigoInvalidoException("Superaste la cantidad de intentos. Pedí un código nuevo.");
         }
-        if (!token.esValido(codigo)) {
+        if (!token.esValido(codigo, ahora)) {
             token.registrarIntentoFallido();
             repo.save(token);
             throw new CodigoInvalidoException("Código inválido");

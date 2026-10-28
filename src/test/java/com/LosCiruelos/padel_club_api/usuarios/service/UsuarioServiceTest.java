@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.common.Reloj;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -23,7 +24,7 @@ import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 class UsuarioServiceTest {
 
     private final UsuarioRepository repo = mock(UsuarioRepository.class);
-    private final UsuarioService usuarios = new UsuarioService(repo, mock(PasswordEncoder.class));
+    private final UsuarioService usuarios = new UsuarioService(repo, mock(PasswordEncoder.class), Reloj.delSistema());
 
     @Test
     void noSePuedeRegistrarUnCelularVerificadoEnOtraCuentaActiva() {
