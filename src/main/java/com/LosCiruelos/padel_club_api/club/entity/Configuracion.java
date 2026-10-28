@@ -1,5 +1,11 @@
 package com.LosCiruelos.padel_club_api.club.entity;
 
+import com.LosCiruelos.padel_club_api.common.Fechas;
+import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.Exceptions.DiaSinAperturaException;
+import java.time.LocalDate;
+import java.math.RoundingMode;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,4 +73,42 @@ public class Configuracion {
     @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(nullable = false, name = "configuracion_general_id")
     private List<DiaApertura> dias_apertura = new ArrayList<>();
+
+    /** Los turnos se arman en bloques de 30 minutos desde la apertura. */
+    public static final int MINUTOS_POR_BLOQUE = 30;
+
+    /** Horario de apertura del día de la semana de {@code fecha}. */
+    public DiaApertura diaApertura(LocalDate fecha) {
+        String nombreDia = Fechas.nombreDiaCapitalizado(fecha.getDayOfWeek());
+        return dias_apertura.stream()
+                .filter(d -> d.getDia().equalsIgnoreCase(nombreDia))
+                .findFirst()
+                .orElseThrow(() -> new DiaSinAperturaException("El club no abre los " + nombreDia + "."));
+    }
+
+    /** Duración múltiplo de 30 y dentro del mínimo y máximo configurados. */
+    public void validarDuracion(long duracionMinutos) {
+        if (duracionMinutos <= 0 || duracionMinutos % MINUTOS_POR_BLOQUE != 0) {
+            throw new ReservaException("El turno debe durar un múltiplo de 30 minutos.");
+        }
+        if (duracionMinutos < duracionMinimaTurno) {
+            throw new ReservaException(
+                    "La duración mínima del turno es de %d minutos.".formatted(duracionMinimaTurno));
+        }
+        if (duracionMinutos > duracionMaximaTurno) {
+            throw new ReservaException(
+                    "La duración máxima del turno es de %d minutos.".formatted(duracionMaximaTurno));
+        }
+    }
+
+    /** montoReserva + montoXMediaHora × cantidad de bloques de 30 minutos. */
+    public BigDecimal montoTurno(long duracionMinutos) {
+        long bloques = duracionMinutos / MINUTOS_POR_BLOQUE;
+        return Dinero.redondear(montoReserva.add(montoXMediaHora.multiply(BigDecimal.valueOf(bloques))));
+    }
+
+    /** Seña = total × porcentajeSenia / 100, redondeada a centavos. */
+    public BigDecimal senia(BigDecimal montoTotal) {
+        return montoTotal.multiply(porcentajeSenia).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+    }
 }

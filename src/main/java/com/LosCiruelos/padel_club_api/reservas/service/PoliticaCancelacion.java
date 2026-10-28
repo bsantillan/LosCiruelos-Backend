@@ -81,8 +81,7 @@ public class PoliticaCancelacion {
         BigDecimal pagado = reserva.getMontoPagado();
         return switch (opcion) {
             case TOTAL -> pagado;
-            case SENIA -> pagado.min(configuracionService.calcularSenia(configuracionService.obtener(),
-                    reserva.getMontoTotal()));
+            case SENIA -> pagado.min(configuracionService.obtener().senia(reserva.getMontoTotal()));
             case NADA -> BigDecimal.ZERO;
         };
     }

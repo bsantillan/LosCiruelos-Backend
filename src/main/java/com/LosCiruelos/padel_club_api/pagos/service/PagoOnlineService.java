@@ -106,7 +106,7 @@ public class PagoOnlineService {
         if (pagarTotal) {
             return pendiente;
         }
-        BigDecimal faltaSenia = configuracionService.calcularSenia(config, reserva.getMontoTotal()).subtract(pagado);
+        BigDecimal faltaSenia = config.senia(reserva.getMontoTotal()).subtract(pagado);
         if (faltaSenia.signum() <= 0) {
             throw new EstadoInvalidoException("La seña ya está paga; para pagar el saldo usá pagarTotal=true.");
         }

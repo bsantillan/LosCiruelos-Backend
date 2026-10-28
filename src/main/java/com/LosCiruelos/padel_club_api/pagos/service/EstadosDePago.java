@@ -56,7 +56,7 @@ class EstadosDePago {
      */
     void recalcularReserva(Reserva reserva, boolean avisar) {
         EstadoReserva anterior = reserva.getEstado();
-        BigDecimal senia = configuracionService.calcularSenia(configuracionService.obtener(), reserva.getMontoTotal());
+        BigDecimal senia = configuracionService.obtener().senia(reserva.getMontoTotal());
         if (!reserva.recalcularEstado(senia, reloj.ahora())) {
             return;
         }

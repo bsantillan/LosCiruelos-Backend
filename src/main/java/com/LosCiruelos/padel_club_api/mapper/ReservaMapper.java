@@ -37,8 +37,7 @@ public class ReservaMapper {
 
     public ReservaResponse aResponse(Reserva reserva) {
         ReservaResponse response = datos(reserva);
-        response.setMontoSenia(configuracionService.calcularSenia(configuracionService.obtener(),
-                reserva.getMontoTotal()));
+        response.setMontoSenia(configuracionService.obtener().senia(reserva.getMontoTotal()));
         LocalDateTime ahora = reloj.ahora();
 
         // si el cliente la cancelara ahora: si puede, hasta cuándo y cuánto se le devolvería

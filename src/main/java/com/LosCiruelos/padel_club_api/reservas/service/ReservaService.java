@@ -164,7 +164,7 @@ public class ReservaService {
 
         // 5. Stock: devuelve lo de las reservas que se expiraron o cancelaron y toma lo pedido
         stockService.moverStock(aLiberar, reserva, pedidoDeProductos(req), ahora);
-        reserva.setMontoTotal(configuracionService.calcularMontoTurno(config, duracion).add(reserva.getMontoProductos()));
+        reserva.setMontoTotal(config.montoTurno(duracion).add(reserva.getMontoProductos()));
 
         reserva = guardarVerificandoSolapamiento(reserva);
         log.info("Reserva #{} creada para el cliente {} en la cancha {} el {} de {} a {}",
@@ -200,7 +200,7 @@ public class ReservaService {
         stockService.moverStock(aLiberar, reserva, pedido, ahora);
 
         BigDecimal montoAnterior = reserva.getMontoTotal();
-        reserva.setMontoTotal(configuracionService.calcularMontoTurno(config, duracion).add(reserva.getMontoProductos()));
+        reserva.setMontoTotal(config.montoTurno(duracion).add(reserva.getMontoProductos()));
         if (reserva.getMontoTotal().compareTo(montoAnterior) != 0) {
             // un pago iniciado con el monto anterior ya no sirve
             expirarPagosPendientes(reserva);
@@ -350,7 +350,7 @@ public class ReservaService {
         JugadoresService.asignar(partido, jugadores);
 
         stockService.moverStock(aLiberar, partido, pedidoDeProductos(pelotas, paletas), ahora);
-        partido.setMontoTotal(configuracionService.calcularMontoTurno(config, duracion)
+        partido.setMontoTotal(config.montoTurno(duracion)
                 .add(partido.getMontoProductos()));
         return guardarVerificandoSolapamiento(partido);
     }
@@ -403,7 +403,7 @@ public class ReservaService {
             partido.setFechaReserva(req.getFechaReserva());
             partido.setHoraInicio(req.getHoraInicio());
             partido.setHoraFin(req.getHoraFin());
-            montoCancha = configuracionService.calcularMontoTurno(config, duracion);
+            montoCancha = config.montoTurno(duracion);
         }
 
         JugadoresService.actualizar(partido, jugadores);
@@ -418,7 +418,7 @@ public class ReservaService {
         }
         partido.setMontoTotal(total);
         // el total pudo cambiar: el estado se vuelve a calcular con lo pagado (en un partido no hay avisos)
-        partido.recalcularEstado(configuracionService.calcularSenia(config, total), ahora);
+        partido.recalcularEstado(config.senia(total), ahora);
         partido = guardarVerificandoSolapamiento(partido);
         log.info("Partido #{} modificado por {}", id, email);
         return mapper.aResponse(partido);

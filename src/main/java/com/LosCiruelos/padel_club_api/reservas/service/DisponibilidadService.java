@@ -66,9 +66,9 @@ public class DisponibilidadService {
             throw new ReservaException("La fecha debe ser hoy o en el futuro.");
         }
         int minutosTurno = duracion != null ? duracion : config.getDuracionMinimaTurno();
-        configuracionService.validarDuracion(config, minutosTurno);
+        config.validarDuracion(minutosTurno);
 
-        DiaApertura dia = configuracionService.obtenerDiaApertura(config, fecha);
+        DiaApertura dia = config.diaApertura(fecha);
         int apertura = enMinutos(dia.getHorario_inicio());
         int cierre = enMinutos(dia.getHorario_fin());
 
@@ -77,7 +77,7 @@ public class DisponibilidadService {
         if (fecha.isEqual(ahora.toLocalDate())) {
             int minutoActual = enMinutos(ahora.toLocalTime());
             if (minutoActual > apertura) {
-                int bloque = ConfiguracionService.MINUTOS_POR_BLOQUE;
+                int bloque = Configuracion.MINUTOS_POR_BLOQUE;
                 desde = apertura + (int) Math.ceil((minutoActual - apertura) / (double) bloque) * bloque;
             }
         }
@@ -95,7 +95,7 @@ public class DisponibilidadService {
 
         // nunca se pasa del cierre, así que nunca se intenta construir las 24:00
         List<DisponibilidadResponse.Turno> disponibles = new ArrayList<>();
-        for (int inicio = desde; inicio + minutosTurno <= cierre; inicio += ConfiguracionService.MINUTOS_POR_BLOQUE) {
+        for (int inicio = desde; inicio + minutosTurno <= cierre; inicio += Configuracion.MINUTOS_POR_BLOQUE) {
             LocalTime horaInicio = desdeMinutos(inicio);
             LocalTime horaFin = desdeMinutos(inicio + minutosTurno);
             boolean libre = slotsOcupados.stream()
@@ -112,7 +112,7 @@ public class DisponibilidadService {
                 config.getDuracionMaximaTurno(),
                 minutosTurno,
                 // mismo cálculo que al crear la reserva
-                configuracionService.calcularMontoTurno(config, minutosTurno),
+                config.montoTurno(minutosTurno),
                 desde < cierre ? desdeMinutos(desde) : null,
                 slotsOcupados,
                 disponibles);
@@ -132,9 +132,9 @@ public class DisponibilidadService {
         }
 
         long duracion = Turno.minutosEntre(inicio, fin);
-        configuracionService.validarDuracion(config, duracion);
+        config.validarDuracion(duracion);
 
-        DiaApertura dia = configuracionService.obtenerDiaApertura(config, fecha);
+        DiaApertura dia = config.diaApertura(fecha);
         if (inicio.isBefore(dia.getHorario_inicio())) {
             throw new DiaSinAperturaException(
                     "El horario de apertura el %s es a las %s.".formatted(dia.getDia(), dia.getHorario_inicio()));
@@ -144,7 +144,7 @@ public class DisponibilidadService {
                     "El horario de cierre el %s es a las %s.".formatted(dia.getDia(), dia.getHorario_fin()));
         }
         if (Turno.minutosEntre(dia.getHorario_inicio(), inicio)
-                % ConfiguracionService.MINUTOS_POR_BLOQUE != 0) {
+                % Configuracion.MINUTOS_POR_BLOQUE != 0) {
             throw new ReservaException(
                     "El horario de inicio debe coincidir con un turno válido (cada 30 minutos desde la apertura).");
         }

@@ -239,7 +239,7 @@ public class TurnoFijoService {
                 .fechaReserva(fecha)
                 .horaInicio(tf.getHoraInicio())
                 .horaFin(tf.getHoraFin())
-                .montoTotal(configuracionService.calcularMontoTurno(config, duracion))
+                .montoTotal(config.montoTurno(duracion))
                 .estado(EstadoReserva.CANCELADA)
                 .tipo(TipoReserva.PARTIDO)
                 .turnoFijo(tf)
