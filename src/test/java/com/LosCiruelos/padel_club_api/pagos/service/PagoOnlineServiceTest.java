@@ -37,8 +37,8 @@ import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReembolsoFallidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
-import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
-import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
+import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
+import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
 
 /** Pagos online: iniciar, cobrar con el Brick, webhook y avisos al ADMIN. */
 class PagoOnlineServiceTest extends PagosTestBase {

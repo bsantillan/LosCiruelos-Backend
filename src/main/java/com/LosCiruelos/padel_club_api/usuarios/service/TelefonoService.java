@@ -19,8 +19,8 @@ import com.LosCiruelos.padel_club_api.Exceptions.LimiteExcedidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.EnvioCodigoTelefonoRepository;
 import com.LosCiruelos.padel_club_api.usuarios.repository.VerificationTokenRepository;
-import com.LosCiruelos.padel_club_api.Services.Email.EnvioPostCommit;
-import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
+import com.LosCiruelos.padel_club_api.notificaciones.email.EnvioPostCommit;
+import com.LosCiruelos.padel_club_api.notificaciones.whatsapp.WhatsAppServiceFactory;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 
 import lombok.extern.slf4j.Slf4j;

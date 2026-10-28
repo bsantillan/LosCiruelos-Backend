@@ -18,8 +18,8 @@ import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.VerificationTokenRepository;
 import com.LosCiruelos.padel_club_api.Security.JWTUtil;
 import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
-import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
-import com.LosCiruelos.padel_club_api.Services.Email.EnvioPostCommit;
+import com.LosCiruelos.padel_club_api.notificaciones.email.EmailServiceFactory;
+import com.LosCiruelos.padel_club_api.notificaciones.email.EnvioPostCommit;
 
 import lombok.RequiredArgsConstructor;
 

@@ -26,8 +26,8 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.enums.TokenType;
 import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.CuentaVerificadaException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.VerificationTokenRepository;
-import com.LosCiruelos.padel_club_api.Services.Email.EmailService;
-import com.LosCiruelos.padel_club_api.Services.Email.EmailServiceFactory;
+import com.LosCiruelos.padel_club_api.notificaciones.email.EmailService;
+import com.LosCiruelos.padel_club_api.notificaciones.email.EmailServiceFactory;
 
 class VerificationServiceTest {
 

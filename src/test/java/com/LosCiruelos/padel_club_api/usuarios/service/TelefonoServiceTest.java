@@ -31,8 +31,8 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.EnvioCodigoTelefono;
 import com.LosCiruelos.padel_club_api.Exceptions.LimiteExcedidoException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.EnvioCodigoTelefonoRepository;
 import com.LosCiruelos.padel_club_api.usuarios.repository.VerificationTokenRepository;
-import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppService;
-import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
+import com.LosCiruelos.padel_club_api.notificaciones.whatsapp.WhatsAppService;
+import com.LosCiruelos.padel_club_api.notificaciones.whatsapp.WhatsAppServiceFactory;
 
 class TelefonoServiceTest {
 

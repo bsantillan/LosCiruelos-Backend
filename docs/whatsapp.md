@@ -78,7 +78,7 @@ Reglas de Meta al cargarlas: las variables son de tipo **número** (`{{1}}`, `{{
 
 Ejemplos de valores: `{{3}}` = `miércoles 21/10`, `{{4}}` = `18:00 a 19:30`, montos = `$7.500`.
 
-Los textos están también en `Services/Avisos/TipoAviso.java`: si se cambia una plantilla en Meta, hay que cambiarla ahí (el mail usa el mismo texto).
+Los textos están también en `notificaciones/aviso/TipoAviso.java`: si se cambia una plantilla en Meta, hay que cambiarla ahí (el mail usa el mismo texto).
 
 ## Límites y costos
 

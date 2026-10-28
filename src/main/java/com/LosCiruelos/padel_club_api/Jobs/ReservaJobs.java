@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.service.ReembolsoService;
 import com.LosCiruelos.padel_club_api.reservas.service.TurnoFijoService;
-import com.LosCiruelos.padel_club_api.Services.RecordatorioService;
+import com.LosCiruelos.padel_club_api.reservas.service.RecordatorioService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 
 import lombok.RequiredArgsConstructor;

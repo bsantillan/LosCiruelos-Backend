@@ -8,8 +8,8 @@ import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
-import com.LosCiruelos.padel_club_api.Services.Avisos.AvisoReserva;
-import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
+import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
+import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
