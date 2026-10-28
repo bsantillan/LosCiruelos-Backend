@@ -76,15 +76,6 @@ public class Usuario {
     @Column(name = "notificaciones_aceptadas_at")
     private LocalDateTime notificacionesAceptadasAt;
 
-    // Avisos opcionales del cliente. Las cancelaciones se avisan siempre.
-    @Builder.Default
-    @Column(name = "recibe_recordatorios", nullable = false)
-    private Boolean recibeRecordatorios = true;
-
-    @Builder.Default
-    @Column(name = "recibe_promociones", nullable = false)
-    private Boolean recibePromociones = false;
-
     // =========================
     // AUTH
     // =========================
@@ -147,9 +138,16 @@ public class Usuario {
         canalNotificaciones = canal;
     }
 
-    /** Avisos opcionales del cliente (las cancelaciones se avisan siempre). */
-    public void elegirSuscripciones(Boolean recordatorios, Boolean promociones) {
-        recibeRecordatorios = recordatorios;
-        recibePromociones = promociones;
+    /**
+     * Si le llega el recordatorio del turno. Lo elige el cliente en su perfil; el resto de los
+     * roles (por ejemplo, un EMPLEADO que juega un partido) lo recibe siempre.
+     */
+    public boolean recibeRecordatorios() {
+        return clienteProfile == null || Boolean.TRUE.equals(clienteProfile.getRecibeRecordatorios());
+    }
+
+    /** Si recibe novedades y promociones: solo el cliente que las eligió. */
+    public boolean recibePromociones() {
+        return clienteProfile != null && Boolean.TRUE.equals(clienteProfile.getRecibePromociones());
     }
 }

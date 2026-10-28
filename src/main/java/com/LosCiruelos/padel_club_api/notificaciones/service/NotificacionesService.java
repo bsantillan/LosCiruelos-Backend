@@ -98,7 +98,8 @@ public class NotificacionesService {
         if (!clienteProfileService.perfilCompleto(cliente)) {
             throw new PerfilIncompletoException("Completá tu perfil y verificá tu celular para elegir tus avisos.");
         }
-        cliente.elegirSuscripciones(req.getRecordatorios(), req.getPromociones());
+        // el perfil se guarda por cascada al terminar la transacción
+        cliente.getClienteProfile().elegirSuscripciones(req.getRecordatorios(), req.getPromociones());
         return notificacionesMapper.aSuscripciones(cliente, true);
     }
 

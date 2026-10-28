@@ -25,8 +25,7 @@ public class NotificacionesMapper {
 
     /** Las cancelaciones se avisan siempre; {@code editable} es si tiene el perfil completo. */
     public SuscripcionesResponse aSuscripciones(Usuario usuario, boolean editable) {
-        return new SuscripcionesResponse(true, Boolean.TRUE.equals(usuario.getRecibeRecordatorios()),
-                Boolean.TRUE.equals(usuario.getRecibePromociones()), editable);
+        return new SuscripcionesResponse(true, usuario.recibeRecordatorios(), usuario.recibePromociones(), editable);
     }
 
     public AvisosAdminResponse aAvisosAdmin(AvisosAdmin avisos) {

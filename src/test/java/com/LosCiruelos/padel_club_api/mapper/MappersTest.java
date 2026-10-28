@@ -22,6 +22,7 @@ import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ProductoResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
+import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
@@ -84,8 +85,9 @@ class MappersTest {
         usuario.setTelefono("5491122334455");
         usuario.setTelefonoVerificado(null);
         usuario.setCanalNotificaciones(CanalNotificacion.WHATSAPP);
-        usuario.setRecibeRecordatorios(null);
-        usuario.setRecibePromociones(true);
+        ClienteProfile perfil = TestData.perfilDeCliente(usuario);
+        perfil.setRecibeRecordatorios(null);
+        perfil.setRecibePromociones(true);
         NotificacionesMapper mapper = new NotificacionesMapper();
 
         NotificacionesResponse canal = mapper.aResponse(usuario, CanalNotificacion.EMAIL, true);

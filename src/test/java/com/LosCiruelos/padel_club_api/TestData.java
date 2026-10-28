@@ -14,6 +14,7 @@ import com.LosCiruelos.padel_club_api.club.entity.DiaApertura;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.ReservaJugador;
+import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.AuthProvider;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
@@ -78,6 +79,13 @@ public final class TestData {
                 .emailVerificado(true)
                 .enabled(true)
                 .build();
+    }
+
+    /** Le da al usuario un perfil de jugador vacío (sin categoría ni posición) y lo devuelve. */
+    public static ClienteProfile perfilDeCliente(Usuario usuario) {
+        ClienteProfile perfil = ClienteProfile.builder().usuario(usuario).build();
+        usuario.setClienteProfile(perfil);
+        return perfil;
     }
 
     public static Cancha cancha() {

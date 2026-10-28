@@ -115,7 +115,7 @@ class RecordatorioServiceTest {
 
     @Test
     void siElClienteNoQuiereRecordatoriosNoSeManda() {
-        reserva.getCliente().setRecibeRecordatorios(false);
+        TestData.perfilDeCliente(reserva.getCliente()).setRecibeRecordatorios(false);
 
         assertThat(servicio(AHORA).enviar(10L)).isFalse();
         verify(eventos, never()).publishEvent(any());

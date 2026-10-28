@@ -47,4 +47,12 @@ class UsuarioTest {
         assertThat(usuario.getCanalNotificaciones()).isEqualTo(CanalNotificacion.EMAIL);
         assertThat(usuario.getAceptaWhatsappAt()).isNull();
     }
+
+    @Test
+    void sinPerfilDeClienteRecibeRecordatoriosYNoPromociones() {
+        Usuario empleado = usuario(2L, Role.EMPLEADO);
+
+        assertThat(empleado.recibeRecordatorios()).isTrue();
+        assertThat(empleado.recibePromociones()).isFalse();
+    }
 }

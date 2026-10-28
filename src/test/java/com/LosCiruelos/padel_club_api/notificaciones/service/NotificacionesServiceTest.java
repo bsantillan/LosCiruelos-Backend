@@ -63,6 +63,7 @@ class NotificacionesServiceTest {
                 new NotificacionesMapper(), TestData.reloj(AHORA));
 
         usuario = usuario(1L, Role.CLIENTE);
+        TestData.perfilDeCliente(usuario);
         usuario.setTelefono("5491122334455");
         when(usuarioService.autenticado(usuario.getEmail())).thenReturn(usuario);
         when(avisosService.canalPara(any())).thenReturn(CanalNotificacion.EMAIL);
@@ -131,8 +132,8 @@ class NotificacionesServiceTest {
         assertThat(despues.recordatorios()).isFalse();
         assertThat(despues.promociones()).isTrue();
         assertThat(despues.cancelaciones()).isTrue(); // siempre
-        assertThat(usuario.getRecibeRecordatorios()).isFalse();
-        assertThat(usuario.getRecibePromociones()).isTrue();
+        assertThat(usuario.getClienteProfile().getRecibeRecordatorios()).isFalse();
+        assertThat(usuario.getClienteProfile().getRecibePromociones()).isTrue();
     }
 
     @Test
