@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.Security.JWTUtil;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -27,10 +28,11 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 
-class BusquedaClientesServiceTest {
+class UsuarioAdminServiceBusquedaTest {
 
     private final UsuarioRepository repo = mock(UsuarioRepository.class);
-    private final BusquedaClientesService clientes = new BusquedaClientesService(repo, new UsuarioMapper());
+    private final UsuarioAdminService clientes = new UsuarioAdminService(mock(ClienteProfileService.class),
+            mock(UsuarioService.class), repo, mock(JWTUtil.class), mock(VerificationService.class), new UsuarioMapper());
 
     @Test
     void devuelveLosDatosDelClienteYSiTieneElPerfilCompleto() {
@@ -41,7 +43,7 @@ class BusquedaClientesServiceTest {
         when(repo.findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Usuario>>any(),
                 any(Pageable.class))).thenReturn(new PageImpl<>(List.of(ana, sinPerfil)));
 
-        List<ClienteBusquedaResponse> r = clientes.buscar("nom", true);
+        List<ClienteBusquedaResponse> r = clientes.buscarClientes("nom", true);
 
         assertThat(r).hasSize(2);
         assertThat(r.get(0)).isEqualTo(new ClienteBusquedaResponse(5L, "Nombre5", "Apellido5", "usuario5@test.com",
@@ -55,7 +57,7 @@ class BusquedaClientesServiceTest {
         when(repo.findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Usuario>>any(),
                 any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
 
-        clientes.buscar("perez", false);
+        clientes.buscarClientes("perez", false);
 
         ArgumentCaptor<Pageable> pedido = ArgumentCaptor.forClass(Pageable.class);
         verify(repo).findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Usuario>>any(),
@@ -66,10 +68,10 @@ class BusquedaClientesServiceTest {
 
     @Test
     void pideAlMenos2Caracteres() {
-        assertThatThrownBy(() -> clientes.buscar("a", true)).isInstanceOf(ReservaException.class)
+        assertThatThrownBy(() -> clientes.buscarClientes("a", true)).isInstanceOf(ReservaException.class)
                 .hasMessageContaining("al menos 2");
-        assertThatThrownBy(() -> clientes.buscar("   ", true)).isInstanceOf(ReservaException.class);
-        assertThatThrownBy(() -> clientes.buscar(null, true)).isInstanceOf(ReservaException.class);
+        assertThatThrownBy(() -> clientes.buscarClientes("   ", true)).isInstanceOf(ReservaException.class);
+        assertThatThrownBy(() -> clientes.buscarClientes(null, true)).isInstanceOf(ReservaException.class);
         verifyNoInteractions(repo);
     }
 }

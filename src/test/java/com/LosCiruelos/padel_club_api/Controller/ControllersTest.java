@@ -41,9 +41,8 @@ import com.LosCiruelos.padel_club_api.club.controller.CanchaController;
 import com.LosCiruelos.padel_club_api.club.controller.ProductoController;
 import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.DisponibilidadResponse;
-import com.LosCiruelos.padel_club_api.usuarios.controller.AdminController;
+import com.LosCiruelos.padel_club_api.usuarios.controller.UsuarioAdminController;
 import com.LosCiruelos.padel_club_api.usuarios.controller.AuthController;
-import com.LosCiruelos.padel_club_api.usuarios.controller.ClienteAdminController;
 import com.LosCiruelos.padel_club_api.usuarios.controller.PerfilController;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.LoginResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
@@ -71,7 +70,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaNoEncontradaException;
 import com.LosCiruelos.padel_club_api.Exceptions.StockInsuficienteException;
 import com.LosCiruelos.padel_club_api.Handlers.GlobalExceptionHandler;
-import com.LosCiruelos.padel_club_api.usuarios.service.AdminService;
+import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioAdminService;
 import com.LosCiruelos.padel_club_api.usuarios.service.AuthService;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.reservas.service.CancelacionService;
@@ -83,7 +82,6 @@ import com.LosCiruelos.padel_club_api.usuarios.service.PerfilService;
 import com.LosCiruelos.padel_club_api.club.service.ProductoService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
-import com.LosCiruelos.padel_club_api.usuarios.service.BusquedaClientesService;
 import com.LosCiruelos.padel_club_api.usuarios.service.VerificationService;
 import com.LosCiruelos.padel_club_api.pagos.mercadopago.MercadoPagoWebhookValidator;
 import com.LosCiruelos.padel_club_api.common.Fechas;
@@ -105,14 +103,13 @@ class ControllersTest {
     private VerificationService verificationService;
     private PasswordResetService passwordResetService;
     private PerfilService perfilService;
-    private AdminService adminService;
+    private UsuarioAdminService usuarioAdminService;
     private CanchaService canchaService;
     private DisponibilidadService disponibilidadService;
     private ProductoService productoService;
     private StockService stockService;
     private NotificacionesService notificacionesService;
     private ReservaConsultaService reservaConsultaService;
-    private BusquedaClientesService busquedaClientesService;
     private MockMvc mvc;
 
     @BeforeEach
@@ -126,14 +123,13 @@ class ControllersTest {
         verificationService = mock(VerificationService.class);
         passwordResetService = mock(PasswordResetService.class);
         perfilService = mock(PerfilService.class);
-        adminService = mock(AdminService.class);
+        usuarioAdminService = mock(UsuarioAdminService.class);
         canchaService = mock(CanchaService.class);
         disponibilidadService = mock(DisponibilidadService.class);
         productoService = mock(ProductoService.class);
         stockService = mock(StockService.class);
         notificacionesService = mock(NotificacionesService.class);
         reservaConsultaService = mock(ReservaConsultaService.class);
-        busquedaClientesService = mock(BusquedaClientesService.class);
 
         mvc = MockMvcBuilders.standaloneSetup(
                 new ReservaController(reservaService, reservaConsultaService, cancelacionService),
@@ -142,13 +138,12 @@ class ControllersTest {
                 new CobroAdminController(cobroService),
                 new AuthController(authService, verificationService, passwordResetService),
                 new PerfilController(perfilService),
-                new AdminController(adminService),
+                new UsuarioAdminController(usuarioAdminService),
                 new CanchaController(canchaService, disponibilidadService),
                 new ProductoController(productoService, stockService),
                 new ProductoAdminController(productoService),
                 new NotificacionesController(notificacionesService),
-                new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService),
-                new ClienteAdminController(busquedaClientesService))
+                new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
                 // mismo formato de fechas que la app
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
@@ -441,12 +436,12 @@ class ControllersTest {
 
         @Test
         void administracionDeUsuarios() throws Exception {
-            when(adminService.crearUsuario(any())).thenReturn(new UsuarioAdminResponse());
-            when(adminService.editarUsuario(eq(2L), any())).thenReturn(new UsuarioAdminResponse());
-            when(adminService.listarUsuarios(any())).thenReturn(List.of());
-            when(adminService.getUsuario(2L)).thenReturn(new UsuarioAdminResponse());
-            when(adminService.reactivarUsuario(2L)).thenReturn(new UsuarioAdminResponse());
-            when(adminService.desactivarUsuario(2L)).thenReturn(new UsuarioAdminResponse());
+            when(usuarioAdminService.crearUsuario(any())).thenReturn(new UsuarioAdminResponse());
+            when(usuarioAdminService.editarUsuario(eq(2L), any())).thenReturn(new UsuarioAdminResponse());
+            when(usuarioAdminService.listarUsuarios(any())).thenReturn(List.of());
+            when(usuarioAdminService.getUsuario(2L)).thenReturn(new UsuarioAdminResponse());
+            when(usuarioAdminService.reactivarUsuario(2L)).thenReturn(new UsuarioAdminResponse());
+            when(usuarioAdminService.desactivarUsuario(2L)).thenReturn(new UsuarioAdminResponse());
             String body = "{\"email\":\"e@b.com\",\"nombre\":\"Emp\",\"apellido\":\"Leado\",\"telefono\":\"1122334455\",\"rol\":\"EMPLEADO\"}";
 
             mvc.perform(json(post("/admin/usuarios"), body)).andExpect(status().isCreated());
@@ -869,25 +864,25 @@ class ControllersTest {
 
         @Test
         void buscaClientes() throws Exception {
-            when(busquedaClientesService.buscar("ana", true)).thenReturn(List.of(
+            when(usuarioAdminService.buscarClientes("ana", true)).thenReturn(List.of(
                     new com.LosCiruelos.padel_club_api.usuarios.dto.response.ClienteBusquedaResponse(5L, "Ana", "Gómez",
                             "ana@test.com", "5491122334455", true, null, null, false, true)));
 
-            mvc.perform(get("/admin/clientes").principal(AUTH).param("buscar", "ana"))
+            mvc.perform(get("/admin/usuarios/clientes").principal(AUTH).param("buscar", "ana"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$[0].id").value(5))
                     .andExpect(jsonPath("$[0].telefonoVerificado").value(true))
                     .andExpect(jsonPath("$[0].perfilCompleto").value(false))
                     .andExpect(jsonPath("$[0].enabled").value(true));
 
-            mvc.perform(get("/admin/clientes").principal(AUTH).param("buscar", "ana").param("soloActivos", "false"))
+            mvc.perform(get("/admin/usuarios/clientes").principal(AUTH).param("buscar", "ana").param("soloActivos", "false"))
                     .andExpect(status().isOk());
-            verify(busquedaClientesService).buscar("ana", false);
+            verify(usuarioAdminService).buscarClientes("ana", false);
         }
 
         @Test
         void buscarEsObligatorio() throws Exception {
-            mvc.perform(get("/admin/clientes").principal(AUTH))
+            mvc.perform(get("/admin/usuarios/clientes").principal(AUTH))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.buscar").exists());
         }

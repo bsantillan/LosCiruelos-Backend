@@ -89,6 +89,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
   | `POST /admin/partidos` (ADMIN) | `POST /admin/reservas/partidos` (mismo body) |
   | `PUT /admin/partidos/{id}` (ADMIN) | `PUT /admin/reservas/partidos/{id}` (mismo body) |
   | `GET /admin/resumen?desde&hasta` (ADMIN, EMPLEADO) | `GET /admin/reservas/resumen?desde&hasta` (mismos parámetros, respuesta y permisos) |
+  | `GET /admin/clientes?buscar&soloActivos` (ADMIN, EMPLEADO) | `GET /admin/usuarios/clientes?buscar&soloActivos` (mismos parámetros, respuesta y permisos) |
 
   Para el cliente no cambia nada, salvo que en `POST /reservas` ya no se leen `clienteId` ni `bonificacion` (antes daban `400` o `403`; ahora se ignoran) y en `DELETE /reservas/{id}/cancelar` ya no se lee `reembolso` (antes `400`; ahora se aplica la política). `/pagos/{id}/iniciar` y `/pagos/{id}/pago` quedan solo para el CLIENTE (el personal ya no inicia pagos online: `403`); el webhook sigue en `/pagos/notificacion`.
 - **Cambio de contrato en `GET /admin/resumen`** (mismos parámetros y permisos): la respuesta pasa a `{ desde, hasta, jugados, porJugar, caja, cancelaciones, productos }`. Se separan los turnos jugados (con su `deuda`) de los por jugar (`aCobrar`), y `caja` es el cierre de caja por fecha de pago. Se sacaron `montoEsperado`, `montoCobrado`, `cobradoOnline`, `cobradoEnClub`, `cobradoEfectivo`, `cobradoMercadoPago`, `montoBonificado`, `montoPendiente`, `retenidoCancelaciones`, `partidosJugados` y `partidosCancelados`. Ver `docs/api.md`.

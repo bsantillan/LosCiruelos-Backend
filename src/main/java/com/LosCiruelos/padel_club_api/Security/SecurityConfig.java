@@ -74,7 +74,7 @@ public class SecurityConfig {
                         // Armar y modificar partidos: solo ADMIN
                         .requestMatchers("/admin/reservas/partidos", "/admin/reservas/partidos/**").hasRole("ADMIN")
                         .requestMatchers("/admin/reservas", "/admin/reservas/**").hasAnyRole("ADMIN", "EMPLEADO")
-                        .requestMatchers(HttpMethod.GET, "/admin/clientes").hasAnyRole("ADMIN", "EMPLEADO")
+                        .requestMatchers(HttpMethod.GET, "/admin/usuarios/clientes").hasAnyRole("ADMIN", "EMPLEADO")
                         // Reservas del cliente (las del personal están en /admin/reservas)
                         .requestMatchers("/reservas", "/reservas/**").hasRole("CLIENTE")
                         // Pagos online del cliente (el webhook es público, más arriba)

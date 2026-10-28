@@ -503,7 +503,7 @@ Un **turno fijo** es el mismo partido (cancha, día de la semana, horario y juga
 
 ---
 
-## Panel del personal — `/admin/reservas` y `/admin/clientes` (rol: ADMIN, EMPLEADO)
+## Panel del personal — `/admin/reservas` y `/admin/usuarios/clientes` (rol: ADMIN, EMPLEADO)
 
 ### `GET /admin/reservas` → `200 ListadoReservasResponse`
 Reservas pasadas y futuras de cualquier cliente, para consultarlas y cobrar en el club. Todos los parámetros son opcionales y se combinan (se cumplen todos a la vez).
@@ -543,7 +543,7 @@ Errores: `400` si `desde` es posterior a `hasta`, un estado no existe (`errors.e
 
 El filtrado, el orden, el paginado y los totales se hacen en la base (índices de V14).
 
-### `GET /admin/clientes?buscar=perez&soloActivos=true` → `200 [ ClienteBusquedaResponse ]`
+### `GET /admin/usuarios/clientes?buscar=perez&soloActivos=true` → `200 [ ClienteBusquedaResponse ]`
 Búsqueda de clientes para el filtro por cliente y para reservar a nombre de uno (`POST /admin/reservas` con `clienteId`).
 
 | Parámetro | Obligatorio | Qué hace |

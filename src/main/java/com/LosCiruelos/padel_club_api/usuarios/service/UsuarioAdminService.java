@@ -1,5 +1,13 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import jakarta.persistence.criteria.Predicate;
+import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
+import com.LosCiruelos.padel_club_api.usuarios.dto.response.ClienteBusquedaResponse;
+import com.LosCiruelos.padel_club_api.common.Busquedas;
+import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.PageRequest;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,10 +38,18 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AdminService {
+/**
+ * Usuarios desde el panel: el ADMIN los crea, edita, lista, desactiva y reactiva; el personal
+ * (ADMIN y EMPLEADO) busca clientes para filtrar reservas o reservar a su nombre.
+ */
+public class UsuarioAdminService {
+
+    public static final int MINIMO_CARACTERES_BUSQUEDA = 2;
+    public static final int MAXIMO_RESULTADOS_BUSQUEDA = 20;
 
     private final ClienteProfileService clienteProfileService;
     private final UsuarioService usuarioService;
+    private final UsuarioRepository usuarioRepository;
     private final JWTUtil jwtUtil;
     private final VerificationService verificationService;
     private final UsuarioMapper usuarioMapper;
@@ -156,6 +172,29 @@ public class AdminService {
         jwtUtil.deleteAllRefreshTokens(usuario);
         usuarioService.save(usuario);
         return buildUsuarioAdminResponse(usuario);
+    }
+
+    // ── Búsqueda de clientes (ADMIN y EMPLEADO) ──────────────────────────
+
+    /** Solo usuarios CLIENTE, por nombre, apellido o email (mínimo 2 caracteres, hasta 20 resultados). */
+    @Transactional(readOnly = true)
+    public List<ClienteBusquedaResponse> buscarClientes(String buscar, boolean soloActivos) {
+        String texto = Busquedas.normalizar(buscar);
+        if (texto == null || texto.length() < MINIMO_CARACTERES_BUSQUEDA) {
+            throw new ReservaException("Escribí al menos " + MINIMO_CARACTERES_BUSQUEDA + " caracteres para buscar.");
+        }
+        Specification<Usuario> spec = (root, query, cb) -> {
+            List<Predicate> condiciones = new ArrayList<>();
+            condiciones.add(cb.equal(root.get("rol"), Role.CLIENTE));
+            if (soloActivos) {
+                condiciones.add(cb.isTrue(root.get("enabled")));
+            }
+            condiciones.add(Busquedas.nombreApellidoOEmail(cb, root, texto));
+            return cb.and(condiciones.toArray(Predicate[]::new));
+        };
+        PageRequest primeros = PageRequest.of(0, MAXIMO_RESULTADOS_BUSQUEDA,
+                Sort.by("apellido", "nombre", "id"));
+        return usuarioRepository.findAll(spec, primeros).stream().map(usuarioMapper::aBusquedaResponse).toList();
     }
 
     /** La respuesta con el perfil de jugador, si es CLIENTE. */

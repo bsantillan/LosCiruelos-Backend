@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,13 +33,13 @@ import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
 import com.LosCiruelos.padel_club_api.Security.JWTUtil;
 import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
 
-class AdminServiceTest {
+class UsuarioAdminServiceTest {
 
     private ClienteProfileService clienteProfileService;
     private UsuarioService usuarioService;
     private JWTUtil jwtUtil;
     private VerificationService verificationService;
-    private AdminService adminService;
+    private UsuarioAdminService adminService;
     private Usuario cliente;
 
     @BeforeEach
@@ -47,7 +48,8 @@ class AdminServiceTest {
         usuarioService = mock(UsuarioService.class);
         jwtUtil = mock(JWTUtil.class);
         verificationService = mock(VerificationService.class);
-        adminService = new AdminService(clienteProfileService, usuarioService, jwtUtil, verificationService, new UsuarioMapper());
+        adminService = new UsuarioAdminService(clienteProfileService, usuarioService, mock(UsuarioRepository.class), jwtUtil,
+                verificationService, new UsuarioMapper());
 
         cliente = usuario(1L, Role.CLIENTE);
         when(usuarioService.findByIdOrThrow(1L)).thenReturn(cliente);
