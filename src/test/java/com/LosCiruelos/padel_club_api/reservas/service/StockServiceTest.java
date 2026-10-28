@@ -35,7 +35,7 @@ import com.LosCiruelos.padel_club_api.club.service.ProductoService;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.ReservaProducto;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
-import com.LosCiruelos.padel_club_api.reservas.repository.ReservaProductoRepository;
+import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.reservas.repository.UsoAlquiler;
 
 import jakarta.persistence.EntityManager;
@@ -43,7 +43,7 @@ import jakarta.persistence.EntityManager;
 class StockServiceTest {
 
     private ProductoRepository productoRepository;
-    private ReservaProductoRepository reservaProductoRepository;
+    private ReservaRepository reservaRepository;
     private StockService servicio;
 
     private Producto pelotas;
@@ -52,9 +52,9 @@ class StockServiceTest {
     @BeforeEach
     void setUp() {
         productoRepository = mock(ProductoRepository.class);
-        reservaProductoRepository = mock(ReservaProductoRepository.class);
+        reservaRepository = mock(ReservaRepository.class);
         EntityManager entityManager = mock(EntityManager.class);
-        servicio = new StockService(new ProductoService(productoRepository, new ProductoMapper()), reservaProductoRepository,
+        servicio = new StockService(new ProductoService(productoRepository, new ProductoMapper()), reservaRepository,
                 entityManager, TestData.reloj(AHORA));
 
         pelotas = Producto.builder().id(1L).codigo(Producto.CODIGO_PELOTAS).nombre("Pelotas")
@@ -72,7 +72,7 @@ class StockServiceTest {
     }
 
     private void alquileres(List<UsoAlquiler> usos) {
-        when(reservaProductoRepository.findAlquileresQueSeSuperponen(eq(2L), anyLong(), any(), any(), any(), any(),
+        when(reservaRepository.findAlquileresQueSeSuperponen(eq(2L), anyLong(), any(), any(), any(), any(),
                 anyCollection(), any(), anyCollection())).thenReturn(usos);
     }
 
@@ -158,7 +158,7 @@ class StockServiceTest {
         @Test
         void lasPaletasDeTurnosTerminadosQueNoVolvieronNoSePuedenAlquilar() {
             // 4 paletas: 3 de un turno de esta mañana todavía no se devolvieron
-            when(reservaProductoRepository.sumarSinDevolver(eq(2L), anyCollection(), any(), any())).thenReturn(3L);
+            when(reservaRepository.sumarSinDevolver(eq(2L), anyCollection(), any(), any())).thenReturn(3L);
 
             assertThatThrownBy(() -> servicio.moverStock(List.of(), nuevaReserva(),
                     Map.of(Producto.CODIGO_PALETAS, 2), AHORA))

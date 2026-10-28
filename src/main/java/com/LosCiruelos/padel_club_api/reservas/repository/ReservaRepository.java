@@ -246,4 +246,54 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             @Param("horaFin") LocalTime horaFin,
             @Param("inactivos") Collection<EstadoReserva> inactivos,
             @Param("turnoFijoId") Long turnoFijoId);
+
+    // ── Productos alquilados (stock de paletas) ──────────────────────────
+
+    /**
+     * Alquileres del producto en reservas de cualquier cancha que se superponen con
+     * [horaInicio, horaFin). Cuentan las reservas que ocupan su turno: no CANCELADA ni
+     * EXPIRADA, salvo PENDIENTE vencidas sin pagos activos (mismo criterio que las canchas).
+     * Los alquileres ya devueltos no cuentan.
+     */
+    @Query("""
+            SELECT new com.LosCiruelos.padel_club_api.reservas.repository.UsoAlquiler(
+                       r.horaInicio, r.horaFin, rp.cantidad)
+            FROM ReservaProducto rp JOIN rp.reserva r
+            WHERE rp.producto.id = :productoId
+              AND rp.cantidadDevuelta IS NULL
+              AND r.id <> :excluirReservaId
+              AND r.fechaReserva = :fecha
+              AND\s""" + ConsultasDeTurno.SE_SUPERPONE + """
+              AND r.estado NOT IN :inactivos
+              AND NOT (r.estado = :pendiente AND r.expiresAt <= :ahora
+                       AND NOT EXISTS (SELECT p FROM Pago p WHERE p.reserva = r AND p.estado IN :pagosActivos))
+            """)
+    List<UsoAlquiler> findAlquileresQueSeSuperponen(
+            @Param("productoId") Long productoId,
+            @Param("excluirReservaId") Long excluirReservaId,
+            @Param("fecha") LocalDate fecha,
+            @Param("horaInicio") LocalTime horaInicio,
+            @Param("horaFin") LocalTime horaFin,
+            @Param("ahora") LocalDateTime ahora,
+            @Param("inactivos") Collection<EstadoReserva> inactivos,
+            @Param("pendiente") EstadoReserva pendiente,
+            @Param("pagosActivos") Collection<EstadoPago> pagosActivos);
+
+    /**
+     * Unidades alquiladas del producto en turnos que ya terminaron y cuya devolución todavía
+     * no se registró: siguen afuera del club y no se pueden volver a alquilar.
+     */
+    @Query("""
+            SELECT COALESCE(SUM(rp.cantidad), 0)
+            FROM ReservaProducto rp JOIN rp.reserva r
+            WHERE rp.producto.id = :productoId
+              AND rp.cantidadDevuelta IS NULL
+              AND r.estado IN :estadosQueSeJuegan
+              AND\s""" + ConsultasDeTurno.TERMINADO + """
+            """)
+    Long sumarSinDevolver(
+            @Param("productoId") Long productoId,
+            @Param("estadosQueSeJuegan") Collection<EstadoReserva> estadosQueSeJuegan,
+            @Param("hoy") LocalDate hoy,
+            @Param("hora") LocalTime hora);
 }

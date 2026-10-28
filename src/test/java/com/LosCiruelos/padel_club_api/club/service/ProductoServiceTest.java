@@ -14,7 +14,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,25 +22,17 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.mapper.ProductoMapper;
-import com.LosCiruelos.padel_club_api.reservas.repository.UsoAlquiler;
 import com.LosCiruelos.padel_club_api.club.dto.request.ProductoRequest;
 import com.LosCiruelos.padel_club_api.club.entity.Producto;
-import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
-import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
 import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Exceptions.StockInsuficienteException;
 import com.LosCiruelos.padel_club_api.club.repository.ProductoRepository;
-import com.LosCiruelos.padel_club_api.reservas.repository.ReservaProductoRepository;
-
-import jakarta.persistence.EntityManager;
 
 class ProductoServiceTest {
 
     private ProductoRepository productoRepository;
-    private ReservaProductoRepository reservaProductoRepository;
     private ProductoService servicio;
 
     private Producto pelotas;
@@ -50,8 +41,6 @@ class ProductoServiceTest {
     @BeforeEach
     void setUp() {
         productoRepository = mock(ProductoRepository.class);
-        reservaProductoRepository = mock(ReservaProductoRepository.class);
-        EntityManager entityManager = mock(EntityManager.class);
         servicio = new ProductoService(productoRepository, new ProductoMapper());
 
         pelotas = Producto.builder().id(1L).codigo(Producto.CODIGO_PELOTAS).nombre("Pelotas")
@@ -59,28 +48,10 @@ class ProductoServiceTest {
         paletas = Producto.builder().id(2L).codigo(Producto.CODIGO_PALETAS).nombre("Paletas")
                 .tipo(TipoProducto.ALQUILER).precio(new BigDecimal("2000")).stock(4).build();
 
-        when(entityManager.find(Producto.class, 1L)).thenReturn(pelotas);
-        when(entityManager.find(Producto.class, 2L)).thenReturn(paletas);
         when(productoRepository.findByCodigoIn(anyCollection())).thenAnswer(inv -> {
             var codigos = inv.<java.util.Collection<String>>getArgument(0);
             return List.of(pelotas, paletas).stream().filter(p -> codigos.contains(p.getCodigo())).toList();
         });
-        alquileres(List.of());
-    }
-
-    private void alquileres(List<UsoAlquiler> usos) {
-        when(reservaProductoRepository.findAlquileresQueSeSuperponen(eq(2L), anyLong(), any(), any(), any(), any(),
-                anyCollection(), any(), anyCollection())).thenReturn(usos);
-    }
-
-    private static UsoAlquiler uso(String inicio, String fin, int cantidad) {
-        return new UsoAlquiler(LocalTime.parse(inicio), LocalTime.parse(fin), cantidad);
-    }
-
-    private Reserva nuevaReserva() {
-        Reserva r = reserva(null, usuario(1L, Role.CLIENTE), EstadoReserva.PENDIENTE, "15000"); // 18:00-19:30
-        r.setId(null);
-        return r;
     }
 
     // ─────────────────────────────────────────────────────────────────────

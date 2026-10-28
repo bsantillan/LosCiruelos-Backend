@@ -23,7 +23,7 @@ import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.ReservaProducto;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
-import com.LosCiruelos.padel_club_api.reservas.repository.ReservaProductoRepository;
+import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.reservas.repository.UsoAlquiler;
 
 import jakarta.persistence.EntityManager;
@@ -47,7 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 public class StockService {
 
     private final ProductoService productoService;
-    private final ReservaProductoRepository reservaProductoRepository;
+    private final ReservaRepository reservaRepository;
     private final EntityManager entityManager;
     private final Reloj reloj;
 
@@ -184,10 +184,10 @@ public class StockService {
             return producto.getStock();
         }
         // alquiler: total − máximo en uso en ese horario − las de turnos terminados que no volvieron
-        List<UsoAlquiler> usos = reservaProductoRepository.findAlquileresQueSeSuperponen(producto.getId(),
+        List<UsoAlquiler> usos = reservaRepository.findAlquileresQueSeSuperponen(producto.getId(),
                 excluirReservaId != null ? excluirReservaId : -1L, fecha, inicio, fin, ahora,
                 DisponibilidadService.ESTADOS_INACTIVOS, EstadoReserva.PENDIENTE, DisponibilidadService.PAGOS_ACTIVOS);
-        Long sinDevolver = reservaProductoRepository.sumarSinDevolver(producto.getId(), Reserva.ESTADOS_QUE_SE_JUEGAN,
+        Long sinDevolver = reservaRepository.sumarSinDevolver(producto.getId(), Reserva.ESTADOS_QUE_SE_JUEGAN,
                 ahora.toLocalDate(), ahora.toLocalTime());
         int afuera = sinDevolver != null ? sinDevolver.intValue() : 0;
         return Math.max(0, producto.getStock() - usoMaximo(usos, inicio, fin) - afuera);
