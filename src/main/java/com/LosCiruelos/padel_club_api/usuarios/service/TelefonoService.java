@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -40,6 +41,7 @@ public class TelefonoService {
     private final VerificationTokenRepository tokenRepository;
     private final EnvioCodigoTelefonoRepository envios;
     private final UsuarioService usuarioService;
+    private final UsuarioRepository usuarioRepository;
     private final WhatsAppServiceFactory whatsApp;
     private final Reloj reloj;
     private final String plantillaCodigo;
@@ -53,7 +55,8 @@ public class TelefonoService {
     }
 
     public TelefonoService(VerificationTokenRepository tokenRepository, EnvioCodigoTelefonoRepository envios,
-            UsuarioService usuarioService, WhatsAppServiceFactory whatsApp, Reloj reloj,
+            UsuarioService usuarioService, UsuarioRepository usuarioRepository, WhatsAppServiceFactory whatsApp,
+            Reloj reloj,
             @Value("${whatsapp.plantilla-codigo:codigo_verificacion_v2}") String plantillaCodigo,
             @Value("${telefono.codigos-por-dia-usuario:5}") int porUsuarioPorDia,
             @Value("${telefono.codigos-por-dia-numero:5}") int porNumeroPorDia,
@@ -61,6 +64,7 @@ public class TelefonoService {
         this.tokenRepository = tokenRepository;
         this.envios = envios;
         this.usuarioService = usuarioService;
+        this.usuarioRepository = usuarioRepository;
         this.whatsApp = whatsApp;
         this.reloj = reloj;
         this.plantillaCodigo = plantillaCodigo;
@@ -167,7 +171,7 @@ public class TelefonoService {
         }
         usuarioService.quitarVerificacionDeOtrasCuentas(usuario);
         usuario.setTelefonoVerificado(true);
-        usuarioService.save(usuario);
+        usuarioRepository.save(usuario);
         tokenRepository.delete(token);
         log.info("Teléfono {} verificado para {}", usuario.getTelefono(), usuario.getEmail());
     }

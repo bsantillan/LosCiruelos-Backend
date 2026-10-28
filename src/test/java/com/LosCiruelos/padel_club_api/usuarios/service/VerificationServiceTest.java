@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,7 +44,7 @@ class VerificationServiceTest {
         emailService = mock(EmailService.class);
         EmailServiceFactory factory = mock(EmailServiceFactory.class);
         when(factory.getService()).thenReturn(emailService);
-        servicio = new VerificationService(usuarioService, tokenRepository, factory);
+        servicio = new VerificationService(usuarioService, mock(UsuarioRepository.class), tokenRepository, factory);
 
         usuario = usuario(1L, Role.CLIENTE);
         usuario.setEmailVerificado(false);

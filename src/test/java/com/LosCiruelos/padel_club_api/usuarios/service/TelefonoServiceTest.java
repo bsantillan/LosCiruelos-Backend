@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,6 +38,7 @@ class TelefonoServiceTest {
 
     private VerificationTokenRepository tokenRepository;
     private UsuarioService usuarioService;
+    private UsuarioRepository usuarioRepository = mock(UsuarioRepository.class);
     private WhatsAppService whatsApp;
     private TelefonoService telefonos;
     private EnvioCodigoTelefonoRepository envios;
@@ -54,7 +56,7 @@ class TelefonoServiceTest {
         when(tokenRepository.save(any(VerificationToken.class))).thenAnswer(inv -> inv.getArgument(0));
         envios = mock(EnvioCodigoTelefonoRepository.class);
         when(envios.findFirstByUsuarioIdOrderByEnviadoAtDesc(any())).thenReturn(Optional.empty());
-        telefonos = new TelefonoService(tokenRepository, envios, usuarioService, fabricaWhatsApp,
+        telefonos = new TelefonoService(tokenRepository, envios, usuarioService, usuarioRepository, fabricaWhatsApp,
                 TestData.reloj(AHORA), "codigo_verificacion_v2", 5, 5, 60);
 
         usuario = usuario(1L, Role.CLIENTE);
@@ -190,7 +192,7 @@ class TelefonoServiceTest {
         assertThat(usuario.getTelefonoVerificado()).isTrue();
         // las cuentas desactivadas que lo tenían verificado lo pierden
         verify(usuarioService).quitarVerificacionDeOtrasCuentas(usuario);
-        verify(usuarioService).save(usuario);
+        verify(usuarioRepository).save(usuario);
         verify(tokenRepository).delete(token);
     }
 

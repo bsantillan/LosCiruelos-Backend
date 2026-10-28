@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -27,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 public class PasswordResetService {
 
         private final UsuarioService usuarioService;
+        private final UsuarioRepository usuarioRepository;
         private final VerificationTokenRepository tokenRepository;
         private final PasswordEncoder passwordEncoder;
         private final EmailServiceFactory emailServiceFactory;
@@ -79,7 +81,7 @@ public class PasswordResetService {
                 }
 
                 usuario.setPasswordHash(passwordEncoder.encode(nuevaPassword));
-                usuarioService.save(usuario);
+                usuarioRepository.save(usuario);
                 tokenRepository.delete(token);
                 // cierra las sesiones abiertas con la contraseña anterior
                 jwtUtil.deleteAllRefreshTokens(usuario);

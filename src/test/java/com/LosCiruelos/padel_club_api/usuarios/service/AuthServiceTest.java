@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -51,6 +52,7 @@ class AuthServiceTest {
     private GoogleTokenVerifier googleTokenVerifier;
     private VerificationService verificationService;
     private AuthService authService;
+    private UsuarioRepository usuarioRepository;
     private Usuario cliente;
 
     @BeforeEach
@@ -61,7 +63,8 @@ class AuthServiceTest {
         jwtUtil = mock(JWTUtil.class);
         googleTokenVerifier = mock(GoogleTokenVerifier.class);
         verificationService = mock(VerificationService.class);
-        authService = new AuthService(usuarioService, clienteProfileService, passwordEncoder, jwtUtil,
+        usuarioRepository = mock(UsuarioRepository.class);
+        authService = new AuthService(usuarioService, usuarioRepository, clienteProfileService, passwordEncoder, jwtUtil,
                 googleTokenVerifier, verificationService, new UsuarioMapper());
 
         cliente = usuario(1L, Role.CLIENTE);
@@ -69,7 +72,7 @@ class AuthServiceTest {
         when(jwtUtil.generateToken(anyString())).thenReturn("jwt");
         when(jwtUtil.createRefreshToken(any())).thenReturn(RefreshToken.builder().token("rt").build());
         when(passwordEncoder.matches("Clave123!", "hash")).thenReturn(true);
-        when(usuarioService.findByEmailOrThrow(eq(cliente.getEmail()), any())).thenReturn(cliente);
+        when(usuarioRepository.findByEmail(cliente.getEmail())).thenReturn(java.util.Optional.of(cliente));
         // la regla por rol es la real; el perfil de jugador lo responde el mock (completo)
         when(clienteProfileService.findByUsuario(any())).thenAnswer(inv -> ClienteProfile.builder()
                 .usuario(inv.getArgument(0)).categoria(Categoria.Cuarta).posicion(Posicion.Drive).build());
@@ -176,7 +179,7 @@ class AuthServiceTest {
     void elPerfilDeUnEmpleadoSiempreEstaCompleto() {
         Usuario empleado = usuario(2L, Role.EMPLEADO);
         empleado.setPasswordHash("hash");
-        when(usuarioService.findByEmailOrThrow(eq(empleado.getEmail()), any())).thenReturn(empleado);
+        when(usuarioRepository.findByEmail(empleado.getEmail())).thenReturn(java.util.Optional.of(empleado));
         when(clienteProfileService.findByUsuario(any())).thenReturn(null);
 
         assertThat(authService.login(login(empleado.getEmail(), "Clave123!")).getPerfilCompleto()).isTrue();
@@ -187,7 +190,7 @@ class AuthServiceTest {
         Usuario admin = usuario(3L, Role.ADMIN);
         admin.setPasswordHash("hash");
         admin.setTelefonoVerificado(false);
-        when(usuarioService.findByEmailOrThrow(eq(admin.getEmail()), any())).thenReturn(admin);
+        when(usuarioRepository.findByEmail(admin.getEmail())).thenReturn(java.util.Optional.of(admin));
 
         assertThat(authService.login(login(admin.getEmail(), "Clave123!")).getPerfilCompleto()).isFalse();
 
@@ -224,7 +227,7 @@ class AuthServiceTest {
         authService.loginWithGoogle("id-token");
 
         assertThat(cliente.getEmailVerificado()).isTrue();
-        verify(usuarioService).save(cliente);
+        verify(usuarioRepository).save(cliente);
     }
 
     @Test

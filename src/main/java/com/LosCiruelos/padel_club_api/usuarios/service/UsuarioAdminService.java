@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileRepository;
 import jakarta.persistence.criteria.Predicate;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.ClienteBusquedaResponse;
@@ -50,6 +51,7 @@ public class UsuarioAdminService {
     private final ClienteProfileService clienteProfileService;
     private final UsuarioService usuarioService;
     private final UsuarioRepository usuarioRepository;
+    private final ClienteProfileRepository clienteProfileRepository;
     private final JWTUtil jwtUtil;
     private final VerificationService verificationService;
     private final UsuarioMapper usuarioMapper;
@@ -110,13 +112,13 @@ public class UsuarioAdminService {
                 usuario, request.getNombre(), request.getApellido(), request.getTelefono());
 
         usuario.setRol(request.getRol());
-        usuarioService.save(usuario);
+        usuarioRepository.save(usuario);
 
         ClienteProfile perfil = null;
 
         if (rolAnterior == Role.CLIENTE && request.getRol() != Role.CLIENTE) {
             usuario.setClienteProfile(null);
-            usuarioService.save(usuario);
+            usuarioRepository.save(usuario);
         } else if (request.getRol() == Role.CLIENTE) {
             perfil = clienteProfileService.findByUsuario(usuario);
 
@@ -124,8 +126,9 @@ public class UsuarioAdminService {
                 perfil = clienteProfileService.crearClienteProfile(
                         usuario, request.getCategoria(), request.getPosicion());
             } else {
-                perfil = clienteProfileService.updateClienteProfile(
-                        perfil, request.getCategoria(), request.getPosicion(), perfil.getCategoriaActualizadaAt());
+                perfil.setCategoria(request.getCategoria());
+                perfil.setPosicion(request.getPosicion());
+                perfil = clienteProfileRepository.save(perfil);
             }
         }
 
@@ -138,7 +141,7 @@ public class UsuarioAdminService {
             throw new IllegalArgumentException("El rol debe ser CLIENTE para asignar categoría o posición");
         }
 
-        return usuarioService.findAll(UsuarioSpecification.conFiltros(filtros))
+        return usuarioRepository.findAll(UsuarioSpecification.conFiltros(filtros))
                 .stream()
                 .map(this::buildUsuarioAdminResponse)
                 .collect(Collectors.toList());
@@ -158,7 +161,7 @@ public class UsuarioAdminService {
             usuario.setTelefonoVerificado(false);
         }
         usuario.setEnabled(true);
-        usuarioService.save(usuario);
+        usuarioRepository.save(usuario);
         return buildUsuarioAdminResponse(usuario);
     }
 
@@ -170,7 +173,7 @@ public class UsuarioAdminService {
         }
         usuario.setEnabled(false);
         jwtUtil.deleteAllRefreshTokens(usuario);
-        usuarioService.save(usuario);
+        usuarioRepository.save(usuario);
         return buildUsuarioAdminResponse(usuario);
     }
 

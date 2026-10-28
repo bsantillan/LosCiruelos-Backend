@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileRepository;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
@@ -29,6 +30,7 @@ public class PerfilService {
 
     private final UsuarioService usuarioService;
     private final ClienteProfileService clienteProfileService;
+    private final ClienteProfileRepository clienteProfileRepository;
     private final ReservaConsultaService reservaConsultaService;
     private final JWTUtil jwtUtil;
     private final UsuarioMapper usuarioMapper;
@@ -75,7 +77,7 @@ public class PerfilService {
 
         usuario = usuarioService.updateUsuario(usuario, req.getNombre(), req.getApellido(), req.getTelefono());
         if (perfil != null) {
-            perfil = clienteProfileService.save(perfil);
+            perfil = clienteProfileRepository.save(perfil);
         }
         return buildPerfilResponse(usuario, perfil);
     }

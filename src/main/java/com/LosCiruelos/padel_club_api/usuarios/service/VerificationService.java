@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class VerificationService {
 
     private final UsuarioService usuarioService;
+    private final UsuarioRepository usuarioRepository;
     private final VerificationTokenRepository tokenRepository;
     private final EmailServiceFactory emailServiceFactory;
 
@@ -55,7 +57,7 @@ public class VerificationService {
 
         // Solo marca el email como verificado: "enabled" es para cuentas desactivadas
         usuario.setEmailVerificado(true);
-        usuarioService.save(usuario);
+        usuarioRepository.save(usuario);
         tokenRepository.delete(token);
     }
 

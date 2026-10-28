@@ -33,17 +33,6 @@ public class ClienteProfileService {
         return clienteProfileRepository.findByUsuario(user).orElse(null);
     }
 
-    public ClienteProfile updateClienteProfile(ClienteProfile perfil, Categoria categoria, Posicion posicion, LocalDateTime categoriaActualizadaAt) {
-        perfil.setCategoria(categoria);
-        perfil.setPosicion(posicion);
-        perfil.setCategoriaActualizadaAt(categoriaActualizadaAt);
-        return clienteProfileRepository.save(perfil);
-    }
-
-    public ClienteProfile save(ClienteProfile perfil) {
-        return clienteProfileRepository.save(perfil);
-    }
-
     public void eliminarPorUsuario(Usuario usuario) {
         clienteProfileRepository.findByUsuario(usuario)
                 .ifPresent(clienteProfileRepository::delete);

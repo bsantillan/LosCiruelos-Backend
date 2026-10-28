@@ -52,6 +52,7 @@ class PerfilServiceTest {
         reservaConsultaService = mock(ReservaConsultaService.class);
         jwtUtil = mock(JWTUtil.class);
         perfilService = new PerfilService(usuarioService, new ClienteProfileService(clienteProfileRepository),
+                clienteProfileRepository,
                 reservaConsultaService, jwtUtil, new UsuarioMapper(), TestData.reloj(AHORA));
 
         cliente = usuario(1L, Role.CLIENTE);
@@ -196,8 +197,9 @@ class PerfilServiceTest {
             when(usuarioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
             UsuarioService real = new UsuarioService(usuarioRepository,
                     mock(org.springframework.security.crypto.password.PasswordEncoder.class));
-            perfiles = new PerfilService(real, new ClienteProfileService(clienteProfileRepository), reservaConsultaService,
-                    jwtUtil, new UsuarioMapper(), TestData.reloj(AHORA));
+            perfiles = new PerfilService(real, new ClienteProfileService(clienteProfileRepository),
+                    clienteProfileRepository, reservaConsultaService, jwtUtil, new UsuarioMapper(),
+                    TestData.reloj(AHORA));
         }
 
         @Test

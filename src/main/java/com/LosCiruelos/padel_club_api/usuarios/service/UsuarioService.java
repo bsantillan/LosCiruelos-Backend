@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -33,10 +32,6 @@ public class UsuarioService {
 
     public Usuario findByEmail(String email) {
         return usuarioRepository.findByEmail(email).orElse(null);
-    }
-
-    public Usuario findByEmailOrThrow(String email, RuntimeException ex) {
-        return usuarioRepository.findByEmail(email).orElseThrow(() -> ex);
     }
 
     /** {@code telefono} null: no se toca el teléfono ni su verificación. */
@@ -117,7 +112,8 @@ public class UsuarioService {
 
     /** El usuario de la sesión (por el email del token). */
     public Usuario autenticado(String email) {
-        return findByEmailOrThrow(email, new CredencialesInvalidasException("Usuario no encontrado"));
+        return usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new CredencialesInvalidasException("Usuario no encontrado"));
     }
 
     public Usuario findByIdOrThrow(Long id) {
@@ -125,12 +121,9 @@ public class UsuarioService {
                 .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado: " + id));
     }
 
+    /** Lo usan los otros dominios (notificaciones, carga inicial); dentro de usuarios se usa el repository. */
     public Usuario save(Usuario usuario) {
         return usuarioRepository.save(usuario);
-    }
-
-    public List<Usuario> findAll(Specification<Usuario> spec) {
-        return usuarioRepository.findAll(spec);
     }
 
     private String capitalizar(String texto) {

@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthService {
 
     private final UsuarioService usuarioService;
+    private final UsuarioRepository usuarioRepository;
     private final ClienteProfileService clienteProfileService;
     private final PasswordEncoder passwordEncoder;
     private final JWTUtil jwtUtil;
@@ -85,7 +87,7 @@ public class AuthService {
         // después de validar el celular)
         usuario_nuevo.setNotificacionesAceptadasAt(usuario_nuevo.getTermsAcceptedAt());
         usuario_nuevo.setCanalNotificaciones(CanalNotificacion.EMAIL);
-        usuarioService.save(usuario_nuevo);
+        usuarioRepository.save(usuario_nuevo);
 
         try {
             verificationService.enviarToken(usuario_nuevo.getEmail());
@@ -97,9 +99,8 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest log_rq) {
-        Usuario usuario = usuarioService.findByEmailOrThrow(
-                log_rq.getEmail(),
-                new CredencialesInvalidasException("Email o contraseña incorrectos"));
+        Usuario usuario = usuarioRepository.findByEmail(log_rq.getEmail())
+                .orElseThrow(() -> new CredencialesInvalidasException("Email o contraseña incorrectos"));
 
         if (!passwordEncoder.matches(log_rq.getPassword(), usuario.getPasswordHash())) {
             throw new CredencialesInvalidasException("Email o contraseña incorrectos");
@@ -139,7 +140,7 @@ public class AuthService {
             // Google confirmó que el email es suyo: queda verificado
             if (!usuarioGuardado.getEmailVerificado()) {
                 usuarioGuardado.setEmailVerificado(true);
-                usuarioService.save(usuarioGuardado);
+                usuarioRepository.save(usuarioGuardado);
             }
         }
 

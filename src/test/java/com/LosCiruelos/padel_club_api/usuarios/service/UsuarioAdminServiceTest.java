@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileRepository;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,6 +41,8 @@ class UsuarioAdminServiceTest {
     private JWTUtil jwtUtil;
     private VerificationService verificationService;
     private UsuarioAdminService adminService;
+    private UsuarioRepository usuarioRepository;
+    private ClienteProfileRepository clienteProfileRepository;
     private Usuario cliente;
 
     @BeforeEach
@@ -48,8 +51,11 @@ class UsuarioAdminServiceTest {
         usuarioService = mock(UsuarioService.class);
         jwtUtil = mock(JWTUtil.class);
         verificationService = mock(VerificationService.class);
-        adminService = new UsuarioAdminService(clienteProfileService, usuarioService, mock(UsuarioRepository.class), jwtUtil,
-                verificationService, new UsuarioMapper());
+        usuarioRepository = mock(UsuarioRepository.class);
+        clienteProfileRepository = mock(ClienteProfileRepository.class);
+        when(clienteProfileRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        adminService = new UsuarioAdminService(clienteProfileService, usuarioService, usuarioRepository,
+                clienteProfileRepository, jwtUtil, verificationService, new UsuarioMapper());
 
         cliente = usuario(1L, Role.CLIENTE);
         when(usuarioService.findByIdOrThrow(1L)).thenReturn(cliente);
@@ -122,11 +128,13 @@ class UsuarioAdminServiceTest {
     void editarUnClienteActualizaSuPerfil() {
         ClienteProfile perfil = ClienteProfile.builder().usuario(cliente).categoria(Categoria.Cuarta).build();
         when(clienteProfileService.findByUsuario(cliente)).thenReturn(perfil);
-        when(clienteProfileService.updateClienteProfile(any(), any(), any(), any())).thenReturn(perfil);
 
         UsuarioAdminResponse r = adminService.editarUsuario(1L, editar(Role.CLIENTE, Categoria.Primera, Posicion.Reves));
 
-        verify(clienteProfileService).updateClienteProfile(perfil, Categoria.Primera, Posicion.Reves, null);
+        verify(clienteProfileRepository).save(perfil);
+        assertThat(perfil.getCategoria()).isEqualTo(Categoria.Primera);
+        assertThat(perfil.getPosicion()).isEqualTo(Posicion.Reves);
+        assertThat(perfil.getCategoriaActualizadaAt()).isNull();
         assertThat(r.getRol()).isEqualTo(Role.CLIENTE);
     }
 
@@ -172,7 +180,7 @@ class UsuarioAdminServiceTest {
 
     @Test
     void listarYObtener() {
-        when(usuarioService.findAll(any())).thenReturn(List.of(cliente));
+        when(usuarioRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class))).thenReturn(List.of(cliente));
         assertThat(adminService.listarUsuarios(new FiltroUsuarioRequest())).hasSize(1);
         assertThat(adminService.getUsuario(1L).getEmail()).isEqualTo(cliente.getEmail());
 
