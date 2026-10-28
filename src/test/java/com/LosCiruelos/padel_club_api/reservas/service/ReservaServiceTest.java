@@ -114,7 +114,7 @@ class ReservaServiceTest {
         when(usuarioService.findByIdOrThrow(3L)).thenReturn(admin);
 
         when(clienteProfileService.findByUsuario(any())).thenReturn(new ClienteProfile());
-        when(clienteProfileService.esPerfilCompleto(any())).thenReturn(true);
+        when(clienteProfileService.perfilCompleto(any())).thenReturn(true);
         when(canchaRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(TestData.cancha()));
         when(reservaRepository.saveAndFlush(any(Reserva.class))).thenAnswer(inv -> {
             Reserva r = inv.getArgument(0);
@@ -323,7 +323,7 @@ class ReservaServiceTest {
 
         @Test
         void perfilIncompletoNoPuedeReservar() {
-            when(clienteProfileService.esPerfilCompleto(any())).thenReturn(false);
+            when(clienteProfileService.perfilCompleto(any())).thenReturn(false);
 
             assertThatThrownBy(() -> reservaService.crearParaMi(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail()))
                     .isInstanceOf(PerfilIncompletoException.class);

@@ -122,4 +122,9 @@ public class Usuario {
 
     @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private ClienteProfile clienteProfile;
+
+    /** Nombre, apellido y celular verificado con el código de WhatsApp (igual que el mail). */
+    public boolean datosPersonalesCompletos() {
+        return telefono != null && Boolean.TRUE.equals(telefonoVerificado) && nombre != null && apellido != null;
+    }
 }

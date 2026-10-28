@@ -69,8 +69,9 @@ class AuthServiceTest {
         when(jwtUtil.createRefreshToken(any())).thenReturn(RefreshToken.builder().token("rt").build());
         when(passwordEncoder.matches("Clave123!", "hash")).thenReturn(true);
         when(usuarioService.findByEmailOrThrow(eq(cliente.getEmail()), any())).thenReturn(cliente);
-        when(clienteProfileService.esPerfilCompleto(any())).thenReturn(true);
-        // la regla por rol es la real; el perfil de jugador lo responde el mock
+        // la regla por rol es la real; el perfil de jugador lo responde el mock (completo)
+        when(clienteProfileService.findByUsuario(any())).thenAnswer(inv -> ClienteProfile.builder()
+                .usuario(inv.getArgument(0)).categoria(Categoria.Cuarta).posicion(Posicion.Drive).build());
         when(clienteProfileService.perfilCompleto(any())).thenCallRealMethod();
     }
 
@@ -175,7 +176,7 @@ class AuthServiceTest {
         Usuario empleado = usuario(2L, Role.EMPLEADO);
         empleado.setPasswordHash("hash");
         when(usuarioService.findByEmailOrThrow(eq(empleado.getEmail()), any())).thenReturn(empleado);
-        when(clienteProfileService.esPerfilCompleto(any())).thenReturn(false);
+        when(clienteProfileService.findByUsuario(any())).thenReturn(null);
 
         assertThat(authService.login(login(empleado.getEmail(), "Clave123!")).getPerfilCompleto()).isTrue();
     }
@@ -201,7 +202,8 @@ class AuthServiceTest {
         Usuario creado = usuario(5L, Role.CLIENTE);
         when(usuarioService.crearUsuario(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(creado);
-        when(clienteProfileService.esPerfilCompleto(any())).thenReturn(false);
+        // el cliente nuevo de Google todavía no tiene categoría ni posición
+        when(clienteProfileService.findByUsuario(any())).thenReturn(null);
 
         LoginResponse r = authService.loginWithGoogle("id-token");
 
@@ -216,7 +218,7 @@ class AuthServiceTest {
         cliente.setEmailVerificado(false);
         when(googleTokenVerifier.verify("id-token")).thenReturn(new GoogleUser(cliente.getEmail(), "N", "A"));
         when(usuarioService.findByEmail(cliente.getEmail())).thenReturn(cliente);
-        when(clienteProfileService.findByUsuario(cliente)).thenReturn(new ClienteProfile());
+        when(clienteProfileService.findByUsuario(cliente)).thenReturn(ClienteProfile.builder().usuario(cliente).build());
 
         authService.loginWithGoogle("id-token");
 

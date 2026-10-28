@@ -14,7 +14,6 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
 import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
 import com.LosCiruelos.padel_club_api.Security.JWTUtil;
 import com.LosCiruelos.padel_club_api.common.Reloj;
@@ -64,21 +63,8 @@ public class PerfilService {
                 perfil = clienteProfileService.crearClienteProfile(usuario, null, null);
             }
 
-            // Solo se controla la categoría si efectivamente cambia
-            if (req.getCategoria() != perfil.getCategoria()) {
-                if (!clienteProfileService.puedeCambiarCategoria(perfil, ahora)) {
-                    throw new CategoriaException(Boolean.TRUE.equals(perfil.getCategoriaModificada())
-                            ? "Ya modificaste tu categoría. Contactá al club para realizar otro cambio."
-                            : "El período para modificar tu categoría expiró. Contactá al club para realizar cambios.");
-                }
-                if (perfil.getCategoria() == null) {
-                    // primera carga: empieza a correr el plazo de 24 hs
-                    perfil.setCategoriaActualizadaAt(ahora);
-                } else {
-                    perfil.setCategoriaModificada(true);
-                }
-                perfil.setCategoria(req.getCategoria());
-            }
+            // solo se controla la categoría si efectivamente cambia
+            perfil.cambiarCategoria(req.getCategoria(), ahora);
             perfil.setPosicion(req.getPosicion());
         } else if (req.getPosicion() != null || req.getCategoria() != null) {
             throw new IllegalArgumentException("Solo los usuarios con rol CLIENTE tienen categoría y posición.");
@@ -121,7 +107,7 @@ public class PerfilService {
             response.setCategoria(perfil.getCategoria());
             response.setPosicion(perfil.getPosicion());
             response.setCategoriaActualizadaAt(perfil.getCategoriaActualizadaAt());
-            response.setCategoriaEditable(clienteProfileService.puedeCambiarCategoria(perfil, ahora));
+            response.setCategoriaEditable(perfil.puedeCambiarCategoria(ahora));
         }
         return response;
     }

@@ -44,35 +44,9 @@ public class ClienteProfileService {
         return clienteProfileRepository.save(perfil);
     }
 
-    /**
-     * El cliente puede cambiar su categoría una sola vez y dentro de las 24 hs desde que la
-     * cargó. La primera carga (por ejemplo, después de entrar con Google) no cuenta como cambio.
-     */
-    public boolean puedeCambiarCategoria(ClienteProfile perfil, LocalDateTime ahora) {
-        if (perfil.getCategoria() == null) {
-            return true;
-        }
-        if (Boolean.TRUE.equals(perfil.getCategoriaModificada())) {
-            return false;
-        }
-        return perfil.getCategoriaActualizadaAt() == null
-                || !ahora.isAfter(perfil.getCategoriaActualizadaAt().plusHours(24));
-    }
-
     public void eliminarPorUsuario(Usuario usuario) {
         clienteProfileRepository.findByUsuario(usuario)
                 .ifPresent(clienteProfileRepository::delete);
-    }
-
-    /** CLIENTE: datos personales, celular verificado, categoría y posición. */
-    public Boolean esPerfilCompleto(ClienteProfile clienteProfile) {
-        if (clienteProfile == null)
-            return false;
-
-        Usuario usuario = clienteProfile.getUsuario();
-        return datosPersonalesCompletos(usuario)
-                && clienteProfile.getCategoria() != null
-                && clienteProfile.getPosicion() != null;
     }
 
     /**
@@ -81,17 +55,12 @@ public class ClienteProfileService {
      */
     public boolean perfilCompleto(Usuario usuario) {
         return switch (usuario.getRol()) {
-            case CLIENTE -> esPerfilCompleto(findByUsuario(usuario));
-            case ADMIN -> datosPersonalesCompletos(usuario);
+            case CLIENTE -> {
+                ClienteProfile perfil = findByUsuario(usuario);
+                yield perfil != null && perfil.estaCompleto();
+            }
+            case ADMIN -> usuario.datosPersonalesCompletos();
             default -> true;
         };
-    }
-
-    /** Nombre, apellido y celular verificado con el código de WhatsApp (igual que el mail). */
-    static boolean datosPersonalesCompletos(Usuario usuario) {
-        return usuario.getTelefono() != null
-                && Boolean.TRUE.equals(usuario.getTelefonoVerificado())
-                && usuario.getNombre() != null
-                && usuario.getApellido() != null;
     }
 }

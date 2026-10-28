@@ -21,7 +21,6 @@ import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaAdminRequ
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
-import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
@@ -266,8 +265,7 @@ public class ReservaService {
     }
 
     private void validarPerfilCompleto(Usuario cliente, String mensaje) {
-        ClienteProfile perfil = clienteProfileService.findByUsuario(cliente);
-        if (!clienteProfileService.esPerfilCompleto(perfil)) {
+        if (!clienteProfileService.perfilCompleto(cliente)) {
             throw new PerfilIncompletoException(mensaje);
         }
     }

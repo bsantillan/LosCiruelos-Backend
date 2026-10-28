@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.entity;
 
+import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
 import java.time.LocalDateTime;
 
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Categoria;
@@ -41,4 +42,44 @@ public class ClienteProfile {
     @Builder.Default
     @Column(name = "categoria_modificada", nullable = false)
     private Boolean categoriaModificada = false;
+
+    /** Perfil de jugador completo: datos personales del usuario, categoría y posición. */
+    public boolean estaCompleto() {
+        return usuario.datosPersonalesCompletos() && categoria != null && posicion != null;
+    }
+
+    /**
+     * El cliente puede cambiar su categoría una sola vez y dentro de las 24 hs desde que la
+     * cargó. La primera carga (por ejemplo, después de entrar con Google) no cuenta como cambio.
+     */
+    public boolean puedeCambiarCategoria(LocalDateTime ahora) {
+        if (categoria == null) {
+            return true;
+        }
+        if (Boolean.TRUE.equals(categoriaModificada)) {
+            return false;
+        }
+        return categoriaActualizadaAt == null || !ahora.isAfter(categoriaActualizadaAt.plusHours(24));
+    }
+
+    /**
+     * Cambia la categoría si es distinta. La primera carga arranca el plazo de 24 hs; un cambio
+     * posterior la marca como modificada (no se puede volver a cambiar).
+     */
+    public void cambiarCategoria(Categoria nueva, LocalDateTime ahora) {
+        if (nueva == categoria) {
+            return;
+        }
+        if (!puedeCambiarCategoria(ahora)) {
+            throw new CategoriaException(Boolean.TRUE.equals(categoriaModificada)
+                    ? "Ya modificaste tu categoría. Contactá al club para realizar otro cambio."
+                    : "El período para modificar tu categoría expiró. Contactá al club para realizar cambios.");
+        }
+        if (categoria == null) {
+            categoriaActualizadaAt = ahora;
+        } else {
+            categoriaModificada = true;
+        }
+        categoria = nueva;
+    }
 }

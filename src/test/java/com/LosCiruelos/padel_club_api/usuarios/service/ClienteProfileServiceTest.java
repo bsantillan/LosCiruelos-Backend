@@ -32,7 +32,7 @@ class ClienteProfileServiceTest {
 
         cliente.setTelefonoVerificado(false);
         assertThat(perfiles.perfilCompleto(cliente)).isFalse();
-        assertThat(perfiles.esPerfilCompleto(perfil)).isFalse();
+        assertThat(perfil.estaCompleto()).isFalse();
     }
 
     @Test

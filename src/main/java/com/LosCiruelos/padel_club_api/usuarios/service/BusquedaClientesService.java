@@ -58,7 +58,7 @@ public class BusquedaClientesService {
         ClienteProfile perfil = u.getClienteProfile();
         return new ClienteBusquedaResponse(u.getId(), u.getNombre(), u.getApellido(), u.getEmail(), u.getTelefono(),
                 Boolean.TRUE.equals(u.getTelefonoVerificado()), perfil != null ? perfil.getCategoria() : null,
-                perfil != null ? perfil.getPosicion() : null, clienteProfileService.esPerfilCompleto(perfil),
+                perfil != null ? perfil.getPosicion() : null, perfil != null && perfil.estaCompleto(),
                 Boolean.TRUE.equals(u.getEnabled()));
     }
 }
