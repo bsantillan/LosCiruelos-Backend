@@ -18,6 +18,7 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.LosCiruelos.padel_club_api.mapper.ResumenMapper;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.reportes.repository.CobrosDelPeriodo;
 import com.LosCiruelos.padel_club_api.reportes.repository.EntradasDeCaja;
@@ -45,7 +46,7 @@ class ResumenServiceTest {
     @BeforeEach
     void setUp() {
         repo = mock(ResumenRepository.class);
-        resumen = new ResumenService(repo, TestData.reloj(AHORA));
+        resumen = new ResumenService(repo, new ResumenMapper(), TestData.reloj(AHORA));
         // sin reservas ni pagos: las cantidades vienen en null y los montos en 0
         when(repo.turnos(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new TurnosDelPeriodo(null, $("0"), null, $("0"), null));
@@ -158,7 +159,7 @@ class ResumenServiceTest {
     @Test
     void validaElPeriodo() {
         ResumenRepository sinUso = mock(ResumenRepository.class);
-        ResumenService servicio = new ResumenService(sinUso, TestData.reloj(AHORA));
+        ResumenService servicio = new ResumenService(sinUso, new ResumenMapper(), TestData.reloj(AHORA));
         assertThatThrownBy(() -> servicio.resumen(HASTA, DESDE))
                 .isInstanceOf(ReservaException.class)
                 .hasMessage("La fecha desde no puede ser posterior a hasta.");

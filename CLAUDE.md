@@ -46,7 +46,7 @@ reservas/
 │   └── response/    lo que sale (solo datos: sin from() ni lógica)
 ```
 
-El mapeo entidad → DTO va en la carpeta general **`mapper/`** (al lado de `common/`), un mapper por entidad (`ReservaMapper`, `PagoMapper`, `TurnoFijoMapper`, `CanchaMapper`, `ProductoMapper`…). Un mapper no consulta la base: lo que necesita (por ejemplo, los próximos partidos de un turno fijo) se lo pasa el service.
+El mapeo entidad → DTO va en la carpeta general **`mapper/`** (al lado de `common/`), un mapper por entidad (`ReservaMapper`, `PagoMapper`, `TurnoFijoMapper`, `CanchaMapper`, `ProductoMapper`, `ResumenMapper`…). Un mapper no consulta la base: lo que necesita (por ejemplo, los próximos partidos de un turno fijo) se lo pasa el service.
 
 `club` (canchas, configuración del club y catálogo de productos) sigue la misma forma. Los otros dominios no usan sus repositories: bloquean la cancha con `CanchaService.bloquear`, leen la configuración con `ConfiguracionService.obtener` y piden los productos a `ProductoService`. La disponibilidad (de canchas y de productos) la calcula `reservas`.
 

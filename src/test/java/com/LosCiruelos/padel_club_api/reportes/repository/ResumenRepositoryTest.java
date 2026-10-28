@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 
+import com.LosCiruelos.padel_club_api.mapper.ResumenMapper;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
@@ -116,7 +117,7 @@ class ResumenRepositoryTest {
 
     private ResumenResponse resumen(LocalDate desde, LocalDate hasta, LocalDateTime ahora) {
         Reloj reloj = TestData.reloj(ahora);
-        return new ResumenService(repo, reloj).resumen(desde, hasta);
+        return new ResumenService(repo, new ResumenMapper(), reloj).resumen(desde, hasta);
     }
 
     private static BigDecimal $(String monto) {
