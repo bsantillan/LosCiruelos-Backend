@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
 import com.LosCiruelos.padel_club_api.mapper.CanchaMapper;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.usuarios.service.ClienteProfileService;
@@ -74,7 +75,7 @@ class ReservaServicePartidosTest {
     void setUp() {
         ConfiguracionRepository configuracionRepository = mock(ConfiguracionRepository.class);
         when(configuracionRepository.obtener()).thenReturn(TestData.configuracion());
-        ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository);
+        ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository, new ConfiguracionMapper());
 
         reservaRepository = mock(ReservaRepository.class);
         turnoFijoRepository = mock(TurnoFijoRepository.class);

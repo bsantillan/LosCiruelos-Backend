@@ -20,23 +20,19 @@ import org.mockito.ArgumentCaptor;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.mapper.NotificacionesMapper;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.AvisosAdminRequest;
-import com.LosCiruelos.padel_club_api.notificaciones.dto.request.RecordatorioConfigRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.SuscripcionesRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.NotificacionesResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.PruebaAvisoResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.entity.AvisosAdmin;
-import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.notificaciones.repository.AvisosAdminRepository;
-import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
 import com.LosCiruelos.padel_club_api.notificaciones.whatsapp.WhatsAppService;
 import com.LosCiruelos.padel_club_api.notificaciones.whatsapp.WhatsAppServiceFactory;
-import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.usuarios.service.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.usuarios.service.TelefonoService;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
@@ -48,7 +44,6 @@ class NotificacionesServiceTest {
     private ClienteProfileService clienteProfileService;
     private AvisosAdminRepository avisosAdminRepository;
     private AvisosService avisosService;
-    private ConfiguracionRepository configuracionRepository;
     private NotificacionesService notificaciones;
     private Usuario usuario;
 
@@ -59,15 +54,12 @@ class NotificacionesServiceTest {
         clienteProfileService = mock(ClienteProfileService.class);
         avisosAdminRepository = mock(AvisosAdminRepository.class);
         avisosService = mock(AvisosService.class);
-        configuracionRepository = mock(ConfiguracionRepository.class);
-        when(configuracionRepository.obtener()).thenReturn(TestData.configuracion());
-        when(configuracionRepository.save(any(Configuracion.class))).thenAnswer(inv -> inv.getArgument(0));
         WhatsAppService whatsApp = mock(WhatsAppService.class);
         WhatsAppServiceFactory fabricaWhatsApp = mock(WhatsAppServiceFactory.class);
         when(fabricaWhatsApp.getService()).thenReturn(whatsApp);
         when(whatsApp.estaConfigurado()).thenReturn(true);
         notificaciones = new NotificacionesService(usuarioService, telefonoService, clienteProfileService, avisosAdminRepository,
-                avisosService, new ConfiguracionService(configuracionRepository), fabricaWhatsApp,
+                avisosService, fabricaWhatsApp,
                 new NotificacionesMapper(), TestData.reloj(AHORA));
 
         usuario = usuario(1L, Role.CLIENTE);
@@ -184,18 +176,5 @@ class NotificacionesServiceTest {
 
         assertThat(r.enviado()).isTrue();
         assertThat(r.destino()).isEqualTo(admin.getEmail());
-    }
-
-    @Test
-    void configuraElRecordatorio() {
-        RecordatorioConfigRequest req = new RecordatorioConfigRequest();
-        req.setRecordatorioActivo(false);
-        req.setMinutosRecordatorio(60);
-
-        var r = notificaciones.actualizarRecordatorio(req);
-
-        assertThat(r.recordatorioActivo()).isFalse();
-        assertThat(r.minutosRecordatorio()).isEqualTo(60);
-        verify(configuracionRepository).save(any(Configuracion.class));
     }
 }

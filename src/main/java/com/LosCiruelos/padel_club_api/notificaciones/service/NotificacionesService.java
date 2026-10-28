@@ -7,15 +7,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.AvisosAdminRequest;
-import com.LosCiruelos.padel_club_api.notificaciones.dto.request.RecordatorioConfigRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.SuscripcionesRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.AvisosAdminResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.NotificacionesResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.PruebaAvisoResponse;
-import com.LosCiruelos.padel_club_api.notificaciones.dto.response.RecordatorioConfigResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.SuscripcionesResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.entity.AvisosAdmin;
-import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
@@ -24,7 +21,6 @@ import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva.Destinatario;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
 import com.LosCiruelos.padel_club_api.notificaciones.whatsapp.WhatsAppServiceFactory;
-import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.mapper.NotificacionesMapper;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.usuarios.service.ClienteProfileService;
@@ -34,8 +30,8 @@ import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Preferencias de notificación de cada usuario (canal y teléfono), los avisos que elige cada
- * ADMIN y la configuración del recordatorio del turno.
+ * Preferencias de notificación de cada usuario (canal y teléfono) y los avisos que elige cada
+ * ADMIN. El recordatorio del turno se configura en club ({@code ConfiguracionService}).
  */
 @Service
 @RequiredArgsConstructor
@@ -46,7 +42,6 @@ public class NotificacionesService {
     private final ClienteProfileService clienteProfileService;
     private final AvisosAdminRepository avisosAdminRepository;
     private final AvisosService avisosService;
-    private final ConfiguracionService configuracionService;
     private final WhatsAppServiceFactory whatsApp;
     private final NotificacionesMapper notificacionesMapper;
     private final Reloj reloj;
@@ -138,22 +133,6 @@ public class NotificacionesService {
         CanalNotificacion canal = avisosService.entregar(destinatario, ejemplo);
         String destino = canal == CanalNotificacion.WHATSAPP ? admin.getTelefono() : admin.getEmail();
         return new PruebaAvisoResponse(canal != null, canal, destino);
-    }
-
-    // ── Recordatorio (configuración del club) ────────────────────────────
-
-    public RecordatorioConfigResponse recordatorio() {
-        Configuracion config = configuracionService.obtener();
-        return new RecordatorioConfigResponse(config.getRecordatorioActivo(), config.getMinutosRecordatorio());
-    }
-
-    @Transactional
-    public RecordatorioConfigResponse actualizarRecordatorio(RecordatorioConfigRequest req) {
-        Configuracion config = configuracionService.obtener();
-        config.setRecordatorioActivo(req.getRecordatorioActivo());
-        config.setMinutosRecordatorio(req.getMinutosRecordatorio());
-        Configuracion guardada = configuracionService.actualizar(config);
-        return new RecordatorioConfigResponse(guardada.getRecordatorioActivo(), guardada.getMinutosRecordatorio());
     }
 
     // ── helpers ──────────────────────────────────────────────────────────

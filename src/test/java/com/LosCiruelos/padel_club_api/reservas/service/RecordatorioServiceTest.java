@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 
+import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
@@ -63,7 +64,7 @@ class RecordatorioServiceTest {
     private RecordatorioService servicio(LocalDateTime ahora) {
         ConfiguracionRepository repo = mock(ConfiguracionRepository.class);
         when(repo.obtener()).thenReturn(config);
-        return new RecordatorioService(reservaRepository, reservaService, new ConfiguracionService(repo), eventos,
+        return new RecordatorioService(reservaRepository, reservaService, new ConfiguracionService(repo, new ConfiguracionMapper()), eventos,
                 TestData.reloj(ahora));
     }
 

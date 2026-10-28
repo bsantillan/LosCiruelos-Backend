@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.context.ApplicationEventPublisher;
 
+import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
@@ -88,7 +89,7 @@ abstract class PagosTestBase {
         when(usuarioService.autenticado(cliente.getEmail())).thenReturn(cliente);
         when(usuarioService.autenticado(empleado.getEmail())).thenReturn(empleado);
 
-        ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository);
+        ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository, new ConfiguracionMapper());
         Reloj reloj = TestData.reloj(AHORA);
         eventos = mock(ApplicationEventPublisher.class);
         reservaConsultaService = mock(ReservaConsultaService.class);

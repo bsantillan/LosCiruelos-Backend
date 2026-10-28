@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
 import com.LosCiruelos.padel_club_api.mapper.ResumenMapper;
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static com.LosCiruelos.padel_club_api.TestData.HOY;
@@ -61,7 +62,7 @@ class ReservaConsultaServiceTest {
     void setUp() {
         ConfiguracionRepository configuracionRepository = mock(ConfiguracionRepository.class);
         when(configuracionRepository.obtener()).thenReturn(TestData.configuracion());
-        ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository);
+        ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository, new ConfiguracionMapper());
         UsuarioService usuarioService = mock(UsuarioService.class);
         reservaRepository = mock(ReservaRepository.class);
         mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService),

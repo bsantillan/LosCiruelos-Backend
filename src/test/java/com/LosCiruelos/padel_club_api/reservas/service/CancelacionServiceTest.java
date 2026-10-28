@@ -23,6 +23,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.TestData;
@@ -59,13 +60,13 @@ class CancelacionServiceTest {
     void setUp() {
         ConfiguracionRepository configuracionRepository = mock(ConfiguracionRepository.class);
         when(configuracionRepository.obtener()).thenReturn(TestData.configuracion()); // 24 h total, 12 h seña
-        politica = new PoliticaCancelacion(new ConfiguracionService(configuracionRepository));
+        politica = new PoliticaCancelacion(new ConfiguracionService(configuracionRepository, new ConfiguracionMapper()));
 
         reservaService = mock(ReservaService.class);
         reembolsoService = mock(ReembolsoService.class);
         usuarioService = mock(UsuarioService.class);
         eventos = mock(ApplicationEventPublisher.class);
-        cancelacion = new CancelacionService(reservaService, new ReservaMapper(new ConfiguracionService(configuracionRepository), politica,
+        cancelacion = new CancelacionService(reservaService, new ReservaMapper(new ConfiguracionService(configuracionRepository, new ConfiguracionMapper()), politica,
                 TestData.reloj(AHORA), new PagoMapper()), reembolsoService, politica, usuarioService,
                 TestData.reloj(AHORA), eventos);
 

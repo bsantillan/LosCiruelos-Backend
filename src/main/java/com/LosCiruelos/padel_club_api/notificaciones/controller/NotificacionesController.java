@@ -12,12 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.AvisosAdminRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.CodigoTelefonoRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.NotificacionesRequest;
-import com.LosCiruelos.padel_club_api.notificaciones.dto.request.RecordatorioConfigRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.SuscripcionesRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.AvisosAdminResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.NotificacionesResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.PruebaAvisoResponse;
-import com.LosCiruelos.padel_club_api.notificaciones.dto.response.RecordatorioConfigResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.SuscripcionesResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.service.NotificacionesService;
 
@@ -25,8 +23,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Notificaciones: canal (mail o WhatsApp) y teléfono de cada usuario, avisos del ADMIN y
- * recordatorio del turno.
+ * Notificaciones del usuario autenticado: canal (mail o WhatsApp) y teléfono, los avisos que elige
+ * el CLIENTE y los avisos de reservas del ADMIN.
  */
 @RestController
 @RequiredArgsConstructor
@@ -94,20 +92,5 @@ public class NotificacionesController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PruebaAvisoResponse> probar(Authentication authentication) {
         return ResponseEntity.ok(notificacionesService.probarAviso(authentication.getName()));
-    }
-
-    // ── Recordatorio del turno (configuración del club) ─────────────────
-
-    @GetMapping("/admin/configuracion/avisos")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<RecordatorioConfigResponse> recordatorio() {
-        return ResponseEntity.ok(notificacionesService.recordatorio());
-    }
-
-    @PutMapping("/admin/configuracion/avisos")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<RecordatorioConfigResponse> actualizarRecordatorio(
-            @Valid @RequestBody RecordatorioConfigRequest request) {
-        return ResponseEntity.ok(notificacionesService.actualizarRecordatorio(request));
     }
 }

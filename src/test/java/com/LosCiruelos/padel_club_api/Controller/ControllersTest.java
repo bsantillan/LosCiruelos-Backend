@@ -35,6 +35,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
+import com.LosCiruelos.padel_club_api.club.controller.ConfiguracionAdminController;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.club.controller.ProductoAdminController;
 import com.LosCiruelos.padel_club_api.club.controller.CanchaController;
@@ -110,6 +112,7 @@ class ControllersTest {
     private ProductoService productoService;
     private StockService stockService;
     private NotificacionesService notificacionesService;
+    private ConfiguracionService configuracionService;
     private ReservaConsultaService reservaConsultaService;
     private MockMvc mvc;
 
@@ -130,6 +133,7 @@ class ControllersTest {
         productoService = mock(ProductoService.class);
         stockService = mock(StockService.class);
         notificacionesService = mock(NotificacionesService.class);
+        configuracionService = mock(ConfiguracionService.class);
         reservaConsultaService = mock(ReservaConsultaService.class);
 
         mvc = MockMvcBuilders.standaloneSetup(
@@ -143,6 +147,7 @@ class ControllersTest {
                 new CanchaController(canchaService, disponibilidadService),
                 new ProductoController(productoService, stockService),
                 new ProductoAdminController(productoService),
+                new ConfiguracionAdminController(configuracionService),
                 new NotificacionesController(notificacionesService),
                 new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))

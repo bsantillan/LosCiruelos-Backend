@@ -3,10 +3,14 @@ package com.LosCiruelos.padel_club_api.club.service;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.Config.AppConfig.ConfiguracionCache;
+import com.LosCiruelos.padel_club_api.club.dto.request.RecordatorioConfigRequest;
+import com.LosCiruelos.padel_club_api.club.dto.response.RecordatorioConfigResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class ConfiguracionService {
 
     private final ConfiguracionRepository configuracionRepository;
+    private final ConfiguracionMapper configuracionMapper;
 
     @Cacheable(ConfiguracionCache.NOMBRE)
     public Configuracion obtener() {
@@ -40,5 +45,20 @@ public class ConfiguracionService {
     public Configuracion actualizar(Configuracion nueva) {
         nueva.setId(1L);
         return configuracionRepository.save(nueva);
+    }
+
+    // ── Recordatorio del turno (ADMIN) ───────────────────────────────────
+
+    public RecordatorioConfigResponse recordatorio() {
+        return configuracionMapper.aRecordatorio(configuracionRepository.obtener());
+    }
+
+    @Transactional
+    @CacheEvict(value = ConfiguracionCache.NOMBRE, allEntries = true)
+    public RecordatorioConfigResponse actualizarRecordatorio(RecordatorioConfigRequest req) {
+        Configuracion config = configuracionRepository.obtener();
+        config.setRecordatorioActivo(req.getRecordatorioActivo());
+        config.setMinutosRecordatorio(req.getMinutosRecordatorio());
+        return configuracionMapper.aRecordatorio(configuracionRepository.save(config));
     }
 }

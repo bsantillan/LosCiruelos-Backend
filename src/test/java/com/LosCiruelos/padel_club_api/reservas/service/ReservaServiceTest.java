@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
 import com.LosCiruelos.padel_club_api.mapper.CanchaMapper;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.usuarios.service.ClienteProfileService;
@@ -95,7 +96,7 @@ class ReservaServiceTest {
         PagoRepository pagoRepository = mock(PagoRepository.class);
 
         stockService = mock(StockService.class);
-        ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository);
+        ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository, new ConfiguracionMapper());
         mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA), new PagoMapper());
         CanchaService canchaService = new CanchaService(canchaRepository, new CanchaMapper());
         disponibilidad = new DisponibilidadService(configuracionService, canchaService, reservaRepository,

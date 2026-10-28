@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.notificaciones.dto.request;
+package com.LosCiruelos.padel_club_api.club.dto.request;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
