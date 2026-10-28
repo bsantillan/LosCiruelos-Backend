@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.notificaciones.entity;
 
+import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -47,5 +48,32 @@ public class AvisosAdmin {
 
     public static AvisosAdmin porDefecto(Long usuarioId) {
         return AvisosAdmin.builder().usuarioId(usuarioId).build();
+    }
+
+    /** Lo que eligió el ADMIN; {@code activos} null deja el interruptor general como estaba. */
+    public void elegir(Boolean activos, Boolean reservaConfirmada, Boolean saldoCobrado, Boolean reservaCancelada,
+            Boolean reembolsoManual) {
+        if (activos != null) {
+            this.activos = activos;
+        }
+        this.reservaConfirmada = reservaConfirmada;
+        this.saldoCobrado = saldoCobrado;
+        this.reservaCancelada = reservaCancelada;
+        this.reembolsoManual = reembolsoManual;
+    }
+
+    /** Si le llega ese aviso: con los avisos activos y ese tipo elegido. */
+    public boolean quiere(TipoAviso tipo) {
+        if (!Boolean.TRUE.equals(activos)) {
+            return false;
+        }
+        return switch (tipo) {
+            case RESERVA_CONFIRMADA -> reservaConfirmada;
+            case SALDO_COBRADO -> saldoCobrado;
+            // el resultado de un reembolso pendiente es parte de la cancelación
+            case RESERVA_CANCELADA, REEMBOLSO_REALIZADO -> reservaCancelada;
+            case REEMBOLSO_MANUAL -> reembolsoManual;
+            default -> false;
+        };
     }
 }

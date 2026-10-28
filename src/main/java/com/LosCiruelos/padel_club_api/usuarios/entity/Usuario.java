@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.entity;
 
+import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import java.time.LocalDateTime;
 
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.AuthProvider;
@@ -126,5 +127,29 @@ public class Usuario {
     /** Nombre, apellido y celular verificado con el código de WhatsApp (igual que el mail). */
     public boolean datosPersonalesCompletos() {
         return telefono != null && Boolean.TRUE.equals(telefonoVerificado) && nombre != null && apellido != null;
+    }
+
+    /**
+     * Elige el canal de los avisos. WhatsApp necesita el teléfono cargado y registra el
+     * consentimiento la primera vez; volver al mail lo retira.
+     */
+    public void elegirCanal(CanalNotificacion canal, LocalDateTime ahora) {
+        if (canal == CanalNotificacion.WHATSAPP) {
+            if (telefono == null) {
+                throw new ReservaException("Cargá tu teléfono para recibir avisos por WhatsApp.");
+            }
+            if (aceptaWhatsappAt == null) {
+                aceptaWhatsappAt = ahora;
+            }
+        } else {
+            aceptaWhatsappAt = null;
+        }
+        canalNotificaciones = canal;
+    }
+
+    /** Avisos opcionales del cliente (las cancelaciones se avisan siempre). */
+    public void elegirSuscripciones(Boolean recordatorios, Boolean promociones) {
+        recibeRecordatorios = recordatorios;
+        recibePromociones = promociones;
     }
 }

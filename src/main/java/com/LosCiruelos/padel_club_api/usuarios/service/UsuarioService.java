@@ -121,7 +121,7 @@ public class UsuarioService {
                 .orElseThrow(() -> new UsuarioNotFoundException("Usuario no encontrado: " + id));
     }
 
-    /** Lo usan los otros dominios (notificaciones, carga inicial); dentro de usuarios se usa el repository. */
+    /** Lo usa la carga inicial ({@code DataInitializer}); dentro de usuarios se usa el repository. */
     public Usuario save(Usuario usuario) {
         return usuarioRepository.save(usuario);
     }

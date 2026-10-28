@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
-import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
 import com.LosCiruelos.padel_club_api.notificaciones.entity.AvisosAdmin;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
@@ -49,7 +48,7 @@ public class AvisosService {
                 .collect(Collectors.toMap(AvisosAdmin::getUsuarioId, Function.identity()));
         for (Usuario admin : admins) {
             AvisosAdmin prefs = preferencias.getOrDefault(admin.getId(), AvisosAdmin.porDefecto(admin.getId()));
-            if (quiere(prefs, aviso.tipo())) {
+            if (prefs.quiere(aviso.tipo())) {
                 entregar(Destinatario.de(admin), aviso);
             }
         }
@@ -79,19 +78,5 @@ public class AvisosService {
                     destinatario.email(), e.getMessage());
             return null;
         }
-    }
-
-    static boolean quiere(AvisosAdmin prefs, TipoAviso tipo) {
-        if (!Boolean.TRUE.equals(prefs.getActivos())) {
-            return false;
-        }
-        return switch (tipo) {
-            case RESERVA_CONFIRMADA -> prefs.getReservaConfirmada();
-            case SALDO_COBRADO -> prefs.getSaldoCobrado();
-            // el resultado de un reembolso pendiente es parte de la cancelación
-            case RESERVA_CANCELADA, REEMBOLSO_REALIZADO -> prefs.getReservaCancelada();
-            case REEMBOLSO_MANUAL -> prefs.getReembolsoManual();
-            default -> false;
-        };
     }
 }

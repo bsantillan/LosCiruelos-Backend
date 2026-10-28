@@ -100,7 +100,8 @@ class NotificacionesServiceTest {
 
         assertThatThrownBy(() -> notificaciones.actualizar(usuario.getEmail(), CanalNotificacion.WHATSAPP, null))
                 .isInstanceOf(ReservaException.class);
-        verify(usuarioService, never()).save(any());
+        assertThat(usuario.getCanalNotificaciones()).isEqualTo(CanalNotificacion.EMAIL);
+        assertThat(usuario.getAceptaWhatsappAt()).isNull();
     }
 
     @Test
@@ -136,7 +137,8 @@ class NotificacionesServiceTest {
         assertThat(despues.recordatorios()).isFalse();
         assertThat(despues.promociones()).isTrue();
         assertThat(despues.cancelaciones()).isTrue(); // siempre
-        verify(usuarioService).save(usuario);
+        assertThat(usuario.getRecibeRecordatorios()).isFalse();
+        assertThat(usuario.getRecibePromociones()).isTrue();
     }
 
     @Test

@@ -19,7 +19,6 @@ import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.notificaciones.repository.AvisosAdminRepository;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva.Destinatario;
@@ -68,19 +67,7 @@ public class NotificacionesService {
         if (telefono != null && !telefono.isBlank()) {
             usuarioService.cambiarTelefono(usuario, telefono);
         }
-        if (canal == CanalNotificacion.WHATSAPP) {
-            if (usuario.getTelefono() == null) {
-                throw new ReservaException("Cargá tu teléfono para recibir avisos por WhatsApp.");
-            }
-            if (usuario.getAceptaWhatsappAt() == null) {
-                usuario.setAceptaWhatsappAt(reloj.ahora());
-            }
-        } else {
-            usuario.setAceptaWhatsappAt(null);
-        }
-        usuario.setCanalNotificaciones(canal);
-        usuarioService.save(usuario);
-
+        usuario.elegirCanal(canal, reloj.ahora()); // el usuario se guarda al terminar la transacción
         if (canal == CanalNotificacion.WHATSAPP) {
             telefonoService.enviarCodigoSiCorresponde(usuario);
         }
@@ -114,9 +101,7 @@ public class NotificacionesService {
         if (!clienteProfileService.perfilCompleto(cliente)) {
             throw new PerfilIncompletoException("Completá tu perfil y verificá tu celular para elegir tus avisos.");
         }
-        cliente.setRecibeRecordatorios(req.getRecordatorios());
-        cliente.setRecibePromociones(req.getPromociones());
-        usuarioService.save(cliente);
+        cliente.elegirSuscripciones(req.getRecordatorios(), req.getPromociones());
         return SuscripcionesResponse.from(cliente, true);
     }
 
@@ -134,13 +119,8 @@ public class NotificacionesService {
         Usuario admin = usuario(email);
         AvisosAdmin avisos = avisosAdminRepository.findById(admin.getId())
                 .orElse(AvisosAdmin.porDefecto(admin.getId()));
-        if (req.getActivos() != null) {
-            avisos.setActivos(req.getActivos());
-        }
-        avisos.setReservaConfirmada(req.getReservaConfirmada());
-        avisos.setSaldoCobrado(req.getSaldoCobrado());
-        avisos.setReservaCancelada(req.getReservaCancelada());
-        avisos.setReembolsoManual(req.getReembolsoManual());
+        avisos.elegir(req.getActivos(), req.getReservaConfirmada(), req.getSaldoCobrado(), req.getReservaCancelada(),
+                req.getReembolsoManual());
         return AvisosAdminResponse.from(avisosAdminRepository.save(avisos));
     }
 
