@@ -5,6 +5,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.LoginRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.RegisterRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.GoogleUser;
@@ -39,22 +40,15 @@ public class AuthService {
     private final JWTUtil jwtUtil;
     private final GoogleTokenVerifier googleTokenVerifier;
     private final VerificationService verificationService;
+    private final UsuarioMapper usuarioMapper;
 
     private boolean perfilCompleto(Usuario usuario) {
         return clienteProfileService.perfilCompleto(usuario);
     }
 
+    /** El access token se genera después del refresh token, como siempre. */
     private LoginResponse buildLoginResponse(Usuario usuario, boolean perfilCompleto, String refreshToken) {
-        LoginResponse response = new LoginResponse();
-        response.setAccessToken(jwtUtil.generateToken(usuario.getEmail()));
-        response.setRefreshToken(refreshToken);
-        response.setId(usuario.getId());
-        response.setNombre(usuario.getNombre());
-        response.setApellido(usuario.getApellido());
-        response.setEmail(usuario.getEmail());
-        response.setPerfilCompleto(perfilCompleto);
-        response.setRol(usuario.getRol());
-        return response;
+        return usuarioMapper.aLogin(usuario, perfilCompleto, jwtUtil.generateToken(usuario.getEmail()), refreshToken);
     }
 
     @Transactional

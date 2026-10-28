@@ -17,6 +17,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.PerfilRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.PerfilResponse;
@@ -51,7 +52,7 @@ class PerfilServiceTest {
         reservaConsultaService = mock(ReservaConsultaService.class);
         jwtUtil = mock(JWTUtil.class);
         perfilService = new PerfilService(usuarioService, new ClienteProfileService(clienteProfileRepository),
-                reservaConsultaService, jwtUtil, TestData.reloj(AHORA));
+                reservaConsultaService, jwtUtil, new UsuarioMapper(), TestData.reloj(AHORA));
 
         cliente = usuario(1L, Role.CLIENTE);
         perfil = ClienteProfile.builder().id(1L).usuario(cliente).categoria(Categoria.Cuarta).posicion(Posicion.Drive)
@@ -196,7 +197,7 @@ class PerfilServiceTest {
             UsuarioService real = new UsuarioService(usuarioRepository,
                     mock(org.springframework.security.crypto.password.PasswordEncoder.class));
             perfiles = new PerfilService(real, new ClienteProfileService(clienteProfileRepository), reservaConsultaService,
-                    jwtUtil, TestData.reloj(AHORA));
+                    jwtUtil, new UsuarioMapper(), TestData.reloj(AHORA));
         }
 
         @Test

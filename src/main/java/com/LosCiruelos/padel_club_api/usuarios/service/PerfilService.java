@@ -8,6 +8,8 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper.PartidosDelJugador;
+import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.PerfilRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.PerfilResponse;
 import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
@@ -29,6 +31,7 @@ public class PerfilService {
     private final ClienteProfileService clienteProfileService;
     private final ReservaConsultaService reservaConsultaService;
     private final JWTUtil jwtUtil;
+    private final UsuarioMapper usuarioMapper;
     private final Reloj reloj;
 
     @Transactional(readOnly = true)
@@ -86,30 +89,14 @@ public class PerfilService {
     }
 
     private PerfilResponse buildPerfilResponse(Usuario usuario, ClienteProfile perfil) {
-        LocalDateTime ahora = reloj.ahora();
-        PerfilResponse response = new PerfilResponse();
-        response.setNombre(usuario.getNombre());
-        response.setApellido(usuario.getApellido());
-        response.setEmail(usuario.getEmail());
-        response.setTelefono(usuario.getTelefono());
-        response.setTelefonoVerificado(usuario.getTelefonoVerificado());
-        response.setCanalNotificaciones(usuario.getCanalNotificaciones());
-        response.setPerfilCompleto(clienteProfileService.perfilCompleto(usuario));
-
-        response.setCantDiasMiembro((int) ChronoUnit.DAYS.between(usuario.getTermsAcceptedAt(), ahora));
-        response.setCantPartidos((int) reservaConsultaService.contarPorEstado(usuario, EstadoReserva.COMPLETADA));
-        response.setCantPartidosEsteMes(reservaConsultaService.countPartidosEsteMes(usuario.getId(), EstadoReserva.COMPLETADA));
-        response.setDiasDesdeUltimoPartido(reservaConsultaService.ultimaReservaCompletada(usuario)
-                .map(r -> Math.toIntExact(ChronoUnit.DAYS.between(r.getFechaReserva(), reloj.hoy())))
-                .orElse(null));
-
-        if (perfil != null) {
-            response.setCategoria(perfil.getCategoria());
-            response.setPosicion(perfil.getPosicion());
-            response.setCategoriaActualizadaAt(perfil.getCategoriaActualizadaAt());
-            response.setCategoriaEditable(perfil.puedeCambiarCategoria(ahora));
-        }
-        return response;
+        PartidosDelJugador partidos = new PartidosDelJugador(
+                (int) reservaConsultaService.contarPorEstado(usuario, EstadoReserva.COMPLETADA),
+                reservaConsultaService.countPartidosEsteMes(usuario.getId(), EstadoReserva.COMPLETADA),
+                reservaConsultaService.ultimaReservaCompletada(usuario)
+                        .map(r -> Math.toIntExact(ChronoUnit.DAYS.between(r.getFechaReserva(), reloj.hoy())))
+                        .orElse(null));
+        return usuarioMapper.aPerfil(usuario, perfil, clienteProfileService.perfilCompleto(usuario), partidos,
+                reloj.ahora());
     }
 
     private Usuario usuario(String email) {

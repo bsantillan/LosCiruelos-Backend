@@ -19,6 +19,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.LoginRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.RegisterRequest;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.GoogleUser;
@@ -61,7 +62,7 @@ class AuthServiceTest {
         googleTokenVerifier = mock(GoogleTokenVerifier.class);
         verificationService = mock(VerificationService.class);
         authService = new AuthService(usuarioService, clienteProfileService, passwordEncoder, jwtUtil,
-                googleTokenVerifier, verificationService);
+                googleTokenVerifier, verificationService, new UsuarioMapper());
 
         cliente = usuario(1L, Role.CLIENTE);
         cliente.setPasswordHash("hash");

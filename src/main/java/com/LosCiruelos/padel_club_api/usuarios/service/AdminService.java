@@ -11,6 +11,7 @@ import java.util.Collections;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.CrearUsuarioAdminRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.EditarUsuarioAdminRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.FiltroUsuarioRequest;
@@ -35,6 +36,7 @@ public class AdminService {
     private final UsuarioService usuarioService;
     private final JWTUtil jwtUtil;
     private final VerificationService verificationService;
+    private final UsuarioMapper usuarioMapper;
 
     @Transactional
     public UsuarioAdminResponse crearUsuario(CrearUsuarioAdminRequest request) {
@@ -111,7 +113,7 @@ public class AdminService {
             }
         }
 
-        return buildUsuarioAdminResponse(usuario, perfil);
+        return usuarioMapper.aAdminResponse(usuario, perfil);
     }
 
     public List<UsuarioAdminResponse> listarUsuarios(FiltroUsuarioRequest filtros) {
@@ -156,34 +158,10 @@ public class AdminService {
         return buildUsuarioAdminResponse(usuario);
     }
 
-    private UsuarioAdminResponse buildUsuarioAdminResponse(Usuario usuario, ClienteProfile perfil) {
-        UsuarioAdminResponse response = new UsuarioAdminResponse();
-        response.setId(usuario.getId());
-        response.setNombre(usuario.getNombre());
-        response.setApellido(usuario.getApellido());
-        response.setEmail(usuario.getEmail());
-        response.setTelefono(usuario.getTelefono());
-        response.setTelefonoVerificado(usuario.getTelefonoVerificado());
-        response.setCanalNotificaciones(usuario.getCanalNotificaciones());
-        response.setRol(usuario.getRol());
-        response.setEnabled(usuario.getEnabled());
-        response.setEmailVerificado(usuario.getEmailVerificado());
-        response.setProvider(usuario.getProvider());
-
-        if (perfil != null) {
-            response.setCategoria(perfil.getCategoria());
-            response.setPosicion(perfil.getPosicion());
-        }
-
-        return response;
-    }
-
+    /** La respuesta con el perfil de jugador, si es CLIENTE. */
     private UsuarioAdminResponse buildUsuarioAdminResponse(Usuario usuario) {
-        ClienteProfile perfil = null;
-        if (usuario.getRol() == Role.CLIENTE) {
-            perfil = clienteProfileService.findByUsuario(usuario);
-        }
-        return buildUsuarioAdminResponse(usuario, perfil);
+        ClienteProfile perfil = usuario.getRol() == Role.CLIENTE ? clienteProfileService.findByUsuario(usuario) : null;
+        return usuarioMapper.aAdminResponse(usuario, perfil);
     }
 
     private String generarPasswordTemporal() {

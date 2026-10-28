@@ -9,8 +9,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.ClienteBusquedaResponse;
-import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
@@ -32,7 +32,7 @@ public class BusquedaClientesService {
     public static final int MAXIMO_RESULTADOS = 20;
 
     private final UsuarioRepository usuarioRepository;
-    private final ClienteProfileService clienteProfileService;
+    private final UsuarioMapper usuarioMapper;
 
     @Transactional(readOnly = true)
     public List<ClienteBusquedaResponse> buscar(String buscar, boolean soloActivos) {
@@ -51,14 +51,7 @@ public class BusquedaClientesService {
         };
         PageRequest primeros = PageRequest.of(0, MAXIMO_RESULTADOS,
                 Sort.by("apellido", "nombre", "id"));
-        return usuarioRepository.findAll(spec, primeros).stream().map(this::aResponse).toList();
+        return usuarioRepository.findAll(spec, primeros).stream().map(usuarioMapper::aBusquedaResponse).toList();
     }
 
-    private ClienteBusquedaResponse aResponse(Usuario u) {
-        ClienteProfile perfil = u.getClienteProfile();
-        return new ClienteBusquedaResponse(u.getId(), u.getNombre(), u.getApellido(), u.getEmail(), u.getTelefono(),
-                Boolean.TRUE.equals(u.getTelefonoVerificado()), perfil != null ? perfil.getCategoria() : null,
-                perfil != null ? perfil.getPosicion() : null, perfil != null && perfil.estaCompleto(),
-                Boolean.TRUE.equals(u.getEnabled()));
-    }
 }

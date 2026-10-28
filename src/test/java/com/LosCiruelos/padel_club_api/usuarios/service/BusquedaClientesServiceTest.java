@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.ClienteBusquedaResponse;
 import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
@@ -24,14 +25,12 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Categoria;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Posicion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
-import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileRepository;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 
 class BusquedaClientesServiceTest {
 
     private final UsuarioRepository repo = mock(UsuarioRepository.class);
-    private final BusquedaClientesService clientes = new BusquedaClientesService(repo,
-            new ClienteProfileService(mock(ClienteProfileRepository.class)));
+    private final BusquedaClientesService clientes = new BusquedaClientesService(repo, new UsuarioMapper());
 
     @Test
     void devuelveLosDatosDelClienteYSiTieneElPerfilCompleto() {

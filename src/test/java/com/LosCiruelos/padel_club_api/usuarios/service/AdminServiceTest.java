@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.CrearUsuarioAdminRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.EditarUsuarioAdminRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.FiltroUsuarioRequest;
@@ -46,7 +47,7 @@ class AdminServiceTest {
         usuarioService = mock(UsuarioService.class);
         jwtUtil = mock(JWTUtil.class);
         verificationService = mock(VerificationService.class);
-        adminService = new AdminService(clienteProfileService, usuarioService, jwtUtil, verificationService);
+        adminService = new AdminService(clienteProfileService, usuarioService, jwtUtil, verificationService, new UsuarioMapper());
 
         cliente = usuario(1L, Role.CLIENTE);
         when(usuarioService.findByIdOrThrow(1L)).thenReturn(cliente);
