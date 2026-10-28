@@ -715,7 +715,7 @@ class ControllersTest {
         void devuelveElResumenConMontosYFechasEnElFormatoDeSiempre() throws Exception {
             java.time.LocalDate desde = java.time.LocalDate.of(2026, 10, 1);
             java.time.LocalDate hasta = java.time.LocalDate.of(2026, 10, 31);
-            when(resumenService.resumen(desde, hasta, false)).thenReturn(new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse(
+            when(resumenService.resumen(desde, hasta, "admin@test.com")).thenReturn(new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse(
                     desde, hasta,
                     new com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse.Jugados(28,
                             new BigDecimal("420000.00"), new BigDecimal("380000.00"), new BigDecimal("15000.00"),
@@ -764,14 +764,14 @@ class ControllersTest {
                 List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_EMPLEADO")));
 
         @Test
-        void elEmpleadoPideSoloElDiaDeHoyYElAdminCualquierPeriodo() throws Exception {
+        void pasaQuienPideElResumenParaQueElServiceDecidaElPeriodo() throws Exception {
             mvc.perform(get("/admin/resumen").principal(EMPLEADO)).andExpect(status().isOk());
-            verify(resumenService).resumen(null, null, true);
+            verify(resumenService).resumen(null, null, "emp@test.com");
 
             mvc.perform(get("/admin/resumen").principal(ADMIN)).andExpect(status().isOk());
-            verify(resumenService).resumen(null, null, false);
+            verify(resumenService).resumen(null, null, "admin@test.com");
 
-            when(resumenService.resumen(any(), any(), eq(true)))
+            when(resumenService.resumen(any(), any(), eq("emp@test.com")))
                     .thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException(
                             "Solo podés ver el resumen de hoy."));
             mvc.perform(get("/admin/resumen").principal(EMPLEADO).param("desde", "2026-10-01").param("hasta", "2026-10-31"))
@@ -788,7 +788,7 @@ class ControllersTest {
 
         @Test
         void unPeriodoInvalidoDevuelve400() throws Exception {
-            when(resumenService.resumen(any(), any(), eq(false)))
+            when(resumenService.resumen(any(), any(), eq("admin@test.com")))
                     .thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.ReservaException(
                             "La fecha desde no puede ser posterior a hasta."));
 

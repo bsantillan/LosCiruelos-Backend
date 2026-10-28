@@ -33,8 +33,6 @@ public class ResumenController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
             Authentication authentication) {
-        boolean esAdmin = authentication.getAuthorities().stream()
-                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
-        return ResponseEntity.ok(resumenService.resumen(desde, hasta, !esAdmin));
+        return ResponseEntity.ok(resumenService.resumen(desde, hasta, authentication.getName()));
     }
 }

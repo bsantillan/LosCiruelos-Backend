@@ -22,6 +22,8 @@ import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.mapper.ResumenMapper;
 import com.LosCiruelos.padel_club_api.reportes.repository.ResumenRepository;
 import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.common.Roles;
+import com.LosCiruelos.padel_club_api.Services.UsuarioService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -51,15 +53,17 @@ public class ResumenService {
 
     private final ResumenRepository resumenRepository;
     private final ResumenMapper resumenMapper;
+    private final UsuarioService usuarioService;
     private final Reloj reloj;
 
     /**
-     * @param desde       null junto con hasta: el día de hoy
-     * @param soloHoy     true para el personal que no es ADMIN (EMPLEADO): solo puede ver el día de
-     *                    hoy, no el historial
+     * El ADMIN ve cualquier período; el EMPLEADO, solo el día de hoy (no el historial).
+     *
+     * @param desde null junto con hasta: el día de hoy
      */
     @Transactional(readOnly = true)
-    public ResumenResponse resumen(LocalDate desde, LocalDate hasta, boolean soloHoy) {
+    public ResumenResponse resumen(LocalDate desde, LocalDate hasta, String email) {
+        boolean soloHoy = !Roles.esAdmin(usuarioService.autenticado(email));
         LocalDate hoy = reloj.hoy();
         if ((desde == null) != (hasta == null)) {
             throw new ReservaException("Indicá las dos fechas (desde y hasta) o ninguna para ver el día de hoy.");

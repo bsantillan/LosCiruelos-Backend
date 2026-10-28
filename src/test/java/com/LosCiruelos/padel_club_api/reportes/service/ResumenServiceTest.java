@@ -1,5 +1,8 @@
 package com.LosCiruelos.padel_club_api.reportes.service;
 
+import com.LosCiruelos.padel_club_api.Services.UsuarioService;
+import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
+import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,13 +43,20 @@ class ResumenServiceTest {
     private static final LocalDate DESDE = LocalDate.of(2026, 10, 1);
     private static final LocalDate HASTA = LocalDate.of(2026, 10, 31);
 
+    private static final String ADMIN = "admin@test.com";
+    private static final String EMPLEADO = "emp@test.com";
+
     private ResumenRepository repo;
+    private UsuarioService usuarioService;
     private ResumenService resumen;
 
     @BeforeEach
     void setUp() {
         repo = mock(ResumenRepository.class);
-        resumen = new ResumenService(repo, new ResumenMapper(), TestData.reloj(AHORA));
+        usuarioService = mock(UsuarioService.class);
+        when(usuarioService.autenticado(ADMIN)).thenReturn(usuario(1L, Role.ADMIN));
+        when(usuarioService.autenticado(EMPLEADO)).thenReturn(usuario(2L, Role.EMPLEADO));
+        resumen = new ResumenService(repo, new ResumenMapper(), usuarioService, TestData.reloj(AHORA));
         // sin reservas ni pagos: las cantidades vienen en null y los montos en 0
         when(repo.turnos(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new TurnosDelPeriodo(null, $("0"), null, $("0"), null));
@@ -119,7 +129,7 @@ class ResumenServiceTest {
     @Test
     void sinFechasEsElDiaDeHoyYLaCajaVaDeLas0A_Las24() {
         LocalDate hoy = AHORA.toLocalDate();
-        ResumenResponse r = resumen.resumen(null, null, true);
+        ResumenResponse r = resumen.resumen(null, null, EMPLEADO);
 
         assertThat(r.desde()).isEqualTo(hoy);
         assertThat(r.hasta()).isEqualTo(hoy);
@@ -132,34 +142,34 @@ class ResumenServiceTest {
     @Test
     void elEmpleadoSoloVeElDiaDeHoy() {
         LocalDate hoy = AHORA.toLocalDate();
-        assertThat(resumen.resumen(hoy, hoy, true).desde()).isEqualTo(hoy);
+        assertThat(resumen.resumen(hoy, hoy, EMPLEADO).desde()).isEqualTo(hoy);
 
-        assertThatThrownBy(() -> resumen.resumen(DESDE, HASTA, true))
+        assertThatThrownBy(() -> resumen.resumen(DESDE, HASTA, EMPLEADO))
                 .isInstanceOf(PermisoDenegadoException.class)
                 .hasMessage("Solo podés ver el resumen de hoy.");
-        assertThatThrownBy(() -> resumen.resumen(hoy.minusDays(1), hoy, true))
+        assertThatThrownBy(() -> resumen.resumen(hoy.minusDays(1), hoy, EMPLEADO))
                 .isInstanceOf(PermisoDenegadoException.class);
-        assertThatThrownBy(() -> resumen.resumen(hoy, hoy.plusDays(1), true))
+        assertThatThrownBy(() -> resumen.resumen(hoy, hoy.plusDays(1), EMPLEADO))
                 .isInstanceOf(PermisoDenegadoException.class);
     }
 
     @Test
     void elAdminVeCualquierPeriodo() {
-        assertThat(resumen.resumen(DESDE, HASTA, false).desde()).isEqualTo(DESDE);
+        assertThat(resumen.resumen(DESDE, HASTA, ADMIN).desde()).isEqualTo(DESDE);
     }
 
     @Test
     void conUnaSolaFechaEsUnError() {
-        assertThatThrownBy(() -> resumen.resumen(DESDE, null, false))
+        assertThatThrownBy(() -> resumen.resumen(DESDE, null, ADMIN))
                 .isInstanceOf(ReservaException.class)
                 .hasMessageContaining("las dos fechas");
-        assertThatThrownBy(() -> resumen.resumen(null, HASTA, true)).isInstanceOf(ReservaException.class);
+        assertThatThrownBy(() -> resumen.resumen(null, HASTA, EMPLEADO)).isInstanceOf(ReservaException.class);
     }
 
     @Test
     void validaElPeriodo() {
         ResumenRepository sinUso = mock(ResumenRepository.class);
-        ResumenService servicio = new ResumenService(sinUso, new ResumenMapper(), TestData.reloj(AHORA));
+        ResumenService servicio = new ResumenService(sinUso, new ResumenMapper(), usuarioService, TestData.reloj(AHORA));
         assertThatThrownBy(() -> servicio.resumen(HASTA, DESDE))
                 .isInstanceOf(ReservaException.class)
                 .hasMessage("La fecha desde no puede ser posterior a hasta.");

@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.reportes.repository;
 
+import com.LosCiruelos.padel_club_api.Services.UsuarioService;
+import static org.mockito.Mockito.mock;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
@@ -117,7 +119,7 @@ class ResumenRepositoryTest {
 
     private ResumenResponse resumen(LocalDate desde, LocalDate hasta, LocalDateTime ahora) {
         Reloj reloj = TestData.reloj(ahora);
-        return new ResumenService(repo, new ResumenMapper(), reloj).resumen(desde, hasta);
+        return new ResumenService(repo, new ResumenMapper(), mock(UsuarioService.class), reloj).resumen(desde, hasta);
     }
 
     private static BigDecimal $(String monto) {
