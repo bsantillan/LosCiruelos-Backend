@@ -29,9 +29,6 @@ public class ReservaConsultasImpl implements ReservaConsultas {
     /** Las que deben plata: confirmadas que todavía no están pagas. */
     private static final Set<EstadoReserva> DEBEN = Reserva.ESTADOS_CON_SALDO;
 
-    private static final Set<EstadoPago> DEVUELTOS = Set.of(EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR,
-            EstadoPago.REEMBOLSO_PENDIENTE);
-
     @PersistenceContext
     private EntityManager em;
 
@@ -92,7 +89,7 @@ public class ReservaConsultasImpl implements ReservaConsultas {
         return cb.<BigDecimal>selectCase()
                 .when(cb.equal(p.get("estado"), EstadoPago.APROBADO),
                         cb.diff(monto, cb.coalesce(reembolsado, BigDecimal.ZERO)))
-                .when(p.get("estado").in(DEVUELTOS), cb.diff(monto, cb.coalesce(reembolsado, monto)))
+                .when(p.get("estado").in(Pago.ESTADOS_DEVUELTOS), cb.diff(monto, cb.coalesce(reembolsado, monto)))
                 .otherwise(BigDecimal.ZERO);
     }
 

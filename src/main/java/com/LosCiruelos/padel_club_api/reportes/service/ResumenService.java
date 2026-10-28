@@ -14,6 +14,7 @@ import com.LosCiruelos.padel_club_api.reportes.repository.EntradasDeCaja;
 import com.LosCiruelos.padel_club_api.reportes.repository.TurnosDelPeriodo;
 import com.LosCiruelos.padel_club_api.reportes.dto.response.ResumenResponse;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
+import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
@@ -42,14 +43,6 @@ import lombok.RequiredArgsConstructor;
 public class ResumenService {
 
     public static final int DIAS_MAXIMOS = 366;
-
-    // Pagos devueltos o por devolver: el club se queda con lo que no se devolvió
-    private static final Set<EstadoPago> DEVUELTOS = Set.of(EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR,
-            EstadoPago.REEMBOLSO_PENDIENTE);
-
-    // Pagos que alguna vez se cobraron: entran a caja el día del cobro aunque después se devuelvan
-    private static final Set<EstadoPago> COBRADOS = Set.of(EstadoPago.APROBADO, EstadoPago.DEVUELTO,
-            EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE);
 
     private final ResumenRepository resumenRepository;
     private final ResumenMapper resumenMapper;
@@ -95,12 +88,12 @@ public class ResumenService {
         TurnosDelPeriodo t = resumenRepository.turnos(desde, hasta, ahora.toLocalDate(), ahora.toLocalTime(),
                 juegan, EstadoReserva.CANCELADA);
         CobrosDelPeriodo c = resumenRepository.cobros(desde, hasta, ahora.toLocalDate(), ahora.toLocalTime(),
-                juegan, EstadoReserva.CANCELADA, EstadoPago.APROBADO, DEVUELTOS, PaymentProvider.BONIFICACION);
+                juegan, EstadoReserva.CANCELADA, EstadoPago.APROBADO, Pago.ESTADOS_DEVUELTOS, PaymentProvider.BONIFICACION);
 
         // caja: de las 00:00 de desde a las 00:00 del día siguiente a hasta
         LocalDateTime inicio = desde.atStartOfDay();
         LocalDateTime fin = hasta.plusDays(1).atStartOfDay();
-        EntradasDeCaja e = resumenRepository.entradasDeCaja(inicio, fin, COBRADOS, PaymentProvider.MANUAL,
+        EntradasDeCaja e = resumenRepository.entradasDeCaja(inicio, fin, Pago.ESTADOS_COBRADOS, PaymentProvider.MANUAL,
                 PaymentProvider.MERCADO_PAGO, PaymentProvider.BONIFICACION);
         BigDecimal devoluciones = resumenRepository.devoluciones(inicio, fin, EstadoPago.DEVUELTO,
                 PaymentProvider.BONIFICACION);

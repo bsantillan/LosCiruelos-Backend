@@ -128,6 +128,14 @@ public class Pago {
         estado = nuevo;
     }
 
+    /** Devueltos o por devolver: el club se queda con lo que no se devolvió (monto − montoReembolsado). */
+    public static final Set<EstadoPago> ESTADOS_DEVUELTOS = Set.of(EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR,
+            EstadoPago.REEMBOLSO_PENDIENTE);
+
+    /** Los que alguna vez se cobraron: entran a caja el día del cobro aunque después se devuelvan. */
+    public static final Set<EstadoPago> ESTADOS_COBRADOS = Set.of(EstadoPago.APROBADO, EstadoPago.DEVUELTO,
+            EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE);
+
     /** Una bonificación cubre parte del turno sin que el cliente pague: no es plata. */
     public boolean esBonificacion() {
         return provider == PaymentProvider.BONIFICACION;
