@@ -17,7 +17,7 @@ import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.EstadoPayment;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.mercadopago.client.preference.PreferenceRequest;
 
 class MercadoPagoTest {

@@ -17,8 +17,8 @@ import org.springframework.data.domain.Pageable;
 
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
-import com.LosCiruelos.padel_club_api.Entities.Usuario;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.ReservaJugador;
 import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijo;

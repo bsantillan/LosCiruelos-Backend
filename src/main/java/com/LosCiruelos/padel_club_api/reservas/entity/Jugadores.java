@@ -1,6 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.entity;
 
-import com.LosCiruelos.padel_club_api.Entities.Usuario;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 
 /** Utilidades compartidas por los jugadores de un partido y de un turno fijo. */
 public final class Jugadores {

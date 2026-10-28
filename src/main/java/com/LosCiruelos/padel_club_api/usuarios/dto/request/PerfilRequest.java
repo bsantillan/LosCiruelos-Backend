@@ -1,0 +1,31 @@
+package com.LosCiruelos.padel_club_api.usuarios.dto.request;
+
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Categoria;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Posicion;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+
+@Data
+public class PerfilRequest {
+
+    @NotBlank(message = "El nombre es obligatorio")
+    @Size(min = 2, max = 50, message = "El nombre debe tener entre 2 y 50 caracteres")
+    private String nombre;
+
+    @NotBlank(message = "El apellido es obligatorio")
+    @Size(min = 2, max = 50, message = "El apellido debe tener entre 2 y 50 caracteres")
+    private String apellido;
+
+    // Opcional: el celular se edita en "Celular y avisos" (PUT /perfil/notificaciones). Si no viene
+    // (o es null) no se tocan el teléfono ni su verificación. Si viene, se valida y se normaliza al
+    // formato de WhatsApp; si es otro número, queda sin verificar
+    @Pattern(regexp = "^[0-9+() -]{8,25}$", message = "Teléfono inválido")
+    private String telefono;
+
+    private Posicion posicion;
+
+    private Categoria categoria;
+}

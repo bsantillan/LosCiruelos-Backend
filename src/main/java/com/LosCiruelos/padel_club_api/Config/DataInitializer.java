@@ -11,15 +11,15 @@ import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.club.entity.DiaApertura;
-import com.LosCiruelos.padel_club_api.Entities.Usuario;
-import com.LosCiruelos.padel_club_api.Entities.Enum.AuthProvider;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Categoria;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Posicion;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.AuthProvider;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Categoria;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Posicion;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
-import com.LosCiruelos.padel_club_api.Services.ClienteProfileService;
-import com.LosCiruelos.padel_club_api.Services.UsuarioService;
+import com.LosCiruelos.padel_club_api.usuarios.service.ClienteProfileService;
+import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

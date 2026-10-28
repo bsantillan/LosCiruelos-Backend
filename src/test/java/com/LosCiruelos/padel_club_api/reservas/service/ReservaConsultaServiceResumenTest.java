@@ -1,8 +1,8 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
 import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
-import com.LosCiruelos.padel_club_api.Services.UsuarioService;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
+import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static org.assertj.core.api.Assertions.assertThat;

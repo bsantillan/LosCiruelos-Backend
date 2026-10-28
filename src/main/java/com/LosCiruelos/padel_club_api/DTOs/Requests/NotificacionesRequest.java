@@ -1,6 +1,6 @@
 package com.LosCiruelos.padel_club_api.DTOs.Requests;
 
-import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;

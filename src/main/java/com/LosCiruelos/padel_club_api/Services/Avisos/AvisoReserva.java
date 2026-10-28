@@ -6,8 +6,8 @@ import java.time.LocalTime;
 import java.util.List;
 
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
-import com.LosCiruelos.padel_club_api.Entities.Usuario;
-import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Fechas;
 

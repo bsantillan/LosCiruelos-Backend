@@ -1,6 +1,6 @@
 package com.LosCiruelos.padel_club_api.DTOs.Responses;
 
-import com.LosCiruelos.padel_club_api.Entities.Usuario;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 
 /**
  * @param cancelaciones siempre true: las cancelaciones de sus reservas se avisan siempre

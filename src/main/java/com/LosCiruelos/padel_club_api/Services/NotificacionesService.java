@@ -16,8 +16,8 @@ import com.LosCiruelos.padel_club_api.DTOs.Responses.RecordatorioConfigResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.SuscripcionesResponse;
 import com.LosCiruelos.padel_club_api.Entities.AvisosAdmin;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
-import com.LosCiruelos.padel_club_api.Entities.Usuario;
-import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.Repository.AvisosAdminRepository;
@@ -28,6 +28,9 @@ import com.LosCiruelos.padel_club_api.Services.Avisos.TipoAviso;
 import com.LosCiruelos.padel_club_api.Services.WhatsApp.WhatsAppServiceFactory;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.usuarios.service.ClienteProfileService;
+import com.LosCiruelos.padel_club_api.usuarios.service.TelefonoService;
+import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 
 import lombok.RequiredArgsConstructor;
 

@@ -26,7 +26,7 @@ import com.LosCiruelos.padel_club_api.reservas.dto.response.DisponibilidadRespon
 import com.LosCiruelos.padel_club_api.reservas.dto.response.DisponibilidadResponse.Turno;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
 import com.LosCiruelos.padel_club_api.club.repository.CanchaRepository;

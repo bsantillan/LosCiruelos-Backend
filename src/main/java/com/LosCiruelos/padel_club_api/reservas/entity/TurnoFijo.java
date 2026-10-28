@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
-import com.LosCiruelos.padel_club_api.Entities.Usuario;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.common.Turno;
 
 import jakarta.persistence.CascadeType;

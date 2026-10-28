@@ -41,46 +41,50 @@ import com.LosCiruelos.padel_club_api.club.controller.CanchaController;
 import com.LosCiruelos.padel_club_api.club.controller.ProductoController;
 import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.DisponibilidadResponse;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.LoginResponse;
+import com.LosCiruelos.padel_club_api.usuarios.controller.AdminController;
+import com.LosCiruelos.padel_club_api.usuarios.controller.AuthController;
+import com.LosCiruelos.padel_club_api.usuarios.controller.ClienteAdminController;
+import com.LosCiruelos.padel_club_api.usuarios.controller.PerfilController;
+import com.LosCiruelos.padel_club_api.usuarios.dto.response.LoginResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
 import com.LosCiruelos.padel_club_api.pagos.controller.CobroAdminController;
 import com.LosCiruelos.padel_club_api.pagos.controller.MercadoPagoWebhookController;
 import com.LosCiruelos.padel_club_api.pagos.controller.PagoController;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.PerfilResponse;
+import com.LosCiruelos.padel_club_api.usuarios.dto.response.PerfilResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ProductoResponse;
 import com.LosCiruelos.padel_club_api.reservas.service.DisponibilidadService;
 import com.LosCiruelos.padel_club_api.reservas.controller.ReservaAdminController;
 import com.LosCiruelos.padel_club_api.reservas.controller.ReservaController;
 import com.LosCiruelos.padel_club_api.reservas.service.StockService;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.UsuarioAdminResponse;
+import com.LosCiruelos.padel_club_api.usuarios.dto.response.UsuarioAdminResponse;
 import com.LosCiruelos.padel_club_api.DTOs.Responses.NotificacionesResponse;
-import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
-import com.LosCiruelos.padel_club_api.Entities.Enum.TokenType;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.TokenType;
 import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaNoEncontradaException;
 import com.LosCiruelos.padel_club_api.Exceptions.StockInsuficienteException;
 import com.LosCiruelos.padel_club_api.Handlers.GlobalExceptionHandler;
-import com.LosCiruelos.padel_club_api.Services.AdminService;
-import com.LosCiruelos.padel_club_api.Services.AuthService;
+import com.LosCiruelos.padel_club_api.usuarios.service.AdminService;
+import com.LosCiruelos.padel_club_api.usuarios.service.AuthService;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.reservas.service.CancelacionService;
 import com.LosCiruelos.padel_club_api.Services.NotificacionesService;
 import com.LosCiruelos.padel_club_api.pagos.service.CobroService;
 import com.LosCiruelos.padel_club_api.pagos.service.PagoOnlineService;
-import com.LosCiruelos.padel_club_api.Services.PasswordResetService;
-import com.LosCiruelos.padel_club_api.Services.PerfilService;
+import com.LosCiruelos.padel_club_api.usuarios.service.PasswordResetService;
+import com.LosCiruelos.padel_club_api.usuarios.service.PerfilService;
 import com.LosCiruelos.padel_club_api.club.service.ProductoService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
-import com.LosCiruelos.padel_club_api.Services.BusquedaClientesService;
-import com.LosCiruelos.padel_club_api.Services.VerificationService;
+import com.LosCiruelos.padel_club_api.usuarios.service.BusquedaClientesService;
+import com.LosCiruelos.padel_club_api.usuarios.service.VerificationService;
 import com.LosCiruelos.padel_club_api.pagos.mercadopago.MercadoPagoWebhookValidator;
 import com.LosCiruelos.padel_club_api.common.Fechas;
 
@@ -866,7 +870,7 @@ class ControllersTest {
         @Test
         void buscaClientes() throws Exception {
             when(busquedaClientesService.buscar("ana", true)).thenReturn(List.of(
-                    new com.LosCiruelos.padel_club_api.DTOs.Responses.ClienteBusquedaResponse(5L, "Ana", "Gómez",
+                    new com.LosCiruelos.padel_club_api.usuarios.dto.response.ClienteBusquedaResponse(5L, "Ana", "Gómez",
                             "ana@test.com", "5491122334455", true, null, null, false, true)));
 
             mvc.perform(get("/admin/clientes").principal(AUTH).param("buscar", "ana"))

@@ -1,6 +1,6 @@
 package com.LosCiruelos.padel_club_api.DTOs.Responses;
 
-import com.LosCiruelos.padel_club_api.Entities.Enum.CanalNotificacion;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 
 /**
  * @param canal              el que eligió el usuario

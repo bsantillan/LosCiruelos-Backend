@@ -11,10 +11,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import com.LosCiruelos.padel_club_api.Entities.RefreshToken;
-import com.LosCiruelos.padel_club_api.Entities.Usuario;
+import com.LosCiruelos.padel_club_api.usuarios.entity.RefreshToken;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
-import com.LosCiruelos.padel_club_api.Repository.RefreshTokenRepository;
+import com.LosCiruelos.padel_club_api.usuarios.repository.RefreshTokenRepository;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;

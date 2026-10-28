@@ -6,7 +6,7 @@ import java.util.Comparator;
 import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.club.entity.Producto;
-import com.LosCiruelos.padel_club_api.Entities.Usuario;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.common.Roles;

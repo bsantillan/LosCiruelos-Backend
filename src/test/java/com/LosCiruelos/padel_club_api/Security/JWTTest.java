@@ -22,12 +22,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.LosCiruelos.padel_club_api.Entities.RefreshToken;
-import com.LosCiruelos.padel_club_api.Entities.Usuario;
-import com.LosCiruelos.padel_club_api.Entities.Enum.Role;
+import com.LosCiruelos.padel_club_api.usuarios.entity.RefreshToken;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
-import com.LosCiruelos.padel_club_api.Repository.RefreshTokenRepository;
-import com.LosCiruelos.padel_club_api.Repository.UsuarioRepository;
+import com.LosCiruelos.padel_club_api.usuarios.repository.RefreshTokenRepository;
+import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 
 class JWTTest {
 

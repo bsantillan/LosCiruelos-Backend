@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
-import com.LosCiruelos.padel_club_api.Services.UsuarioService;
+import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.mapper.TurnoFijoMapper;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.TurnoFijoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
@@ -20,7 +20,7 @@ import com.LosCiruelos.padel_club_api.reservas.dto.response.TurnoFijoResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.TurnoFijoResponse.FechaOmitida;
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
-import com.LosCiruelos.padel_club_api.Entities.Usuario;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
