@@ -1,6 +1,5 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
-import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileRepository;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.CrearUsuarioAdminRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.EditarUsuarioAdminRequest;
@@ -42,7 +42,6 @@ class UsuarioAdminServiceTest {
     private VerificationService verificationService;
     private UsuarioAdminService adminService;
     private UsuarioRepository usuarioRepository;
-    private ClienteProfileRepository clienteProfileRepository;
     private Usuario cliente;
 
     @BeforeEach
@@ -52,10 +51,8 @@ class UsuarioAdminServiceTest {
         jwtUtil = mock(JWTUtil.class);
         verificationService = mock(VerificationService.class);
         usuarioRepository = mock(UsuarioRepository.class);
-        clienteProfileRepository = mock(ClienteProfileRepository.class);
-        when(clienteProfileRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         adminService = new UsuarioAdminService(clienteProfileService, usuarioService, usuarioRepository,
-                clienteProfileRepository, jwtUtil, verificationService, new UsuarioMapper());
+                jwtUtil, verificationService, new UsuarioMapper());
 
         cliente = usuario(1L, Role.CLIENTE);
         when(usuarioService.findByIdOrThrow(1L)).thenReturn(cliente);
@@ -98,7 +95,7 @@ class UsuarioAdminServiceTest {
                 password.capture(), eq(Role.CLIENTE), eq(AuthProvider.LOCAL), eq(true), eq(false), eq(true));
         assertThat(password.getValue()).hasSize(12);
         assertThat(PasswordValidator.esValida(password.getValue())).isTrue();
-        verify(clienteProfileService).crearClienteProfile(creado, Categoria.Quinta, Posicion.Ambos);
+        verify(clienteProfileService).cargarDatosDeJugador(creado, Categoria.Quinta, Posicion.Ambos);
         verify(verificationService).enviarBienvenida(creado.getEmail(), password.getValue());
     }
 
@@ -127,11 +124,11 @@ class UsuarioAdminServiceTest {
     @Test
     void editarUnClienteActualizaSuPerfil() {
         ClienteProfile perfil = ClienteProfile.builder().usuario(cliente).categoria(Categoria.Cuarta).build();
-        when(clienteProfileService.findByUsuario(cliente)).thenReturn(perfil);
+        cliente.setClienteProfile(perfil);
 
         UsuarioAdminResponse r = adminService.editarUsuario(1L, editar(Role.CLIENTE, Categoria.Primera, Posicion.Reves));
 
-        verify(clienteProfileRepository).save(perfil);
+        assertThat(cliente.getClienteProfile()).isSameAs(perfil);
         assertThat(perfil.getCategoria()).isEqualTo(Categoria.Primera);
         assertThat(perfil.getPosicion()).isEqualTo(Posicion.Reves);
         assertThat(perfil.getCategoriaActualizadaAt()).isNull();
@@ -140,10 +137,27 @@ class UsuarioAdminServiceTest {
 
     @Test
     void pasarAEmpleadoQuitaElPerfilDeJugador() {
+        TestData.perfilDeCliente(cliente);
+
         adminService.editarUsuario(1L, editar(Role.EMPLEADO, null, null));
 
         assertThat(cliente.getRol()).isEqualTo(Role.EMPLEADO);
         assertThat(cliente.getClienteProfile()).isNull();
+        assertThat(cliente.getEmpleadoProfile()).isNotNull();
+    }
+
+    @Test
+    void pasarAClienteLeCreaElPerfilDeJugadorConSuCategoria() {
+        Usuario profesor = usuario(4L, Role.PROFESOR);
+        profesor.asignarRol(Role.PROFESOR);
+        when(usuarioService.findByIdOrThrow(4L)).thenReturn(profesor);
+
+        adminService.editarUsuario(4L, editar(Role.CLIENTE, Categoria.Sexta, Posicion.Drive));
+
+        assertThat(profesor.getProfesorProfile()).isNull();
+        assertThat(profesor.getClienteProfile()).isNotNull();
+        // la categoría la carga como en el alta (arranca el plazo de 24 hs para que el cliente la cambie)
+        verify(clienteProfileService).cargarDatosDeJugador(profesor, Categoria.Sexta, Posicion.Drive);
     }
 
     @Test

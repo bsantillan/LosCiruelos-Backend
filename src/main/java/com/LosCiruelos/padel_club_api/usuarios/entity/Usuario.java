@@ -118,6 +118,29 @@ public class Usuario {
     @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private AdminProfile adminProfile;
 
+    @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private EmpleadoProfile empleadoProfile;
+
+    @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private ProfesorProfile profesorProfile;
+
+    /**
+     * Cambia el rol y deja solo el perfil de ese rol: le crea el suyo si no lo tiene (vacío;
+     * los datos del jugador se cargan aparte) y saca los de los otros roles. Los perfiles se
+     * guardan y se borran por cascada con la cuenta.
+     */
+    public void asignarRol(Role nuevo) {
+        rol = nuevo;
+        clienteProfile = nuevo != Role.CLIENTE ? null
+                : clienteProfile != null ? clienteProfile : ClienteProfile.builder().usuario(this).build();
+        adminProfile = nuevo != Role.ADMIN ? null
+                : adminProfile != null ? adminProfile : AdminProfile.porDefecto(this);
+        empleadoProfile = nuevo != Role.EMPLEADO ? null
+                : empleadoProfile != null ? empleadoProfile : EmpleadoProfile.builder().usuario(this).build();
+        profesorProfile = nuevo != Role.PROFESOR ? null
+                : profesorProfile != null ? profesorProfile : ProfesorProfile.builder().usuario(this).build();
+    }
+
     /** Los avisos que elige el ADMIN; sin perfil todavía, recibe todos. */
     public AdminProfile avisosAdmin() {
         return adminProfile != null ? adminProfile : AdminProfile.porDefecto(this);

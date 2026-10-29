@@ -81,7 +81,7 @@ public class AuthService {
                 false, // email sin verificar
                 true); // cuenta habilitada: "enabled" solo se usa para desactivar cuentas
 
-        clienteProfileService.crearClienteProfile(usuario_nuevo, reg_rq.getCategoria(), reg_rq.getPosicion());
+        clienteProfileService.cargarDatosDeJugador(usuario_nuevo, reg_rq.getCategoria(), reg_rq.getPosicion());
 
         // consentimiento de notificaciones; arrancan por mail (el medio se cambia en el perfil,
         // después de validar el celular)
@@ -129,8 +129,7 @@ public class AuthService {
             usuarioGuardado = usuarioService.crearUsuario(
                     googleUser.getEmail(), googleUser.getFirstName(), googleUser.getLastName(),
                     null, null, Role.CLIENTE, AuthProvider.GOOGLE, true, true, true);
-
-            clienteProfileService.crearClienteProfile(usuarioGuardado, null, null);
+            // el perfil de jugador queda vacío: la categoría y la posición las carga en su perfil
         } else {
             // Usuario existente, sin importar el provider. "enabled" = false solo si fue desactivado.
             if (!usuarioGuardado.getEnabled()) {

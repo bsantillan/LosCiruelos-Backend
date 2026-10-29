@@ -92,6 +92,15 @@ public class ClienteProfile {
         categoria = nueva;
     }
 
+    /**
+     * Categoría y posición que carga el cliente (en el registro o en su perfil): la categoría
+     * sigue las reglas de {@link #cambiarCategoria}.
+     */
+    public void cargarDatosDeJugador(Categoria categoria, Posicion posicion, LocalDateTime ahora) {
+        cambiarCategoria(categoria, ahora);
+        this.posicion = posicion;
+    }
+
     /** Avisos opcionales del cliente (las cancelaciones se avisan siempre). */
     public void elegirSuscripciones(Boolean recordatorios, Boolean promociones) {
         recibeRecordatorios = recordatorios;

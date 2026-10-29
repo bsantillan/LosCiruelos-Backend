@@ -20,23 +20,16 @@ public class ClienteProfileService {
 
     private final Reloj reloj;
 
-    public ClienteProfile crearClienteProfile(Usuario user, Categoria categoria, Posicion posicion) {
-
-        return clienteProfileRepository.save(ClienteProfile.builder()
-                .categoria(categoria)
-                .posicion(posicion)
-                .usuario(user)
-                .categoriaActualizadaAt(categoria != null ? reloj.ahora() : null)
-                .build());
+    /**
+     * Categoría y posición con las que se da de alta el cliente. El perfil ya lo tiene: se lo
+     * crea {@code Usuario.asignarRol} al crear la cuenta.
+     */
+    public void cargarDatosDeJugador(Usuario cliente, Categoria categoria, Posicion posicion) {
+        cliente.getClienteProfile().cargarDatosDeJugador(categoria, posicion, reloj.ahora());
     }
 
     public ClienteProfile findByUsuario(Usuario user) {
         return clienteProfileRepository.findByUsuario(user).orElse(null);
-    }
-
-    public void eliminarPorUsuario(Usuario usuario) {
-        clienteProfileRepository.findByUsuario(usuario)
-                .ifPresent(clienteProfileRepository::delete);
     }
 
     /**
