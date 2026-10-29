@@ -86,10 +86,11 @@ class UsuarioTest {
     }
 
     @Test
-    void sinPerfilDeClienteRecibeRecordatoriosYNoPromociones() {
+    void losRecordatoriosYLasPromocionesSonSoloParaClientes() {
         Usuario empleado = usuario(2L, Role.EMPLEADO);
+        empleado.asignarRol(Role.EMPLEADO);
 
-        assertThat(empleado.recibeRecordatorios()).isTrue();
+        assertThat(empleado.recibeRecordatorios()).isFalse();
         assertThat(empleado.recibePromociones()).isFalse();
     }
 }

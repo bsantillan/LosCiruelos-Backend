@@ -170,11 +170,11 @@ public class Usuario {
     }
 
     /**
-     * Si le llega el recordatorio del turno. Lo elige el cliente en su perfil; el resto de los
-     * roles (por ejemplo, un EMPLEADO que juega un partido) lo recibe siempre.
+     * Si le llega el recordatorio del turno: solo al cliente que lo eligió en su perfil. El resto
+     * de los roles (por ejemplo, un EMPLEADO que juega un partido) no lo recibe.
      */
     public boolean recibeRecordatorios() {
-        return clienteProfile == null || Boolean.TRUE.equals(clienteProfile.getRecibeRecordatorios());
+        return clienteProfile != null && Boolean.TRUE.equals(clienteProfile.getRecibeRecordatorios());
     }
 
     /** Si recibe novedades y promociones: solo el cliente que las eligió. */
