@@ -15,9 +15,9 @@ import com.LosCiruelos.padel_club_api.reservas.dto.response.DisponibilidadRespon
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.club.entity.DiaApertura;
-import com.LosCiruelos.padel_club_api.Exceptions.DiaSinAperturaException;
-import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.club.exception.DiaSinAperturaException;
+import com.LosCiruelos.padel_club_api.reservas.exception.HorarioOcupadoException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.common.Reloj;

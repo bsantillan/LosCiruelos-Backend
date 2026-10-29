@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
+import com.LosCiruelos.padel_club_api.common.exception.ValidationException;
 
 class TelefonosTest {
 

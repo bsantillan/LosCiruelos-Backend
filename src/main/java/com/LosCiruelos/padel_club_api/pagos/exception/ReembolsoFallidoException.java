@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Exceptions;
+package com.LosCiruelos.padel_club_api.pagos.exception;
 
 import lombok.Getter;
 

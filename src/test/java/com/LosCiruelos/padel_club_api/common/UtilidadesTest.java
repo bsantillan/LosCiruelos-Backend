@@ -17,8 +17,8 @@ import org.springframework.data.domain.Sort;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 
 /** Utilidades compartidas de {@code common}. */
 class UtilidadesTest {

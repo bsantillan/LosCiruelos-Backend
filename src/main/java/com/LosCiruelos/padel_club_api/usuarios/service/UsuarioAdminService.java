@@ -5,7 +5,7 @@ import jakarta.persistence.criteria.Predicate;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.ClienteBusquedaResponse;
 import com.LosCiruelos.padel_club_api.common.Busquedas;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.PageRequest;
@@ -29,7 +29,7 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.AuthProvider;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.EmailEnUsoException;
 import com.LosCiruelos.padel_club_api.security.JWTUtil;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioSpecification;
 

@@ -66,11 +66,11 @@ import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.OpcionReembolso;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.TokenType;
-import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
-import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
-import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaNoEncontradaException;
-import com.LosCiruelos.padel_club_api.Exceptions.StockInsuficienteException;
+import com.LosCiruelos.padel_club_api.reservas.exception.HorarioOcupadoException;
+import com.LosCiruelos.padel_club_api.pagos.exception.PagoNoEncontradoException;
+import com.LosCiruelos.padel_club_api.pagos.exception.PagoProveedorException;
+import com.LosCiruelos.padel_club_api.reservas.exception.ReservaNoEncontradaException;
+import com.LosCiruelos.padel_club_api.club.exception.StockInsuficienteException;
 import com.LosCiruelos.padel_club_api.common.exception.GlobalExceptionHandler;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioAdminService;
 import com.LosCiruelos.padel_club_api.usuarios.service.AuthService;
@@ -771,7 +771,7 @@ class ControllersTest {
             verify(reservaConsultaService).resumen(null, null, "admin@test.com");
 
             when(reservaConsultaService.resumen(any(), any(), eq("emp@test.com")))
-                    .thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException(
+                    .thenThrow(new com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException(
                             "Solo podés ver el resumen de hoy."));
             mvc.perform(get("/admin/reservas/resumen").principal(EMPLEADO).param("desde", "2026-10-01").param("hasta", "2026-10-31"))
                     .andExpect(status().isForbidden())
@@ -788,7 +788,7 @@ class ControllersTest {
         @Test
         void unPeriodoInvalidoDevuelve400() throws Exception {
             when(reservaConsultaService.resumen(any(), any(), eq("admin@test.com")))
-                    .thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.ReservaException(
+                    .thenThrow(new com.LosCiruelos.padel_club_api.common.exception.ReservaException(
                             "La fecha desde no puede ser posterior a hasta."));
 
             mvc.perform(get("/admin/reservas/resumen").principal(ADMIN).param("desde", "2026-10-31").param("hasta", "2026-10-01"))
@@ -859,7 +859,7 @@ class ControllersTest {
         @Test
         void losErroresDelServicioSeRespetan() throws Exception {
             when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
-                    any())).thenThrow(new com.LosCiruelos.padel_club_api.Exceptions.ReservaException(
+                    any())).thenThrow(new com.LosCiruelos.padel_club_api.common.exception.ReservaException(
                             "El tamaño de página tiene que estar entre 1 y 100."));
 
             mvc.perform(get("/admin/reservas").principal(AUTH).param("size", "500"))
@@ -922,7 +922,7 @@ class ControllersTest {
         @Test
         void unEmpleadoNoPuedeBonificar() throws Exception {
             when(cobroService.bonificar(any(), any(), any(), any(), any())).thenThrow(
-                    new com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException(
+                    new com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException(
                             "Solo el ADMIN puede bonificar una reserva."));
 
             mvc.perform(post("/admin/reservas/5/bonificacion").principal(AUTH))

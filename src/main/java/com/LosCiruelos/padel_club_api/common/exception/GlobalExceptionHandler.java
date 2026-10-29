@@ -20,21 +20,19 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
-import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
-import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
-import com.LosCiruelos.padel_club_api.Exceptions.CuentaDesactivadaException;
-import com.LosCiruelos.padel_club_api.Exceptions.CuentaVerificadaException;
-import com.LosCiruelos.padel_club_api.Exceptions.DiaSinAperturaException;
-import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
-import com.LosCiruelos.padel_club_api.Exceptions.EmailNoVerificadoException;
-import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
-import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
-import com.LosCiruelos.padel_club_api.Exceptions.TerminosNoAceptadosException;
-import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
-import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
+import com.LosCiruelos.padel_club_api.club.exception.CanchaNotFoundException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CategoriaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CodigoInvalidoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CuentaDesactivadaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CuentaVerificadaException;
+import com.LosCiruelos.padel_club_api.club.exception.DiaSinAperturaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.EmailEnUsoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.EmailNoVerificadoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.PasswordInvalidaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.PerfilIncompletoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.TerminosNoAceptadosException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.UsuarioNotFoundException;
 import com.LosCiruelos.padel_club_api.common.Fechas;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 

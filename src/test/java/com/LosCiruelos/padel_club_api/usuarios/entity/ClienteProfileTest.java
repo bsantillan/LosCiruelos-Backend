@@ -7,7 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CategoriaException;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Categoria;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Posicion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;

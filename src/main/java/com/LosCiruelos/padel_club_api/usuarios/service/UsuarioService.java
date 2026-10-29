@@ -8,12 +8,12 @@ import java.util.Objects;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.AuthProvider;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.UsuarioNotFoundException;
-import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.UsuarioNotFoundException;
+import com.LosCiruelos.padel_club_api.common.exception.ValidationException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.common.Telefonos;
 

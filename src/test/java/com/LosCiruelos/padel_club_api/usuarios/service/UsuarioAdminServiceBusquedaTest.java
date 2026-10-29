@@ -26,7 +26,7 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Categoria;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Posicion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 
 class UsuarioAdminServiceBusquedaTest {

@@ -10,8 +10,8 @@ import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.TestData;
-import com.LosCiruelos.padel_club_api.Exceptions.DiaSinAperturaException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.club.exception.DiaSinAperturaException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 
 /** Reglas de la configuración del club (con la de TestData: turnos de 90 a 180 minutos). */
 class ConfiguracionTest {

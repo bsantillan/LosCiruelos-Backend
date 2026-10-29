@@ -5,7 +5,7 @@ import java.util.Collections;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CredencialesInvalidasException;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;

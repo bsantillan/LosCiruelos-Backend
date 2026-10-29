@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.usuarios.entity.RefreshToken;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.RefreshTokenRepository;
 
 import io.jsonwebtoken.*;

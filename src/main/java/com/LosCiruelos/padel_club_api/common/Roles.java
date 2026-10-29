@@ -2,7 +2,7 @@ package com.LosCiruelos.padel_club_api.common;
 
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException;
+import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
 
 /** Chequeos de rol dentro de los services (las rutas ya se protegen con @PreAuthorize). */
 public final class Roles {

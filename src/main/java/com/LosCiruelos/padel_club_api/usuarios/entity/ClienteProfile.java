@@ -1,6 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.entity;
 
-import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CategoriaException;
 import java.time.LocalDateTime;
 
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Categoria;

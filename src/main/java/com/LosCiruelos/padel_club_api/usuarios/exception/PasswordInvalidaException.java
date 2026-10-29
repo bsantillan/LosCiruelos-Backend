@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Exceptions;
+package com.LosCiruelos.padel_club_api.usuarios.exception;
 
 public class PasswordInvalidaException extends RuntimeException {
 

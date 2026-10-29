@@ -25,7 +25,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.LosCiruelos.padel_club_api.usuarios.entity.RefreshToken;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.RefreshTokenRepository;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 

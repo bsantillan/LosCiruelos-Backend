@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.LosCiruelos.padel_club_api.club.dto.response.CanchaResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
-import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
+import com.LosCiruelos.padel_club_api.club.exception.CanchaNotFoundException;
 import com.LosCiruelos.padel_club_api.club.repository.CanchaRepository;
 import com.LosCiruelos.padel_club_api.mapper.CanchaMapper;
 

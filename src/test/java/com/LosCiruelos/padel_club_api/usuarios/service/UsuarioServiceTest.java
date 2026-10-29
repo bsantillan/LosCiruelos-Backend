@@ -18,7 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.AuthProvider;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
+import com.LosCiruelos.padel_club_api.common.exception.ValidationException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 
 class UsuarioServiceTest {

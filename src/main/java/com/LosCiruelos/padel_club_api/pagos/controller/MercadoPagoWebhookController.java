@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
+import com.LosCiruelos.padel_club_api.pagos.exception.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.pagos.mercadopago.MercadoPagoWebhookValidator;
 import com.LosCiruelos.padel_club_api.pagos.service.PagoOnlineService;
 

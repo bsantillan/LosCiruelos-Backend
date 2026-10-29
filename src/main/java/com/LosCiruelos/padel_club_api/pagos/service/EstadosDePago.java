@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
-import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
+import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;

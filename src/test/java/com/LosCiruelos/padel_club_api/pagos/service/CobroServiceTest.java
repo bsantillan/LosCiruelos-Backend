@@ -33,8 +33,8 @@ import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 
 /** Cobros en el club y bonificaciones del ADMIN. */
 class CobroServiceTest extends PagosTestBase {
@@ -325,7 +325,7 @@ class CobroServiceTest extends PagosTestBase {
             reservaBloqueada(EstadoReserva.PENDIENTE);
 
             assertThatThrownBy(() -> cobroService.bonificar(10L, null, null, null, empleado.getEmail()))
-                    .isInstanceOf(com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException.class)
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class)
                     .hasMessage("Solo el ADMIN puede bonificar una reserva.");
             verify(pagoRepository, never()).save(any());
         }
@@ -373,7 +373,7 @@ class CobroServiceTest extends PagosTestBase {
 
             // un empleado no llega a crearla
             assertThatThrownBy(() -> cobroService.crearReservaBonificada(req, empleado.getEmail()))
-                    .isInstanceOf(com.LosCiruelos.padel_club_api.Exceptions.PermisoDenegadoException.class);
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class);
             verify(reservaService, org.mockito.Mockito.times(1)).crearParaCliente(any(), anyString());
         }
     }

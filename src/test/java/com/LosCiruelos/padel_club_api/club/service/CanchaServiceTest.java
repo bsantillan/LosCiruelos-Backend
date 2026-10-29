@@ -1,7 +1,7 @@
 package com.LosCiruelos.padel_club_api.club.service;
 
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
-import com.LosCiruelos.padel_club_api.Exceptions.CanchaNotFoundException;
+import com.LosCiruelos.padel_club_api.club.exception.CanchaNotFoundException;
 import java.util.Optional;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;

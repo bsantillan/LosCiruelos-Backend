@@ -3,7 +3,7 @@ package com.LosCiruelos.padel_club_api.common;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 
 /** Página y tamaño de los listados, validados igual en toda la API. */
 public final class Paginacion {
