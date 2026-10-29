@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.DTOs.Responses;
+package com.LosCiruelos.padel_club_api.security;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

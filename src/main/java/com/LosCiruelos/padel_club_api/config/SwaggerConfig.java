@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Config;
+package com.LosCiruelos.padel_club_api.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;

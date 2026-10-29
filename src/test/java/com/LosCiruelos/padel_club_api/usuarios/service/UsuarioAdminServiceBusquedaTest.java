@@ -1,7 +1,7 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
 import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileRepository;
-import com.LosCiruelos.padel_club_api.Security.JWTUtil;
+import com.LosCiruelos.padel_club_api.security.JWTUtil;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

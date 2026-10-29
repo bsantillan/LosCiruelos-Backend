@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Config;
+package com.LosCiruelos.padel_club_api.config;
 
 import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.anyInt;

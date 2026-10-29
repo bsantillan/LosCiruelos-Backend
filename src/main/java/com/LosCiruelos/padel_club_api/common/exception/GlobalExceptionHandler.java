@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Handlers;
+package com.LosCiruelos.padel_club_api.common.exception;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -23,7 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.LoginRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.RegisterRequest;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.GoogleUser;
+import com.LosCiruelos.padel_club_api.security.GoogleUser;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.LoginResponse;
 import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.RefreshToken;
@@ -39,9 +39,9 @@ import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailNoVerificadoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
 import com.LosCiruelos.padel_club_api.Exceptions.TerminosNoAceptadosException;
-import com.LosCiruelos.padel_club_api.Security.GoogleTokenVerifier;
-import com.LosCiruelos.padel_club_api.Security.JWTUtil;
-import com.LosCiruelos.padel_club_api.Security.UsuarioPrincipal;
+import com.LosCiruelos.padel_club_api.security.GoogleTokenVerifier;
+import com.LosCiruelos.padel_club_api.security.JWTUtil;
+import com.LosCiruelos.padel_club_api.security.UsuarioPrincipal;
 
 class AuthServiceTest {
 

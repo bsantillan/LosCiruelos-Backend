@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Security;
+package com.LosCiruelos.padel_club_api.security;
 
 import java.util.Collection;
 import java.util.List;

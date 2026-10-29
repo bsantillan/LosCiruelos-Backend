@@ -5,7 +5,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.LosCiruelos.padel_club_api.Config.AppConfig.ConfiguracionCache;
+import com.LosCiruelos.padel_club_api.config.AppConfig.ConfiguracionCache;
 import com.LosCiruelos.padel_club_api.club.dto.request.RecordatorioConfigRequest;
 import com.LosCiruelos.padel_club_api.club.dto.response.RecordatorioConfigResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;

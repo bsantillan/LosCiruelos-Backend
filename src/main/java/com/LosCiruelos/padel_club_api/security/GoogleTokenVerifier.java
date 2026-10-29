@@ -1,11 +1,10 @@
-package com.LosCiruelos.padel_club_api.Security;
+package com.LosCiruelos.padel_club_api.security;
 
 import java.util.Collections;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.LosCiruelos.padel_club_api.DTOs.Responses.GoogleUser;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;

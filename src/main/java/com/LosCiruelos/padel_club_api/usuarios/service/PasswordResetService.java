@@ -16,8 +16,8 @@ import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
 import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
 import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.VerificationTokenRepository;
-import com.LosCiruelos.padel_club_api.Security.JWTUtil;
-import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
+import com.LosCiruelos.padel_club_api.security.JWTUtil;
+import com.LosCiruelos.padel_club_api.security.PasswordValidator;
 import com.LosCiruelos.padel_club_api.notificaciones.email.EmailServiceFactory;
 import com.LosCiruelos.padel_club_api.notificaciones.email.EnvioPostCommit;
 

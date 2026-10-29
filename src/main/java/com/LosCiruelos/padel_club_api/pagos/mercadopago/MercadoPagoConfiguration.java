@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Config;
+package com.LosCiruelos.padel_club_api.pagos.mercadopago;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;

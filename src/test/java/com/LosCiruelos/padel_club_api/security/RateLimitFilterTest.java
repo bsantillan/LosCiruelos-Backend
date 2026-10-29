@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Security;
+package com.LosCiruelos.padel_club_api.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

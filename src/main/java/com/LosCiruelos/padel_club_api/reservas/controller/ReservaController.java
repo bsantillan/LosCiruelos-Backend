@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
+import com.LosCiruelos.padel_club_api.common.PaginaResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;

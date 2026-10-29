@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Jobs;
+package com.LosCiruelos.padel_club_api.reservas.job;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;

@@ -31,8 +31,8 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Categoria;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Posicion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
-import com.LosCiruelos.padel_club_api.Security.JWTUtil;
-import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
+import com.LosCiruelos.padel_club_api.security.JWTUtil;
+import com.LosCiruelos.padel_club_api.security.PasswordValidator;
 
 class UsuarioAdminServiceTest {
 

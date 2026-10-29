@@ -32,7 +32,7 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.Exceptions.CategoriaException;
 import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileRepository;
-import com.LosCiruelos.padel_club_api.Security.JWTUtil;
+import com.LosCiruelos.padel_club_api.security.JWTUtil;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 
 class PerfilServiceTest {

@@ -1,4 +1,4 @@
-package com.LosCiruelos.padel_club_api.Controller;
+package com.LosCiruelos.padel_club_api;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -37,7 +37,6 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.club.controller.ConfiguracionAdminController;
-import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.club.controller.ProductoAdminController;
 import com.LosCiruelos.padel_club_api.club.controller.CanchaController;
 import com.LosCiruelos.padel_club_api.club.controller.ProductoController;
@@ -48,7 +47,7 @@ import com.LosCiruelos.padel_club_api.usuarios.controller.UsuarioAdminController
 import com.LosCiruelos.padel_club_api.usuarios.controller.AuthController;
 import com.LosCiruelos.padel_club_api.usuarios.controller.PerfilController;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.LoginResponse;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.PaginaResponse;
+import com.LosCiruelos.padel_club_api.common.PaginaResponse;
 import com.LosCiruelos.padel_club_api.pagos.controller.CobroAdminController;
 import com.LosCiruelos.padel_club_api.pagos.controller.MercadoPagoWebhookController;
 import com.LosCiruelos.padel_club_api.pagos.controller.PagoController;
@@ -72,7 +71,7 @@ import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
 import com.LosCiruelos.padel_club_api.Exceptions.ReservaNoEncontradaException;
 import com.LosCiruelos.padel_club_api.Exceptions.StockInsuficienteException;
-import com.LosCiruelos.padel_club_api.Handlers.GlobalExceptionHandler;
+import com.LosCiruelos.padel_club_api.common.exception.GlobalExceptionHandler;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioAdminService;
 import com.LosCiruelos.padel_club_api.usuarios.service.AuthService;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
