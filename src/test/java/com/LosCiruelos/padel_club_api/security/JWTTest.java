@@ -1,15 +1,11 @@
 package com.LosCiruelos.padel_club_api.security;
 
+import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import java.time.Instant;
-import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,32 +18,27 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.LosCiruelos.padel_club_api.usuarios.entity.RefreshToken;
+import com.LosCiruelos.padel_club_api.TestData;
+import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.usuarios.exception.CredencialesInvalidasException;
-import com.LosCiruelos.padel_club_api.usuarios.repository.RefreshTokenRepository;
-import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
+import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 
 class JWTTest {
 
-    private RefreshTokenRepository refreshTokenRepository;
     private JWTUtil jwtUtil;
 
-    private static JWTUtil crear(RefreshTokenRepository repo, String secret) {
-        JWTUtil util = new JWTUtil(repo);
+    private static JWTUtil crear(Reloj reloj, String secret) {
+        JWTUtil util = new JWTUtil(reloj);
         ReflectionTestUtils.setField(util, "secret", secret);
         ReflectionTestUtils.setField(util, "expiration", 900L);
-        ReflectionTestUtils.setField(util, "expirationRefresh", 604800L);
         ReflectionTestUtils.invokeMethod(util, "init");
         return util;
     }
 
     @BeforeEach
     void setUp() {
-        refreshTokenRepository = mock(RefreshTokenRepository.class);
-        when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        jwtUtil = crear(refreshTokenRepository, "0123456789abcdef0123456789abcdef");
+        jwtUtil = crear(TestData.reloj(AHORA), "0123456789abcdef0123456789abcdef");
     }
 
     @AfterEach
@@ -66,48 +57,34 @@ class JWTTest {
     }
 
     @Test
+    void elAccessTokenVenceALos15Minutos() {
+        String token = jwtUtil.generateToken("a@b.com");
+        String secret = "0123456789abcdef0123456789abcdef";
+
+        assertThat(crear(TestData.reloj(AHORA.plusMinutes(14)), secret).validateAccessToken(token)).isTrue();
+        assertThat(crear(TestData.reloj(AHORA.plusMinutes(16)), secret).validateAccessToken(token)).isFalse();
+    }
+
+    @Test
     void unTokenFirmadoConOtraClaveNoEsValido() {
-        JWTUtil otro = crear(refreshTokenRepository, "ffffffffffffffffffffffffffffffff");
+        JWTUtil otro = crear(TestData.reloj(AHORA), "ffffffffffffffffffffffffffffffff");
         assertThat(jwtUtil.validateAccessToken(otro.generateToken("a@b.com"))).isFalse();
     }
 
     @Test
     void unaClaveCortaFallaAlArrancarConUnMensajeClaro() {
-        assertThatThrownBy(() -> crear(refreshTokenRepository, "corta"))
+        assertThatThrownBy(() -> crear(TestData.reloj(AHORA), "corta"))
                 .satisfies(e -> assertThat(NestedExceptionUtils.getMostSpecificCause(e))
                         .isInstanceOf(IllegalStateException.class)
                         .hasMessageContaining("32 bytes"));
     }
 
     @Test
-    void refreshTokens() {
-        Usuario usuario = usuario(1L, Role.CLIENTE);
-        RefreshToken creado = jwtUtil.createRefreshToken(usuario);
-        assertThat(creado.getFechaExpiracion()).isAfter(Instant.now().plusSeconds(604000));
-
-        when(refreshTokenRepository.findByToken(creado.getToken())).thenReturn(Optional.of(creado));
-        assertThat(jwtUtil.validateRefreshToken(creado.getToken())).isTrue();
-        assertThat(jwtUtil.getUsuarioFromToken(creado.getToken())).isEqualTo(usuario);
-        assertThat(jwtUtil.rotateRefreshToken(creado.getToken()).getToken()).isNotEqualTo(creado.getToken());
-
-        creado.setFechaExpiracion(Instant.now().minusSeconds(1));
-        assertThat(jwtUtil.validateRefreshToken(creado.getToken())).isFalse();
-
-        when(refreshTokenRepository.findByToken("nada")).thenReturn(Optional.empty());
-        assertThat(jwtUtil.validateRefreshToken("nada")).isFalse();
-        assertThatThrownBy(() -> jwtUtil.getUsuarioFromToken("nada")).isInstanceOf(CredencialesInvalidasException.class);
-        assertThatThrownBy(() -> jwtUtil.rotateRefreshToken("nada")).isInstanceOf(CredencialesInvalidasException.class);
-
-        jwtUtil.cleanExpiredTokens();
-        verify(refreshTokenRepository).deleteAllByFechaExpiracionBefore(any());
-    }
-
-    @Test
     void elFiltroAutenticaSoloUsuariosHabilitados() throws Exception {
-        UsuarioRepository usuarioRepository = mock(UsuarioRepository.class);
+        UsuarioService usuarioService = mock(UsuarioService.class);
         Usuario usuario = usuario(1L, Role.CLIENTE);
-        when(usuarioRepository.findByEmail(usuario.getEmail())).thenReturn(Optional.of(usuario));
-        JWTFilter filtro = new JWTFilter(jwtUtil, usuarioRepository);
+        when(usuarioService.findByEmail(usuario.getEmail())).thenReturn(usuario);
+        JWTFilter filtro = new JWTFilter(jwtUtil, usuarioService);
 
         Authentication auth = filtrar(filtro, "Bearer " + jwtUtil.generateToken(usuario.getEmail()));
         assertThat(auth).isNotNull();

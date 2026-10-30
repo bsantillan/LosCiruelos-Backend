@@ -18,7 +18,6 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.common.exception.ValidationException;
-import com.LosCiruelos.padel_club_api.security.JWTUtil;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 
@@ -32,7 +31,7 @@ public class PerfilService {
     private final ClienteProfileService clienteProfileService;
     private final ClienteProfileRepository clienteProfileRepository;
     private final ReservaConsultaService reservaConsultaService;
-    private final JWTUtil jwtUtil;
+    private final RefreshTokenService refreshTokenService;
     private final UsuarioMapper usuarioMapper;
     private final Reloj reloj;
 
@@ -87,7 +86,7 @@ public class PerfilService {
     public void desactivarPerfil(String email) {
         Usuario usuario = usuario(email);
         usuarioService.desactivarUsuario(usuario);
-        jwtUtil.deleteAllRefreshTokens(usuario);
+        refreshTokenService.borrarTodos(usuario);
     }
 
     private PerfilResponse buildPerfilResponse(Usuario usuario, ClienteProfile perfil) {

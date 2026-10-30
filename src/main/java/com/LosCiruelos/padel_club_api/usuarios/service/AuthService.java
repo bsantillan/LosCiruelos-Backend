@@ -40,6 +40,7 @@ public class AuthService {
     private final ClienteProfileService clienteProfileService;
     private final PasswordEncoder passwordEncoder;
     private final JWTUtil jwtUtil;
+    private final RefreshTokenService refreshTokenService;
     private final GoogleTokenVerifier googleTokenVerifier;
     private final VerificationService verificationService;
     private final UsuarioMapper usuarioMapper;
@@ -114,9 +115,9 @@ public class AuthService {
             throw new CuentaDesactivadaException();
         }
 
-        jwtUtil.deleteAllRefreshTokens(usuario);
+        refreshTokenService.borrarTodos(usuario);
 
-        return this.buildLoginResponse(usuario, perfilCompleto(usuario), jwtUtil.createRefreshToken(usuario).getToken());
+        return this.buildLoginResponse(usuario, perfilCompleto(usuario), refreshTokenService.crear(usuario).getToken());
     }
 
     @Transactional
@@ -144,23 +145,23 @@ public class AuthService {
             }
         }
 
-        jwtUtil.deleteAllRefreshTokens(usuarioGuardado);
+        refreshTokenService.borrarTodos(usuarioGuardado);
 
         return this.buildLoginResponse(usuarioGuardado, perfilCompleto(usuarioGuardado),
-                jwtUtil.createRefreshToken(usuarioGuardado).getToken());
+                refreshTokenService.crear(usuarioGuardado).getToken());
     }
 
     public LoginResponse refreshToken(String token) {
-        if (!jwtUtil.validateRefreshToken(token)) {
+        if (!refreshTokenService.esValido(token)) {
             throw new CredencialesInvalidasException("Token invalido");
         }
 
-        if (!jwtUtil.getUsuarioFromToken(token).getEnabled()) {
-            jwtUtil.deleteRefreshToken(token);
+        if (!refreshTokenService.usuarioDelToken(token).getEnabled()) {
+            refreshTokenService.borrar(token);
             throw new CuentaDesactivadaException();
         }
 
-        RefreshToken nuevoRefreshToken = jwtUtil.rotateRefreshToken(token);
+        RefreshToken nuevoRefreshToken = refreshTokenService.rotar(token);
         Usuario usuario = nuevoRefreshToken.getUsuario();
 
         return this.buildLoginResponse(usuario, perfilCompleto(usuario), nuevoRefreshToken.getToken());
@@ -168,10 +169,10 @@ public class AuthService {
 
     public void logout(String refreshToken) {
 
-        if (!jwtUtil.validateRefreshToken(refreshToken)) {
+        if (!refreshTokenService.esValido(refreshToken)) {
             throw new CredencialesInvalidasException("Token inválido");
         }
-        Usuario usuarioDelRefresh = jwtUtil.getUsuarioFromToken(refreshToken);
+        Usuario usuarioDelRefresh = refreshTokenService.usuarioDelToken(refreshToken);
 
         UsuarioPrincipal principal = (UsuarioPrincipal) SecurityContextHolder
                 .getContext()
@@ -182,6 +183,6 @@ public class AuthService {
             throw new CredencialesInvalidasException("Token no pertenece al usuario");
         }
 
-        jwtUtil.deleteRefreshToken(refreshToken);
+        refreshTokenService.borrar(refreshToken);
     }
 }

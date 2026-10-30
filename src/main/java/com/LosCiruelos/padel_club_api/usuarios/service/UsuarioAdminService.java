@@ -30,7 +30,6 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.AuthProvider;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.usuarios.exception.EmailEnUsoException;
-import com.LosCiruelos.padel_club_api.security.JWTUtil;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioSpecification;
 
 import lombok.RequiredArgsConstructor;
@@ -52,7 +51,7 @@ public class UsuarioAdminService {
     private final UsuarioService usuarioService;
     private final UsuarioRepository usuarioRepository;
     private final ClienteProfileRepository clienteProfileRepository;
-    private final JWTUtil jwtUtil;
+    private final RefreshTokenService refreshTokenService;
     private final VerificationService verificationService;
     private final UsuarioMapper usuarioMapper;
 
@@ -172,7 +171,7 @@ public class UsuarioAdminService {
             throw new IllegalArgumentException("No se puede desactivar a un administrador");
         }
         usuario.setEnabled(false);
-        jwtUtil.deleteAllRefreshTokens(usuario);
+        refreshTokenService.borrarTodos(usuario);
         usuarioRepository.save(usuario);
         return buildUsuarioAdminResponse(usuario);
     }

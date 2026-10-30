@@ -32,7 +32,6 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.usuarios.exception.CategoriaException;
 import com.LosCiruelos.padel_club_api.common.exception.ValidationException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileRepository;
-import com.LosCiruelos.padel_club_api.security.JWTUtil;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 
 class PerfilServiceTest {
@@ -40,7 +39,7 @@ class PerfilServiceTest {
     private UsuarioService usuarioService;
     private ClienteProfileRepository clienteProfileRepository;
     private ReservaConsultaService reservaConsultaService;
-    private JWTUtil jwtUtil;
+    private RefreshTokenService refreshTokenService;
     private PerfilService perfilService;
 
     private Usuario cliente;
@@ -51,10 +50,10 @@ class PerfilServiceTest {
         usuarioService = mock(UsuarioService.class);
         clienteProfileRepository = mock(ClienteProfileRepository.class);
         reservaConsultaService = mock(ReservaConsultaService.class);
-        jwtUtil = mock(JWTUtil.class);
+        refreshTokenService = mock(RefreshTokenService.class);
         perfilService = new PerfilService(usuarioService, new ClienteProfileService(clienteProfileRepository, Reloj.delSistema()),
                 clienteProfileRepository,
-                reservaConsultaService, jwtUtil, new UsuarioMapper(), TestData.reloj(AHORA));
+                reservaConsultaService, refreshTokenService, new UsuarioMapper(), TestData.reloj(AHORA));
 
         cliente = usuario(1L, Role.CLIENTE);
         perfil = ClienteProfile.builder().id(1L).usuario(cliente).categoria(Categoria.Cuarta).posicion(Posicion.Drive)
@@ -180,7 +179,7 @@ class PerfilServiceTest {
         perfilService.desactivarPerfil(cliente.getEmail());
 
         verify(usuarioService).desactivarUsuario(cliente);
-        verify(jwtUtil).deleteAllRefreshTokens(cliente);
+        verify(refreshTokenService).borrarTodos(cliente);
     }
 
     // ── Teléfono opcional en PUT /perfil (con el UsuarioService real) ─────
@@ -199,7 +198,7 @@ class PerfilServiceTest {
             UsuarioService real = new UsuarioService(usuarioRepository,
                     mock(org.springframework.security.crypto.password.PasswordEncoder.class), Reloj.delSistema());
             perfiles = new PerfilService(real, new ClienteProfileService(clienteProfileRepository, Reloj.delSistema()),
-                    clienteProfileRepository, reservaConsultaService, jwtUtil, new UsuarioMapper(),
+                    clienteProfileRepository, reservaConsultaService, refreshTokenService, new UsuarioMapper(),
                     TestData.reloj(AHORA));
         }
 

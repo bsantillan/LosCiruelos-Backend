@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
-import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
+import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class JWTFilter extends OncePerRequestFilter {
 
     private final JWTUtil jwtUtil;
-    private final UsuarioRepository usuarioRepository;
+    private final UsuarioService usuarioService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -48,7 +48,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
+                Usuario usuario = usuarioService.findByEmail(email);
 
                 if (usuario != null && usuario.getEnabled()) {
 

@@ -37,8 +37,9 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
 
+    // estático: lo usa UsuarioService, que a su vez usa JWTFilter (inyectado acá); así no se arma un ciclo
     @Bean
-    public PasswordEncoder passwordEncoder() {
+    public static PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
