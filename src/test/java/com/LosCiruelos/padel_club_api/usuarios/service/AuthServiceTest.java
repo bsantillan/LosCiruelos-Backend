@@ -136,7 +136,7 @@ class AuthServiceTest {
 
         verify(usuarioService).crearUsuario("nuevo@test.com", "Nuevo", "Usuario", "1122334455", "Clave123!",
                 Role.CLIENTE, AuthProvider.LOCAL, true, false, true);
-        verify(clienteProfileService).crearClienteProfile(creado, Categoria.Cuarta, Posicion.Drive);
+        verify(clienteProfileService).cargarDatosDeJugador(creado, Categoria.Cuarta, Posicion.Drive);
         verify(verificationService).enviarToken(creado.getEmail());
     }
 

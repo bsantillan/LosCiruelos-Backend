@@ -76,7 +76,7 @@ class DataInitializerTest {
 
         initializer.run(null);
 
-        verify(clienteProfileService).crearClienteProfile(prueba, Categoria.Cuarta, Posicion.Drive);
+        verify(clienteProfileService).cargarDatosDeJugador(prueba, Categoria.Cuarta, Posicion.Drive);
         // la configuración y las canchas ya existen: los services no crean nada
         verify(configuracionService).crearSiNoExiste(any());
         verify(canchaService).crearCanchasSiNoHay(anyInt(), anyString());

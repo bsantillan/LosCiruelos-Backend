@@ -1,6 +1,6 @@
 # Base de datos
 
-PostgreSQL 16. El esquema lo crea Flyway en `src/main/resources/db/Migrations`: `V1__schema_inicial.sql` tiene el esquema completo (unifica las migraciones de desarrollo anteriores), `V2__stock_inicial_productos.sql` carga el stock inicial de pelotas y paletas, `V3__indice_mis_reservas.sql` agrega el índice del listado de reservas del cliente , `V4__politica_cancelacion.sql` agrega la política de reembolso a la configuración y `monto_reembolsado` a los pagos y `V5__reembolsos_pendientes_y_clave_idempotencia.sql` agrega el estado `REEMBOLSO_PENDIENTE`, `reembolso_solicitado_at` y `clave_idempotencia`,, `V6__stock_50_pelotas_y_paletas.sql` deja el stock en 50 pelotas y 50 paletas, `V7__precio_pelotas_y_paletas.sql` les pone precio de $5000 y `V8__whatsapp.sql` agrega el canal de notificaciones y la verificación del teléfono de los usuarios, la tabla `avisos_admin`, el recordatorio del turno y el tipo de código `VERIFY_PHONE`,, `V9__avisos_admin_activos.sql` el interruptor general de los avisos de cada ADMIN, `V10__preferencias_notificaciones.sql` el consentimiento de notificaciones del registro y los avisos que elige el cliente, `V11__celular_verificado_unico.sql` un índice único parcial (un celular verificado pertenece a una sola cuenta activa), `V12__topes_codigo_telefono.sql` la tabla `envios_codigo_telefono` para los topes de códigos por WhatsApp y `V13__NormalizarTelefonos` (migración **Java**, en `src/main/java/db/Migrations`) normaliza los teléfonos guardados antes de V8 con la misma regla que la app, sin tocar la verificación (los inválidos quedan en null),, `V14__indices_panel_reservas.sql` agrega índices para el listado del personal, `V15__bonificaciones.sql` el provider `BONIFICACION` y, en los pagos, quién los registró y el motivo,, `V16__fecha_reembolso.sql` la fecha de reembolso de los pagos (`reembolsado_at`) y los índices del cierre de caja, y `V17__partidos_y_turnos_fijos.sql` los partidos de 4 jugadores y los turnos fijos (estado `CONFIRMADA`, `reservas.tipo` y `turno_fijo_id`, tablas `reserva_jugadores`, `turnos_fijos` y `turno_fijo_jugadores`, y `pagos.jugador_id`). V16 completa los datos viejos con la fecha más cercana que hay (pedido del reembolso a MP, cobro o creación del pago) y pone `paid_at` a los cobros de MP que quedaron devueltos o por devolver sin haber pasado por `APROBADO`. Hibernate solo **valida** que las entidades coincidan con las tablas (`ddl-auto=validate`).
+PostgreSQL 16. El esquema lo crea Flyway en `src/main/resources/db/Migrations`: `V1__schema_inicial.sql` tiene el esquema completo (unifica las migraciones de desarrollo anteriores), `V2__stock_inicial_productos.sql` carga el stock inicial de pelotas y paletas, `V3__indice_mis_reservas.sql` agrega el índice del listado de reservas del cliente , `V4__politica_cancelacion.sql` agrega la política de reembolso a la configuración y `monto_reembolsado` a los pagos y `V5__reembolsos_pendientes_y_clave_idempotencia.sql` agrega el estado `REEMBOLSO_PENDIENTE`, `reembolso_solicitado_at` y `clave_idempotencia`,, `V6__stock_50_pelotas_y_paletas.sql` deja el stock en 50 pelotas y 50 paletas, `V7__precio_pelotas_y_paletas.sql` les pone precio de $5000 y `V8__whatsapp.sql` agrega el canal de notificaciones y la verificación del teléfono de los usuarios, la tabla `avisos_admin`, el recordatorio del turno y el tipo de código `VERIFY_PHONE`,, `V9__avisos_admin_activos.sql` el interruptor general de los avisos de cada ADMIN, `V10__preferencias_notificaciones.sql` el consentimiento de notificaciones del registro y los avisos que elige el cliente, `V11__celular_verificado_unico.sql` un índice único parcial (un celular verificado pertenece a una sola cuenta activa), `V12__topes_codigo_telefono.sql` la tabla `envios_codigo_telefono` para los topes de códigos por WhatsApp y `V13__NormalizarTelefonos` (migración **Java**, en `src/main/java/db/Migrations`) normaliza los teléfonos guardados antes de V8 con la misma regla que la app, sin tocar la verificación (los inválidos quedan en null),, `V14__indices_panel_reservas.sql` agrega índices para el listado del personal, `V15__bonificaciones.sql` el provider `BONIFICACION` y, en los pagos, quién los registró y el motivo,, `V16__fecha_reembolso.sql` la fecha de reembolso de los pagos (`reembolsado_at`) y los índices del cierre de caja, y `V17__partidos_y_turnos_fijos.sql` los partidos de 4 jugadores y los turnos fijos (estado `CONFIRMADA`, `reservas.tipo` y `turno_fijo_id`, tablas `reserva_jugadores`, `turnos_fijos` y `turno_fijo_jugadores`, y `pagos.jugador_id`). Las tres siguientes arman el **perfil de cada rol** colgado de la cuenta: `V18__suscripciones_en_clientes.sql` pasa `recibe_recordatorios` y `recibe_promociones` de `usuarios` a `clientes` (con sus valores), `V19__perfil_admin.sql` renombra `avisos_admin` a `admins` y crea la fila de cada ADMIN que no la tenía (con todos los avisos, lo mismo que significaba no tenerla) y `V20__perfiles_empleado_y_profesor.sql` crea `empleados` y `profesores` con la fila de cada usuario con ese rol. V16 completa los datos viejos con la fecha más cercana que hay (pedido del reembolso a MP, cobro o creación del pago) y pone `paid_at` a los cobros de MP que quedaron devueltos o por devolver sin haber pasado por `APROBADO`. Hibernate solo **valida** que las entidades coincidan con las tablas (`ddl-auto=validate`).
 
 ## Cómo funcionan las migraciones
 
@@ -13,7 +13,10 @@ PostgreSQL 16. El esquema lo crea Flyway en `src/main/resources/db/Migrations`: 
 ## Diagrama de relaciones
 
 ```
-usuarios 1──1 clientes            (clientes.usuario_id, UNIQUE)
+usuarios 1──1 clientes            (perfil del CLIENTE; clientes.usuario_id, UNIQUE)
+usuarios 1──1 admins              (perfil del ADMIN; admins.usuario_id es la PK)
+usuarios 1──1 empleados           (perfil del EMPLEADO; empleados.usuario_id es la PK)
+usuarios 1──1 profesores          (perfil del PROFESOR; profesores.usuario_id es la PK)
 usuarios 1──1 refresh_tokens      (refresh_tokens.usuario_id, UNIQUE)
 usuarios 1──N verification_tokens
 usuarios 1──N reservas            (reservas.cliente_id  = para quién es)
@@ -40,8 +43,6 @@ configuracion 1──N dias           (dias.configuracion_general_id)
 | canal_notificaciones | varchar(20) | CHECK: EMAIL, WHATSAPP (V8, por defecto EMAIL) |
 | acepta_whatsapp_at | timestamp | cuándo aceptó recibir WhatsApp (V8) |
 | notificaciones_aceptadas_at | timestamp | cuándo aceptó recibir notificaciones en el registro (V10) |
-| recibe_recordatorios | boolean | el cliente quiere el recordatorio del turno (V10, true) |
-| recibe_promociones | boolean | el cliente quiere novedades y promociones (V10, false) |
 | password_hash | varchar(255) | null en usuarios de Google |
 | terms_accepted | boolean | |
 | terms_accepted_at | timestamp | también se usa como fecha de alta |
@@ -49,6 +50,8 @@ configuracion 1──N dias           (dias.configuracion_general_id)
 | enabled | boolean | false = cuenta desactivada (la verificación está en `email_verificado`) |
 | rol | varchar(20) | CHECK: CLIENTE, EMPLEADO, ADMIN, PROFESOR |
 | provider | varchar(20) | CHECK: LOCAL, GOOGLE |
+
+La cuenta es común a todos los roles. Lo propio de cada rol está en su perfil (`clientes`, `admins`, `empleados`, `profesores`): cada usuario tiene solo el de su rol (`Usuario.asignarRol` lo crea al dar de alta la cuenta o cambiarle el rol, y borra el del rol anterior).
 
 ### `clientes` (`ClienteProfile`)
 | Columna | Tipo | Notas |
@@ -59,6 +62,14 @@ configuracion 1──N dias           (dias.configuracion_general_id)
 | posicion | varchar(10) | `Drive`, `Reves`, `Ambos` |
 | categoria_actualizada_at | timestamp | cuándo se cargó la categoría (empieza el plazo de 24 h) |
 | categoria_modificada | boolean | el cliente ya usó su único cambio de categoría |
+| recibe_recordatorios | boolean | el cliente quiere el recordatorio del turno (V10 en usuarios, V18 acá; true) |
+| recibe_promociones | boolean | el cliente quiere novedades y promociones (V10 en usuarios, V18 acá; false) |
+
+### `admins` (`AdminProfile`)
+Perfil del ADMIN: qué avisos de reservas recibe (V8 como `avisos_admin`, V19 la renombra). `usuario_id` PK y FK a usuarios; `activos` (interruptor general, V9), `reserva_confirmada`, `saldo_cobrado`, `reserva_cancelada`, `reembolso_manual` (boolean, true por defecto). Si un ADMIN no tiene fila, recibe todos.
+
+### `empleados` (`EmpleadoProfile`) y `profesores` (`ProfesorProfile`) — V20
+Perfil del EMPLEADO y del PROFESOR: por ahora solo `usuario_id` (PK y FK a usuarios).
 
 ### `configuracion` (`Configuracion`)
 Una sola fila (id = 1): `minutos_reembolso_total int` (1440) y `minutos_reembolso_senia int` (720) para la política de cancelación, `recordatorio_activo boolean` (true) y `minutos_recordatorio int` (120, entre 15 y 1440) para el recordatorio del turno, `monto_reserva numeric(10,2)`, `monto_x_media_hora numeric(10,2)`, `porcentaje_senia numeric(5,2)`, `duracion_minima_turno int`, `duracion_maxima_turno int`.
@@ -165,9 +176,6 @@ Los 4 jugadores de un partido.
 
 ### `envios_codigo_telefono` (`EnvioCodigoTelefono`)
 Un registro por cada código de verificación mandado por WhatsApp (V12): `usuario_id` FK, `telefono`, `enviado_at`. Se usa para los topes por usuario y por número en 24 h; los registros de más de 48 h se borran al mandar el siguiente. Índices por `(usuario_id, enviado_at)` y `(telefono, enviado_at)`.
-
-### `avisos_admin` (`AvisosAdmin`)
-Qué avisos de reservas recibe cada ADMIN (V8). `usuario_id` PK y FK a usuarios; `activos` (interruptor general, V9), `reserva_confirmada`, `saldo_cobrado`, `reserva_cancelada`, `reembolso_manual` (boolean, true por defecto). Sin fila: recibe todos.
 
 ### `verification_tokens` (`VerificationToken`)
 | Columna | Tipo | Notas |

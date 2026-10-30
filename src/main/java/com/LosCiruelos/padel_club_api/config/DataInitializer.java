@@ -135,8 +135,8 @@ public class DataInitializer implements ApplicationRunner {
                                         true);
                         // los clientes necesitan su perfil de jugador y el celular verificado para poder reservar
                         usuarioPrueba.setTelefonoVerificado(true);
-                        usuarioService.save(usuarioPrueba);
-                        clienteProfileService.crearClienteProfile(usuarioPrueba, Categoria.Cuarta, Posicion.Drive);
+                        clienteProfileService.cargarDatosDeJugador(usuarioPrueba, Categoria.Cuarta, Posicion.Drive);
+                        usuarioService.save(usuarioPrueba); // con su perfil, por cascada
                         log.info("User creado con email: {}", USER_PRUEBA_EMAIL);
                 } else {
                         log.info("User ya existe, no se crea uno nuevo.");

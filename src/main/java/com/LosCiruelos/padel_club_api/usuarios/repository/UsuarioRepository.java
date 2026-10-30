@@ -19,6 +19,8 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 public interface UsuarioRepository extends JpaRepository<Usuario, Long>, JpaSpecificationExecutor<Usuario> {
     Optional<Usuario> findByEmail(String email);
 
+    /** Con el perfil del ADMIN en la misma consulta (los avisos que elige cada uno). */
+    @EntityGraph(attributePaths = { "adminProfile" })
     List<Usuario> findByRolAndEnabledTrue(Role rol);
 
     /** Página con el perfil de jugador en la misma consulta (búsqueda de clientes del personal). */

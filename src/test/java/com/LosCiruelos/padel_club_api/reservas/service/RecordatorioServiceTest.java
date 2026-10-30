@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
@@ -51,7 +52,9 @@ class RecordatorioServiceTest {
         config = TestData.configuracion();
 
         // turno a las 11:30 (AHORA = 10:00): dentro de las 2 h; señada hace un día
-        reserva = reserva(10L, usuario(1L, Role.CLIENTE), EstadoReserva.SEÑADA, "15000");
+        Usuario cliente = usuario(1L, Role.CLIENTE);
+        TestData.perfilDeCliente(cliente); // recibe recordatorios (por defecto)
+        reserva = reserva(10L, cliente, EstadoReserva.SEÑADA, "15000");
         reserva.setFechaReserva(AHORA.toLocalDate());
         reserva.setHoraInicio(LocalTime.of(11, 30));
         reserva.setHoraFin(LocalTime.of(13, 0));
@@ -115,10 +118,31 @@ class RecordatorioServiceTest {
 
     @Test
     void siElClienteNoQuiereRecordatoriosNoSeManda() {
-        reserva.getCliente().setRecibeRecordatorios(false);
+        reserva.getCliente().getClienteProfile().setRecibeRecordatorios(false);
 
         assertThat(servicio(AHORA).enviar(10L)).isFalse();
         verify(eventos, never()).publishEvent(any());
+    }
+
+    @Test
+    void enUnPartidoSoloLoRecibenLosJugadoresClientes() {
+        Usuario cliente = usuario(2L, Role.CLIENTE);
+        TestData.perfilDeCliente(cliente);
+        Usuario empleado = usuario(3L, Role.EMPLEADO);
+        empleado.asignarRol(Role.EMPLEADO);
+        Reserva partido = TestData.partido(20L, usuario(9L, Role.ADMIN), cliente, "15000");
+        partido.getJugadores().get(1).setUsuario(empleado); // un EMPLEADO juega en vez de un invitado
+        partido.setFechaReserva(AHORA.toLocalDate());
+        partido.setHoraInicio(LocalTime.of(11, 30));
+        partido.setHoraFin(LocalTime.of(13, 0));
+        partido.setCreatedAt(AHORA.minusDays(1));
+        when(reservaService.bloquear(20L)).thenReturn(partido);
+
+        assertThat(servicio(AHORA).enviar(20L)).isTrue();
+
+        ArgumentCaptor<AvisoReserva> aviso = ArgumentCaptor.forClass(AvisoReserva.class);
+        verify(eventos).publishEvent(aviso.capture()); // uno solo: los invitados no tienen cuenta
+        assertThat(aviso.getValue().cliente().email()).isEqualTo(cliente.getEmail());
     }
 
     @Test

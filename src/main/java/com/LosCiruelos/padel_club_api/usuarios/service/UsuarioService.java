@@ -95,19 +95,20 @@ public class UsuarioService {
             Boolean termsAccepted, Boolean emailVerificado, Boolean enabled) {
         String telefonoNormalizado = Telefonos.normalizar(telefono);
         validarCelularDisponible(telefonoNormalizado, null);
-        return usuarioRepository.save(Usuario.builder()
+        Usuario usuario = Usuario.builder()
                 .email(email)
                 .nombre(capitalizar(nombre))
                 .apellido(capitalizar(apellido))
                 .telefono(telefonoNormalizado)
                 .passwordHash(password != null ? passwordEncoder.encode(password) : null)
-                .rol(rol)
                 .provider(provider)
                 .termsAccepted(termsAccepted)
                 .termsAcceptedAt(reloj.ahora())
                 .emailVerificado(emailVerificado)
                 .enabled(enabled)
-                .build());
+                .build();
+        usuario.asignarRol(rol); // con el perfil de su rol, que se guarda por cascada
+        return usuarioRepository.save(usuario);
     }
 
     /** El usuario de la sesión (por el email del token). */

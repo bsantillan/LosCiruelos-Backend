@@ -1,16 +1,21 @@
-package com.LosCiruelos.padel_club_api.notificaciones.entity;
+package com.LosCiruelos.padel_club_api.usuarios.entity;
 
+import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 
-class AvisosAdminTest {
+/** Los avisos que elige el ADMIN en su perfil. */
+class AdminProfileTest {
+
+    private final Usuario admin = usuario(1L, Role.ADMIN);
 
     @Test
     void sinElegirNadaRecibeTodosLosAvisosDelAdmin() {
-        AvisosAdmin avisos = AvisosAdmin.porDefecto(1L);
+        AdminProfile avisos = AdminProfile.porDefecto(admin);
 
         assertThat(avisos.quiere(TipoAviso.RESERVA_CONFIRMADA)).isTrue();
         assertThat(avisos.quiere(TipoAviso.SALDO_COBRADO)).isTrue();
@@ -21,7 +26,7 @@ class AvisosAdminTest {
 
     @Test
     void losAvisosDelClienteNoLeLlegan() {
-        AvisosAdmin avisos = AvisosAdmin.porDefecto(1L);
+        AdminProfile avisos = AdminProfile.porDefecto(admin);
 
         assertThat(avisos.quiere(TipoAviso.RECORDATORIO)).isFalse();
         assertThat(avisos.quiere(TipoAviso.CANCELADA_POR_CLUB)).isFalse();
@@ -29,7 +34,7 @@ class AvisosAdminTest {
 
     @Test
     void elReembolsoRealizadoSigueLoQueEligioParaLasCancelaciones() {
-        AvisosAdmin avisos = AvisosAdmin.porDefecto(1L);
+        AdminProfile avisos = AdminProfile.porDefecto(admin);
         avisos.elegir(null, true, true, false, true);
 
         assertThat(avisos.quiere(TipoAviso.RESERVA_CANCELADA)).isFalse();
@@ -39,7 +44,7 @@ class AvisosAdminTest {
 
     @Test
     void pausarTodoConservaLoQueEligioDeCadaAviso() {
-        AvisosAdmin avisos = AvisosAdmin.porDefecto(1L);
+        AdminProfile avisos = AdminProfile.porDefecto(admin);
         avisos.elegir(false, false, true, true, true);
 
         assertThat(avisos.quiere(TipoAviso.SALDO_COBRADO)).isFalse();
@@ -50,5 +55,14 @@ class AvisosAdminTest {
         assertThat(avisos.getActivos()).isFalse();
         avisos.elegir(true, false, true, true, true);
         assertThat(avisos.quiere(TipoAviso.SALDO_COBRADO)).isTrue();
+    }
+
+    @Test
+    void sinPerfilTodaviaRecibeTodosLosAvisos() {
+        assertThat(admin.getAdminProfile()).isNull();
+
+        assertThat(admin.avisosAdmin().quiere(TipoAviso.RESERVA_CONFIRMADA)).isTrue();
+        assertThat(admin.avisosAdmin().quiere(TipoAviso.REEMBOLSO_MANUAL)).isTrue();
+        assertThat(admin.getAdminProfile()).isNull(); // leerlo no le crea el perfil
     }
 }

@@ -68,4 +68,18 @@ class ClienteProfileTest {
                 .isInstanceOf(CategoriaException.class)
                 .hasMessage("El período para modificar tu categoría expiró. Contactá al club para realizar cambios.");
     }
+
+    @Test
+    void elClienteEligeSusAvisosOpcionales() {
+        ClienteProfile perfil = ClienteProfile.builder().usuario(cliente).build();
+        cliente.setClienteProfile(perfil);
+        // por defecto recibe recordatorios y no promociones
+        assertThat(cliente.recibeRecordatorios()).isTrue();
+        assertThat(cliente.recibePromociones()).isFalse();
+
+        perfil.elegirSuscripciones(false, true);
+
+        assertThat(cliente.recibeRecordatorios()).isFalse();
+        assertThat(cliente.recibePromociones()).isTrue();
+    }
 }

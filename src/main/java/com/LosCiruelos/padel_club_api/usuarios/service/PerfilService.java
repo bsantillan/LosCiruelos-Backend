@@ -63,13 +63,13 @@ public class PerfilService {
 
             perfil = clienteProfileService.findByUsuario(usuario);
             if (perfil == null) {
-                // cliente sin perfil de jugador (datos viejos): se crea vacío y se carga ahora
-                perfil = clienteProfileService.crearClienteProfile(usuario, null, null);
+                // cliente sin perfil de jugador (datos viejos): se le crea vacío y se carga ahora
+                usuario.asignarRol(Role.CLIENTE);
+                perfil = usuario.getClienteProfile();
             }
 
             // solo se controla la categoría si efectivamente cambia
-            perfil.cambiarCategoria(req.getCategoria(), ahora);
-            perfil.setPosicion(req.getPosicion());
+            perfil.cargarDatosDeJugador(req.getCategoria(), req.getPosicion(), ahora);
         } else if (req.getPosicion() != null || req.getCategoria() != null) {
             throw new IllegalArgumentException("Solo los usuarios con rol CLIENTE tienen categoría y posición.");
         }

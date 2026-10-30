@@ -12,11 +12,10 @@ import com.LosCiruelos.padel_club_api.notificaciones.dto.response.AvisosAdminRes
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.NotificacionesResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.PruebaAvisoResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.SuscripcionesResponse;
-import com.LosCiruelos.padel_club_api.notificaciones.entity.AvisosAdmin;
+import com.LosCiruelos.padel_club_api.usuarios.entity.AdminProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.usuarios.exception.PerfilIncompletoException;
-import com.LosCiruelos.padel_club_api.notificaciones.repository.AvisosAdminRepository;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva.Destinatario;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
@@ -40,7 +39,6 @@ public class NotificacionesService {
     private final UsuarioService usuarioService;
     private final TelefonoService telefonoService;
     private final ClienteProfileService clienteProfileService;
-    private final AvisosAdminRepository avisosAdminRepository;
     private final AvisosService avisosService;
     private final WhatsAppServiceFactory whatsApp;
     private final NotificacionesMapper notificacionesMapper;
@@ -98,7 +96,8 @@ public class NotificacionesService {
         if (!clienteProfileService.perfilCompleto(cliente)) {
             throw new PerfilIncompletoException("Completá tu perfil y verificá tu celular para elegir tus avisos.");
         }
-        cliente.elegirSuscripciones(req.getRecordatorios(), req.getPromociones());
+        // el perfil se guarda por cascada al terminar la transacción
+        cliente.getClienteProfile().elegirSuscripciones(req.getRecordatorios(), req.getPromociones());
         return notificacionesMapper.aSuscripciones(cliente, true);
     }
 
@@ -106,19 +105,19 @@ public class NotificacionesService {
 
     @Transactional(readOnly = true)
     public AvisosAdminResponse avisosAdmin(String email) {
-        Usuario admin = usuario(email);
-        return notificacionesMapper.aAvisosAdmin(avisosAdminRepository.findById(admin.getId())
-                .orElse(AvisosAdmin.porDefecto(admin.getId())));
+        return notificacionesMapper.aAvisosAdmin(usuario(email).avisosAdmin());
     }
 
     @Transactional
     public AvisosAdminResponse actualizarAvisosAdmin(String email, AvisosAdminRequest req) {
         Usuario admin = usuario(email);
-        AvisosAdmin avisos = avisosAdminRepository.findById(admin.getId())
-                .orElse(AvisosAdmin.porDefecto(admin.getId()));
-        avisos.elegir(req.getActivos(), req.getReservaConfirmada(), req.getSaldoCobrado(), req.getReservaCancelada(),
+        if (admin.getAdminProfile() == null) {
+            admin.setAdminProfile(AdminProfile.porDefecto(admin));
+        }
+        AdminProfile perfil = admin.getAdminProfile(); // se guarda por cascada al terminar la transacción
+        perfil.elegir(req.getActivos(), req.getReservaConfirmada(), req.getSaldoCobrado(), req.getReservaCancelada(),
                 req.getReembolsoManual());
-        return notificacionesMapper.aAvisosAdmin(avisosAdminRepository.save(avisos));
+        return notificacionesMapper.aAvisosAdmin(perfil);
     }
 
     /** Manda un aviso de ejemplo al ADMIN por su canal, para comprobar que le llegan. */

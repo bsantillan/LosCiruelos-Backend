@@ -76,15 +76,6 @@ public class Usuario {
     @Column(name = "notificaciones_aceptadas_at")
     private LocalDateTime notificacionesAceptadasAt;
 
-    // Avisos opcionales del cliente. Las cancelaciones se avisan siempre.
-    @Builder.Default
-    @Column(name = "recibe_recordatorios", nullable = false)
-    private Boolean recibeRecordatorios = true;
-
-    @Builder.Default
-    @Column(name = "recibe_promociones", nullable = false)
-    private Boolean recibePromociones = false;
-
     // =========================
     // AUTH
     // =========================
@@ -118,11 +109,42 @@ public class Usuario {
     private AuthProvider provider = AuthProvider.LOCAL;
 
     // =========================
-    // ClienteProfile
+    // PERFIL DE CADA ROL
     // =========================
 
     @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private ClienteProfile clienteProfile;
+
+    @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private AdminProfile adminProfile;
+
+    @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private EmpleadoProfile empleadoProfile;
+
+    @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private ProfesorProfile profesorProfile;
+
+    /**
+     * Cambia el rol y deja solo el perfil de ese rol: le crea el suyo si no lo tiene (vacío;
+     * los datos del jugador se cargan aparte) y saca los de los otros roles. Los perfiles se
+     * guardan y se borran por cascada con la cuenta.
+     */
+    public void asignarRol(Role nuevo) {
+        rol = nuevo;
+        clienteProfile = nuevo != Role.CLIENTE ? null
+                : clienteProfile != null ? clienteProfile : ClienteProfile.builder().usuario(this).build();
+        adminProfile = nuevo != Role.ADMIN ? null
+                : adminProfile != null ? adminProfile : AdminProfile.porDefecto(this);
+        empleadoProfile = nuevo != Role.EMPLEADO ? null
+                : empleadoProfile != null ? empleadoProfile : EmpleadoProfile.builder().usuario(this).build();
+        profesorProfile = nuevo != Role.PROFESOR ? null
+                : profesorProfile != null ? profesorProfile : ProfesorProfile.builder().usuario(this).build();
+    }
+
+    /** Los avisos que elige el ADMIN; sin perfil todavía, recibe todos. */
+    public AdminProfile avisosAdmin() {
+        return adminProfile != null ? adminProfile : AdminProfile.porDefecto(this);
+    }
 
     /** Nombre, apellido y celular verificado con el código de WhatsApp (igual que el mail). */
     public boolean datosPersonalesCompletos() {
@@ -147,9 +169,16 @@ public class Usuario {
         canalNotificaciones = canal;
     }
 
-    /** Avisos opcionales del cliente (las cancelaciones se avisan siempre). */
-    public void elegirSuscripciones(Boolean recordatorios, Boolean promociones) {
-        recibeRecordatorios = recordatorios;
-        recibePromociones = promociones;
+    /**
+     * Si le llega el recordatorio del turno: solo al cliente que lo eligió en su perfil. El resto
+     * de los roles (por ejemplo, un EMPLEADO que juega un partido) no lo recibe.
+     */
+    public boolean recibeRecordatorios() {
+        return clienteProfile != null && Boolean.TRUE.equals(clienteProfile.getRecibeRecordatorios());
+    }
+
+    /** Si recibe novedades y promociones: solo el cliente que las eligió. */
+    public boolean recibePromociones() {
+        return clienteProfile != null && Boolean.TRUE.equals(clienteProfile.getRecibePromociones());
     }
 }

@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.AvisosAdminResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.NotificacionesResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.SuscripcionesResponse;
-import com.LosCiruelos.padel_club_api.notificaciones.entity.AvisosAdmin;
+import com.LosCiruelos.padel_club_api.usuarios.entity.AdminProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 
@@ -25,11 +25,10 @@ public class NotificacionesMapper {
 
     /** Las cancelaciones se avisan siempre; {@code editable} es si tiene el perfil completo. */
     public SuscripcionesResponse aSuscripciones(Usuario usuario, boolean editable) {
-        return new SuscripcionesResponse(true, Boolean.TRUE.equals(usuario.getRecibeRecordatorios()),
-                Boolean.TRUE.equals(usuario.getRecibePromociones()), editable);
+        return new SuscripcionesResponse(true, usuario.recibeRecordatorios(), usuario.recibePromociones(), editable);
     }
 
-    public AvisosAdminResponse aAvisosAdmin(AvisosAdmin avisos) {
+    public AvisosAdminResponse aAvisosAdmin(AdminProfile avisos) {
         return new AvisosAdminResponse(avisos.getActivos(), avisos.getReservaConfirmada(), avisos.getSaldoCobrado(),
                 avisos.getReservaCancelada(), avisos.getReembolsoManual());
     }

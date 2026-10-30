@@ -1,6 +1,5 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
-import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileRepository;
 import jakarta.persistence.criteria.Predicate;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.ClienteBusquedaResponse;
@@ -50,7 +49,6 @@ public class UsuarioAdminService {
     private final ClienteProfileService clienteProfileService;
     private final UsuarioService usuarioService;
     private final UsuarioRepository usuarioRepository;
-    private final ClienteProfileRepository clienteProfileRepository;
     private final RefreshTokenService refreshTokenService;
     private final VerificationService verificationService;
     private final UsuarioMapper usuarioMapper;
@@ -77,8 +75,7 @@ public class UsuarioAdminService {
                 request.getRol(), AuthProvider.LOCAL, true, false, true); // habilitado, email sin verificar
 
         if (request.getRol() == Role.CLIENTE) {
-            clienteProfileService.crearClienteProfile(
-                    usuario, request.getCategoria(), request.getPosicion());
+            clienteProfileService.cargarDatosDeJugador(usuario, request.getCategoria(), request.getPosicion());
         }
 
         try {
@@ -105,31 +102,20 @@ public class UsuarioAdminService {
         if (usuario.getRol() == Role.ADMIN || request.getRol() == Role.ADMIN) {
             throw new IllegalArgumentException("Los administradores no se editan desde este endpoint");
         }
-        Role rolAnterior = usuario.getRol();
-
         usuario = usuarioService.updateUsuario(
                 usuario, request.getNombre(), request.getApellido(), request.getTelefono());
 
-        usuario.setRol(request.getRol());
-        usuarioRepository.save(usuario);
-
-        ClienteProfile perfil = null;
-
-        if (rolAnterior == Role.CLIENTE && request.getRol() != Role.CLIENTE) {
-            usuario.setClienteProfile(null);
-            usuarioRepository.save(usuario);
-        } else if (request.getRol() == Role.CLIENTE) {
-            perfil = clienteProfileService.findByUsuario(usuario);
-
-            if (perfil == null) {
-                perfil = clienteProfileService.crearClienteProfile(
-                        usuario, request.getCategoria(), request.getPosicion());
-            } else {
-                perfil.setCategoria(request.getCategoria());
-                perfil.setPosicion(request.getPosicion());
-                perfil = clienteProfileRepository.save(perfil);
-            }
+        boolean teniaPerfilDeCliente = usuario.getClienteProfile() != null;
+        usuario.asignarRol(request.getRol()); // deja solo el perfil del rol nuevo (cascada con la cuenta)
+        ClienteProfile perfil = usuario.getClienteProfile();
+        if (perfil != null && teniaPerfilDeCliente) {
+            // el personal corrige la categoría sin el límite de cambios que tiene el cliente
+            perfil.setCategoria(request.getCategoria());
+            perfil.setPosicion(request.getPosicion());
+        } else if (perfil != null) {
+            clienteProfileService.cargarDatosDeJugador(usuario, request.getCategoria(), request.getPosicion());
         }
+        usuarioRepository.save(usuario);
 
         return usuarioMapper.aAdminResponse(usuario, perfil);
     }

@@ -129,7 +129,7 @@ Si cualquier paso falla, la transacción se revierte entera: no quedan reservas 
 - **Cobrar**: en el club, cada pago (o bonificación) se registra a nombre de un jugador (`jugadorId`). Cada jugador tiene su parte (total / 4) y la respuesta muestra cuánto pagó y cuánto debe; uno puede pagar por otros. El estado de la reserva sigue la tabla de abajo con lo pagado entre todos. No se paga online y no se le avisa al ADMIN de cada pago.
 - **Modificar** (`PUT /admin/reservas/partidos/{id}`): jugadores por posición (no se reemplaza a quien ya pagó), cancha, horario y productos, mientras no se haya jugado. El total no puede quedar por debajo de lo pagado.
 - **Cancelar**: solo el ADMIN, con `DELETE /admin/reservas/{id}/cancelar` (reembolso si hay plata). Se avisa a los jugadores registrados.
-- **Jugadores registrados**: ven el partido en "Mis reservas" y su detalle, sin poder pagarlo ni cancelarlo; reciben el recordatorio con lo que les falta de su parte.
+- **Jugadores registrados**: ven el partido en "Mis reservas" y su detalle, sin poder pagarlo ni cancelarlo; los que son clientes reciben el recordatorio (si lo tienen activado) con lo que les falta de su parte.
 - **Turno fijo** (`/admin/turnos-fijos`): el mismo partido todas las semanas (el día de `desde`). Bloquea el horario siempre, también en la disponibilidad. Un job crea cada hora los partidos de las próximas 4 semanas (cada uno se paga aparte); si una fecha está ocupada se informa y se reintenta.
   - **Baja de una fecha**: se cancela ese partido (o se registra la fecha como cancelada si todavía no se creó) y el horario queda libre ese día.
   - **Modificar**: los partidos futuros sin pagos se vuelven a crear con los datos nuevos; los que tienen pagos quedan como estaban.
@@ -168,9 +168,9 @@ Se recalcula siempre a partir de los pagos `APROBADO` (plata más bonificaciones
 - El front no replica la regla: cada `ReservaResponse` trae `cancelable`, `cancelableHasta`, `montoReembolso`, `reembolsoTotalHasta` y `reembolsoSeniaHasta`.
 
 ### 6 ter. Avisos por WhatsApp o mail
-- **A los ADMIN** (cada uno elige cuáles en `PUT /perfil/avisos`): reserva confirmada (llega por primera vez a la seña o al total), saldo cobrado, reserva cancelada (quién, cuánto se devuelve, qué queda para devolver a mano) y reembolso con problemas (pago `A_REEMBOLSAR`).
+- **A los ADMIN** (cada uno elige cuáles en `PUT /perfil/avisos`; se guarda en su perfil de ADMIN): reserva confirmada (llega por primera vez a la seña o al total), saldo cobrado, reserva cancelada (quién, cuánto se devuelve, qué queda para devolver a mano) y reembolso con problemas (pago `A_REEMBOLSAR`).
 - **Registro**: aceptar recibir notificaciones (`aceptarNotificacion`) es obligatorio; arrancan por mail. Al completar el perfil se valida el celular y ahí se puede cambiar a WhatsApp.
-- **El cliente elige** (con el perfil completo) si recibe recordatorios y novedades/promociones (`PUT /perfil/suscripciones`); las cancelaciones se le avisan siempre.
+- **El cliente elige** (con el perfil completo) si recibe recordatorios y novedades/promociones (`PUT /perfil/suscripciones`; se guarda en su perfil de jugador); las cancelaciones se le avisan siempre. Los recordatorios y las promociones son **solo para clientes**: un jugador de un partido que no es cliente (por ejemplo, un EMPLEADO) no recibe el recordatorio.
 - **Al cliente**: recordatorio 2 h antes del turno (configurable en `PUT /admin/configuracion/avisos`) y aviso cuando **el club** le cancela una reserva. Si cancela él, no se le avisa: ya lo ve en la página.
 - **Canal**: cada usuario elige mail o WhatsApp en su perfil (o con el checkbox del registro). WhatsApp se usa solo con el teléfono verificado por código; si no, o si WhatsApp falla, va por mail. Nunca por los dos.
 - Se envían después del commit y en otro hilo: no demoran la respuesta y un error de envío no afecta a la reserva. Detalle en [whatsapp.md](whatsapp.md).

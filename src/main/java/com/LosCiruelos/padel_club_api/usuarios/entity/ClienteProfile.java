@@ -43,6 +43,15 @@ public class ClienteProfile {
     @Column(name = "categoria_modificada", nullable = false)
     private Boolean categoriaModificada = false;
 
+    // Avisos opcionales del cliente. Las cancelaciones se avisan siempre.
+    @Builder.Default
+    @Column(name = "recibe_recordatorios", nullable = false)
+    private Boolean recibeRecordatorios = true;
+
+    @Builder.Default
+    @Column(name = "recibe_promociones", nullable = false)
+    private Boolean recibePromociones = false;
+
     /** Perfil de jugador completo: datos personales del usuario, categoría y posición. */
     public boolean estaCompleto() {
         return usuario.datosPersonalesCompletos() && categoria != null && posicion != null;
@@ -81,5 +90,20 @@ public class ClienteProfile {
             categoriaModificada = true;
         }
         categoria = nueva;
+    }
+
+    /**
+     * Categoría y posición que carga el cliente (en el registro o en su perfil): la categoría
+     * sigue las reglas de {@link #cambiarCategoria}.
+     */
+    public void cargarDatosDeJugador(Categoria categoria, Posicion posicion, LocalDateTime ahora) {
+        cambiarCategoria(categoria, ahora);
+        this.posicion = posicion;
+    }
+
+    /** Avisos opcionales del cliente (las cancelaciones se avisan siempre). */
+    public void elegirSuscripciones(Boolean recordatorios, Boolean promociones) {
+        recibeRecordatorios = recordatorios;
+        recibePromociones = promociones;
     }
 }

@@ -83,7 +83,7 @@ public class RecordatorioService {
         LocalDateTime desdeCuando = inicio.minusMinutes(config.getMinutosRecordatorio());
 
         boolean corresponde = Reserva.ESTADOS_CONFIRMADOS.contains(reserva.getEstado())
-                && (reserva.esPartido() || Boolean.TRUE.equals(reserva.getCliente().getRecibeRecordatorios()))
+                && (reserva.esPartido() || reserva.getCliente().recibeRecordatorios())
                 && reserva.getRecordatorioEnviadoAt() == null
                 && inicio.isAfter(ahora) && !desdeCuando.isAfter(ahora);
         // si la reserva se confirmó dentro de la ventana, el cliente recién reservó: no hace falta
@@ -109,7 +109,7 @@ public class RecordatorioService {
     private void avisarJugadores(Reserva reserva) {
         for (ReservaJugador jugador : reserva.getJugadores()) {
             if (jugador.getUsuario() == null
-                    || !Boolean.TRUE.equals(jugador.getUsuario().getRecibeRecordatorios())) {
+                    || !jugador.getUsuario().recibeRecordatorios()) {
                 continue;
             }
             BigDecimal debe = reserva.debeDe(jugador);

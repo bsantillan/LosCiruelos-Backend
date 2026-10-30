@@ -51,6 +51,18 @@ class UsuarioServiceTest {
     }
 
     @Test
+    void laCuentaNuevaSeCreaConElPerfilDeSuRol() {
+        when(repo.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Usuario empleado = usuarios.crearUsuario("e@test.com", "Eva", "Paz", null, "Clave123!",
+                Role.EMPLEADO, AuthProvider.LOCAL, true, true, true);
+
+        assertThat(empleado.getRol()).isEqualTo(Role.EMPLEADO);
+        assertThat(empleado.getEmpleadoProfile().getUsuario()).isSameAs(empleado);
+        assertThat(empleado.getClienteProfile()).isNull();
+    }
+
+    @Test
     void cambiarAUnCelularDeOtraCuentaActivaNoSePuede() {
         Usuario usuario = usuario(1L, Role.CLIENTE);
         when(repo.existeCelularVerificadoEnOtraCuentaActiva("5491161234567", 1L)).thenReturn(true);
