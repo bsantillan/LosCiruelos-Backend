@@ -30,7 +30,7 @@ Todo se escribe en **castellano rioplatense**: mensajes de error, textos de avis
 - Los tests de repositorio usan H2 con `spring.flyway.enabled=false`, `ddl-auto=create-drop` y `hibernate.dialect=org.hibernate.dialect.H2Dialect` (sin el dialecto de H2 fallan los CHECK que genera Hibernate).
 
 ## Arquitectura
-Paquetes **por dominio** (`usuarios`, `club`, `reservas`, `pagos`, `notificaciones`) más `common`, `config` y `security`. La reorganización se hace por etapas (ya están `reservas`, `pagos`, `club`, `usuarios` y `notificaciones`; el resumen del período y el recordatorio del turno quedaron dentro de `reservas`); falta la limpieza final de los paquetes transversales (`Config`, `Security`, `Exceptions`, `Handlers`, `Jobs` y lo que queda en `DTOs`). Lo nuevo va en el paquete de su dominio.
+Paquetes **por dominio** (`usuarios`, `club`, `reservas`, `pagos`, `notificaciones`) más `common`, `config` y `security`. Lo nuevo va en el paquete de su dominio. Los transversales: `common` (utilidades y `common/exception`: las excepciones genéricas y `GlobalExceptionHandler`), `config` (`AppConfig`, `DataInitializer`, `SwaggerConfig`) y `security` (`SecurityConfig`, `JWTFilter`, `JWTUtil` solo con el token de acceso; las sesiones son de `usuarios`: `RefreshTokenService`).
 
 Cada dominio se divide en subpaquetes por tipo de clase (nunca todo junto en la raíz del dominio):
 
@@ -44,6 +44,8 @@ reservas/
 ├── dto/
 │   ├── request/     lo que entra (validado con Bean Validation)
 │   └── response/    lo que sale (solo datos: sin from() ni lógica)
+├── exception/       excepciones propias del dominio (las genéricas, en common/exception)
+└── job/             tareas programadas (@Scheduled), que solo llaman a services
 ```
 
 El mapeo entidad → DTO va en la carpeta general **`mapper/`** (al lado de `common/`), un mapper por entidad (`ReservaMapper`, `PagoMapper`, `TurnoFijoMapper`, `CanchaMapper`, `ProductoMapper`, `ResumenMapper`, `ConfiguracionMapper`, `UsuarioMapper`, `NotificacionesMapper`…). Un mapper no consulta la base: lo que necesita (por ejemplo, los próximos partidos de un turno fijo) se lo pasa el service.
@@ -62,7 +64,7 @@ El mapeo entidad → DTO va en la carpeta general **`mapper/`** (al lado de `com
 3. **Reglas del negocio**: en las entidades (`Configuracion.senia`, `Configuracion.montoTurno`, `Reserva.recalcularEstado`, `Reserva.puedeVerla`, `Reserva.admitePagos`, `Reserva.expirarPagosPendientes`, `Pago.cambiarEstado`, `Pago.getMontoRetenido`, y los conjuntos de estados como `Pago.ESTADOS_DEVUELTOS`) o en clases de dominio chicas sin Spring (`PoliticaCancelacion`), para probarlas sin mocks.
 4. **Repository**: uno por raíz de agregado; las entidades hijas se guardan por cascada y sus consultas van en el repository de la raíz (las de `ReservaProducto` y el resumen del período están en `ReservaRepository`). No se crea un dominio, controller o repository nuevo para una sola consulta: va con el recurso que consulta (el resumen es `GET /admin/reservas/resumen`). Los filtros combinables van con Specifications (`ReservaSpecification`); una consulta que Spring Data no arma sola (Criteria con totales) va en un fragmento del repository: interfaz `XConsultas` + `XConsultasImpl`, y el repository extiende la interfaz (`reservaRepository.totalesParaPersonal(filtro)`). No dejar métodos sin uso.
 5. **DTOs**: solo datos. El mapeo se hace en los mappers de `mapper/`, nunca en los services ni con `from()` estáticos en los DTOs. Los requests se validan con Bean Validation y mensajes en castellano.
-6. **Transversal**: los avisos se publican como eventos y se envían después del commit (`AvisosListener`); los jobs (`ReservaJobs`) solo llaman a services.
+6. **Transversal**: los avisos se publican como eventos y se envían después del commit (`AvisosListener`); los jobs (`reservas/job/ReservaJobs`, `usuarios/job/SesionesJobs`) solo llaman a services.
 
 ### Utilidades obligatorias (`common`)
 Antes de escribir lógica, buscar si ya existe. **Si algo se repite dos veces, va a `common` o a un método de la entidad.**
