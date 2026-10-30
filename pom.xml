@@ -76,6 +76,13 @@
 			<scope>test</scope>
 		</dependency>
 
+		<!-- @DataJpaTest: consultas de los repositorios contra H2 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 		<!-- H2 para tests de integración sin PostgreSQL -->
 		<dependency>
 			<groupId>com.h2database</groupId>
@@ -220,9 +227,6 @@
 						</goals>
 						<configuration>
 							<excludes>
-								<exclude>**/Entities/**</exclude>
-								<exclude>**/DTOs/**</exclude>
-								<exclude>**/Entities/Enum/**</exclude>
 								<exclude>**/*Config*</exclude>
 								<exclude>**/*Application*</exclude>
 							</excludes>
@@ -239,9 +243,6 @@
 
 						<configuration>
 							<excludes>
-								<exclude>**/Entities/**</exclude>
-								<exclude>**/DTOs/**</exclude>
-								<exclude>**/Entities/Enum/**</exclude>
 								<exclude>**/*Config*</exclude>
 								<exclude>**/*Application*</exclude>
 							</excludes>

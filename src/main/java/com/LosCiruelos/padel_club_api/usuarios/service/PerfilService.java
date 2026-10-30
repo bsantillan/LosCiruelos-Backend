@@ -1,0 +1,106 @@
+package com.LosCiruelos.padel_club_api.usuarios.service;
+
+import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileRepository;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper.PartidosDelJugador;
+import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
+import com.LosCiruelos.padel_club_api.usuarios.dto.request.PerfilRequest;
+import com.LosCiruelos.padel_club_api.usuarios.dto.response.PerfilResponse;
+import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
+import com.LosCiruelos.padel_club_api.common.exception.ValidationException;
+import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class PerfilService {
+
+    private final UsuarioService usuarioService;
+    private final ClienteProfileService clienteProfileService;
+    private final ClienteProfileRepository clienteProfileRepository;
+    private final ReservaConsultaService reservaConsultaService;
+    private final RefreshTokenService refreshTokenService;
+    private final UsuarioMapper usuarioMapper;
+    private final Reloj reloj;
+
+    @Transactional(readOnly = true)
+    public PerfilResponse getPerfil(String email) {
+        Usuario usuario = usuario(email);
+        ClienteProfile perfil = usuario.getRol() == Role.CLIENTE ? clienteProfileService.findByUsuario(usuario) : null;
+        return buildPerfilResponse(usuario, perfil);
+    }
+
+    /**
+     * Valida todo antes de modificar nada y corre en una transacción: si algo falla,
+     * no queda ningún dato a medio guardar.
+     */
+    @Transactional
+    public PerfilResponse updatePerfil(PerfilRequest req, String email) {
+        Usuario usuario = usuario(email);
+        LocalDateTime ahora = reloj.ahora();
+        ClienteProfile perfil = null;
+
+        if (usuario.getRol() == Role.CLIENTE) {
+            Map<String, String> errores = new LinkedHashMap<>();
+            if (req.getPosicion() == null)
+                errores.put("posicion", "La posición es obligatoria.");
+            if (req.getCategoria() == null)
+                errores.put("categoria", "La categoría es obligatoria.");
+            if (!errores.isEmpty())
+                throw new ValidationException(errores);
+
+            perfil = clienteProfileService.findByUsuario(usuario);
+            if (perfil == null) {
+                // cliente sin perfil de jugador (datos viejos): se crea vacío y se carga ahora
+                perfil = clienteProfileService.crearClienteProfile(usuario, null, null);
+            }
+
+            // solo se controla la categoría si efectivamente cambia
+            perfil.cambiarCategoria(req.getCategoria(), ahora);
+            perfil.setPosicion(req.getPosicion());
+        } else if (req.getPosicion() != null || req.getCategoria() != null) {
+            throw new IllegalArgumentException("Solo los usuarios con rol CLIENTE tienen categoría y posición.");
+        }
+
+        usuario = usuarioService.updateUsuario(usuario, req.getNombre(), req.getApellido(), req.getTelefono());
+        if (perfil != null) {
+            perfil = clienteProfileRepository.save(perfil);
+        }
+        return buildPerfilResponse(usuario, perfil);
+    }
+
+    /** Desactiva la cuenta del cliente y cierra todas sus sesiones. */
+    @Transactional
+    public void desactivarPerfil(String email) {
+        Usuario usuario = usuario(email);
+        usuarioService.desactivarUsuario(usuario);
+        refreshTokenService.borrarTodos(usuario);
+    }
+
+    private PerfilResponse buildPerfilResponse(Usuario usuario, ClienteProfile perfil) {
+        PartidosDelJugador partidos = new PartidosDelJugador(
+                (int) reservaConsultaService.contarPorEstado(usuario, EstadoReserva.COMPLETADA),
+                reservaConsultaService.countPartidosEsteMes(usuario.getId(), EstadoReserva.COMPLETADA),
+                reservaConsultaService.ultimaReservaCompletada(usuario)
+                        .map(r -> Math.toIntExact(ChronoUnit.DAYS.between(r.getFechaReserva(), reloj.hoy())))
+                        .orElse(null));
+        return usuarioMapper.aPerfil(usuario, perfil, clienteProfileService.perfilCompleto(usuario), partidos,
+                reloj.ahora());
+    }
+
+    private Usuario usuario(String email) {
+        return usuarioService.autenticado(email);
+    }
+}

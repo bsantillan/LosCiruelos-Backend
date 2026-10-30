@@ -5,29 +5,30 @@ Paquete raíz: `com.LosCiruelos.padel_club_api` (`src/main/java/com/LosCiruelos/
 ## Capas y paquetes
 
 ```
-Controller ──► Services ──► Repository ──► PostgreSQL
-    │              │
-    │              ├── Services/Email  (EmailService + factory)
-    │              └── Services/Pagos  (PaymentService + factory → Mercado Pago)
-    │
-    └── DTOs (Requests / Responses)       Handlers/GlobalExceptionHandler
+<dominio>/controller ──► <dominio>/service ──► <dominio>/repository ──► PostgreSQL
+                              │
+                              ├── mapper/  (entidad → DTO)          common/  (utilidades)
+                              ├── pagos/payment ──► pagos/mercadopago
+                              └── publica AvisoReserva ──► notificaciones/aviso/AvisosListener
+                                                           (después del commit) ──► email/ o whatsapp/
+
+common/exception (errores y GlobalExceptionHandler)    security (JWT, roles por prefijo)    <dominio>/job (tareas programadas)
 ```
 
 | Paquete | Responsabilidad |
 |---|---|
-| `Controller` | Endpoints REST: `AuthController`, `PerfilController`, `AdminController`, `CanchaController`, `ReservaController`, `PagoController` |
-| `Services` | Lógica de negocio: `AuthService`, `VerificationService`, `PasswordResetService`, `UsuarioService`, `ClienteProfileService`, `PerfilService`, `AdminService`, `CanchaService`, `ConfiguracionService` (horarios, precio, seña), `ProductoService` (catálogo y stock), `ReservaService` (creación, cancelación, expiración), `PagoService` |
-| `Services/Email` | `EmailService` (interfaz), `GmailEmailService` (bean `"gmail"`), `EmailServiceFactory`, `EnvioPostCommit` (envía después del commit) |
-| `Services/Pagos` | `PaymentService` (interfaz), `MercadoPagoPaymentService` (bean `"mercadopago"`), `PaymentServiceFactory`, `MercadoPagoWebhookValidator` |
-| `Repository` | Repositorios Spring Data JPA (incluye queries JPQL de solapamiento y pendientes en `ReservaRepository`) |
-| `Entities` / `Entities/Enum` | Entidades JPA y enums de dominio |
-| `DTOs` | Objetos de request/response; `PaymentResult` (resultado normalizado del proveedor de pagos) |
-| `Security` | `SecurityConfig`, `JWTFilter`, `JWTUtil`, `RateLimitFilter`, `UsuarioPrincipal`, `GoogleTokenVerifier`, `PasswordValidator` |
-| `Specifications` | `UsuarioSpecification`: filtros dinámicos para el listado de usuarios del admin |
-| `Handlers` | `GlobalExceptionHandler`: traduce excepciones a respuestas HTTP |
-| `Exceptions` | Excepciones de negocio |
-| `Jobs` | `ReservaJobs` (expiración y reservas completadas) |
-| `Config` | `AppConfig` (`Clock`, caché), `DataInitializer`, `MercadoPagoConfiguration`, `SwaggerConfig` |
+| `reservas` (dominio) | Reservas, partidos y turnos fijos, en subpaquetes: `controller` (`ReservaController`: `/reservas`, solo el cliente; `ReservaAdminController`: `/admin/reservas`, el personal, también el alta y la modificación de partidos; `TurnoFijoController`: `/admin/turnos-fijos`), `service` (`ReservaService` (ciclo de vida de reservas normales y partidos), `ReservaConsultaService` (consultas, listado del personal y resumen del período, que arma `ResumenMapper`), `JugadoresService` (valida y asigna los jugadores), `TurnoFijoService` (también crea los partidos de cada semana), `CancelacionService`, `PoliticaCancelacion`, `DisponibilidadService`, `StockService`, `RecordatorioService`: el recordatorio antes del turno), `repository` (`ReservaRepository`, también con las consultas de alquileres y del resumen y sus proyecciones `TurnosDelPeriodo`, `CobrosDelPeriodo`, `EntradasDeCaja` y `ProductoVendido`; suma el fragmento `ReservaConsultas` + `ReservaConsultasImpl` con los totales del listado; `TurnoFijoRepository`; `ReservaSpecification`, `FiltroReservas`, `UsoAlquiler`), `entity` y `entity/enums`, `dto/request` y `dto/response` |
+| `pagos` (dominio) | `controller` (`PagoController`: `/pagos`, pagos online del cliente; `MercadoPagoWebhookController`: `/pagos/notificacion`; `CobroAdminController`: `/admin/reservas/{id}/cobros/…` y `/bonificacion`, el personal), `service` (`PagoOnlineService`: iniciar, Brick y webhook; `CobroService`: pagos en el club y bonificaciones; `ReembolsoService`: reembolsos y reintentos; `EstadosDePago`: lo que comparten los tres), `repository`, `entity` y `entity/enums` (`Pago`, `EstadoPago`), `dto/request`, `dto/response`, `payment` (contrato genérico de proveedores: `PaymentService`, `PaymentServiceFactory`, `PaymentProvider`, `PaymentResult`, `EstadoPayment`) y `mercadopago` (`MercadoPagoPaymentService`, `MercadoPagoWebhookValidator`, `MercadoPagoConfiguration`: el token de acceso al arrancar) |
+| `club` (dominio) | Canchas, configuración del club y catálogo de productos: `controller` (`CanchaController`: `/canchas`, público; `ProductoController`: `/productos`, público; `ProductoAdminController`: `/admin/configuracion/productos`; `ConfiguracionAdminController`: `/admin/configuracion/avisos`, el recordatorio del turno), `service` (`CanchaService`, `ConfiguracionService`: horarios, precio y seña; `ProductoService`: catálogo y stock total), `repository`, `entity` (`Cancha`, `Configuracion`, `DiaApertura`, `Producto`) y `entity/enums` (`TipoProducto`), `dto/request`, `dto/response`. La disponibilidad de canchas y de productos la calcula `reservas` (`DisponibilidadService`, `StockService`). Los otros dominios no usan estos repositories: bloquean la cancha con `CanchaService.bloquear` y piden los productos a `ProductoService`; el arranque crea canchas y configuración con `CanchaService.crearCanchasSiNoHay` y `ConfiguracionService.crearSiNoExiste`. Mappers: `CanchaMapper`, `ProductoMapper`, `ConfiguracionMapper` |
+| `usuarios` (dominio) | Cuentas, login y perfil: `controller` (`AuthController`: `/auth`, público; `PerfilController`: `/perfil`, el usuario autenticado; `UsuarioAdminController`: `/admin/usuarios`, ABM del ADMIN y `/admin/usuarios/clientes`, la búsqueda de clientes del personal), `service` (`AuthService`, `RefreshTokenService`: las sesiones, `VerificationService`, `PasswordResetService`, `UsuarioService`, `ClienteProfileService`, `PerfilService`, `TelefonoService`, `UsuarioAdminService`: ABM y búsqueda de clientes del panel), `repository` (`UsuarioRepository` con `UsuarioSpecification`, `ClienteProfileRepository`, `RefreshTokenRepository`, `VerificationTokenRepository`, `EnvioCodigoTelefonoRepository`), `entity` (`Usuario`, `ClienteProfile`, `RefreshToken`, `VerificationToken`, `EnvioCodigoTelefono`) y `entity/enums`, `dto/request`, `dto/response` |
+| `notificaciones` (dominio) | Canal de avisos y teléfono de cada usuario, avisos que elige el cliente y cada ADMIN, y el envío: `controller` (`NotificacionesController`: `/perfil/notificaciones`, `/perfil/telefono/…`, `/perfil/suscripciones` (CLIENTE) y `/perfil/avisos` (ADMIN)), `service` (`NotificacionesService`: preferencias y aviso de prueba; `AvisosService`: elige el canal de cada destinatario y entrega), `repository` y `entity` (`AvisosAdmin`), `dto/request`, `dto/response`, `aviso` (`AvisoReserva`: el evento que publican los otros dominios; `TipoAviso`: plantillas y textos; `AvisosListener`: envía después del commit), `email` (`EmailService`, `GmailEmailService` (bean `"gmail"`), `EmailServiceFactory`, `EnvioPostCommit`) y `whatsapp` (`WhatsAppService`, `MetaWhatsAppService` (bean `"meta"`, Cloud API de Meta), `WhatsAppServiceFactory`). Mapper: `NotificacionesMapper` |
+| `security` | `SecurityConfig` (reglas por URL; el `PasswordEncoder` es un `@Bean` estático), `JWTFilter` (autentica con `UsuarioService`), `JWTUtil` (solo el token de acceso, con la hora del `Reloj`), `RateLimitFilter`, `UsuarioPrincipal`, `GoogleTokenVerifier` y `GoogleUser`, `PasswordValidator`. Las sesiones (refresh tokens) son de `usuarios`: `RefreshTokenService` |
+| `config` | `AppConfig` (`Reloj`, caché, formato de fechas), `DataInitializer` (carga inicial), `SwaggerConfig` |
+| `common` | Utilidades (`Reloj`, `Turno`, `ConsultasDeTurno`, `Fechas`, `Dinero`, `Paginacion` y `PaginaResponse`, `Roles`, `Busquedas`, `Telefonos`) y `exception`: las excepciones de negocio genéricas (`ReservaException`, la base con el status; `ValidationException`, `PermisoDenegadoException`, `EstadoInvalidoException`) y `GlobalExceptionHandler`, que traduce las excepciones a respuestas HTTP |
+| `<dominio>/exception` | Las excepciones propias de cada dominio (por ejemplo `reservas/exception/HorarioOcupadoException`, `pagos/exception/PagoProveedorException`, `usuarios/exception/CredencialesInvalidasException`) |
+| `<dominio>/job` | Tareas programadas, que solo llaman a services: `reservas/job/ReservaJobs` (expiración, reembolsos pendientes, recordatorios, partidos de turnos fijos y reservas completadas) y `usuarios/job/SesionesJobs` (sesiones vencidas) |
+| `mapper` | Mapeo entidad → DTO, uno por entidad: `ReservaMapper`, `PagoMapper`, `TurnoFijoMapper`, `ResumenMapper`, `CanchaMapper`, `ProductoMapper`, `ConfiguracionMapper`, `UsuarioMapper`, `NotificacionesMapper`. Los DTOs quedan solo con datos |
+| `common` | Utilidades compartidas, de uso obligatorio (detalle en `CLAUDE.md`): `Reloj` (hora del club), `Turno` (duración, superposición, si empezó o terminó), `ConsultasDeTurno` (las mismas condiciones en JPQL y Criteria), `Fechas` (zona, formato de la API y textos de fechas y días), `Dinero` (redondeo, sumas y texto en pesos), `Paginacion`, `Roles`, `Busquedas` (búsqueda sin tildes) y `Telefonos` (normalización del celular) |
 
 ## Proveedores intercambiables (patrón factory)
 
@@ -35,6 +36,8 @@ Email y pagos se resuelven por nombre de bean:
 
 - `EmailServiceFactory` recibe un `Map<String, EmailService>` con todos los beans y devuelve el que coincide con `email.provider` (hoy `gmail`). Para agregar SendGrid alcanza con crear un `@Service("sendgrid")` que implemente `EmailService` y cambiar la propiedad.
 - `PaymentServiceFactory` hace lo mismo con `payment.provider` (hoy `mercadopago`).
+- `WhatsAppServiceFactory` hace lo mismo con `whatsapp.provider` (hoy `meta`). Para cambiar de proveedor (Twilio, 360dialog, …) alcanza con una nueva implementación de `WhatsAppService` registrada con su nombre (`@Service("twilio")`) y cambiar la propiedad.
+- El **canal** de cada aviso (mail o WhatsApp) no lo decide un factory sino `AvisosService.canalPara`, en el momento de enviar, según lo que eligió cada usuario en su perfil. El factory elige el **proveedor** de cada canal.
 
 ## Seguridad
 
@@ -52,11 +55,14 @@ Email y pagos se resuelven por nombre de bean:
 | `POST /pagos/notificacion` | público (webhook de Mercado Pago) |
 | `/v3/api-docs/**`, `/swagger-ui/**`, `/actuator/health` | público |
 | `GET /canchas`, `GET /canchas/*/disponibilidad`, `GET /productos`, `GET /productos/disponibilidad` | público (un visitante ve horarios libres y precios; reservar requiere sesión) |
-| `/admin/**` | `ADMIN` |
-| `POST /pagos/*/pago-efectivo`, `POST /pagos/*/pago-presencial` | `ADMIN`, `EMPLEADO` |
+| `POST /admin/reservas/*/bonificacion` | `ADMIN` |
+| `/admin/reservas/**` (reservas y cobros del personal), `GET /admin/usuarios/clientes` | `ADMIN`, `EMPLEADO` |
+| `/reservas/**`, `/pagos/**` (salvo el webhook) | `CLIENTE` |
+| `/admin/reservas/partidos/**` | `ADMIN` |
+| `/admin/**` | `ADMIN` (incluye `/admin/turnos-fijos`) |
 | cualquier otra | autenticado |
 
-- Además, `@EnableMethodSecurity` activa los `@PreAuthorize` de los controllers (por ejemplo, `/reservas/**` solo para CLIENTE, ADMIN y EMPLEADO).
+- Además, `@EnableMethodSecurity` activa los `@PreAuthorize` de los controllers (el rol del actor en la clase y lo que es solo del ADMIN por método).
 - Sin token o con token vencido → `401`; sin permisos → `403` (ambos con body JSON).
 - **Acceso a reservas**: además del rol, `ReservaService.verificarAcceso` exige que un CLIENTE sea el dueño de la reserva.
 - **CORS**: orígenes de `CORS_ALLOWED_ORIGINS` (por defecto `http://localhost:3000` y `http://localhost:5173`), métodos GET/POST/PUT/DELETE/PATCH/OPTIONS, headers `Authorization` y `Content-Type`, con credenciales.
@@ -73,7 +79,7 @@ Email y pagos se resuelven por nombre de bean:
 | `ReservaJobs.reintentarReembolsos` | cada 2 min | Reintenta, uno por uno y con la reserva bloqueada, los reembolsos de MP que no salieron al cancelar (`REEMBOLSO_PENDIENTE`). Éxito → `DEVUELTO`; sin éxito en 24 h o falla definitiva → `A_REEMBOLSAR`. |
 | `ReservaJobs.enviarRecordatorios` | cada 5 min | Recordatorio al cliente antes del turno (2 h por defecto) por su canal; una vez por reserva, con la reserva bloqueada. |
 | `ReservaJobs.completarReservasJugadas` | cada 10 min | Pasa a `COMPLETADA` las reservas `PAGADA` cuyo turno terminó. Las señadas o parciales quedan como están hasta que se cobre el saldo. |
-| `JWTUtil.cleanExpiredTokens` | todos los días a las 02:00 | Borra los refresh tokens vencidos. |
+| `SesionesJobs.borrarSesionesVencidas` | todos los días a las 02:00 | Borra los refresh tokens vencidos (`RefreshTokenService.borrarVencidos`). |
 
 ## Concurrencia en reservas y pagos
 
@@ -88,16 +94,16 @@ Email y pagos se resuelven por nombre de bean:
 | Servicio | Dónde | Uso |
 |---|---|---|
 | Google Identity | `GoogleTokenVerifier` | Verifica el `idToken` de Google Sign-In contra `GOOGLE_CLIENT_ID` y extrae email, nombre y apellido. |
-| WhatsApp (Cloud API de Meta) | `WhatsAppClient`, `AvisosService`, `AvisosListener` | Plantillas aprobadas: avisos a los ADMIN, recordatorio y cancelación por el club al cliente, código para verificar el teléfono. Los avisos se publican como eventos (`AvisoReserva`) y se envían después del commit en el executor `avisosExecutor` (2 hilos); cada usuario elige mail o WhatsApp. Ver [whatsapp.md](whatsapp.md). |
+| WhatsApp (Cloud API de Meta) | `MetaWhatsAppService` (vía `WhatsAppServiceFactory`), `AvisosService`, `AvisosListener` | Plantillas aprobadas: avisos a los ADMIN, recordatorio y cancelación por el club al cliente, código para verificar el teléfono. Los avisos se publican como eventos (`AvisoReserva`) y se envían después del commit en el executor `avisosExecutor` (2 hilos); cada usuario elige mail o WhatsApp. Ver [whatsapp.md](whatsapp.md). |
 | Gmail SMTP | `GmailEmailService` | Emails HTML: código de verificación, código de reset de contraseña, bienvenida con contraseña temporal. |
 | Mercado Pago | `MercadoPagoConfiguration`, `MercadoPagoPaymentService`, `MercadoPagoWebhookValidator` | Configura el access token del SDK. Crea preferencias (`crearPreferencia`), cobra con el token del Payment Brick por el monto del servidor y con clave de idempotencia (`cobrar`), consulta pagos al recibir notificaciones (`consultarPago`), reembolsa (`reembolsar`) y valida la firma de los webhooks. Las claves de idempotencia salen del UUID de cada pago (`losciruelos-{pref\|cobro\|reembolso}-{uuid}`). |
 
 ## Otros detalles
 
-- **Zona horaria**: una sola constante, `Fechas.ZONA` (`America/Argentina/Buenos_Aires`). La usan el `Clock` de la app (`Clock.system(ZONA)`, de a milisegundos), la zona por defecto de la JVM (fijada en `main`), Hibernate (`hibernate.jdbc.time_zone`), Jackson (`spring.jackson.time-zone`) y el vencimiento de las preferencias de MP.
+- **Zona horaria**: una sola constante, `Fechas.ZONA` (`America/Argentina/Buenos_Aires`). La usan el `Reloj` de la app (`Reloj.delSistema()`, de a milisegundos), la zona por defecto de la JVM (fijada en `main`), Hibernate (`hibernate.jdbc.time_zone`), Jackson (`spring.jackson.time-zone`) y el vencimiento de las preferencias de MP.
 - **Formato de fechas del JSON** (`Fechas.moduloJackson`, registrado como bean en `AppConfig`): `LocalDateTime` → `2026-10-17T18:15:00.123-03:00`, `LocalTime` → `18:00`, `LocalDate` → `2026-10-17`. El `timestamp` de los errores usa el mismo formato y el mismo reloj.
 - **Esquema**: lo gestiona Flyway; Hibernate solo valida (`ddl-auto=validate`).
 - **Configuración del club**: un único registro `Configuracion` con id = 1 (ver [flujos-de-negocio.md](flujos-de-negocio.md)), en caché en memoria (`AppConfig` activa `@EnableCaching`).
-- **Reloj**: los servicios usan el `Clock` de `AppConfig` en lugar de `now()` directo, para poder testear con horas fijas.
+- **Reloj**: los servicios usan el `Reloj` de `AppConfig` (`ahora()`, `hoy()`) en lugar de `now()` directo, para poder testear con horas fijas (`Reloj.fijo(...)`).
 - **OpenAPI**: `SwaggerConfig` define la info de la API y el esquema de seguridad `bearerAuth`.
 - **Actuator**: incluido; sus endpoints requieren autenticación.

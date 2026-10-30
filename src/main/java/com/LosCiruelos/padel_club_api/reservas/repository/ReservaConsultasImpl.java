@@ -1,0 +1,102 @@
+package com.LosCiruelos.padel_club_api.reservas.repository;
+
+import java.math.BigDecimal;
+import java.util.Set;
+
+import org.springframework.data.jpa.domain.Specification;
+
+import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
+import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse.Totales;
+import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Tuple;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
+
+/** Implementación de {@link ReservaConsultas}: los totales se calculan en la base con Criteria. */
+public class ReservaConsultasImpl implements ReservaConsultas {
+
+    /** Las que deben plata: confirmadas que todavía no están pagas. */
+    private static final Set<EstadoReserva> DEBEN = Reserva.ESTADOS_CON_SALDO;
+
+    @PersistenceContext
+    private EntityManager em;
+
+    @Override
+    public Totales totalesParaPersonal(FiltroReservas filtro) {
+        Specification<Reserva> spec = ReservaSpecification.paraPersonal(filtro);
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+
+        // 1) cantidad, monto total y monto total de las que deben
+        CriteriaQuery<Tuple> q = cb.createTupleQuery();
+        Root<Reserva> r = q.from(Reserva.class);
+        Expression<BigDecimal> totalQueDebe = cb.<BigDecimal>selectCase()
+                .when(r.get("estado").in(DEBEN), r.<BigDecimal>get("montoTotal"))
+                .otherwise(BigDecimal.ZERO);
+        q.multiselect(cb.count(r), cb.coalesce(cb.sum(r.<BigDecimal>get("montoTotal")), BigDecimal.ZERO),
+                cb.coalesce(cb.sum(totalQueDebe), BigDecimal.ZERO))
+                .where(spec.toPredicate(r, q, cb));
+        Tuple reservas = em.createQuery(q).getSingleResult();
+
+        // 2) lo cobrado (total y de las que deben), sobre los pagos de esas mismas reservas
+        CriteriaQuery<Tuple> qp = cb.createTupleQuery();
+        Root<Pago> p = qp.from(Pago.class);
+        Subquery<Long> ids = qp.subquery(Long.class);
+        Root<Reserva> rs = ids.from(Reserva.class);
+        ids.select(rs.get("id")).where(spec.toPredicate(rs, qp, cb));
+        Expression<BigDecimal> retenido = retenido(cb, p); // incluye bonificaciones: sirve para lo que falta
+        Expression<BigDecimal> cobrado = cb.<BigDecimal>selectCase()
+                .when(cb.notEqual(p.get("provider"), PaymentProvider.BONIFICACION), retenido)
+                .otherwise(BigDecimal.ZERO);
+        Expression<BigDecimal> bonificado = cb.<BigDecimal>selectCase()
+                .when(cb.equal(p.get("provider"), PaymentProvider.BONIFICACION), retenido)
+                .otherwise(BigDecimal.ZERO);
+        Expression<BigDecimal> retenidoQueDebe = cb.<BigDecimal>selectCase()
+                .when(p.get("reserva").get("estado").in(DEBEN), retenido)
+                .otherwise(BigDecimal.ZERO);
+        Expression<BigDecimal> retenidoEfectivo = cb.<BigDecimal>selectCase()
+                .when(cb.equal(p.get("provider"), PaymentProvider.MANUAL), retenido)
+                .otherwise(BigDecimal.ZERO);
+        qp.multiselect(cb.coalesce(cb.sum(cobrado), BigDecimal.ZERO),
+                cb.coalesce(cb.sum(retenidoQueDebe), BigDecimal.ZERO),
+                cb.coalesce(cb.sum(retenidoEfectivo), BigDecimal.ZERO),
+                cb.coalesce(cb.sum(bonificado), BigDecimal.ZERO))
+                .where(p.get("reserva").get("id").in(ids));
+        Tuple cobros = em.createQuery(qp).getSingleResult();
+
+        BigDecimal montoCobrado = monto(cobros, 0);
+        BigDecimal efectivo = monto(cobros, 2);
+        // lo que falta: el total de las que deben menos lo cubierto (pagado + bonificado) de ellas
+        BigDecimal pendiente = monto(reservas, 2).subtract(monto(cobros, 1));
+        return new Totales(reservas.get(0, Long.class), Dinero.redondear(monto(reservas, 1)), Dinero.redondear(montoCobrado),
+                Dinero.redondear(efectivo), Dinero.redondear(montoCobrado.subtract(efectivo)), Dinero.redondear(monto(cobros, 3)), Dinero.redondear(pendiente));
+    }
+
+    /** Lo que el club se queda de un pago, igual que Pago.getMontoRetenido. */
+    private static Expression<BigDecimal> retenido(CriteriaBuilder cb, Root<Pago> p) {
+        Path<BigDecimal> monto = p.get("monto");
+        Path<BigDecimal> reembolsado = p.get("montoReembolsado");
+        return cb.<BigDecimal>selectCase()
+                .when(cb.equal(p.get("estado"), EstadoPago.APROBADO),
+                        cb.diff(monto, cb.coalesce(reembolsado, BigDecimal.ZERO)))
+                .when(p.get("estado").in(Pago.ESTADOS_DEVUELTOS), cb.diff(monto, cb.coalesce(reembolsado, monto)))
+                .otherwise(BigDecimal.ZERO);
+    }
+
+    /** La suma puede volver como BigDecimal o como otro Number según la base. */
+    private static BigDecimal monto(Tuple tupla, int posicion) {
+        Object valor = tupla.get(posicion);
+        return valor instanceof BigDecimal bd ? bd : new BigDecimal(String.valueOf(valor));
+    }
+
+}

@@ -26,6 +26,9 @@ El backend avisa a los ADMIN de lo que pasa con las reservas y le manda al clien
 - **Celular verificado (obligatorio)**: al completar el perfil, el usuario pide un código de 6 dígitos que le llega por WhatsApp (`POST /perfil/telefono/codigo`; vence en 10 min, 5 intentos, máximo 3 pedidos por minuto) y lo ingresa (`POST /perfil/telefono/verificar`), elija el medio que elija. Ingresarlo prueba que el número existe, tiene WhatsApp y es del usuario. **Es parte del perfil completo** de clientes y admins: sin él, el cliente no puede reservar. Cambiar el teléfono lo deja sin verificar. Por eso **WhatsApp tiene que estar dado de alta en Meta antes de poner esto en producción**.
 - **Regla de envío**: WhatsApp solo si lo eligió, tiene el teléfono verificado y el club tiene WhatsApp configurado. Si no, mail. Si WhatsApp falla, se manda el mail de respaldo.
 - Los teléfonos se guardan normalizados en el formato de WhatsApp (`5491123456789`). Se aceptan con o sin `0`, `15`, `+54 9`, espacios y guiones.
+- **Topes de códigos** (cada uno cuesta y no se puede usar para molestar a un número ajeno): 1 por minuto y 5 cada 24 h por usuario, y 5 cada 24 h por número entre todas las cuentas. Se guardan en la base (`envios_codigo_telefono`, V12), así que no se pierden al reiniciar. Pasado el tope responde `429` con cuánto falta. Se configuran con `telefono.codigos-por-dia-usuario`, `telefono.codigos-por-dia-numero` y `telefono.segundos-entre-codigos`. En el peor caso, un usuario gasta 5 códigos por día (~US$0,13).
+- **Un celular verificado, una cuenta activa**: no se puede registrar ni cargar en el perfil un celular que otra cuenta **activa** ya verificó (`400 errors.telefono`), ni pedir o ingresar su código (`409`). Si la otra cuenta está desactivada sí se puede (el cliente se hizo una cuenta nueva): al verificarlo, la cuenta desactivada pierde la verificación, y si el admin la reactiva tiene que volver a verificar su celular. En la base lo asegura un índice único parcial (V11).
+- **Celulares argentinos al enviar**: la API de Meta rechaza el formato `54 9 área número` con `131030` ("Recipient phone number not in allowed list") aunque el número esté autorizado, y acepta `54 área 15 número`. `MetaWhatsAppService` lo convierte al enviar (`Telefonos.paraEnvioWhatsApp`: `5492214375254` → `54221154375254`); en la base se sigue guardando `549…`, que es el `wa_id` que devuelve Meta.
 
 ## Alta en Meta (una sola vez)
 
@@ -47,18 +50,35 @@ Se crean en *WhatsApp Manager > Plantillas de mensajes*, idioma **Español (ARG)
 
 | Nombre | Categoría | Texto |
 |---|---|---|
-| `aviso_reserva_confirmada` | Utilidad | Nueva reserva: {{1}} reservó la cancha {{2}} para el {{3}}, de {{4}}. Pagó {{5}} de {{6}}. |
-| `aviso_saldo_cobrado` | Utilidad | Saldo cobrado: la reserva de {{1}} (cancha {{2}}, {{3}}, de {{4}}) quedó paga. Total: {{5}}. |
-| `aviso_reserva_cancelada` | Utilidad | Reserva cancelada: {{1}}, cancha {{2}}, {{3}}, de {{4}}. {{5}} |
-| `aviso_reembolso_manual` | Utilidad | Atención: hay que devolver {{1}} a mano. Reserva #{{2}} de {{3}}. Motivo: {{4}} |
-| `aviso_reembolso_realizado` | Utilidad | Reembolso hecho: Mercado Pago devolvió {{1}} de la reserva cancelada #{{2}} de {{3}}, que había quedado pendiente. |
-| `recordatorio_turno` | Utilidad | Hola {{1}}, te recordamos tu turno en Los Ciruelos: cancha {{2}}, {{3}}, de {{4}}. {{5}} |
-| `reserva_cancelada_por_club` | Utilidad | Hola {{1}}, el club canceló tu reserva de la cancha {{2}} del {{3}}, de {{4}}. {{5}} |
-| `codigo_verificacion` | Autenticación | Plantilla de autenticación de Meta con botón **Copiar código** (Meta arma el texto: "{{1}} es tu código de verificación"). Vencimiento sugerido: 10 minutos |
+| `aviso_reserva_confirmada_v2` | Utilidad | Nueva reserva en Los Ciruelos: {{1}} reservó la cancha {{2}} para el {{3}}, de {{4}}. Pagó {{5}} de un total de {{6}}. Podés ver el detalle en el panel del club. |
+| `aviso_saldo_cobrado_v2` | Utilidad | Saldo cobrado en Los Ciruelos: la reserva de {{1}} en la cancha {{2}} para el {{3}}, de {{4}}, quedó totalmente paga. Total cobrado: {{5}}. Podés ver el detalle en el panel del club. |
+| `aviso_reserva_cancelada_v2` | Utilidad | Reserva cancelada en Los Ciruelos: {{1}}, cancha {{2}}, el {{3}}, de {{4}}. Detalle: {{5}} Podés ver la reserva en el panel del club. |
+| `aviso_reembolso_manual_v2` | Utilidad | Atención: hay que devolver {{1}} a mano por la reserva #{{2}} de {{3}}. Motivo: {{4}} Revisalo en el panel de Mercado Pago o en el panel del club. |
+| `aviso_reembolso_realizado_v2` | Utilidad | Reembolso hecho: Mercado Pago devolvió {{1}} de la reserva cancelada #{{2}} de {{3}}, que había quedado pendiente. No hace falta hacer nada más. |
+| `recordatorio_turno_v2` | Utilidad | Hola {{1}}, te recordamos tu turno en Los Ciruelos: cancha {{2}}, el {{3}}, de {{4}}. {{5}} Si no podés venir, cancelá la reserva desde la página. ¡Te esperamos! |
+| `reserva_cancelada_por_club_v2` | Utilidad | Hola {{1}}, el club canceló tu reserva de la cancha {{2}} del {{3}}, de {{4}}. {{5}} Disculpá las molestias. |
+| `codigo_verificacion_v2` | Autenticación | Plantilla de autenticación de Meta con botón **Copiar código** (Meta arma el texto: "{{1}} es tu código de verificación"). Vencimiento sugerido: 10 minutos |
+
+Título, pie y botón de cada plantilla (texto fijo, sin variables: el backend solo manda los parámetros del cuerpo y, en la de autenticación, el código del botón):
+
+| Plantilla | Título | Pie de página | Botón (Visitar sitio web) | URL |
+|---|---|---|---|---|
+| `aviso_reserva_confirmada_v2` | Nueva reserva | Los Ciruelos Pádel · Aviso para el club | Abrir panel | `https://los-ciruelos.tail83f639.ts.net/admin/reservas` |
+| `aviso_saldo_cobrado_v2` | Saldo cobrado | Los Ciruelos Pádel · Aviso para el club | Abrir panel | `https://los-ciruelos.tail83f639.ts.net/admin/reservas` |
+| `aviso_reserva_cancelada_v2` | Reserva cancelada | Los Ciruelos Pádel · Aviso para el club | Abrir panel | `https://los-ciruelos.tail83f639.ts.net/admin/reservas` |
+| `aviso_reembolso_manual_v2` | Reembolso pendiente de devolver | Revisalo en el panel de Mercado Pago | Abrir Mercado Pago | `https://www.mercadopago.com.ar/activities` |
+| `aviso_reembolso_realizado_v2` | Reembolso realizado | Los Ciruelos Pádel · Aviso para el club | Abrir panel | `https://los-ciruelos.tail83f639.ts.net/admin/reservas` |
+| `recordatorio_turno_v2` | Recordatorio de tu turno | Los Ciruelos Pádel · Gestioná tus avisos en tu perfil | Ver mis reservas | `https://los-ciruelos.tail83f639.ts.net/mis-reservas` |
+| `reserva_cancelada_por_club_v2` | Tu reserva fue cancelada | Los Ciruelos Pádel · Gestioná tus avisos en tu perfil | Ver mis reservas | `https://los-ciruelos.tail83f639.ts.net/mis-reservas` |
+| `codigo_verificacion_v2` | — | Lo arma Meta (vencimiento: 10 minutos, igual que el backend) | Copiar código (lo agrega Meta) | — |
+
+Si se cambia el nombre de una plantilla en Meta (por ejemplo a `_v3`), hay que cambiarlo en `TipoAviso.java` y, para el código, en `whatsapp.plantilla-codigo`.
+
+Reglas de Meta al cargarlas: las variables son de tipo **número** (`{{1}}`, `{{2}}`…, no con nombre), **ninguna puede ir al principio ni al final** del texto, y tiene que haber bastante texto fijo por cada variable (si no, Meta responde "demasiadas variables para su longitud"). Si en Meta se carga otro texto, cambialo también en `TipoAviso.java`: el mail de respaldo usa el mismo.
 
 Ejemplos de valores: `{{3}}` = `miércoles 21/10`, `{{4}}` = `18:00 a 19:30`, montos = `$7.500`.
 
-Los textos están también en `Services/Avisos/TipoAviso.java`: si se cambia una plantilla en Meta, hay que cambiarla ahí (el mail usa el mismo texto).
+Los textos están también en `notificaciones/aviso/TipoAviso.java`: si se cambia una plantilla en Meta, hay que cambiarla ahí (el mail usa el mismo texto).
 
 ## Límites y costos
 

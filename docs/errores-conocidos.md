@@ -9,7 +9,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 | Reembolsos | Los pagos online se devuelven solos al cancelar; si MP no acepta el reembolso en el momento, quedan `REEMBOLSO_PENDIENTE` y un job los reintenta durante 24 h. Los pagos en el club, y los que MP no pudo devolver, quedan `A_REEMBOLSAR` con su `montoReembolsado`: falta un endpoint de admin para listarlos y marcarlos como devueltos (hoy se ven en el log). |
 | Configuración | Los tiempos de la política de cancelación (`minutos_reembolso_total`, `minutos_reembolso_senia`) y el resto de la configuración se cambian en la base: falta un endpoint de admin (al cambiarlos, reiniciar la app por la caché). |
 | Funcionalidades | ABM de canchas, edición del resto de la configuración del club (horarios, tarifas, seña), agenda del día para el personal. La reserva solo pide pelotas y paletas: otros productos del catálogo todavía no se pueden agregar a una reserva. |
-| Rate limiting | Es en memoria (sirve para una instancia). Con varias instancias hay que moverlo a Redis o al proxy. Detrás de un proxy, configurar `server.forward-headers-strategy=framework`. |
+| Rate limiting | Es en memoria (sirve para una instancia). Con varias instancias hay que moverlo a Redis o al proxy. Detrás de un proxy toma la IP real de `X-Forwarded-For` (`server.forward-headers-strategy=framework`, por defecto). |
 | WhatsApp | **Bloqueante**: como el perfil completo exige el celular verificado por WhatsApp, sin el alta en Meta ningún cliente nuevo puede reservar. Falta dar de alta el número del club, verificar el negocio y cargar las 8 plantillas de [whatsapp.md](whatsapp.md). Hasta entonces los avisos van por mail. Las novedades y promociones solo se guardan como preferencia: falta el envío. Los estados de entrega de Meta (leído, no entregado) no se reciben: haría falta su webhook, que también se va a necesitar para el bot. |
 | Firma del webhook | Se valida solo si se configura `MP_WEBHOOK_SECRET`. Igual, el webhook nunca confía en el contenido: siempre consulta el pago a MP. |
 | Base de desarrollo existente | Las migraciones se unificaron en una sola V1. Una base creada antes de este cambio hay que borrarla y recrearla (`docker compose down -v` y `docker compose up -d`); si no, la app no arranca. |
@@ -64,6 +64,39 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 - **Perfil completo**: ahora exige el **celular verificado**, para CLIENTE y ADMIN (`LoginResponse.perfilCompleto` y `PerfilResponse.perfilCompleto`). Un cliente sin verificar no puede reservar (`403`). Los clientes que ya existen tienen que verificar su celular.
 - **Avisos del cliente**: `GET/PUT /perfil/suscripciones` (recordatorios y promociones; las cancelaciones siempre).
 - **Avisos por WhatsApp o mail**: En el perfil, una sección de notificaciones (`GET/PUT /perfil/notificaciones`, `POST /perfil/telefono/codigo` y `/verificar`). Para el ADMIN, qué avisos recibe y un interruptor para desactivarlos todos (`GET/PUT /perfil/avisos` con `activos`, `POST /perfil/avisos/prueba`) y el recordatorio (`GET/PUT /admin/configuracion/avisos`). `PerfilResponse` y `UsuarioAdminResponse` suman `telefonoVerificado` y `canalNotificaciones`.
+- **Topes del código por WhatsApp**: `POST /perfil/telefono/codigo` responde `429` con el motivo y cuánto falta (1 por minuto, 5 por día por usuario y 5 por día por número). Mostrá el mensaje tal cual.
+- **Partidos de 4 jugadores y turnos fijos (ADMIN)**: `POST/PUT /admin/partidos` y `/admin/turnos-fijos` (alta, modificación, baja general y baja de una fecha). Cambios que afectan al front:
+  - **Nuevo estado `CONFIRMADA`** (partido sin nada pagado, no vence). Tratalo como confirmado: ocupa la cancha y, si ya se jugó, debe plata (`debeSaldo`).
+  - `ReservaResponse` suma `tipo` (`NORMAL` | `PARTIDO`), `turnoFijoId` y `jugadores` (con `parte`, `pagado`, `bonificado` y `debe` por jugador; `[]` en una reserva normal). `PagoResponse` suma `jugadorId`.
+  - En un partido, `pago-efectivo`, `pago-presencial` y `bonificacion` **exigen `jugadorId`** (en una reserva normal no se manda: `400`). Un partido no se paga online.
+  - `GET /reservas/mias` incluye los partidos en los que juega el usuario (solo lectura: `cancelable: false`, sin teléfonos de los demás). Cancelar un partido es solo del ADMIN (`403` para EMPLEADO).
+  - Un cliente que intenta reservar el horario de un turno fijo recibe `409` "Ese horario es un turno fijo del club en esa cancha."; la disponibilidad ya lo muestra ocupado.
+  - `GET /admin/reservas` suma el filtro `tipo` y `pendientes=true` incluye `CONFIRMADA`. El resumen cuenta los partidos `CONFIRMADA` como turnos (deuda si ya se jugaron).
+- **Bonificaciones (solo ADMIN)**: `POST /pagos/{id}/bonificacion` y `bonificacion` en `POST /reservas` para no cobrarle al cliente todo o una parte. `ReservaResponse` suma `montoBonificado` (`montoPagado` es solo plata); `PagoResponse` suma `motivo`; el provider `BONIFICACION`; el resumen y los totales del listado suman `montoBonificado`.
+- **Panel del personal**: `GET /admin/reservas` (listado paginado con filtros por fechas, estado, cliente, cancha y "pendientes", más totales del filtro) y `GET /admin/clientes?buscar=` (búsqueda de clientes), para ADMIN y EMPLEADO. `GET /reservas/saldos-pendientes` queda solo por compatibilidad.
+- **Rutas de reservas y pagos separadas por actor** (mismas reglas, respuestas y errores; cambia solo la ruta). `/reservas` queda **solo para el CLIENTE** (el personal recibe `403`) y lo del personal pasa a `/admin/reservas` (un CLIENTE recibe `403`):
+  | Antes (personal) | Ahora |
+  |---|---|
+  | `POST /reservas` con `clienteId` (y `bonificacion`, solo ADMIN) | `POST /admin/reservas` (mismo body) |
+  | `GET /reservas/{id}` | `GET /admin/reservas/{id}` |
+  | `DELETE /reservas/{id}/cancelar?reembolso=…` | `DELETE /admin/reservas/{id}/cancelar?reembolso=…` |
+  | `GET /reservas/saldos-pendientes` | `GET /admin/reservas/saldos-pendientes` |
+  | `GET /reservas/devoluciones-pendientes` | `GET /admin/reservas/devoluciones-pendientes` |
+  | `POST /reservas/{id}/devolucion` | `POST /admin/reservas/{id}/devolucion` |
+  | `POST /pagos/{id}/pago-efectivo` | `POST /admin/reservas/{id}/cobros/efectivo` (mismo body) |
+  | `POST /pagos/{id}/pago-presencial` | `POST /admin/reservas/{id}/cobros/presencial` (mismo body) |
+  | `POST /pagos/{id}/bonificacion` (ADMIN) | `POST /admin/reservas/{id}/bonificacion` (mismo body) |
+  | `POST /admin/partidos` (ADMIN) | `POST /admin/reservas/partidos` (mismo body) |
+  | `PUT /admin/partidos/{id}` (ADMIN) | `PUT /admin/reservas/partidos/{id}` (mismo body) |
+  | `GET /admin/resumen?desde&hasta` (ADMIN, EMPLEADO) | `GET /admin/reservas/resumen?desde&hasta` (mismos parámetros, respuesta y permisos) |
+  | `GET /admin/clientes?buscar&soloActivos` (ADMIN, EMPLEADO) | `GET /admin/usuarios/clientes?buscar&soloActivos` (mismos parámetros, respuesta y permisos) |
+
+  Para el cliente no cambia nada, salvo que en `POST /reservas` ya no se leen `clienteId` ni `bonificacion` (antes daban `400` o `403`; ahora se ignoran) y en `DELETE /reservas/{id}/cancelar` ya no se lee `reembolso` (antes `400`; ahora se aplica la política). `/pagos/{id}/iniciar` y `/pagos/{id}/pago` quedan solo para el CLIENTE (el personal ya no inicia pagos online: `403`); el webhook sigue en `/pagos/notificacion`.
+- **Cambio de contrato en `GET /admin/resumen`** (mismos parámetros y permisos): la respuesta pasa a `{ desde, hasta, jugados, porJugar, caja, cancelaciones, productos }`. Se separan los turnos jugados (con su `deuda`) de los por jugar (`aCobrar`), y `caja` es el cierre de caja por fecha de pago. Se sacaron `montoEsperado`, `montoCobrado`, `cobradoOnline`, `cobradoEnClub`, `cobradoEfectivo`, `cobradoMercadoPago`, `montoBonificado`, `montoPendiente`, `retenidoCancelaciones`, `partidosJugados` y `partidosCancelados`. Ver `docs/api.md`.
+- **Nuevo endpoint del panel**: `GET /admin/resumen?desde&hasta` (ADMIN cualquier período; EMPLEADO solo hoy, sin fechas) con montos esperados, cobrados (online y en el club), pendientes, retenido por cancelaciones, partidos y productos del período. Ver `docs/api.md`.
+- **`PUT /perfil`: `telefono` es opcional.** Si no viene no se toca el celular ni su verificación; el celular se edita en `PUT /perfil/notificaciones`. El mismo número en otro formato no pierde la verificación.
+- **Teléfonos viejos normalizados (V13)**: una migración pasó los teléfonos guardados antes de V8 (por ejemplo `1122334455`) al formato de WhatsApp (`5491122334455`) sin tocar la verificación; los que no eran válidos quedaron vacíos y sin verificar (esos usuarios tienen que cargar su celular de nuevo).
+- **Celular en uso**: si el celular ya está verificado en otra cuenta activa, el registro y el perfil responden `400 errors.telefono` ("Ese celular ya está verificado en otra cuenta…") y pedir o verificar el código, `409`.
 - **Teléfonos**: se aceptan con espacios, guiones y paréntesis, y se devuelven normalizados (`5491123456789`). Un número que no es válido responde `400 errors.telefono`.
 - **Consultas públicas**: `GET /canchas`, `GET /canchas/{id}/disponibilidad`, `GET /productos` y `GET /productos/disponibilidad` ya no piden sesión: un visitante puede ver horarios libres y precios. Para reservar sigue haciendo falta iniciar sesión.
 - `DELETE /perfil/desactivar` ya no necesita body.
