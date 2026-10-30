@@ -227,9 +227,6 @@
 						</goals>
 						<configuration>
 							<excludes>
-								<exclude>**/Entities/**</exclude>
-								<exclude>**/DTOs/**</exclude>
-								<exclude>**/Entities/Enum/**</exclude>
 								<exclude>**/*Config*</exclude>
 								<exclude>**/*Application*</exclude>
 							</excludes>
@@ -246,9 +243,6 @@
 
 						<configuration>
 							<excludes>
-								<exclude>**/Entities/**</exclude>
-								<exclude>**/DTOs/**</exclude>
-								<exclude>**/Entities/Enum/**</exclude>
 								<exclude>**/*Config*</exclude>
 								<exclude>**/*Application*</exclude>
 							</excludes>
