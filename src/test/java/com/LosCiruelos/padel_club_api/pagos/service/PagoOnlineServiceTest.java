@@ -34,9 +34,9 @@ import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
-import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReembolsoFallidoException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
+import com.LosCiruelos.padel_club_api.pagos.exception.ReembolsoFallidoException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
 

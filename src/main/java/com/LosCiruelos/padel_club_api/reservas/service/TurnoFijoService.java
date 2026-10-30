@@ -21,10 +21,10 @@ import com.LosCiruelos.padel_club_api.reservas.dto.response.TurnoFijoResponse.Fe
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
-import com.LosCiruelos.padel_club_api.Exceptions.EstadoInvalidoException;
-import com.LosCiruelos.padel_club_api.Exceptions.HorarioOcupadoException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
-import com.LosCiruelos.padel_club_api.Exceptions.TurnoFijoNoEncontradoException;
+import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
+import com.LosCiruelos.padel_club_api.reservas.exception.HorarioOcupadoException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
+import com.LosCiruelos.padel_club_api.reservas.exception.TurnoFijoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijo;

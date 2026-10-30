@@ -30,9 +30,9 @@ import com.LosCiruelos.padel_club_api.pagos.payment.EstadoPayment;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentResult;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
-import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
-import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReembolsoFallidoException;
+import com.LosCiruelos.padel_club_api.pagos.exception.PagoNoEncontradoException;
+import com.LosCiruelos.padel_club_api.pagos.exception.PagoProveedorException;
+import com.LosCiruelos.padel_club_api.pagos.exception.ReembolsoFallidoException;
 
 /** Reembolsos por cancelación y sus reintentos. */
 class ReembolsoServiceTest extends PagosTestBase {

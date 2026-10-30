@@ -15,7 +15,7 @@ import com.LosCiruelos.padel_club_api.notificaciones.dto.response.SuscripcionesR
 import com.LosCiruelos.padel_club_api.usuarios.entity.AdminProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
-import com.LosCiruelos.padel_club_api.Exceptions.PerfilIncompletoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.PerfilIncompletoException;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva.Destinatario;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
@@ -74,7 +74,7 @@ public class NotificacionesService {
         telefonoService.enviarCodigo(usuario(email));
     }
 
-    @Transactional(noRollbackFor = com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException.class)
+    @Transactional(noRollbackFor = com.LosCiruelos.padel_club_api.usuarios.exception.CodigoInvalidoException.class)
     public NotificacionesResponse verificarTelefono(String email, String codigo) {
         Usuario usuario = usuario(email);
         telefonoService.verificar(usuario, codigo);

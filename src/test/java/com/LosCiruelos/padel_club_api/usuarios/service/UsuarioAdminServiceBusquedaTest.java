@@ -1,6 +1,5 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
-import com.LosCiruelos.padel_club_api.Security.JWTUtil;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -25,14 +24,14 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Categoria;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Posicion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 
 class UsuarioAdminServiceBusquedaTest {
 
     private final UsuarioRepository repo = mock(UsuarioRepository.class);
     private final UsuarioAdminService clientes = new UsuarioAdminService(mock(ClienteProfileService.class),
-            mock(UsuarioService.class), repo, mock(JWTUtil.class), mock(VerificationService.class), new UsuarioMapper());
+            mock(UsuarioService.class), repo, mock(RefreshTokenService.class), mock(VerificationService.class), new UsuarioMapper());
 
     @Test
     void devuelveLosDatosDelClienteYSiTieneElPerfilCompleto() {

@@ -2,8 +2,8 @@ package com.LosCiruelos.padel_club_api.club.entity;
 
 import com.LosCiruelos.padel_club_api.common.Fechas;
 import com.LosCiruelos.padel_club_api.common.Dinero;
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
-import com.LosCiruelos.padel_club_api.Exceptions.DiaSinAperturaException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
+import com.LosCiruelos.padel_club_api.club.exception.DiaSinAperturaException;
 import java.time.LocalDate;
 import java.math.RoundingMode;
 import java.math.BigDecimal;

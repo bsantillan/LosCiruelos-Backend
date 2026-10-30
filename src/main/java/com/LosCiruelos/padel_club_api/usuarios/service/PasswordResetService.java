@@ -12,12 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.VerificationToken;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.TokenType;
-import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
-import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CodigoInvalidoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.PasswordInvalidaException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.VerificationTokenRepository;
-import com.LosCiruelos.padel_club_api.Security.JWTUtil;
-import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
+import com.LosCiruelos.padel_club_api.security.PasswordValidator;
 import com.LosCiruelos.padel_club_api.notificaciones.email.EmailServiceFactory;
 import com.LosCiruelos.padel_club_api.notificaciones.email.EnvioPostCommit;
 
@@ -32,7 +31,7 @@ public class PasswordResetService {
         private final VerificationTokenRepository tokenRepository;
         private final PasswordEncoder passwordEncoder;
         private final EmailServiceFactory emailServiceFactory;
-        private final JWTUtil jwtUtil;
+        private final RefreshTokenService refreshTokenService;
         private final Reloj reloj;
 
         @Transactional
@@ -85,6 +84,6 @@ public class PasswordResetService {
                 usuarioRepository.save(usuario);
                 tokenRepository.delete(token);
                 // cierra las sesiones abiertas con la contraseña anterior
-                jwtUtil.deleteAllRefreshTokens(usuario);
+                refreshTokenService.borrarTodos(usuario);
         }
 }

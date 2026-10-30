@@ -9,9 +9,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.LosCiruelos.padel_club_api.Exceptions.PagoNoEncontradoException;
-import com.LosCiruelos.padel_club_api.Exceptions.PagoProveedorException;
-import com.LosCiruelos.padel_club_api.Exceptions.ReembolsoFallidoException;
+import com.LosCiruelos.padel_club_api.pagos.exception.PagoNoEncontradoException;
+import com.LosCiruelos.padel_club_api.pagos.exception.PagoProveedorException;
+import com.LosCiruelos.padel_club_api.pagos.exception.ReembolsoFallidoException;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;

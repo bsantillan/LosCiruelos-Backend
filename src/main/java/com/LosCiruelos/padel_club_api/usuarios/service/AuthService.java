@@ -9,23 +9,23 @@ import org.springframework.transaction.annotation.Transactional;
 import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.LoginRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.RegisterRequest;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.GoogleUser;
+import com.LosCiruelos.padel_club_api.security.GoogleUser;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.LoginResponse;
 import com.LosCiruelos.padel_club_api.usuarios.entity.RefreshToken;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.AuthProvider;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
-import com.LosCiruelos.padel_club_api.Exceptions.CuentaDesactivadaException;
-import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
-import com.LosCiruelos.padel_club_api.Exceptions.EmailNoVerificadoException;
-import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
-import com.LosCiruelos.padel_club_api.Exceptions.TerminosNoAceptadosException;
-import com.LosCiruelos.padel_club_api.Security.GoogleTokenVerifier;
-import com.LosCiruelos.padel_club_api.Security.JWTUtil;
-import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
-import com.LosCiruelos.padel_club_api.Security.UsuarioPrincipal;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CuentaDesactivadaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.EmailEnUsoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.EmailNoVerificadoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.PasswordInvalidaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.TerminosNoAceptadosException;
+import com.LosCiruelos.padel_club_api.security.GoogleTokenVerifier;
+import com.LosCiruelos.padel_club_api.security.JWTUtil;
+import com.LosCiruelos.padel_club_api.security.PasswordValidator;
+import com.LosCiruelos.padel_club_api.security.UsuarioPrincipal;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +40,7 @@ public class AuthService {
     private final ClienteProfileService clienteProfileService;
     private final PasswordEncoder passwordEncoder;
     private final JWTUtil jwtUtil;
+    private final RefreshTokenService refreshTokenService;
     private final GoogleTokenVerifier googleTokenVerifier;
     private final VerificationService verificationService;
     private final UsuarioMapper usuarioMapper;
@@ -114,9 +115,9 @@ public class AuthService {
             throw new CuentaDesactivadaException();
         }
 
-        jwtUtil.deleteAllRefreshTokens(usuario);
+        refreshTokenService.borrarTodos(usuario);
 
-        return this.buildLoginResponse(usuario, perfilCompleto(usuario), jwtUtil.createRefreshToken(usuario).getToken());
+        return this.buildLoginResponse(usuario, perfilCompleto(usuario), refreshTokenService.crear(usuario).getToken());
     }
 
     @Transactional
@@ -143,23 +144,23 @@ public class AuthService {
             }
         }
 
-        jwtUtil.deleteAllRefreshTokens(usuarioGuardado);
+        refreshTokenService.borrarTodos(usuarioGuardado);
 
         return this.buildLoginResponse(usuarioGuardado, perfilCompleto(usuarioGuardado),
-                jwtUtil.createRefreshToken(usuarioGuardado).getToken());
+                refreshTokenService.crear(usuarioGuardado).getToken());
     }
 
     public LoginResponse refreshToken(String token) {
-        if (!jwtUtil.validateRefreshToken(token)) {
+        if (!refreshTokenService.esValido(token)) {
             throw new CredencialesInvalidasException("Token invalido");
         }
 
-        if (!jwtUtil.getUsuarioFromToken(token).getEnabled()) {
-            jwtUtil.deleteRefreshToken(token);
+        if (!refreshTokenService.usuarioDelToken(token).getEnabled()) {
+            refreshTokenService.borrar(token);
             throw new CuentaDesactivadaException();
         }
 
-        RefreshToken nuevoRefreshToken = jwtUtil.rotateRefreshToken(token);
+        RefreshToken nuevoRefreshToken = refreshTokenService.rotar(token);
         Usuario usuario = nuevoRefreshToken.getUsuario();
 
         return this.buildLoginResponse(usuario, perfilCompleto(usuario), nuevoRefreshToken.getToken());
@@ -167,10 +168,10 @@ public class AuthService {
 
     public void logout(String refreshToken) {
 
-        if (!jwtUtil.validateRefreshToken(refreshToken)) {
+        if (!refreshTokenService.esValido(refreshToken)) {
             throw new CredencialesInvalidasException("Token inválido");
         }
-        Usuario usuarioDelRefresh = jwtUtil.getUsuarioFromToken(refreshToken);
+        Usuario usuarioDelRefresh = refreshTokenService.usuarioDelToken(refreshToken);
 
         UsuarioPrincipal principal = (UsuarioPrincipal) SecurityContextHolder
                 .getContext()
@@ -181,6 +182,6 @@ public class AuthService {
             throw new CredencialesInvalidasException("Token no pertenece al usuario");
         }
 
-        jwtUtil.deleteRefreshToken(refreshToken);
+        refreshTokenService.borrar(refreshToken);
     }
 }

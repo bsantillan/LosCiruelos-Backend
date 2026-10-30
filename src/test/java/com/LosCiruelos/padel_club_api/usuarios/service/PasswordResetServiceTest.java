@@ -26,11 +26,10 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.VerificationToken;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.TokenType;
-import com.LosCiruelos.padel_club_api.Exceptions.CodigoInvalidoException;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
-import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CodigoInvalidoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.PasswordInvalidaException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.VerificationTokenRepository;
-import com.LosCiruelos.padel_club_api.Security.JWTUtil;
 import com.LosCiruelos.padel_club_api.notificaciones.email.EmailService;
 import com.LosCiruelos.padel_club_api.notificaciones.email.EmailServiceFactory;
 
@@ -40,7 +39,7 @@ class PasswordResetServiceTest {
     private VerificationTokenRepository tokenRepository;
     private PasswordEncoder passwordEncoder;
     private EmailService emailService;
-    private JWTUtil jwtUtil;
+    private RefreshTokenService refreshTokenService;
     private PasswordResetService servicio;
     private Usuario usuario;
     private VerificationToken token;
@@ -51,10 +50,10 @@ class PasswordResetServiceTest {
         tokenRepository = mock(VerificationTokenRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
         emailService = mock(EmailService.class);
-        jwtUtil = mock(JWTUtil.class);
+        refreshTokenService = mock(RefreshTokenService.class);
         EmailServiceFactory factory = mock(EmailServiceFactory.class);
         when(factory.getService()).thenReturn(emailService);
-        servicio = new PasswordResetService(usuarioService, mock(UsuarioRepository.class), tokenRepository, passwordEncoder, factory, jwtUtil,
+        servicio = new PasswordResetService(usuarioService, mock(UsuarioRepository.class), tokenRepository, passwordEncoder, factory, refreshTokenService,
                 Reloj.delSistema());
 
         usuario = usuario(1L, Role.CLIENTE);
@@ -86,7 +85,7 @@ class PasswordResetServiceTest {
 
         assertThat(usuario.getPasswordHash()).isEqualTo("nuevo-hash");
         verify(tokenRepository).delete(token);
-        verify(jwtUtil).deleteAllRefreshTokens(usuario);
+        verify(refreshTokenService).borrarTodos(usuario);
     }
 
     @Test

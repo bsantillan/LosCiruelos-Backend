@@ -30,15 +30,14 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.enums.AuthProvider;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Categoria;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Posicion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
-import com.LosCiruelos.padel_club_api.Security.JWTUtil;
-import com.LosCiruelos.padel_club_api.Security.PasswordValidator;
+import com.LosCiruelos.padel_club_api.usuarios.exception.EmailEnUsoException;
+import com.LosCiruelos.padel_club_api.security.PasswordValidator;
 
 class UsuarioAdminServiceTest {
 
     private ClienteProfileService clienteProfileService;
     private UsuarioService usuarioService;
-    private JWTUtil jwtUtil;
+    private RefreshTokenService refreshTokenService;
     private VerificationService verificationService;
     private UsuarioAdminService adminService;
     private UsuarioRepository usuarioRepository;
@@ -48,11 +47,11 @@ class UsuarioAdminServiceTest {
     void setUp() {
         clienteProfileService = mock(ClienteProfileService.class);
         usuarioService = mock(UsuarioService.class);
-        jwtUtil = mock(JWTUtil.class);
+        refreshTokenService = mock(RefreshTokenService.class);
         verificationService = mock(VerificationService.class);
         usuarioRepository = mock(UsuarioRepository.class);
         adminService = new UsuarioAdminService(clienteProfileService, usuarioService, usuarioRepository,
-                jwtUtil, verificationService, new UsuarioMapper());
+                refreshTokenService, verificationService, new UsuarioMapper());
 
         cliente = usuario(1L, Role.CLIENTE);
         when(usuarioService.findByIdOrThrow(1L)).thenReturn(cliente);
@@ -174,7 +173,7 @@ class UsuarioAdminServiceTest {
     void desactivarYReactivar() {
         adminService.desactivarUsuario(1L);
         assertThat(cliente.getEnabled()).isFalse();
-        verify(jwtUtil).deleteAllRefreshTokens(cliente);
+        verify(refreshTokenService).borrarTodos(cliente);
 
         adminService.reactivarUsuario(1L);
         assertThat(cliente.getEnabled()).isTrue();

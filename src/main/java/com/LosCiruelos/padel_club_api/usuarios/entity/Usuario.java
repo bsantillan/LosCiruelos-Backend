@@ -1,6 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.entity;
 
-import com.LosCiruelos.padel_club_api.Exceptions.ReservaException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import java.time.LocalDateTime;
 
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.AuthProvider;

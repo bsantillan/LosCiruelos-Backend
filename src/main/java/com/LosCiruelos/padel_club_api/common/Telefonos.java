@@ -2,7 +2,7 @@ package com.LosCiruelos.padel_club_api.common;
 
 import java.util.Map;
 
-import com.LosCiruelos.padel_club_api.Exceptions.ValidationException;
+import com.LosCiruelos.padel_club_api.common.exception.ValidationException;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;

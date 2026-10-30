@@ -23,7 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.LoginRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.RegisterRequest;
-import com.LosCiruelos.padel_club_api.DTOs.Responses.GoogleUser;
+import com.LosCiruelos.padel_club_api.security.GoogleUser;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.LoginResponse;
 import com.LosCiruelos.padel_club_api.usuarios.entity.ClienteProfile;
 import com.LosCiruelos.padel_club_api.usuarios.entity.RefreshToken;
@@ -33,15 +33,15 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Categoria;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Posicion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
-import com.LosCiruelos.padel_club_api.Exceptions.CredencialesInvalidasException;
-import com.LosCiruelos.padel_club_api.Exceptions.CuentaDesactivadaException;
-import com.LosCiruelos.padel_club_api.Exceptions.EmailEnUsoException;
-import com.LosCiruelos.padel_club_api.Exceptions.EmailNoVerificadoException;
-import com.LosCiruelos.padel_club_api.Exceptions.PasswordInvalidaException;
-import com.LosCiruelos.padel_club_api.Exceptions.TerminosNoAceptadosException;
-import com.LosCiruelos.padel_club_api.Security.GoogleTokenVerifier;
-import com.LosCiruelos.padel_club_api.Security.JWTUtil;
-import com.LosCiruelos.padel_club_api.Security.UsuarioPrincipal;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CredencialesInvalidasException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.CuentaDesactivadaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.EmailEnUsoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.EmailNoVerificadoException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.PasswordInvalidaException;
+import com.LosCiruelos.padel_club_api.usuarios.exception.TerminosNoAceptadosException;
+import com.LosCiruelos.padel_club_api.security.GoogleTokenVerifier;
+import com.LosCiruelos.padel_club_api.security.JWTUtil;
+import com.LosCiruelos.padel_club_api.security.UsuarioPrincipal;
 
 class AuthServiceTest {
 
@@ -49,6 +49,7 @@ class AuthServiceTest {
     private ClienteProfileService clienteProfileService;
     private PasswordEncoder passwordEncoder;
     private JWTUtil jwtUtil;
+    private RefreshTokenService refreshTokenService;
     private GoogleTokenVerifier googleTokenVerifier;
     private VerificationService verificationService;
     private AuthService authService;
@@ -61,16 +62,18 @@ class AuthServiceTest {
         clienteProfileService = mock(ClienteProfileService.class);
         passwordEncoder = mock(PasswordEncoder.class);
         jwtUtil = mock(JWTUtil.class);
+        refreshTokenService = mock(RefreshTokenService.class);
         googleTokenVerifier = mock(GoogleTokenVerifier.class);
         verificationService = mock(VerificationService.class);
         usuarioRepository = mock(UsuarioRepository.class);
         authService = new AuthService(usuarioService, usuarioRepository, clienteProfileService, passwordEncoder, jwtUtil,
+                refreshTokenService,
                 googleTokenVerifier, verificationService, new UsuarioMapper());
 
         cliente = usuario(1L, Role.CLIENTE);
         cliente.setPasswordHash("hash");
         when(jwtUtil.generateToken(anyString())).thenReturn("jwt");
-        when(jwtUtil.createRefreshToken(any())).thenReturn(RefreshToken.builder().token("rt").build());
+        when(refreshTokenService.crear(any())).thenReturn(RefreshToken.builder().token("rt").build());
         when(passwordEncoder.matches("Clave123!", "hash")).thenReturn(true);
         when(usuarioRepository.findByEmail(cliente.getEmail())).thenReturn(java.util.Optional.of(cliente));
         // la regla por rol es la real; el perfil de jugador lo responde el mock (completo)
@@ -157,7 +160,7 @@ class AuthServiceTest {
         assertThat(r.getAccessToken()).isEqualTo("jwt");
         assertThat(r.getRefreshToken()).isEqualTo("rt");
         assertThat(r.getPerfilCompleto()).isTrue();
-        verify(jwtUtil).deleteAllRefreshTokens(cliente);
+        verify(refreshTokenService).borrarTodos(cliente);
     }
 
     @Test
@@ -243,9 +246,9 @@ class AuthServiceTest {
 
     @Test
     void refreshRotaElToken() {
-        when(jwtUtil.validateRefreshToken("viejo")).thenReturn(true);
-        when(jwtUtil.getUsuarioFromToken("viejo")).thenReturn(cliente);
-        when(jwtUtil.rotateRefreshToken("viejo")).thenReturn(RefreshToken.builder().token("nuevo").usuario(cliente).build());
+        when(refreshTokenService.esValido("viejo")).thenReturn(true);
+        when(refreshTokenService.usuarioDelToken("viejo")).thenReturn(cliente);
+        when(refreshTokenService.rotar("viejo")).thenReturn(RefreshToken.builder().token("nuevo").usuario(cliente).build());
 
         assertThat(authService.refreshToken("viejo").getRefreshToken()).isEqualTo("nuevo");
     }
@@ -253,13 +256,13 @@ class AuthServiceTest {
     @Test
     void refreshDeUnaCuentaDesactivadaSeRechaza() {
         cliente.setEnabled(false);
-        when(jwtUtil.validateRefreshToken("viejo")).thenReturn(true);
-        when(jwtUtil.getUsuarioFromToken("viejo")).thenReturn(cliente);
+        when(refreshTokenService.esValido("viejo")).thenReturn(true);
+        when(refreshTokenService.usuarioDelToken("viejo")).thenReturn(cliente);
 
         assertThatThrownBy(() -> authService.refreshToken("viejo")).isInstanceOf(CuentaDesactivadaException.class);
-        verify(jwtUtil, never()).rotateRefreshToken(any());
+        verify(refreshTokenService, never()).rotar(any());
 
-        when(jwtUtil.validateRefreshToken("invalido")).thenReturn(false);
+        when(refreshTokenService.esValido("invalido")).thenReturn(false);
         assertThatThrownBy(() -> authService.refreshToken("invalido")).isInstanceOf(CredencialesInvalidasException.class);
     }
 
@@ -268,12 +271,12 @@ class AuthServiceTest {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(new UsuarioPrincipal(cliente), null));
         Usuario otro = usuario(2L, Role.CLIENTE);
-        when(jwtUtil.validateRefreshToken(anyString())).thenReturn(true);
-        when(jwtUtil.getUsuarioFromToken("ajeno")).thenReturn(otro);
-        when(jwtUtil.getUsuarioFromToken("propio")).thenReturn(cliente);
+        when(refreshTokenService.esValido(anyString())).thenReturn(true);
+        when(refreshTokenService.usuarioDelToken("ajeno")).thenReturn(otro);
+        when(refreshTokenService.usuarioDelToken("propio")).thenReturn(cliente);
 
         assertThatThrownBy(() -> authService.logout("ajeno")).isInstanceOf(CredencialesInvalidasException.class);
         authService.logout("propio");
-        verify(jwtUtil).deleteRefreshToken("propio");
+        verify(refreshTokenService).borrar("propio");
     }
 }
