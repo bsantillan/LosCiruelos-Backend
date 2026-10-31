@@ -27,6 +27,7 @@ Todo se escribe en **castellano rioplatense**: mensajes de error, textos de avis
   java -jar target/padel-club-api-0.0.1-SNAPSHOT.jar --server.port=18099
   ```
   Al terminar, frenar la app y `docker stop padel_tmp_test`. Las migraciones se prueban aplicándolas sobre una base vacía (y, si migran datos, cargando datos viejos con `--spring.flyway.target=<versión anterior>` primero).
+- **Base de desarrollo con datos de prueba**: `scripts/datos-de-prueba/datos-de-prueba.sql` la borra y la vuelve a cargar (ver su `README.md`). Se corre solo con permiso del usuario y nunca en producción; si cambia el esquema, se actualiza el script en el mismo cambio.
 - Los tests de repositorio usan H2 con `spring.flyway.enabled=false`, `ddl-auto=create-drop` y `hibernate.dialect=org.hibernate.dialect.H2Dialect` (sin el dialecto de H2 fallan los CHECK que genera Hibernate).
 
 ## Arquitectura

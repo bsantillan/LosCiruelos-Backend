@@ -208,3 +208,7 @@ Además, las restricciones `UNIQUE` (email, código de producto, `verification_t
 
 - La migración V1 carga los productos `PELOTAS` (VENTA) y `PALETAS` (ALQUILER) con precio y stock en 0, la V2 les ponía el stock inicial (300 pelotas y 50 paletas) , la V6 lo fija en **50 pelotas y 50 paletas** y la V7 les pone precio de **$5000 por unidad**. Después el admin los cambia desde la API.
 - `DataInitializer` (al arrancar la app) crea el admin, la configuración, las 4 canchas y, si `APP_SEED_USUARIO_PRUEBA=true`, el usuario de prueba.
+
+## Datos de prueba (solo desarrollo)
+
+`scripts/datos-de-prueba/datos-de-prueba.sql` borra todos los datos de la base de desarrollo y carga un ecosistema para probar a mano: lo básico (configuración, días, canchas y productos), los ADMIN que había (mismo mail y contraseña), un empleado, un profesor, siete clientes (uno con el perfil incompleto, uno de Google y uno desactivado) y reservas en varios estados con sus pagos. Las fechas son relativas al día en que se corre. Cómo usarlo, en [scripts/datos-de-prueba/README.md](../scripts/datos-de-prueba/README.md). Nunca se corre en producción.
