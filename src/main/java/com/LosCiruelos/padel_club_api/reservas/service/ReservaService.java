@@ -100,6 +100,8 @@ public class ReservaService {
     public ReservaResponse crearParaMi(CrearReservaRequest req, String email) {
         Usuario cliente = usuarioService.autenticado(email);
         validarPerfilCompleto(cliente, "Debés completar tu perfil antes de reservar.");
+        // solo el cliente tiene tope: el personal puede cargar reservas más lejanas
+        configuracionService.obtener().validarAnticipacion(req.getFechaReserva(), reloj.hoy());
         return crear(req, cliente, cliente);
     }
 

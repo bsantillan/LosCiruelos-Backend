@@ -329,6 +329,32 @@ class ReservaServiceTest {
             assertThatThrownBy(() -> reservaService.crearParaMi(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail()))
                     .isInstanceOf(PerfilIncompletoException.class);
         }
+
+        @Test
+        void elClienteReservaHastaLosDiasDeAnticipacion() {
+            sinOtrasReservas(); // por defecto, 30 días: hasta el 12/11
+
+            ReservaResponse ultimoDia = reservaService.crearParaMi(pedido(HOY.plusDays(30), "18:00", "19:30"),
+                    cliente.getEmail());
+
+            assertThat(ultimoDia.getEstado()).isEqualTo(EstadoReserva.PENDIENTE);
+            assertThatThrownBy(() -> reservaService.crearParaMi(pedido(HOY.plusDays(31), "18:00", "19:30"),
+                    cliente.getEmail()))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessageStartingWith("Podés reservar hasta el")
+                    .hasMessageEndingWith("(30 días de anticipación).");
+        }
+
+        @Test
+        void elPersonalReservaMasAllaDeLaAnticipacion() {
+            sinOtrasReservas();
+            CrearReservaAdminRequest lejana = pedidoParaCliente(1L);
+            lejana.setFechaReserva(HOY.plusDays(90));
+
+            ReservaResponse r = reservaService.crearParaCliente(lejana, admin.getEmail());
+
+            assertThat(r.getFechaReserva()).isEqualTo(HOY.plusDays(90));
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────

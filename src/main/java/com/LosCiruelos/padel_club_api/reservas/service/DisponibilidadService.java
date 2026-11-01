@@ -115,7 +115,9 @@ public class DisponibilidadService {
                 config.montoTurno(minutosTurno),
                 desde < cierre ? desdeMinutos(desde) : null,
                 slotsOcupados,
-                disponibles);
+                disponibles,
+                // el cliente no puede reservar más allá (el personal sí: por eso se responde igual)
+                config.reservableHasta(ahora.toLocalDate()));
     }
 
     /** Valida fecha y horario contra la configuración. Devuelve la duración en minutos. */

@@ -63,6 +63,8 @@ class DisponibilidadServiceTest {
         DisponibilidadResponse d = servicio(TestData.AHORA).disponibilidad(1L, MANIANA, 90);
 
         assertThat(d.getHorarioMinimoInicio()).isEqualTo(LocalTime.of(8, 0));
+        // hasta dónde puede reservar el cliente: hoy + 30 días
+        assertThat(d.getReservableHasta()).isEqualTo(TestData.HOY.plusDays(30));
         assertThat(d.getSlotsOcupados()).containsExactly(new Turno(LocalTime.of(18, 0), LocalTime.of(19, 30)));
         assertThat(d.getTurnosDisponibles())
                 .contains(new Turno(LocalTime.of(8, 0), LocalTime.of(9, 30)))
