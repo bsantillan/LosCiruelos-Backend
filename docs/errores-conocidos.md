@@ -46,6 +46,11 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Anticipación máxima para reservar** (30 días por defecto):
+  - `POST /reservas` (el cliente) responde `400` "Podés reservar hasta el … (n días de anticipación)." si la fecha pasa del tope. El personal (`POST /admin/reservas` y los partidos) no tiene tope.
+  - `GET /canchas/{id}/disponibilidad` suma `reservableHasta` (fecha): el último día que el cliente puede reservar, para limitar el calendario.
+  - Nuevo `GET/PUT /admin/configuracion/reservas` (ADMIN): `{ "diasAnticipacion": 30 }`, entre 1 y 365.
+  - Los partidos de los turnos fijos se generan hasta ese mismo tope (antes, 4 semanas).
 - Validaciones `@Valid`: el body ahora es `{ "timestamp", "errors": {…} }` (antes `{ "status": 400, "errors": {…} }`).
 - Cancha inexistente y día sin apertura: `{ "error": "…" }` (antes `{ "errors": "…" }`).
 - Errores de reservas y pagos: 400 / 404 / 409 / 502 en vez de 500.

@@ -37,6 +37,7 @@
 
 - Devuelve el horario del día, los turnos ocupados (`slotsOcupados`) y los **turnos libres de la duración pedida** (`turnosDisponibles`), calculados con las mismas reglas que la creación de reservas.
 - Si la fecha es hoy, el primer turno es el próximo bloque de 30 min contado desde la apertura (`horarioMinimoInicio`).
+- `reservableHasta` dice hasta qué día puede reservar el cliente (ver el punto 2).
 - **Ocupa el turno** toda reserva que no esté `CANCELADA` ni `EXPIRADA`, salvo una `PENDIENTE` vencida sin pagos aprobados ni en proceso: esa ya no bloquea, aunque el job todavía no la haya marcado. Es la misma definición que usa la creación.
 
 ### 2. Crear la reserva — `POST /reservas` (cliente) o `POST /admin/reservas` (personal)
@@ -44,7 +45,8 @@
 Validaciones, en orden:
 1. **Quién**: un CLIENTE reserva para sí mismo en `/reservas` (el cliente sale del token). ADMIN y EMPLEADO reservan en `/admin/reservas` e indican `clienteId`, que tiene que ser un CLIENTE habilitado. PROFESOR no reserva.
 2. El cliente tiene el **perfil completo** (nombre, apellido, teléfono, categoría, posición).
-3. **Horario**: fecha hoy o futura; si es hoy, el inicio no pasó; inicio < fin; duración múltiplo de 30 y entre el mínimo y el máximo configurados (90–180); dentro del horario del día; inicio alineado a bloques de 30 min desde la apertura.
+3. **Anticipación** (solo el cliente): la fecha no puede pasar de hoy + los días de anticipación de la configuración (30 por defecto; el ADMIN los cambia en `PUT /admin/configuracion/reservas`). Si no, `400` "Podés reservar hasta el … (n días de anticipación).". El personal no tiene tope: puede cargar reservas y partidos más lejanos.
+4. **Horario**: fecha hoy o futura; si es hoy, el inicio no pasó; inicio < fin; duración múltiplo de 30 y entre el mínimo y el máximo configurados (90–180); dentro del horario del día; inicio alineado a bloques de 30 min desde la apertura.
 
 Después, con la cancha bloqueada:
 1. Las **PENDIENTE vencidas** que se superponen se marcan `EXPIRADA` (y sus pagos iniciados `EXPIRADO`).
@@ -130,7 +132,7 @@ Si cualquier paso falla, la transacción se revierte entera: no quedan reservas 
 - **Modificar** (`PUT /admin/reservas/partidos/{id}`): jugadores por posición (no se reemplaza a quien ya pagó), cancha, horario y productos, mientras no se haya jugado. El total no puede quedar por debajo de lo pagado.
 - **Cancelar**: solo el ADMIN, con `DELETE /admin/reservas/{id}/cancelar` (reembolso si hay plata). Se avisa a los jugadores registrados.
 - **Jugadores registrados**: ven el partido en "Mis reservas" y su detalle, sin poder pagarlo ni cancelarlo; los que son clientes reciben el recordatorio (si lo tienen activado) con lo que les falta de su parte.
-- **Turno fijo** (`/admin/turnos-fijos`): el mismo partido todas las semanas (el día de `desde`). Bloquea el horario siempre, también en la disponibilidad. Un job crea cada hora los partidos de las próximas 4 semanas (cada uno se paga aparte); si una fecha está ocupada se informa y se reintenta.
+- **Turno fijo** (`/admin/turnos-fijos`): el mismo partido todas las semanas (el día de `desde`). Bloquea el horario siempre, también en la disponibilidad. Un job crea cada hora los partidos hasta el tope para reservar (hoy + 30 días por defecto), así que se van sumando fechas a medida que pasa el tiempo (cada uno se paga aparte); si una fecha está ocupada se informa y se reintenta.
   - **Baja de una fecha**: se cancela ese partido (o se registra la fecha como cancelada si todavía no se creó) y el horario queda libre ese día.
   - **Modificar**: los partidos futuros sin pagos se vuelven a crear con los datos nuevos; los que tienen pagos quedan como estaban.
   - **Baja general**: se cancelan los partidos que no empezaron (con reembolso si alguno tiene plata) y el horario se libera.
