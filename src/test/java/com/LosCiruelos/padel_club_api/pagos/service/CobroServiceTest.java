@@ -185,6 +185,8 @@ class CobroServiceTest extends PagosTestBase {
 
             assertThat(r.getMonto()).isEqualByComparingTo("7500");
             assertThat(partido.getMontoPendiente()).isEqualByComparingTo("7500");
+            // un partido no tiene seña: con la mitad paga queda parcial
+            assertThat(partido.getEstado()).isEqualTo(EstadoReserva.PARCIALMENTE_PAGADA);
 
             cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO,
                     empleado.getEmail());
@@ -215,13 +217,31 @@ class CobroServiceTest extends PagosTestBase {
         @Test
         void unPartidoQueSeQuedaSinPagosVuelveAConfirmadaYNoSeCancela() {
             Pago pago = pago(1L, partido, EstadoPago.APROBADO, "7500");
-            partido.setEstado(EstadoReserva.SEÑADA);
+            partido.setEstado(EstadoReserva.PARCIALMENTE_PAGADA);
             pago.setEstado(EstadoPago.DEVUELTO);
             pago.setMontoReembolsado(new BigDecimal("7500"));
 
             assertThat(partido.recalcularEstado(new BigDecimal("7500"), AHORA)).isTrue();
 
             assertThat(partido.getEstado()).isEqualTo(EstadoReserva.CONFIRMADA);
+        }
+
+        @Test
+        void unPartidoNoTieneSeniaYUnaReservaNormalSi() {
+            BigDecimal senia = new BigDecimal("7500");
+            pago(1L, partido, EstadoPago.APROBADO, "10000");
+            partido.recalcularEstado(senia, AHORA);
+            assertThat(partido.getEstado()).isEqualTo(EstadoReserva.PARCIALMENTE_PAGADA);
+
+            Reserva normal = TestData.reserva(11L, cliente, EstadoReserva.PENDIENTE, "15000");
+            pago(2L, normal, EstadoPago.APROBADO, "10000");
+            normal.recalcularEstado(senia, AHORA);
+            assertThat(normal.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
+
+            // jugado y sin pagar entero: queda como deuda (no pasa a COMPLETADA)
+            partido.setFechaReserva(AHORA.toLocalDate().minusDays(1));
+            partido.recalcularEstado(senia, AHORA);
+            assertThat(partido.getEstado()).isEqualTo(EstadoReserva.PARCIALMENTE_PAGADA);
         }
     }
 

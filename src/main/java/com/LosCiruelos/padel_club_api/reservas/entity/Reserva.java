@@ -256,7 +256,8 @@ public class Reserva {
      * total → PAGADA (o COMPLETADA si el turno ya terminó, ej. el saldo se cobró en el club después
      * de jugar; si no, la completa el job al terminar).
      * Una reserva confirmada que queda sin nada cubierto (reembolso) pasa a CANCELADA. Un partido
-     * sin nada pagado queda CONFIRMADA (no vence ni se cancela por eso).
+     * no tiene seña: sin nada pagado queda CONFIRMADA (no vence ni se cancela por eso), con algo
+     * PARCIALMENTE_PAGADA y entero PAGADA (o COMPLETADA).
      * CANCELADA, EXPIRADA y COMPLETADA no cambian.
      *
      * @return true si el estado cambió
@@ -273,7 +274,8 @@ public class Reserva {
             nuevo = estado == EstadoReserva.PENDIENTE ? EstadoReserva.PENDIENTE : EstadoReserva.CANCELADA;
         } else if (cubierto.compareTo(montoTotal) >= 0) {
             nuevo = turnoTermino(ahora) ? EstadoReserva.COMPLETADA : EstadoReserva.PAGADA;
-        } else if (cubierto.compareTo(senia) >= 0) {
+        } else if (cubierto.compareTo(senia) >= 0 && !esPartido()) {
+            // un partido no tiene seña: hasta pagarse entero queda PARCIALMENTE_PAGADA
             nuevo = EstadoReserva.SEÑADA;
         } else {
             nuevo = EstadoReserva.PARCIALMENTE_PAGADA;
