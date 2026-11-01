@@ -21,7 +21,6 @@ import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaAdminRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
-import com.LosCiruelos.padel_club_api.reservas.entity.ReservaJugador;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 
@@ -47,10 +46,10 @@ public class CobroService {
 
     // ── Pagos en el club ─────────────────────────────────────────────────
 
-    /** @param jugadorId en un partido, qué jugador paga (obligatorio); en una reserva normal, null */
+    /** En un partido se cobra el monto general, igual que en una reserva normal (sin indicar el jugador). */
     @Transactional
     public PagoResponse registrarPagoManual(Long reservaId, BigDecimal monto, PaymentProvider provider,
-            Long jugadorId, String email) {
+            String email) {
         if (monto == null || monto.signum() <= 0) {
             throw new ReservaException("El monto debe ser mayor a cero.");
         }
@@ -62,8 +61,6 @@ public class CobroService {
             throw new EstadoInvalidoException(
                     "Hay un pago online en proceso para esta reserva; esperá a que se resuelva.");
         }
-        ReservaJugador jugador = resolverJugador(reserva, jugadorId);
-
         BigDecimal montoPendiente = reserva.getMontoPendiente();
         if (monto.compareTo(montoPendiente) > 0) {
             throw new ReservaException("El monto ($%s) supera el pendiente ($%s).".formatted(monto, montoPendiente));
@@ -80,7 +77,6 @@ public class CobroService {
                 .createdAt(ahora)
                 .paidAt(ahora)
                 .registradoPorId(personal.getId())
-                .jugador(jugador)
                 .build();
         reserva.agregarPago(pago);
         pago = pagoRepository.save(pago);
@@ -98,11 +94,10 @@ public class CobroService {
      * registra como un pago BONIFICACION: cubre el monto (la reserva queda confirmada o paga) pero
      * no es plata, así que no cuenta como cobrado ni se devuelve si después se cancela.
      *
-     * @param monto     null: todo lo que falta pagar (en un partido, lo que le falta de su parte al jugador)
-     * @param jugadorId en un partido, a qué jugador se le bonifica (obligatorio); en una reserva normal, null
+     * @param monto null: todo lo que falta pagar
      */
     @Transactional
-    public PagoResponse bonificar(Long reservaId, BigDecimal monto, String motivo, Long jugadorId, String email) {
+    public PagoResponse bonificar(Long reservaId, BigDecimal monto, String motivo, String email) {
         Usuario admin = usuarioService.autenticado(email);
         validarQueEsAdmin(admin);
         Reserva reserva = reservaService.bloquearConAcceso(reservaId, admin);
@@ -111,15 +106,11 @@ public class CobroService {
             throw new EstadoInvalidoException(
                     "Hay un pago online en proceso para esta reserva; esperá a que se resuelva.");
         }
-        ReservaJugador jugador = resolverJugador(reserva, jugadorId);
         BigDecimal pendiente = reserva.getMontoPendiente();
         if (pendiente.signum() <= 0) {
             throw new EstadoInvalidoException("La reserva ya está paga.");
         }
-        BigDecimal aBonificar = monto != null ? monto : jugador != null ? reserva.debeDe(jugador) : pendiente;
-        if (monto == null && jugador != null && aBonificar.signum() <= 0) {
-            throw new EstadoInvalidoException(jugador.nombreParaMostrar() + " ya cubrió su parte.");
-        }
+        BigDecimal aBonificar = monto != null ? monto : pendiente;
         if (aBonificar.signum() <= 0) {
             throw new ReservaException("El monto debe ser mayor a cero.");
         }
@@ -139,7 +130,6 @@ public class CobroService {
                 .paidAt(ahora)
                 .registradoPorId(admin.getId())
                 .motivo(motivo != null && !motivo.isBlank() ? motivo.trim() : null)
-                .jugador(jugador)
                 .build();
         reserva.agregarPago(bonificacion);
         bonificacion = pagoRepository.save(bonificacion);
@@ -156,28 +146,8 @@ public class CobroService {
     public ReservaResponse crearReservaBonificada(CrearReservaAdminRequest req, String email) {
         validarQueEsAdmin(usuarioService.autenticado(email));
         ReservaResponse creada = reservaService.crearParaCliente(req, email);
-        bonificar(creada.getId(), req.getBonificacion().getMonto(), req.getBonificacion().getMotivo(), null, email);
+        bonificar(creada.getId(), req.getBonificacion().getMonto(), req.getBonificacion().getMotivo(), email);
         return reservaConsultaService.obtener(creada.getId(), email);
-    }
-
-    /**
-     * En un partido hay que indicar qué jugador paga, y tiene que ser uno de sus jugadores; en una
-     * reserva normal no se indica.
-     */
-    private static ReservaJugador resolverJugador(Reserva reserva, Long jugadorId) {
-        if (!reserva.esPartido()) {
-            if (jugadorId != null) {
-                throw new ReservaException("La reserva no es un partido: no se indica el jugador.");
-            }
-            return null;
-        }
-        if (jugadorId == null) {
-            throw new ReservaException("Indicá qué jugador paga (jugadorId).");
-        }
-        return reserva.getJugadores().stream()
-                .filter(j -> j.getId().equals(jugadorId))
-                .findFirst()
-                .orElseThrow(() -> new ReservaException("El jugador " + jugadorId + " no es de este partido."));
     }
 
     private static void validarQueEsAdmin(Usuario usuario) {

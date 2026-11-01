@@ -14,6 +14,4 @@ public class PagoManualRequest {
     @Digits(integer = 8, fraction = 2, message = "El monto puede tener hasta 2 decimales")
     private BigDecimal monto;
 
-    // Partido: qué jugador paga (obligatorio en un partido, no se manda en una reserva normal)
-    private Long jugadorId;
 }

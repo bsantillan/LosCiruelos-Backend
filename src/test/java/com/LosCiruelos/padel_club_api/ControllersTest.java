@@ -276,11 +276,11 @@ class ControllersTest {
                     .andExpect(jsonPath("$.errors.monto").exists());
             mvc.perform(json(post("/admin/reservas/4/cobros/efectivo"), "{}")).andExpect(status().isBadRequest());
 
-            when(cobroService.registrarPagoManual(any(), any(), any(), any(), anyString())).thenReturn(new PagoResponse());
+            when(cobroService.registrarPagoManual(any(), any(), any(), anyString())).thenReturn(new PagoResponse());
             mvc.perform(json(post("/admin/reservas/4/cobros/efectivo"), "{\"monto\":7500}")).andExpect(status().isOk());
             mvc.perform(json(post("/admin/reservas/4/cobros/presencial"), "{\"monto\":7500}")).andExpect(status().isOk());
-            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, EMAIL);
-            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO, null, EMAIL);
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, EMAIL);
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO, EMAIL);
         }
 
         @Test
@@ -912,19 +912,19 @@ class ControllersTest {
 
         @Test
         void bonificarSinBodyEsTodoLoQueFalta() throws Exception {
-            when(cobroService.bonificar(5L, null, null, null, EMAIL)).thenReturn(new PagoResponse());
+            when(cobroService.bonificar(5L, null, null, EMAIL)).thenReturn(new PagoResponse());
 
             mvc.perform(post("/admin/reservas/5/bonificacion").principal(AUTH)).andExpect(status().isOk());
-            verify(cobroService).bonificar(5L, null, null, null, EMAIL);
+            verify(cobroService).bonificar(5L, null, null, EMAIL);
         }
 
         @Test
         void bonificarUnaParteConMotivo() throws Exception {
-            when(cobroService.bonificar(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
+            when(cobroService.bonificar(any(), any(), any(), any())).thenReturn(new PagoResponse());
 
             mvc.perform(json(post("/admin/reservas/5/bonificacion"), "{\"monto\":7500,\"motivo\":\"socio\"}"))
                     .andExpect(status().isOk());
-            verify(cobroService).bonificar(5L, new BigDecimal("7500"), "socio", null, EMAIL);
+            verify(cobroService).bonificar(5L, new BigDecimal("7500"), "socio", EMAIL);
 
             mvc.perform(json(post("/admin/reservas/5/bonificacion"), "{\"monto\":0}"))
                     .andExpect(status().isBadRequest())
@@ -933,7 +933,7 @@ class ControllersTest {
 
         @Test
         void unEmpleadoNoPuedeBonificar() throws Exception {
-            when(cobroService.bonificar(any(), any(), any(), any(), any())).thenThrow(
+            when(cobroService.bonificar(any(), any(), any(), any())).thenThrow(
                     new com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException(
                             "Solo el ADMIN puede bonificar una reserva."));
 

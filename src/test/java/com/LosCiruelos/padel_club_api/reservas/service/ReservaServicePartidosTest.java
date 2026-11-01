@@ -13,7 +13,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -148,11 +147,6 @@ class ReservaServicePartidosTest {
                     .containsExactly("Nombre1 Apellido1", "Nombre2 Apellido2", "Juan Invitado", "Pedro");
             assertThat(r.getJugadores()).extracting(JugadorResponse::getInvitado)
                     .containsExactly(false, false, true, true);
-            // cada uno debe su parte: 15000 / 4
-            assertThat(r.getJugadores()).extracting(JugadorResponse::getParte)
-                    .allSatisfy(parte -> assertThat(parte).isEqualByComparingTo("3750"));
-            assertThat(r.getJugadores()).extracting(JugadorResponse::getDebe)
-                    .allSatisfy(debe -> assertThat(debe).isEqualByComparingTo("3750"));
         }
 
         @Test
@@ -274,21 +268,16 @@ class ReservaServicePartidosTest {
         }
 
         @Test
-        void noSePuedeReemplazarAUnJugadorQueYaPago() {
+        void conPagosSeReemplazaACualquierJugador() {
+            // el partido se paga como un todo: los pagos no son de ningún jugador
             Pago pago = TestData.pago(1L, partido, EstadoPago.APROBADO, "3750");
             pago.setProvider(PaymentProvider.MANUAL);
-            pago.setJugador(partido.getJugadores().get(1));
 
-            assertThatThrownBy(() -> reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
-                    JugadorRequest.registrado(2L), JugadorRequest.invitado("Invitado 3"),
-                    JugadorRequest.invitado("Invitado 4")), admin.getEmail()))
-                    .isInstanceOf(EstadoInvalidoException.class)
-                    .hasMessage("Invitado 2 ya pagó o tiene una bonificación: no se lo puede reemplazar.");
-
-            // al mismo jugador (mismo nombre de invitado) sí se le puede cambiar el teléfono
             ReservaResponse r = reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
-                    new JugadorRequest(null, "invitado 2", "11 4444-0000"), JugadorRequest.invitado("Invitado 3"),
+                    new JugadorRequest(null, "Otro invitado", "11 4444-0000"), JugadorRequest.invitado("Invitado 3"),
                     JugadorRequest.invitado("Invitado 4")), admin.getEmail());
+
+            assertThat(r.getJugadores().get(1).getNombre()).isEqualTo("Otro invitado");
             assertThat(r.getJugadores().get(1).getTelefono()).isEqualTo("11 4444-0000");
             // con 3750 pagado (menos que la seña) queda parcial
             assertThat(r.getEstado()).isEqualTo(EstadoReserva.PARCIALMENTE_PAGADA);
@@ -304,7 +293,7 @@ class ReservaServicePartidosTest {
             assertThat(r.getMontoTotal()).isEqualByComparingTo("30000");
             assertThat(r.getHoraFin()).isEqualTo(LocalTime.of(21, 0));
 
-            TestData.pago(1L, partido, EstadoPago.APROBADO, "20000").setJugador(partido.getJugadores().get(0));
+            TestData.pago(1L, partido, EstadoPago.APROBADO, "20000");
             assertThatThrownBy(() -> reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
                     JugadorRequest.invitado("Invitado 2"), JugadorRequest.invitado("Invitado 3"),
                     JugadorRequest.invitado("Invitado 4")), admin.getEmail()))
@@ -402,16 +391,5 @@ class ReservaServicePartidosTest {
             assertThatThrownBy(() -> reservas.crearPartidoDeTurnoFijo(8L, MANIANA))
                     .isInstanceOf(HorarioOcupadoException.class);
         }
-    }
-
-    @Test
-    void laParteDeCadaJugadorRepartiendoLosCentavos() {
-        Reserva partido = TestData.partido(60L, admin, cliente, "10000.01");
-
-        assertThat(partido.parteDe(1)).isEqualByComparingTo("2500.00");
-        assertThat(partido.parteDe(3)).isEqualByComparingTo("2500.00");
-        assertThat(partido.parteDe(4)).isEqualByComparingTo("2500.01");
-        assertThat(partido.parteDe(1).multiply(BigDecimal.valueOf(3)).add(partido.parteDe(4)))
-                .isEqualByComparingTo("10000.01");
     }
 }

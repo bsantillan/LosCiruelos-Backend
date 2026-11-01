@@ -20,6 +20,4 @@ public class BonificacionRequest {
     @Size(max = 200, message = "El motivo puede tener hasta 200 caracteres")
     private String motivo;
 
-    // Partido: a qué jugador se le bonifica (obligatorio en un partido; sin monto, lo que le falta de su parte)
-    private Long jugadorId;
 }

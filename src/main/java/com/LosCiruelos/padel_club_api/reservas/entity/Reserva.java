@@ -1,7 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.entity;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -140,46 +139,6 @@ public class Reserva {
 
     public boolean esPartido() {
         return tipo == TipoReserva.PARTIDO;
-    }
-
-    /**
-     * Parte del jugador en esa posición (1 a 4): el total dividido entre los 4, redondeado para
-     * abajo a centavos; los centavos que sobran van al último.
-     */
-    public BigDecimal parteDe(int posicion) {
-        BigDecimal parte = montoTotal.divide(BigDecimal.valueOf(Jugadores.POR_PARTIDO), 2, RoundingMode.DOWN);
-        if (posicion < Jugadores.POR_PARTIDO) {
-            return parte;
-        }
-        return montoTotal.subtract(parte.multiply(BigDecimal.valueOf(Jugadores.POR_PARTIDO - 1)));
-    }
-
-    /** Pagos (y bonificaciones) registrados a nombre del jugador. */
-    private java.util.stream.Stream<Pago> pagosDe(ReservaJugador jugador) {
-        return pagos.stream().filter(p -> p.getJugador() != null && p.getJugador().getId() != null
-                && p.getJugador().getId().equals(jugador.getId()));
-    }
-
-    /** Plata que pagó el jugador (sin bonificaciones, descontado lo devuelto). */
-    public BigDecimal pagadoPor(ReservaJugador jugador) {
-        return Dinero.sumar(pagosDe(jugador).filter(p -> !p.esBonificacion()).map(Pago::getMontoRetenido));
-    }
-
-    /** Lo que se le bonificó al jugador. */
-    public BigDecimal bonificadoA(ReservaJugador jugador) {
-        return Dinero.sumar(pagosDe(jugador).filter(Pago::esBonificacion).map(Pago::getMontoRetenido));
-    }
-
-    /**
-     * Lo que le falta al jugador de su parte, sin pasarse de lo que falta en la reserva. Si la
-     * reserva ya está cubierta (por ejemplo, otro pagó todo), nadie debe nada.
-     */
-    public BigDecimal debeDe(ReservaJugador jugador) {
-        if (getMontoPendiente().signum() <= 0) {
-            return BigDecimal.ZERO;
-        }
-        return parteDe(jugador.getPosicion()).subtract(pagadoPor(jugador)).subtract(bonificadoA(jugador))
-                .max(BigDecimal.ZERO).min(getMontoPendiente());
     }
 
     /**
