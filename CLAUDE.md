@@ -92,7 +92,7 @@ Antes de escribir lógica, buscar si ya existe. **Si algo se repite dos veces, v
 ## Base de datos
 - Un cambio de esquema = una migración nueva `V<n>__descripcion.sql`. **Nunca editar una migración que ya está en `main`** (sí se puede reescribir una que solo existe en la rama actual). Hibernate solo valida (`ddl-auto=validate`).
 - Las migraciones que tocan datos se prueban con datos viejos en el PostgreSQL temporal.
-- En JPQL, cuidado con las columnas que pueden ser null (`expires_at`, `cliente_id` en partidos): `col <= :x` con null no es verdadero ni falso.
+- En JPQL, cuidado con las columnas que pueden ser null (`expires_at`, `turno_fijo_id`, `usuario_id` de un jugador invitado): `col <= :x` con null no es verdadero ni falso.
 - Restricciones que se intercambian en un mismo flush (posiciones de jugadores) van `DEFERRABLE INITIALLY DEFERRED`.
 
 ## Tests

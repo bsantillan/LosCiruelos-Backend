@@ -26,7 +26,7 @@ Con el offset, `new Date(valor)` en el navegador da el instante correcto aunque 
 | `Posicion` | `Drive`, `Reves`, `Ambos` |
 | `TokenType` | `VERIFY_EMAIL`, `PASSWORD_RESET`, `VERIFY_PHONE` |
 | `CanalNotificacion` | `EMAIL`, `WHATSAPP` |
-| `EstadoReserva` | `PENDIENTE`, `CONFIRMADA` (partido del ADMIN sin nada pagado: no vence), `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA`, `CANCELADA`, `EXPIRADA`, `COMPLETADA` |
+| `EstadoReserva` | `PENDIENTE`, `CONFIRMADA` (partido sin nada pagado: no vence), `SEÑADA` (solo reservas normales: un partido no tiene seña), `PARCIALMENTE_PAGADA`, `PAGADA`, `CANCELADA`, `EXPIRADA`, `COMPLETADA` |
 | `TipoReserva` | `NORMAL`, `PARTIDO` (4 jugadores, lo arma el ADMIN) |
 | `EstadoPago` | `PENDIENTE`, `APROBADO`, `RECHAZADO`, `EN_PROCESO`, `DEVUELTO`, `EXPIRADO`, `A_REEMBOLSAR`, `REEMBOLSO_PENDIENTE` |
 | `PaymentProvider` | `MERCADO_PAGO`, `MANUAL`, `BONIFICACION` (el ADMIN no le cobró al cliente: no es plata) |
@@ -209,7 +209,7 @@ Cada usuario elige si recibe los avisos por mail o por WhatsApp. Detalle de qué
 
 | Método y ruta | Descripción |
 |---|---|
-| `POST /admin/usuarios` → `201` | Crea un usuario con contraseña temporal aleatoria (12 caracteres) y le manda un email de bienvenida con la contraseña y un código de verificación. Body: `email`, `nombre`, `apellido`, `telefono`, `rol` (obligatorios); `categoria` y `posicion` obligatorias si `rol = CLIENTE`. El usuario queda habilitado y con el email sin verificar. |
+| `POST /admin/usuarios` → `201` | Crea un usuario con contraseña temporal aleatoria (12 caracteres) y le manda un email de bienvenida con la contraseña y un código de verificación. Body: `email`, `nombre`, `apellido`, `telefono`, `rol` (obligatorios); `categoria` y `posicion` opcionales para un CLIENTE (sin ellas queda con el perfil incompleto y las carga él; sirve para dar de alta en el momento al responsable de un partido). El usuario queda habilitado y con el email sin verificar. |
 | `PUT /admin/usuarios/{id}` → `200` | Edita `nombre`, `apellido`, `telefono`, `rol` (obligatorios) y `categoria`/`posicion` (solo CLIENTE, obligatorias en ese caso). Si deja de ser CLIENTE se borra su perfil de jugador; si pasa a CLIENTE se le crea. No se puede editar a un ADMIN ni convertir a alguien en ADMIN. Todo se valida antes de guardar. |
 | `GET /admin/usuarios` → `200 [ ... ]` | Lista usuarios (nunca incluye ADMIN). Filtros opcionales por query string: `rol`, `enabled`, `nombre` (busca en nombre o apellido, *contiene*), `email` (*contiene*), `categoria`, `posicion` (estos dos solo junto con `rol=CLIENTE`). |
 | `GET /admin/usuarios/{id}` → `200` | Detalle de un usuario. |
@@ -413,18 +413,18 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 | `POST /pagos/{reservaId}/iniciar?pagarTotal=false` | CLIENTE (dueño) | Un partido no se paga online (`409`). Crea el pago `PENDIENTE` y la preferencia de MP (sirve para el Payment Brick y para el Wallet Brick; vuelve a `FRONTEND_URL/pago/resultado` y vence con la reserva). `pagarTotal=true` cobra todo el saldo; `false` (por defecto) lo que falta para la seña. Si ya hay uno iniciado por el mismo monto, lo devuelve. | `404` · `409` vencida, estado inválido, seña ya paga o pago en proceso · `502` MP |
 | `POST /pagos/{reservaId}/pago` | CLIENTE (dueño) | Cobra con el `formData` del Payment Brick (`token`, `payment_method_id`, `installments`, `issuer_id`, `payer`). El monto lo define el servidor. | `400` datos de tarjeta · `404` · `409` sin pago iniciado o reserva fuera de plazo · `502` MP |
 | `POST /pagos/notificacion` | público (Mercado Pago) | Webhook. Acepta `?type=payment&data.id=…`, body `{"type":"payment","data":{"id":…}}` o `?topic=payment&id=…`. Valida `x-signature` si está configurado `MP_WEBHOOK_SECRET`. | `200` también si el pago no existe en MP (se ignora) · `401` firma inválida · `502` error al consultar MP (MP reintenta) |
-| `POST /admin/reservas/{reservaId}/bonificacion` | **ADMIN** | Bonifica la reserva cuando no se le cobra al cliente (socio, torneo, cortesía): todo o una parte. Body opcional `{ "monto": 7500, "motivo": "socio" }`; sin `monto` bonifica todo lo que falta. En un **partido** va `jugadorId` (obligatorio) y sin `monto` se bonifica lo que le falta de su parte a ese jugador. Queda un pago `provider = BONIFICACION` que cubre el monto (la reserva se confirma o queda paga) pero **no es plata**: no cuenta como cobrado, no se devuelve si se cancela y no manda aviso. Se acepta en las mismas reservas que un pago en el club. | `400` monto inválido o mayor al pendiente · `403` EMPLEADO o CLIENTE · `409` reserva paga, vencida o con pago online en proceso |
-| `POST /admin/reservas/{reservaId}/cobros/efectivo` | ADMIN, EMPLEADO | Pago en efectivo ya aprobado (`provider = MANUAL`). Body `{ "monto": 5000 }`; en un **partido**, `{ "monto": 3750, "jugadorId": 41 }` (obligatorio: qué jugador paga; en una reserva normal no se manda). Si deja la reserva paga y el turno ya terminó, la reserva pasa a `COMPLETADA`. | `400` monto inválido o mayor al pendiente · `409` estado o pago online en proceso |
+| `POST /admin/reservas/{reservaId}/bonificacion` | **ADMIN** | Bonifica la reserva cuando no se le cobra al cliente (socio, torneo, cortesía): todo o una parte. Body opcional `{ "monto": 7500, "motivo": "socio" }`; sin `monto` bonifica todo lo que falta. Queda un pago `provider = BONIFICACION` que cubre el monto (la reserva se confirma o queda paga) pero **no es plata**: no cuenta como cobrado, no se devuelve si se cancela y no manda aviso. Se acepta en las mismas reservas que un pago en el club. | `400` monto inválido o mayor al pendiente · `403` EMPLEADO o CLIENTE · `409` reserva paga, vencida o con pago online en proceso |
+| `POST /admin/reservas/{reservaId}/cobros/efectivo` | ADMIN, EMPLEADO | Pago en efectivo ya aprobado (`provider = MANUAL`). Body `{ "monto": 5000 }`, también en un **partido** (se cobra el monto general, sin indicar el jugador). Si deja la reserva paga y el turno ya terminó, la reserva pasa a `COMPLETADA`. | `400` monto inválido o mayor al pendiente · `409` estado o pago online en proceso |
 | `POST /admin/reservas/{reservaId}/cobros/presencial` | ADMIN, EMPLEADO | Igual, con tarjeta o QR en el club (`provider = MERCADO_PAGO`). | igual |
 
 ---
 
 ## Partidos y turnos fijos — `/admin/reservas/partidos`, `/admin/turnos-fijos` (rol: ADMIN)
 
-Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **4 jugadores**: clientes registrados (`usuarioId`) o invitados sin cuenta (`nombre` y, opcional, `telefono`).
-- **No vence.** Sin nada pagado queda `CONFIRMADA`, ocupa la cancha y aparece como deuda si se juega sin pagar.
-- **Se cobra en el club.** Cada jugador paga su parte (`cobros/efectivo` / `cobros/presencial` con `jugadorId`) y el ADMIN puede bonificarle a un jugador. No se paga online (`409`).
-- **Su "cliente" es el ADMIN** que lo armó. Los jugadores registrados lo ven en `GET /reservas/mias` y en `GET /reservas/{id}` (sin los teléfonos de los demás), pero no lo pueden pagar ni cancelar.
+Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **4 jugadores**: clientes registrados (`usuarioId`) o invitados sin cuenta (`nombre` y, opcional, `telefono`). **El jugador 1 tiene que ser un cliente registrado: es el responsable** y el cliente de la reserva (`clienteId`). Si no tiene cuenta, el ADMIN lo busca en `GET /admin/usuarios/clientes?buscar=` y, si no está, se la crea con `POST /admin/usuarios` (con lo mínimo).
+- **No vence y no tiene seña.** Sin nada pagado queda `CONFIRMADA`; con algo pagado, `PARCIALMENTE_PAGADA`; entero, `PAGADA` (o `COMPLETADA`). Ocupa la cancha y aparece como deuda si se juega sin pagar entero.
+- **Se cobra en el club, como un todo.** Un solo monto general: se cobra y se bonifica como una reserva normal (`cobros/efectivo`, `cobros/presencial`, `bonificacion`), sin indicar el jugador; cómo se lo dividen es cosa de ellos. No se paga online (`409`).
+- **Lo armó el ADMIN** (`createdBy`), pero su cliente es el responsable. Los jugadores registrados lo ven en `GET /reservas/mias` y en `GET /reservas/{id}` (sin los teléfonos de los demás), pero no lo pueden pagar ni cancelar.
 - **Lo cancela solo el ADMIN** (`DELETE /admin/reservas/{id}/cancelar`, con `reembolso` si hay plata cobrada). Se avisa a los jugadores registrados; a los ADMIN no se les avisa de los pagos ni de la cancelación.
 
 Los partidos se consultan, se cobran y se cancelan como cualquier reserva en `/admin/reservas/{id}`; solo el alta y la modificación tienen rutas propias.
@@ -442,35 +442,26 @@ Los partidos se consultan, se cobran y se cancelan como cualquier reserva en `/a
   "cantidadPelotas": 1, "cantidadPaletas": 0
 }
 ```
-- `jugadores`: exactamente 4, en orden (la posición es el lugar en la lista). Cada uno con `usuarioId` (un CLIENTE activo, sin repetir) o `nombre` (2 a 100 caracteres).
+- `jugadores`: exactamente 4, en orden (la posición es el lugar en la lista). Cada uno con `usuarioId` (un CLIENTE activo, sin repetir) o `nombre` (2 a 100 caracteres). El **jugador 1 tiene que ser un cliente registrado** (`400` "El jugador 1 tiene que ser un cliente registrado: es el responsable del partido.").
 - Mismas reglas de horario, solapamiento, turnos fijos y stock que `POST /reservas`. El precio es el de siempre (cancha + productos).
 - Errores: `400` datos o jugadores inválidos · `403` no es ADMIN · `404` cancha · `409` turno ocupado (también por un turno fijo) o sin stock.
 
 ### `PUT /admin/reservas/partidos/{id}` → `200 ReservaResponse`
 Mismo body, completo. Cambia jugadores, cancha, fecha, horario o productos de un partido que todavía no se jugó.
-- Los jugadores se actualizan **por posición**. No se puede reemplazar a un jugador que ya pagó o tiene una bonificación (`409`); a ese mismo jugador sí se le puede cambiar el teléfono. Un invitado es "el mismo" si tiene el mismo nombre.
+- Los jugadores se actualizan **por posición**; se puede reemplazar a cualquiera, aunque el partido tenga pagos. El jugador 1 sigue siendo el responsable (si cambia, cambia el cliente de la reserva).
 - Si cambia el turno se recalcula el precio de la cancha; si no, se mantiene. El total nuevo no puede quedar por debajo de lo ya pagado (`409`). El estado se recalcula con lo pagado.
 - Un partido de un turno fijo no cambia de fecha (`400`): se da de baja esa fecha y se arma un partido aparte.
-- Errores: `400` no es un partido o datos inválidos · `409` jugador con pagos, partido jugado/cancelado, turno ocupado o total menor a lo pagado.
+- Errores: `400` no es un partido o datos inválidos · `409` partido jugado/cancelado, turno ocupado o total menor a lo pagado.
 
-### Montos por jugador (`ReservaResponse.jugadores`)
+### Jugadores (`ReservaResponse.jugadores`)
 ```json
 "jugadores": [
-  { "id": 41, "posicion": 1, "usuarioId": 3, "nombre": "Ana López", "telefono": "5491122334455",
-    "invitado": false, "parte": 3750.00, "pagado": 0, "bonificado": 0, "debe": 3750.00 },
-  { "id": 43, "posicion": 3, "usuarioId": null, "nombre": "Juan", "telefono": null,
-    "invitado": true, "parte": 3750.00, "pagado": 3750.00, "bonificado": 0, "debe": 0 }
+  { "id": 41, "posicion": 1, "usuarioId": 3, "nombre": "Ana López", "telefono": "5491122334455", "invitado": false },
+  { "id": 43, "posicion": 3, "usuarioId": null, "nombre": "Juan", "telefono": null, "invitado": true }
 ]
 ```
-| Campo | Qué es |
-|---|---|
-| `id` | El `jugadorId` que se manda al cobrar o bonificar |
-| `parte` | `montoTotal / 4`, redondeado para abajo a centavos; los centavos que sobran van al jugador 4 |
-| `pagado` / `bonificado` | Lo que pagó (plata, descontado lo devuelto) y lo que se le bonificó |
-| `debe` | `parte − pagado − bonificado` (no menos de 0 ni más que el `montoPendiente` de la reserva). Si la reserva ya está cubierta, nadie debe nada aunque haya pagado uno solo |
-| `telefono` | El del cliente registrado o el del invitado. **Solo para el personal**: a un jugador le llega `null` |
-
-Un jugador puede pagar más que su parte (hasta lo que falta de la reserva). Lo que define si el partido está pago es el `montoPendiente` de la reserva.
+- No hay montos por jugador: lo que falta pagar es el `montoPendiente` del partido.
+- `telefono`: el del cliente registrado o el del invitado. **Solo para el personal**: a un jugador le llega `null`.
 
 ### Turnos fijos
 Un **turno fijo** es el mismo partido (cancha, día de la semana, horario y jugadores) todas las semanas desde `desde`, hasta que se da de baja.
