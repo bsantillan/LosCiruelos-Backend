@@ -6,7 +6,7 @@
 
 1. **Borra todos los datos.** El esquema y `flyway_schema_history` no se tocan.
 2. **Vuelve a cargar lo básico**, igual que las migraciones y la carga inicial:
-   - la configuración ($5.000 la media hora, seña del 50 %, turnos de 90 a 180 minutos);
+   - la configuración ($5.000 la media hora, seña del 50 %, turnos de 90 a 180 minutos, el cliente reserva hasta 30 días adelante);
    - los días de apertura;
    - las 4 canchas;
    - las pelotas y paletas.

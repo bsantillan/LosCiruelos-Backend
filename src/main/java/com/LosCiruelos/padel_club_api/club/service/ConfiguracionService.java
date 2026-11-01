@@ -7,7 +7,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.config.AppConfig.ConfiguracionCache;
 import com.LosCiruelos.padel_club_api.club.dto.request.RecordatorioConfigRequest;
+import com.LosCiruelos.padel_club_api.club.dto.request.ReservasConfigRequest;
 import com.LosCiruelos.padel_club_api.club.dto.response.RecordatorioConfigResponse;
+import com.LosCiruelos.padel_club_api.club.dto.response.ReservasConfigResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
@@ -60,5 +62,19 @@ public class ConfiguracionService {
         config.setRecordatorioActivo(req.getRecordatorioActivo());
         config.setMinutosRecordatorio(req.getMinutosRecordatorio());
         return configuracionMapper.aRecordatorio(configuracionRepository.save(config));
+    }
+
+    // ── Anticipación máxima para reservar (ADMIN) ────────────────────────
+
+    public ReservasConfigResponse reservas() {
+        return configuracionMapper.aReservas(configuracionRepository.obtener());
+    }
+
+    @Transactional
+    @CacheEvict(value = ConfiguracionCache.NOMBRE, allEntries = true)
+    public ReservasConfigResponse actualizarReservas(ReservasConfigRequest req) {
+        Configuracion config = configuracionRepository.obtener();
+        config.setDiasAnticipacionReserva(req.getDiasAnticipacion()); // se guarda al terminar la transacción
+        return configuracionMapper.aReservas(config);
     }
 }

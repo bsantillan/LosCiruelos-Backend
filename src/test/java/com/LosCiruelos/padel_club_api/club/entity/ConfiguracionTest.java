@@ -11,12 +11,28 @@ import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.club.exception.DiaSinAperturaException;
+import com.LosCiruelos.padel_club_api.common.Fechas;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 
 /** Reglas de la configuración del club (con la de TestData: turnos de 90 a 180 minutos). */
 class ConfiguracionTest {
 
     private final Configuracion config = TestData.configuracion();
+
+    @Test
+    void elClienteReservaHastaLosDiasDeAnticipacion() {
+        LocalDate hoy = TestData.HOY; // martes 13/10/2026; por defecto, 30 días
+        assertThat(config.reservableHasta(hoy)).isEqualTo(LocalDate.of(2026, 11, 12));
+
+        assertThatCode(() -> config.validarAnticipacion(LocalDate.of(2026, 11, 12), hoy)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> config.validarAnticipacion(LocalDate.of(2026, 11, 13), hoy))
+                .isInstanceOf(ReservaException.class)
+                .hasMessage("Podés reservar hasta el %s (30 días de anticipación)."
+                        .formatted(Fechas.textoFecha(LocalDate.of(2026, 11, 12))));
+
+        config.setDiasAnticipacionReserva(7);
+        assertThat(config.reservableHasta(hoy)).isEqualTo(LocalDate.of(2026, 10, 20));
+    }
 
     @Test
     void montoDelTurnoEsBaseMasBloquesDe30Minutos() {
