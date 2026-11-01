@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.controller;
 
+import com.LosCiruelos.padel_club_api.reservas.dto.request.AgregarProductoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.ProductoPedidoRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -209,5 +210,26 @@ class PartidosControllersTest {
         mvc.perform(delete("/admin/turnos-fijos/8/fechas/2026-10-21").principal(AUTH))
                 .andExpect(status().isOk());
         verify(turnoFijoService).darDeBajaFecha(8L, LocalDate.of(2026, 10, 21), null, EMAIL);
+    }
+
+    @Test
+    void elPersonalSumaYSacaProductos() throws Exception {
+        when(reservaService.agregarProducto(eq(60L), any(), eq(EMAIL))).thenReturn(new ReservaResponse());
+        when(reservaService.quitarProducto(60L, 9L, 1, EMAIL)).thenReturn(new ReservaResponse());
+
+        mvc.perform(json(post("/admin/reservas/60/productos"), "{\"nombre\":\"Gatorade\",\"precio\":3000,\"cantidad\":2}"))
+                .andExpect(status().isOk());
+        ArgumentCaptor<AgregarProductoRequest> req = ArgumentCaptor.forClass(AgregarProductoRequest.class);
+        verify(reservaService).agregarProducto(eq(60L), req.capture(), eq(EMAIL));
+        assertThat(req.getValue().getNombre()).isEqualTo("Gatorade");
+        assertThat(req.getValue().getCantidad()).isEqualTo(2);
+
+        mvc.perform(json(post("/admin/reservas/60/productos"), "{\"productoId\":9}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.cantidad").value("Indicá la cantidad"));
+
+        mvc.perform(delete("/admin/reservas/60/productos/9").param("cantidad", "1").principal(AUTH))
+                .andExpect(status().isOk());
+        verify(reservaService).quitarProducto(60L, 9L, 1, EMAIL);
     }
 }

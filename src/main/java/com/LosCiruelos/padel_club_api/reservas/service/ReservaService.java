@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.reservas.dto.request.AgregarProductoRequest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -419,6 +420,62 @@ public class ReservaService {
         Usuario usuario = usuarioService.autenticado(email);
         Roles.exigirAdmin(usuario, "Solo el ADMIN puede armar partidos.");
         return usuario;
+    }
+
+    // ── Productos que suma el personal ───────────────────────────────────
+    // Lo que el cliente pide en el club (bebidas, pelotas): antes, durante o después del turno, en
+    // una reserva o un partido confirmados (también ya completados). El total cambia y el estado se
+    // recalcula: si ya estaba paga, vuelve a quedar con saldo.
+
+    @Transactional
+    public ReservaResponse agregarProducto(Long id, AgregarProductoRequest req, String emailPersonal) {
+        Reserva reserva = bloquear(id);
+        validarQueAdmiteProductos(reserva);
+        Producto producto = stockService.productoParaAgregar(req.getProductoId(), req.getNombre(), req.getPrecio());
+        LocalDateTime ahora = reloj.ahora();
+        BigDecimal montoCancha = reserva.getMontoCancha();
+        stockService.agregar(reserva, producto, req.getCantidad(), ahora);
+        actualizarTotal(reserva, montoCancha, ahora);
+        log.info("Reserva #{}: {} suma {} {} (total ${})", id, emailPersonal, req.getCantidad(), producto.getNombre(),
+                reserva.getMontoTotal());
+        return mapper.aResponse(reserva);
+    }
+
+    /** Saca unidades de un producto (por ejemplo, cargado de más); {@code cantidad} null saca todas. */
+    @Transactional
+    public ReservaResponse quitarProducto(Long id, Long productoId, Integer cantidad, String emailPersonal) {
+        Reserva reserva = bloquear(id);
+        validarQueAdmiteProductos(reserva);
+        LocalDateTime ahora = reloj.ahora();
+        BigDecimal montoCancha = reserva.getMontoCancha();
+        stockService.quitar(reserva, productoId, cantidad);
+        actualizarTotal(reserva, montoCancha, ahora);
+        log.info("Reserva #{}: {} saca el producto {} (total ${})", id, emailPersonal, productoId,
+                reserva.getMontoTotal());
+        return mapper.aResponse(reserva);
+    }
+
+    private static void validarQueAdmiteProductos(Reserva reserva) {
+        if (!Reserva.ESTADOS_CONFIRMADOS.contains(reserva.getEstado())
+                && reserva.getEstado() != EstadoReserva.COMPLETADA) {
+            throw new EstadoInvalidoException("No se pueden cambiar los productos de una reserva "
+                    + reserva.getEstado() + ".");
+        }
+        if (reserva.tienePagoEnProceso()) {
+            throw new EstadoInvalidoException(
+                    "Hay un pago online en proceso para esta reserva; esperá a que se resuelva.");
+        }
+    }
+
+    /** Cancha + productos; no puede quedar por debajo de lo ya cubierto. */
+    private void actualizarTotal(Reserva reserva, BigDecimal montoCancha, LocalDateTime ahora) {
+        BigDecimal total = montoCancha.add(reserva.getMontoProductos());
+        if (total.compareTo(reserva.getMontoCubierto()) < 0) {
+            throw new EstadoInvalidoException("El total nuevo ($%s) es menor que lo ya pagado ($%s)."
+                    .formatted(total, reserva.getMontoCubierto()));
+        }
+        reserva.setMontoTotal(total);
+        reserva.recalcularPorCambioDeTotal(configuracionService.obtener().senia(total), ahora);
     }
 
     // ── Cancelación y expiración ─────────────────────────────────────────

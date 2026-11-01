@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.club.service;
 
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 
@@ -113,6 +115,34 @@ public class ProductoService {
     /** Los activos que se ofrecen al reservar (los que ve y pide el cliente). */
     public List<Producto> paraReservar() {
         return productoRepository.findAllByActivoTrueAndOfrecerAlReservarTrueOrderByNombreAsc();
+    }
+
+    /** El producto con ese id; si no existe, 404. */
+    public Producto obtener(Long id) {
+        return productoRepository.findById(id).orElseThrow(() -> new ProductoNoEncontradoException(id));
+    }
+
+    /**
+     * Un producto que el personal escribe a mano (en una reserva o una venta suelta): si ya hay uno
+     * con ese nombre se usa ese; si no, queda dado de alta como producto de venta, sin control de
+     * stock y sin ofrecerse al reservar (el ADMIN después lo puede editar).
+     */
+    @Transactional
+    public Producto productoManual(String nombre, BigDecimal precio) {
+        String limpio = nombre.trim();
+        return productoRepository.findFirstByNombreIgnoreCase(limpio).orElseGet(() -> {
+            Producto nuevo = productoRepository.save(Producto.builder()
+                    .nombre(limpio)
+                    .tipo(TipoProducto.VENTA)
+                    .precio(precio)
+                    .stock(0)
+                    .activo(true)
+                    .ofrecerAlReservar(false)
+                    .controlaStock(false)
+                    .build());
+            log.info("Producto #{} {} dado de alta a mano (${})", nuevo.getId(), limpio, precio);
+            return nuevo;
+        });
     }
 
     /** Productos con esos ids (los que no existen no vienen). */

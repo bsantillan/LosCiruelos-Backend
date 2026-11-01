@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.controller;
 
+import com.LosCiruelos.padel_club_api.reservas.dto.request.AgregarProductoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse;
 import java.time.LocalDate;
 import java.util.List;
@@ -140,6 +141,23 @@ public class ReservaAdminController {
     @GetMapping("/devoluciones-pendientes")
     public ResponseEntity<List<ReservaResponse>> devolucionesPendientes() {
         return ResponseEntity.ok(reservaConsultaService.devolucionesPendientes());
+    }
+
+    /**
+     * Suma un producto a la reserva o al partido (lo que el cliente pide en el club, también después
+     * de jugar): uno del catálogo o uno nuevo con nombre y precio. El total sube.
+     */
+    @PostMapping("/{id}/productos")
+    public ResponseEntity<ReservaResponse> agregarProducto(@PathVariable Long id,
+            @Valid @RequestBody AgregarProductoRequest request, Authentication authentication) {
+        return ResponseEntity.ok(reservaService.agregarProducto(id, request, authentication.getName()));
+    }
+
+    /** Saca un producto (o algunas unidades, con {@code cantidad}) cargado de más. */
+    @DeleteMapping("/{id}/productos/{productoId}")
+    public ResponseEntity<ReservaResponse> quitarProducto(@PathVariable Long id, @PathVariable Long productoId,
+            @RequestParam(required = false) Integer cantidad, Authentication authentication) {
+        return ResponseEntity.ok(reservaService.quitarProducto(id, productoId, cantidad, authentication.getName()));
     }
 
     /** Registra cuántas paletas devolvieron (las faltantes bajan el stock). */

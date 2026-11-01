@@ -296,6 +296,17 @@ public class Reserva {
         return true;
     }
 
+    /**
+     * Cambió el total (productos que suma o saca el personal): el estado se recalcula con lo
+     * cubierto. Una COMPLETADA que queda con saldo vuelve a estar abierta (deuda) hasta que se cobre.
+     */
+    public void recalcularPorCambioDeTotal(BigDecimal senia, LocalDateTime ahora) {
+        if (estado == EstadoReserva.COMPLETADA && getMontoPendiente().signum() > 0) {
+            estado = EstadoReserva.PAGADA;
+        }
+        recalcularEstado(senia, ahora);
+    }
+
     /** Fecha y horario de la reserva (duración, superposición, si empezó o terminó). */
     @Transient
     public Turno turno() {

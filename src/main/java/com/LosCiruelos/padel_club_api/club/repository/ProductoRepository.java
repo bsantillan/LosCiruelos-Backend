@@ -22,6 +22,8 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
 
     boolean existsByNombreIgnoreCase(String nombre);
 
+    Optional<Producto> findFirstByNombreIgnoreCase(String nombre);
+
     boolean existsByNombreIgnoreCaseAndIdNot(String nombre, Long id);
 
     /**

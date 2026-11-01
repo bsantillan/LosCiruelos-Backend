@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
+import java.util.Optional;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.ProductoPedidoRequest;
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static com.LosCiruelos.padel_club_api.TestData.MANIANA;
@@ -301,6 +303,76 @@ class StockServiceTest {
                     .extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(1, null);
             assertThatThrownBy(() -> servicio.disponibilidad(MANIANA, LocalTime.of(19, 0), LocalTime.of(18, 0)))
                     .isInstanceOf(ReservaException.class);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class SumarYSacar {
+
+        @Test
+        void sumarMantieneElPrecioDeLoQueYaTeniaYDescuentaElStock() {
+            Reserva reserva = nuevaReserva();
+            servicio.moverStock(List.of(), reserva, Map.of(1L, 2), AHORA); // 2 pelotas a $1500
+            pelotas.setPrecio(new BigDecimal("1800"));
+
+            servicio.agregar(reserva, pelotas, 3, AHORA);
+
+            assertThat(reserva.cantidadDe(Producto.CODIGO_PELOTAS)).isEqualTo(5);
+            assertThat(reserva.getMontoProductos()).isEqualByComparingTo("7500"); // sigue a $1500
+            assertThat(pelotas.getStock()).isEqualTo(5);
+            assertThatThrownBy(() -> servicio.agregar(reserva, pelotas, 6, AHORA))
+                    .isInstanceOf(StockInsuficienteException.class)
+                    .hasMessage("Pelotas: hay 5 unidades en stock.");
+        }
+
+        @Test
+        void unAlquilerCuentaLoQueYaTeniaLaReserva() {
+            Reserva reserva = nuevaReserva();
+            reserva.setId(5L);
+            servicio.agregar(reserva, paletas, 3, AHORA);
+
+            assertThatThrownBy(() -> servicio.agregar(reserva, paletas, 2, AHORA))
+                    .isInstanceOf(StockInsuficienteException.class)
+                    .hasMessage("Paletas: hay 4 unidades disponibles para ese horario.");
+        }
+
+        @Test
+        void sacarDevuelveElStockYNoSePuedeSacarUnAlquilerYaDevuelto() {
+            Reserva reserva = nuevaReserva();
+            servicio.agregar(reserva, pelotas, 4, AHORA);
+
+            servicio.quitar(reserva, 1L, 1);
+            assertThat(reserva.cantidadDe(Producto.CODIGO_PELOTAS)).isEqualTo(3);
+            assertThat(pelotas.getStock()).isEqualTo(7);
+            servicio.quitar(reserva, 1L, null);
+            assertThat(reserva.getProductos()).isEmpty();
+            assertThat(pelotas.getStock()).isEqualTo(10);
+
+            servicio.agregar(reserva, paletas, 2, AHORA);
+            reserva.getProductos().getFirst().setCantidadDevuelta(2);
+            assertThatThrownBy(() -> servicio.quitar(reserva, 2L, null))
+                    .isInstanceOf(EstadoInvalidoException.class);
+            assertThatThrownBy(() -> servicio.quitar(reserva, 99L, null))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessage("La reserva no tiene el producto 99.");
+        }
+
+        @Test
+        void unProductoEscritoAManoSeDaDeAlta() {
+            when(productoRepository.findFirstByNombreIgnoreCase("Gatorade")).thenReturn(Optional.empty());
+            when(productoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            Producto nuevo = servicio.productoParaAgregar(null, "  Gatorade ", new BigDecimal("3000"));
+
+            assertThat(nuevo.getNombre()).isEqualTo("Gatorade");
+            assertThat(nuevo.getTipo()).isEqualTo(TipoProducto.VENTA);
+            assertThat(nuevo.getControlaStock()).isFalse();
+            assertThat(nuevo.getOfrecerAlReservar()).isFalse();
+            assertThatThrownBy(() -> servicio.productoParaAgregar(null, "Gatorade", null))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessage("Indicá el producto (productoId) o su nombre y precio.");
         }
     }
 }
