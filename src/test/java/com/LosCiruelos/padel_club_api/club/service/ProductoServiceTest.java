@@ -77,6 +77,22 @@ class ProductoServiceTest {
             assertThat(r.getNombre()).isEqualTo("Agua");
             assertThat(r.getActivo()).isTrue();
             assertThat(r.getCodigo()).isNull();
+            // por defecto no se ofrece al reservar (lo agrega el personal) y controla stock
+            assertThat(r.getOfrecerAlReservar()).isFalse();
+            assertThat(r.getControlaStock()).isTrue();
+        }
+
+        @Test
+        void elAdminEligeSiSeOfreceAlReservarYSiControlaStock() {
+            when(productoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            var pedido = pedido("Agua", TipoProducto.VENTA);
+            pedido.setOfrecerAlReservar(true);
+            pedido.setControlaStock(false);
+
+            var r = servicio.crear(pedido);
+
+            assertThat(r.getOfrecerAlReservar()).isTrue();
+            assertThat(r.getControlaStock()).isFalse();
         }
 
         @Test
@@ -116,11 +132,11 @@ class ProductoServiceTest {
             when(productoRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(paletas));
             when(productoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
             when(productoRepository.findAllByOrderByNombreAsc()).thenReturn(List.of(paletas, pelotas));
-            when(productoRepository.findAllByActivoTrueOrderByNombreAsc()).thenReturn(List.of(pelotas));
+            when(productoRepository.findAllByActivoTrueAndOfrecerAlReservarTrueOrderByNombreAsc()).thenReturn(List.of(pelotas));
 
             assertThat(servicio.desactivar(2L).getActivo()).isFalse();
             assertThat(servicio.listarTodos()).hasSize(2);
-            assertThat(servicio.listarActivos()).hasSize(1);
+            assertThat(servicio.listarParaReservar()).hasSize(1);
         }
     }
 }

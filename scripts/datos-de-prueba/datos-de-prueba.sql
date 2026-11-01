@@ -59,9 +59,9 @@ INSERT INTO dias (dia, horario_inicio, horario_fin, configuracion_general_id) VA
 INSERT INTO canchas (numero, descripcion)
 SELECT n, 'Cancha de césped sintético con iluminación LED.' FROM generate_series(1, 4) n;
 
-INSERT INTO productos (codigo, nombre, descripcion, tipo, precio, stock, activo) VALUES
-    ('PELOTAS', 'Pelotas', 'Pelota de pádel, precio por unidad', 'VENTA', 5000, 50, true),
-    ('PALETAS', 'Paletas', 'Alquiler de paleta durante el turno, precio por unidad', 'ALQUILER', 5000, 50, true);
+INSERT INTO productos (codigo, nombre, descripcion, tipo, precio, stock, activo, ofrecer_al_reservar, controla_stock) VALUES
+    ('PELOTAS', 'Pelotas', 'Pelota de pádel, precio por unidad', 'VENTA', 5000, 50, true, true, true),
+    ('PALETAS', 'Paletas', 'Alquiler de paleta durante el turno, precio por unidad', 'ALQUILER', 5000, 50, true, true, true);
 
 -- ── Ayudas (solo existen durante esta sesión) ────────────────────────────
 CREATE FUNCTION pg_temp.usuario(p_email text) RETURNS bigint LANGUAGE sql AS

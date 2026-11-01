@@ -37,4 +37,8 @@ public class ProductoRequest {
 
     // por defecto true
     private Boolean activo;
+    // el cliente lo ve y lo pide al reservar (por defecto false: solo lo agrega el personal)
+    private Boolean ofrecerAlReservar;
+    // por defecto true; false: no se limitan las unidades ni se mueve el stock
+    private Boolean controlaStock;
 }

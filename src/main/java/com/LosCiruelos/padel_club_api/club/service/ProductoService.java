@@ -33,9 +33,10 @@ public class ProductoService {
 
     // ── Catálogo ─────────────────────────────────────────────────────────
 
+    /** El catálogo del cliente: los activos que se ofrecen al reservar. */
     @Transactional(readOnly = true)
-    public List<ProductoResponse> listarActivos() {
-        return productoRepository.findAllByActivoTrueOrderByNombreAsc().stream().map(productoMapper::aResponse).toList();
+    public List<ProductoResponse> listarParaReservar() {
+        return paraReservar().stream().map(productoMapper::aResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -55,6 +56,8 @@ public class ProductoService {
                 .precio(req.getPrecio())
                 .stock(req.getStock())
                 .activo(req.getActivo() == null || req.getActivo())
+                .ofrecerAlReservar(Boolean.TRUE.equals(req.getOfrecerAlReservar()))
+                .controlaStock(req.getControlaStock() == null || req.getControlaStock())
                 .build();
         return productoMapper.aResponse(productoRepository.save(producto));
     }
@@ -74,6 +77,12 @@ public class ProductoService {
         producto.setStock(req.getStock());
         if (req.getActivo() != null) {
             producto.setActivo(req.getActivo());
+        }
+        if (req.getOfrecerAlReservar() != null) {
+            producto.setOfrecerAlReservar(req.getOfrecerAlReservar());
+        }
+        if (req.getControlaStock() != null) {
+            producto.setControlaStock(req.getControlaStock());
         }
         log.info("Producto #{} actualizado: precio ${}, stock {}", id, producto.getPrecio(), producto.getStock());
         return productoMapper.aResponse(productoRepository.save(producto));
@@ -101,9 +110,9 @@ public class ProductoService {
         return productoMapper.aResponse(productoRepository.save(producto));
     }
 
-    /** Productos activos (los que se pueden pedir en una reserva). */
-    public List<Producto> activos() {
-        return productoRepository.findAllByActivoTrueOrderByNombreAsc();
+    /** Los activos que se ofrecen al reservar (los que ve y pide el cliente). */
+    public List<Producto> paraReservar() {
+        return productoRepository.findAllByActivoTrueAndOfrecerAlReservarTrueOrderByNombreAsc();
     }
 
     /** Productos con esos códigos (PELOTAS, PALETAS). */

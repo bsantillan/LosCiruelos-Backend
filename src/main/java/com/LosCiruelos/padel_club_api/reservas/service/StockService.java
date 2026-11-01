@@ -51,16 +51,16 @@ public class StockService {
     private final EntityManager entityManager;
     private final Reloj reloj;
 
-    /** Unidades que se pueden pedir de cada producto activo para un horario. */
+    /** Unidades que se pueden pedir de cada producto que se ofrece al reservar, para un horario. */
     @Transactional(readOnly = true)
     public List<ProductoDisponibleResponse> disponibilidad(LocalDate fecha, LocalTime inicio, LocalTime fin) {
         if (!inicio.isBefore(fin)) {
             throw new ReservaException("La hora de inicio debe ser anterior a la hora de fin.");
         }
         LocalDateTime ahora = reloj.ahora();
-        return productoService.activos().stream()
+        return productoService.paraReservar().stream()
                 .map(p -> new ProductoDisponibleResponse(p.getId(), p.getCodigo(), p.getNombre(), p.getTipo(),
-                        p.getPrecio(), disponibles(p, fecha, inicio, fin, null, ahora)))
+                        p.getPrecio(), p.llevaStock() ? disponibles(p, fecha, inicio, fin, null, ahora) : null))
                 .toList();
     }
 
@@ -127,15 +127,15 @@ public class StockService {
         if (!Boolean.TRUE.equals(producto.getActivo())) {
             throw new ReservaException(producto.getNombre() + " no está disponible por el momento.");
         }
-        int disponibles = disponibles(producto, destino.getFechaReserva(), destino.getHoraInicio(),
-                destino.getHoraFin(), destino.getId(), ahora);
+        int disponibles = producto.llevaStock() ? disponibles(producto, destino.getFechaReserva(),
+                destino.getHoraInicio(), destino.getHoraFin(), destino.getId(), ahora) : Integer.MAX_VALUE;
         if (cantidad > disponibles) {
             String unidades = disponibles == 1 ? "1 unidad" : disponibles + " unidades";
             throw new StockInsuficienteException(producto.getTipo() == TipoProducto.VENTA
                     ? "%s: hay %s en stock.".formatted(producto.getNombre(), unidades)
                     : "%s: hay %s disponibles para ese horario.".formatted(producto.getNombre(), unidades));
         }
-        if (producto.getTipo() == TipoProducto.VENTA) {
+        if (producto.getTipo() == TipoProducto.VENTA && producto.llevaStock()) {
             producto.setStock(producto.getStock() - cantidad);
         }
 
@@ -154,7 +154,7 @@ public class StockService {
     private void devolverStockDeVenta(Reserva reserva) {
         for (ReservaProducto item : reserva.getProductos()) {
             Producto producto = item.getProducto();
-            if (producto.getTipo() == TipoProducto.VENTA) {
+            if (producto.getTipo() == TipoProducto.VENTA && producto.llevaStock()) {
                 producto.setStock(producto.getStock() + item.getCantidad());
             }
         }

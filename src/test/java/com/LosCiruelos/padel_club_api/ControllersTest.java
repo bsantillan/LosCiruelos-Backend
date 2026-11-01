@@ -483,7 +483,7 @@ class ControllersTest {
 
         @Test
         void catalogoYDisponibilidad() throws Exception {
-            when(productoService.listarActivos()).thenReturn(List.of(new ProductoResponse()));
+            when(productoService.listarParaReservar()).thenReturn(List.of(new ProductoResponse()));
             when(stockService.disponibilidad(any(), any(), any())).thenReturn(List.of());
 
             mvc.perform(get("/productos").principal(AUTH))

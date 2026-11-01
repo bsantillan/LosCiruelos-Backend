@@ -130,6 +130,19 @@ class StockServiceTest {
         }
 
         @Test
+        void unProductoSinControlDeStockSePideSinLimiteYNoMueveElStock() {
+            pelotas.setControlaStock(false);
+            Reserva reserva = nuevaReserva();
+
+            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 50), AHORA);
+
+            assertThat(reserva.cantidadDe(Producto.CODIGO_PELOTAS)).isEqualTo(50);
+            assertThat(pelotas.getStock()).isEqualTo(10);
+            servicio.liberar(reserva);
+            assertThat(pelotas.getStock()).isEqualTo(10);
+        }
+
+        @Test
         void ventaSinStockSuficiente() {
             assertThatThrownBy(() -> servicio.moverStock(List.of(), nuevaReserva(),
                     Map.of(Producto.CODIGO_PELOTAS, 11), AHORA))
@@ -252,13 +265,18 @@ class StockServiceTest {
 
         @Test
         void disponibilidadPorHorario() {
-            when(productoRepository.findAllByActivoTrueOrderByNombreAsc()).thenReturn(List.of(paletas, pelotas));
+            when(productoRepository.findAllByActivoTrueAndOfrecerAlReservarTrueOrderByNombreAsc()).thenReturn(List.of(paletas, pelotas));
             alquileres(List.of(uso("18:00", "19:30", 3)));
 
             List<ProductoDisponibleResponse> d = servicio.disponibilidad(MANIANA, LocalTime.of(18, 0),
                     LocalTime.of(19, 30));
 
             assertThat(d).extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(1, 10);
+
+            // sin control de stock: sin límite
+            pelotas.setControlaStock(false);
+            assertThat(servicio.disponibilidad(MANIANA, LocalTime.of(18, 0), LocalTime.of(19, 30)))
+                    .extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(1, null);
             assertThatThrownBy(() -> servicio.disponibilidad(MANIANA, LocalTime.of(19, 0), LocalTime.of(18, 0)))
                     .isInstanceOf(ReservaException.class);
         }

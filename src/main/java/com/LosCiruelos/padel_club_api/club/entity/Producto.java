@@ -22,6 +22,9 @@ import lombok.Setter;
  * Producto del stock del club (sección de configuración).
  * VENTA: {@code stock} son las unidades disponibles hoy y baja con cada reserva.
  * ALQUILER: {@code stock} es el total de unidades; se controla cuántas están en uso en cada horario.
+ * Sin {@code controlaStock} no se limitan las unidades ni se mueve el stock. Solo los que se
+ * ofrecen al reservar ({@code ofrecerAlReservar}) los ve y los pide el cliente; el resto los
+ * agrega el personal.
  */
 @Entity
 @Table(name = "productos")
@@ -65,7 +68,27 @@ public class Producto {
     @Column(nullable = false)
     private Boolean activo = true;
 
+    // el cliente lo ve y lo pide al reservar; si no, solo lo agrega el personal
+    @Builder.Default
+    @Column(name = "ofrecer_al_reservar", nullable = false)
+    private Boolean ofrecerAlReservar = false;
+
+    // false: no se limitan las unidades ni se mueve el stock
+    @Builder.Default
+    @Column(name = "controla_stock", nullable = false)
+    private Boolean controlaStock = true;
+
     public boolean esDelSistema() {
         return codigo != null;
+    }
+
+    /** Lleva la cuenta de unidades: si no, se puede pedir sin límite y el stock no se mueve. */
+    public boolean llevaStock() {
+        return Boolean.TRUE.equals(controlaStock);
+    }
+
+    /** Lo puede pedir el cliente al reservar (activo y ofrecido). */
+    public boolean seOfreceAlReservar() {
+        return Boolean.TRUE.equals(activo) && Boolean.TRUE.equals(ofrecerAlReservar);
     }
 }
