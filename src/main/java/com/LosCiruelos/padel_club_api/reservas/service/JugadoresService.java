@@ -30,6 +30,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class JugadoresService {
 
+    static final String MENSAJE_RESPONSABLE =
+            "El jugador 1 tiene que ser un cliente registrado: es el responsable del partido.";
+
     private final UsuarioService usuarioService;
 
     /** Un jugador ya validado: un cliente registrado o un invitado (nombre y teléfono opcional). */
@@ -45,7 +48,8 @@ public class JugadoresService {
 
     /**
      * Valida los 4 jugadores: cada uno es un cliente registrado y activo (usuarioId) o un invitado
-     * (nombre, y teléfono opcional). Un mismo cliente no puede estar dos veces.
+     * (nombre, y teléfono opcional). Un mismo cliente no puede estar dos veces. El jugador 1 tiene
+     * que ser un cliente registrado: es el responsable (el cliente de la reserva).
      */
     public List<DatosJugador> resolverJugadores(List<JugadorRequest> pedidos) {
         if (pedidos == null || pedidos.size() != Jugadores.POR_PARTIDO) {
@@ -58,6 +62,9 @@ public class JugadoresService {
             int posicion = i + 1;
             if (pedido == null) {
                 throw new ReservaException("Falta el jugador " + posicion + ".");
+            }
+            if (posicion == 1 && pedido.getUsuarioId() == null) {
+                throw new ReservaException(MENSAJE_RESPONSABLE);
             }
             if (pedido.getUsuarioId() != null) {
                 Usuario usuario;
@@ -90,6 +97,18 @@ public class JugadoresService {
             }
         }
         return jugadores;
+    }
+
+    /**
+     * El responsable del partido: el jugador 1, un cliente registrado. Un turno fijo viejo con un
+     * invitado en ese lugar no genera su partido hasta que se lo modifique.
+     */
+    static Usuario responsable(List<DatosJugador> jugadores) {
+        Usuario responsable = jugadores.isEmpty() ? null : jugadores.get(0).usuario();
+        if (responsable == null) {
+            throw new ReservaException(MENSAJE_RESPONSABLE);
+        }
+        return responsable;
     }
 
     /** Los jugadores de una reserva nueva, en orden (posición 1 a 4). */
