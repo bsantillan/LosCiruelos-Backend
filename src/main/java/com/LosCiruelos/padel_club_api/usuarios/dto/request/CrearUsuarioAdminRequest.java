@@ -34,7 +34,7 @@ public class CrearUsuarioAdminRequest {
     @NotNull(message = "El rol es obligatorio")
     private Role rol;
 
-    // Solo obligatorios si el rol es CLIENTE
+    // Del CLIENTE, opcionales: si no vienen, las carga él en su perfil (hasta entonces, perfil incompleto)
     private Categoria categoria;
     private Posicion posicion;
 }
