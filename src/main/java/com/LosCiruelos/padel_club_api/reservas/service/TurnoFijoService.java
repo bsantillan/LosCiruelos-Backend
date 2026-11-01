@@ -7,7 +7,6 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,8 +48,9 @@ import lombok.extern.slf4j.Slf4j;
  * (ver {@link DisponibilidadService#turnosFijosQueBloquean}). Toda operación bloquea primero el
  * turno fijo.
  * <p>
- * Los partidos de cada semana se crean con {@code turnos-fijos.semanas-anticipacion} semanas de
- * anticipación (4 por defecto) en {@link #generar}, que no es transaccional: cada fecha se crea en
+ * Los partidos de cada semana se crean hasta el tope para reservar de la configuración
+ * ({@code Configuracion.reservableHasta}, 30 días por defecto) en {@link #generar}, que no es
+ * transaccional; a medida que pasan los días el job crea las fechas nuevas: cada fecha se crea en
  * su propia transacción ({@link ReservaService#crearPartidoDeTurnoFijo}) y, si una no se puede
  * (horario ocupado, el club no abre, falta stock), se informa y se sigue con las demás; el job lo
  * vuelve a intentar.
@@ -73,8 +73,6 @@ public class TurnoFijoService {
     private final ConfiguracionService configuracionService;
     private final UsuarioService usuarioService;
     private final Reloj reloj;
-    @Value("${turnos-fijos.semanas-anticipacion:4}")
-    private final int semanasAnticipacion;
 
     /** Partidos creados y fechas que no se pudieron crear. */
     public record Generacion(List<Long> creados, List<FechaOmitida> omitidas) {
@@ -262,7 +260,7 @@ public class TurnoFijoService {
         }
 
         LocalDateTime ahora = reloj.ahora();
-        LocalDate hasta = ahora.toLocalDate().plusWeeks(semanasAnticipacion);
+        LocalDate hasta = configuracionService.obtener().reservableHasta(ahora.toLocalDate());
         for (LocalDate fecha = proximaFecha(tf.getDesde(), tf.getHoraInicio(), ahora);
                 !fecha.isAfter(hasta); fecha = fecha.plusWeeks(1)) {
             try {
