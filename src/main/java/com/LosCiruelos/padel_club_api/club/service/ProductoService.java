@@ -115,9 +115,9 @@ public class ProductoService {
         return productoRepository.findAllByActivoTrueAndOfrecerAlReservarTrueOrderByNombreAsc();
     }
 
-    /** Productos con esos códigos (PELOTAS, PALETAS). */
-    public List<Producto> buscarPorCodigos(Collection<String> codigos) {
-        return productoRepository.findByCodigoIn(codigos);
+    /** Productos con esos ids (los que no existen no vienen). */
+    public List<Producto> buscarPorIds(Collection<Long> ids) {
+        return productoRepository.findAllById(ids);
     }
 
     private Producto bloquearProducto(Long id) {

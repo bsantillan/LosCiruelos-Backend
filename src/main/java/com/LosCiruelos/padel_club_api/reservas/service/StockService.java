@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.reservas.dto.request.ProductoPedidoRequest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -69,16 +70,16 @@ public class StockService {
      * <ol>
      * <li>devuelve el stock de VENTA de {@code aLiberar} (reservas que se cancelan o expiran);</li>
      * <li>si hay {@code destino}, devuelve el stock de sus productos actuales y los reemplaza por
-     * {@code pedido} (código de producto → cantidad), validando el stock disponible.</li>
+     * {@code pedido} (id de producto → cantidad), validando el stock disponible.</li>
      * </ol>
      * Las reservas de {@code aLiberar} y {@code destino} tienen que estar bloqueadas de antes.
      */
-    public void moverStock(Collection<Reserva> aLiberar, Reserva destino, Map<String, Integer> pedido,
+    public void moverStock(Collection<Reserva> aLiberar, Reserva destino, Map<Long, Integer> pedido,
             LocalDateTime ahora) {
-        Map<String, Integer> cantidades = new TreeMap<>();
-        pedido.forEach((codigo, cantidad) -> {
+        Map<Long, Integer> cantidades = new TreeMap<>();
+        pedido.forEach((productoId, cantidad) -> {
             if (cantidad != null && cantidad > 0) {
-                cantidades.put(codigo, cantidad);
+                cantidades.put(productoId, cantidad);
             }
         });
 
@@ -88,7 +89,7 @@ public class StockService {
         if (destino != null) {
             destino.getProductos().forEach(i -> ids.add(i.getProducto().getId()));
         }
-        List<Producto> pedidos = cantidades.isEmpty() ? List.of() : productoService.buscarPorCodigos(cantidades.keySet());
+        List<Producto> pedidos = productosDe(cantidades);
         pedidos.forEach(p -> ids.add(p.getId()));
         if (ids.isEmpty()) {
             return;
@@ -106,16 +107,50 @@ public class StockService {
         devolverStockDeVenta(destino);
         // los ítems que se siguen pidiendo se actualizan en el lugar (borrar y recrear choca con
         // UNIQUE (reserva_id, producto_id) porque Hibernate inserta antes de borrar)
-        destino.getProductos().removeIf(i -> !cantidades.containsKey(i.getProducto().getCodigo()));
+        destino.getProductos().removeIf(i -> !cantidades.containsKey(i.getProducto().getId()));
 
         // 3. Tomar lo pedido
-        for (Map.Entry<String, Integer> entrada : cantidades.entrySet()) {
+        for (Map.Entry<Long, Integer> entrada : cantidades.entrySet()) {
             Producto producto = pedidos.stream()
-                    .filter(p -> p.getCodigo().equals(entrada.getKey()))
+                    .filter(p -> p.getId().equals(entrada.getKey()))
                     .findFirst()
-                    .orElseThrow(() -> new ReservaException("El producto " + entrada.getKey() + " no existe."));
+                    .orElseThrow();
             tomar(destino, producto, entrada.getValue(), ahora);
         }
+    }
+
+    /** Lo pedido en una reserva, un partido o un turno fijo: id de producto → cantidad (los repetidos se suman). */
+    public static Map<Long, Integer> pedido(List<ProductoPedidoRequest> productos) {
+        Map<Long, Integer> pedido = new TreeMap<>();
+        if (productos != null) {
+            productos.forEach(p -> pedido.merge(p.getProductoId(), p.getCantidad(), Integer::sum));
+        }
+        return pedido;
+    }
+
+    /** Los productos de un pedido; si alguno no existe, 400. */
+    public List<Producto> productosDe(Map<Long, Integer> pedido) {
+        if (pedido.isEmpty()) {
+            return List.of();
+        }
+        List<Producto> productos = productoService.buscarPorIds(pedido.keySet());
+        pedido.keySet().stream()
+                .filter(id -> productos.stream().noneMatch(p -> p.getId().equals(id)))
+                .findFirst()
+                .ifPresent(id -> {
+                    throw new ReservaException("El producto " + id + " no existe.");
+                });
+        return productos;
+    }
+
+    /** El cliente solo pide al reservar los productos que se ofrecen (el resto los agrega el personal). */
+    public void exigirQueSeOfrezcan(Map<Long, Integer> pedido) {
+        productosDe(pedido).stream()
+                .filter(p -> !p.seOfreceAlReservar())
+                .findFirst()
+                .ifPresent(p -> {
+                    throw new ReservaException(p.getNombre() + " no se puede pedir al reservar: pedíselo al club.");
+                });
     }
 
     /** Devuelve el stock de VENTA de una reserva que se cancela o expira (la reserva ya está bloqueada). */

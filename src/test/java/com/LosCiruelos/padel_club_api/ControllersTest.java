@@ -161,7 +161,7 @@ class ControllersTest {
     }
 
     private static final String RESERVA_VALIDA = """
-            {"canchaId":1,"fechaReserva":"2099-01-01","horaInicio":"18:00","horaFin":"19:30","cantidadPelotas":2,"cantidadPaletas":4}
+            {"canchaId":1,"fechaReserva":"2099-01-01","horaInicio":"18:00","horaFin":"19:30","productos":[{"productoId":1,"cantidad":2}]}
             """;
 
     // ─────────────────────────────────────────────────────────────────────
@@ -562,11 +562,12 @@ class ControllersTest {
         @Test
         void cantidadesInvalidasEnLaReserva() throws Exception {
             mvc.perform(json(post("/reservas"), """
-                    {"canchaId":1,"fechaReserva":"2099-01-01","horaInicio":"18:00","horaFin":"19:30","cantidadPelotas":-1,"cantidadPaletas":99}
+                    {"canchaId":1,"fechaReserva":"2099-01-01","horaInicio":"18:00","horaFin":"19:30",
+                     "productos":[{"productoId":1,"cantidad":0},{"cantidad":2}]}
                     """))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.errors.cantidadPelotas").exists())
-                    .andExpect(jsonPath("$.errors.cantidadPaletas").exists());
+                    .andExpect(jsonPath("$.errors['productos[0].cantidad']").value("La cantidad tiene que ser al menos 1"))
+                    .andExpect(jsonPath("$.errors['productos[1].productoId']").value("Indicá el producto (productoId)"));
         }
     }
 

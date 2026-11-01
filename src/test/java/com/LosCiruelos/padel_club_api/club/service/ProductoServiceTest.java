@@ -48,9 +48,9 @@ class ProductoServiceTest {
         paletas = Producto.builder().id(2L).codigo(Producto.CODIGO_PALETAS).nombre("Paletas")
                 .tipo(TipoProducto.ALQUILER).precio(new BigDecimal("2000")).stock(4).build();
 
-        when(productoRepository.findByCodigoIn(anyCollection())).thenAnswer(inv -> {
-            var codigos = inv.<java.util.Collection<String>>getArgument(0);
-            return List.of(pelotas, paletas).stream().filter(p -> codigos.contains(p.getCodigo())).toList();
+        when(productoRepository.findAllById(anyCollection())).thenAnswer(inv -> {
+            var ids = inv.<java.util.Collection<Long>>getArgument(0);
+            return List.of(pelotas, paletas).stream().filter(p -> ids.contains(p.getId())).toList();
         });
     }
 

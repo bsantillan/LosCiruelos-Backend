@@ -23,8 +23,10 @@ public class TurnoFijoMapper {
         response.setHoraInicio(tf.getHoraInicio());
         response.setHoraFin(tf.getHoraFin());
         response.setDesde(tf.getDesde());
-        response.setCantidadPelotas(tf.getCantidadPelotas());
-        response.setCantidadPaletas(tf.getCantidadPaletas());
+        response.setProductos(tf.getProductos().stream()
+                .map(p -> new TurnoFijoResponse.Producto(p.getProducto().getId(), p.getProducto().getNombre(),
+                        p.getCantidad()))
+                .toList());
         response.setActivo(tf.getActivo());
         response.setCreatedAt(tf.getCreatedAt());
         response.setDadoDeBajaAt(tf.getDadoDeBajaAt());

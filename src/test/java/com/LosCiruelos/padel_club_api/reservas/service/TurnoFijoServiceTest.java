@@ -1,5 +1,11 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import java.util.Map;
+import java.math.BigDecimal;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
+import com.LosCiruelos.padel_club_api.club.entity.Producto;
+import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijoProducto;
+import com.LosCiruelos.padel_club_api.reservas.dto.request.ProductoPedidoRequest;
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static com.LosCiruelos.padel_club_api.TestData.MANIANA;
 import static com.LosCiruelos.padel_club_api.TestData.usuario;
@@ -82,6 +88,9 @@ class TurnoFijoServiceTest {
         CanchaRepository canchaRepository = mock(CanchaRepository.class);
         UsuarioService usuarioService = mock(UsuarioService.class);
         stockService = mock(StockService.class);
+        Producto pelotas = Producto.builder().id(1L).codigo(Producto.CODIGO_PELOTAS).nombre("Pelotas")
+                .tipo(TipoProducto.VENTA).precio(new BigDecimal("5000")).stock(50).build();
+        when(stockService.productosDe(Map.of(1L, 2))).thenReturn(List.of(pelotas));
         cancelacionService = mock(CancelacionService.class);
 
         ReservaMapper mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService), TestData.reloj(AHORA), new PagoMapper());
@@ -122,15 +131,14 @@ class TurnoFijoServiceTest {
         req.setHoraFin(LocalTime.parse(fin));
         req.setJugadores(List.of(JugadorRequest.registrado(1L), JugadorRequest.invitado("Fijo 2"),
                 JugadorRequest.invitado("Fijo 3"), JugadorRequest.invitado("Fijo 4")));
-        req.setCantidadPelotas(2);
+        req.setProductos(List.of(new ProductoPedidoRequest(1L, 2)));
         return req;
     }
 
     /** Turno fijo activo de los miércoles de 20:00 a 21:30 desde mañana. */
     private TurnoFijo turnoFijo() {
         TurnoFijo tf = TurnoFijo.builder().id(8L).cancha(TestData.cancha()).diaSemana(DayOfWeek.WEDNESDAY)
-                .horaInicio(LocalTime.of(20, 0)).horaFin(LocalTime.of(21, 30)).desde(MANIANA).cantidadPelotas(0)
-                .cantidadPaletas(0).activo(true).createdBy(admin).createdAt(AHORA).build();
+                .horaInicio(LocalTime.of(20, 0)).horaFin(LocalTime.of(21, 30)).desde(MANIANA).activo(true).createdBy(admin).createdAt(AHORA).build();
         tf.getJugadores().add(TurnoFijoJugador.builder().turnoFijo(tf).posicion(1).usuario(cliente).build());
         when(turnoFijoRepository.findByIdForUpdate(8L)).thenReturn(Optional.of(tf));
         when(turnoFijoRepository.findById(8L)).thenReturn(Optional.of(tf));
@@ -156,8 +164,9 @@ class TurnoFijoServiceTest {
         TurnoFijo tf = guardado.getValue();
         assertThat(tf.getDiaSemana()).isEqualTo(DayOfWeek.WEDNESDAY);
         assertThat(tf.getActivo()).isTrue();
-        assertThat(tf.getCantidadPelotas()).isEqualTo(2);
-        assertThat(tf.getCantidadPaletas()).isZero();
+        assertThat(tf.getProductos()).extracting(p -> p.getProducto().getId(), TurnoFijoProducto::getCantidad)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(1L, 2));
+        assertThat(tf.pedidoDeProductos()).isEqualTo(Map.of(1L, 2));
         assertThat(tf.getCreatedBy()).isSameAs(admin);
         assertThat(tf.getJugadores()).extracting(TurnoFijoJugador::getPosicion).containsExactly(1, 2, 3, 4);
         assertThat(tf.getJugadores().get(0).getUsuario()).isSameAs(cliente);

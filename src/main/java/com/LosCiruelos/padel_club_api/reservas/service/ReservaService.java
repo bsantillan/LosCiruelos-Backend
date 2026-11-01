@@ -102,6 +102,8 @@ public class ReservaService {
         validarPerfilCompleto(cliente, "Debés completar tu perfil antes de reservar.");
         // solo el cliente tiene tope: el personal puede cargar reservas más lejanas
         configuracionService.obtener().validarAnticipacion(req.getFechaReserva(), reloj.hoy());
+        // el cliente pide solo lo que se ofrece al reservar; el resto lo agrega el personal
+        stockService.exigirQueSeOfrezcan(StockService.pedido(req.getProductos()));
         return crear(req, cliente, cliente);
     }
 
@@ -164,7 +166,7 @@ public class ReservaService {
                 .build();
 
         // 5. Stock: devuelve lo de las reservas que se expiraron o cancelaron y toma lo pedido
-        stockService.moverStock(aLiberar, reserva, pedidoDeProductos(req), ahora);
+        stockService.moverStock(aLiberar, reserva, StockService.pedido(req.getProductos()), ahora);
         reserva.setMontoTotal(config.montoTurno(duracion).add(reserva.getMontoProductos()));
 
         reserva = guardarVerificandoSolapamiento(reserva);
@@ -180,10 +182,9 @@ public class ReservaService {
             throw new EstadoInvalidoException("La reserva ya tiene un pago en curso o aprobado; no se puede modificar.");
         }
 
-        Map<String, Integer> pedido = pedidoDeProductos(req);
+        Map<Long, Integer> pedido = StockService.pedido(req.getProductos());
         boolean cambiaFin = !reserva.getHoraFin().equals(req.getHoraFin());
-        boolean cambianProductos = pedido.entrySet().stream()
-                .anyMatch(e -> reserva.cantidadDe(e.getKey()) != e.getValue());
+        boolean cambianProductos = !reserva.pedidoDeProductos().equals(pedido);
 
         if (!cambiaFin && !cambianProductos) {
             stockService.moverStock(aLiberar, null, Map.of(), ahora);
@@ -206,21 +207,9 @@ public class ReservaService {
             // un pago iniciado con el monto anterior ya no sirve
             expirarPagosPendientes(reserva);
         }
-        log.info("Reserva #{} actualizada: {} a {}, {} pelotas, {} paletas", reserva.getId(),
-                reserva.getHoraInicio(), reserva.getHoraFin(),
-                reserva.cantidadDe(Producto.CODIGO_PELOTAS), reserva.cantidadDe(Producto.CODIGO_PALETAS));
+        log.info("Reserva #{} actualizada: {} a {}, productos {}", reserva.getId(), reserva.getHoraInicio(),
+                reserva.getHoraFin(), reserva.pedidoDeProductos());
         return guardarVerificandoSolapamiento(reserva);
-    }
-
-    /** Cantidades pedidas por código de producto (null = 0). */
-    private static Map<String, Integer> pedidoDeProductos(CrearReservaRequest req) {
-        return pedidoDeProductos(req.getCantidadPelotas(), req.getCantidadPaletas());
-    }
-
-    static Map<String, Integer> pedidoDeProductos(Integer pelotas, Integer paletas) {
-        return Map.of(
-                Producto.CODIGO_PELOTAS, pelotas != null ? pelotas : 0,
-                Producto.CODIGO_PALETAS, paletas != null ? paletas : 0);
     }
 
     /**
@@ -289,7 +278,7 @@ public class ReservaService {
         List<DatosJugador> jugadores = jugadoresService.resolverJugadores(req.getJugadores());
 
         Reserva partido = armarPartido(admin, req.getCanchaId(), req.getFechaReserva(), req.getHoraInicio(),
-                req.getHoraFin(), jugadores, req.getCantidadPelotas(), req.getCantidadPaletas(), null, config,
+                req.getHoraFin(), jugadores, StockService.pedido(req.getProductos()), null, config,
                 duracion, ahora);
         log.info("Partido #{} armado por {} en la cancha {} el {} de {} a {}", partido.getId(), email,
                 partido.getCancha().getNumero(), partido.getFechaReserva(), partido.getHoraInicio(),
@@ -320,14 +309,14 @@ public class ReservaService {
                 .toList();
 
         Reserva partido = armarPartido(tf.getCreatedBy(), tf.getCancha().getId(), fecha, tf.getHoraInicio(),
-                tf.getHoraFin(), jugadores, tf.getCantidadPelotas(), tf.getCantidadPaletas(), tf, config, duracion,
+                tf.getHoraFin(), jugadores, tf.pedidoDeProductos(), tf, config, duracion,
                 ahora);
         log.info("Partido #{} del turno fijo #{} creado para el {}", partido.getId(), tf.getId(), fecha);
         return Optional.of(partido.getId());
     }
 
     private Reserva armarPartido(Usuario creadoPor, Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin,
-            List<DatosJugador> jugadores, Integer pelotas, Integer paletas, TurnoFijo turnoFijo,
+            List<DatosJugador> jugadores, Map<Long, Integer> pedido, TurnoFijo turnoFijo,
             Configuracion config, long duracion, LocalDateTime ahora) {
         Usuario responsable = JugadoresService.responsable(jugadores);
         // lock de la cancha: los pedidos simultáneos para esta cancha esperan su turno
@@ -351,7 +340,7 @@ public class ReservaService {
                 .build();
         JugadoresService.asignar(partido, jugadores);
 
-        stockService.moverStock(aLiberar, partido, pedidoDeProductos(pelotas, paletas), ahora);
+        stockService.moverStock(aLiberar, partido, pedido, ahora);
         partido.setMontoTotal(config.montoTurno(duracion)
                 .add(partido.getMontoProductos()));
         return guardarVerificandoSolapamiento(partido);
@@ -412,8 +401,7 @@ public class ReservaService {
         partido.setCliente(JugadoresService.responsable(jugadores));
         // devuelve el stock de los productos anteriores y toma los nuevos (los alquileres se
         // vuelven a validar porque pudo cambiar el horario)
-        stockService.moverStock(aLiberar, partido,
-                pedidoDeProductos(req.getCantidadPelotas(), req.getCantidadPaletas()), ahora);
+        stockService.moverStock(aLiberar, partido, StockService.pedido(req.getProductos()), ahora);
         BigDecimal total = montoCancha.add(partido.getMontoProductos());
         if (total.compareTo(partido.getMontoCubierto()) < 0) {
             throw new EstadoInvalidoException("El total nuevo ($%s) es menor que lo ya pagado ($%s)."

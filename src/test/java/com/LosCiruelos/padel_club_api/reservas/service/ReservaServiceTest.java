@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaProductoResponse;
+import com.LosCiruelos.padel_club_api.reservas.dto.request.ProductoPedidoRequest;
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static com.LosCiruelos.padel_club_api.TestData.HOY;
 import static com.LosCiruelos.padel_club_api.TestData.MANIANA;
@@ -140,8 +142,6 @@ class ReservaServiceTest {
         req.setFechaReserva(fecha);
         req.setHoraInicio(LocalTime.parse(inicio));
         req.setHoraFin(LocalTime.parse(fin));
-        req.setCantidadPelotas(0);
-        req.setCantidadPaletas(0);
         return req;
     }
 
@@ -152,8 +152,6 @@ class ReservaServiceTest {
         req.setFechaReserva(MANIANA);
         req.setHoraInicio(LocalTime.parse("18:00"));
         req.setHoraFin(LocalTime.parse("19:30"));
-        req.setCantidadPelotas(0);
-        req.setCantidadPaletas(0);
         req.setClienteId(clienteId);
         return req;
     }
@@ -237,8 +235,7 @@ class ReservaServiceTest {
                 return null;
             }).when(stockService).moverStock(any(), any(), any(), any());
             CrearReservaRequest req = pedido(MANIANA, "18:00", "19:30");
-            req.setCantidadPelotas(2);
-            req.setCantidadPaletas(4);
+            req.setProductos(List.of(new ProductoPedidoRequest(1L, 2), new ProductoPedidoRequest(2L, 4)));
 
             ReservaResponse r = reservaService.crearParaMi(req, cliente.getEmail());
 
@@ -246,10 +243,10 @@ class ReservaServiceTest {
             assertThat(r.getMontoProductos()).isEqualByComparingTo("11000");
             assertThat(r.getMontoTotal()).isEqualByComparingTo("26000");
             assertThat(r.getMontoSenia()).isEqualByComparingTo("13000"); // 50 % del total
-            assertThat(r.getCantidadPelotas()).isEqualTo(2);
-            assertThat(r.getCantidadPaletas()).isEqualTo(4);
-            verify(stockService).moverStock(eq(List.of()), any(Reserva.class),
-                    eq(Map.of(Producto.CODIGO_PELOTAS, 2, Producto.CODIGO_PALETAS, 4)), eq(AHORA));
+            assertThat(r.getProductos()).extracting(ReservaProductoResponse::getCantidad).containsExactly(2, 4);
+            verify(stockService).moverStock(eq(List.of()), any(Reserva.class), eq(Map.of(1L, 2, 2L, 4)), eq(AHORA));
+            // el cliente pide solo lo que se ofrece al reservar
+            verify(stockService).exigirQueSeOfrezcan(Map.of(1L, 2, 2L, 4));
         }
 
         @Test
@@ -403,7 +400,7 @@ class ReservaServiceTest {
                 return null;
             }).when(stockService).moverStock(any(), eq(existente), any(), any());
             CrearReservaRequest req = pedido(MANIANA, "18:00", "19:30");
-            req.setCantidadPelotas(3);
+            req.setProductos(List.of(new ProductoPedidoRequest(1L, 3)));
 
             ReservaResponse r = reservaService.crearParaMi(req, cliente.getEmail());
 

@@ -19,7 +19,6 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
 
     List<Producto> findAllByActivoTrueAndOfrecerAlReservarTrueOrderByNombreAsc();
 
-    List<Producto> findByCodigoIn(Collection<String> codigos);
 
     boolean existsByNombreIgnoreCase(String nombre);
 

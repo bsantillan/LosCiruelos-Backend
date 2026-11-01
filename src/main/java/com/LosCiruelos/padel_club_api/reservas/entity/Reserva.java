@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.reservas.entity;
 
+import java.util.TreeMap;
+import java.util.Map;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -156,6 +158,13 @@ public class Reserva {
 
     public boolean esJugador(Usuario usuario) {
         return jugadores.stream().anyMatch(j -> j.getUsuario() != null && j.getUsuario().getId().equals(usuario.getId()));
+    }
+
+    /** Lo pedido: id del producto → cantidad. */
+    public Map<Long, Integer> pedidoDeProductos() {
+        Map<Long, Integer> pedido = new TreeMap<>();
+        productos.forEach(i -> pedido.put(i.getProducto().getId(), i.getCantidad()));
+        return pedido;
     }
 
     /** Cantidad pedida del producto del sistema con ese código (0 si no se pidió). */

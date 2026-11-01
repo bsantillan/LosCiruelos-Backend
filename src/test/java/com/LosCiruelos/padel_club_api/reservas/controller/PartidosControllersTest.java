@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.controller;
 
+import com.LosCiruelos.padel_club_api.reservas.dto.request.ProductoPedidoRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -86,7 +87,7 @@ class PartidosControllersTest {
     private static final String PARTIDO = """
             {"canchaId":1,"fechaReserva":"2026-10-14","horaInicio":"18:00","horaFin":"19:30",
              "jugadores":[{"usuarioId":1},{"usuarioId":2},{"nombre":"Juan"},{"nombre":"Pedro","telefono":"11 5555-0000"}],
-             "cantidadPelotas":2}
+             "productos":[{"productoId":1,"cantidad":2}]}
             """;
 
     @Test
@@ -110,7 +111,7 @@ class PartidosControllersTest {
         verify(reservaService).crearPartido(req.capture(), eq(EMAIL));
         assertThat(req.getValue().getJugadores()).hasSize(4);
         assertThat(req.getValue().getJugadores().get(3).getTelefono()).isEqualTo("11 5555-0000");
-        assertThat(req.getValue().getCantidadPelotas()).isEqualTo(2);
+        assertThat(req.getValue().getProductos()).extracting(ProductoPedidoRequest::getCantidad).containsExactly(2);
     }
 
     @Test

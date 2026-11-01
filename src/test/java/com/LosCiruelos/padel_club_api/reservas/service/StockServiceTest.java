@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.reservas.dto.request.ProductoPedidoRequest;
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static com.LosCiruelos.padel_club_api.TestData.MANIANA;
 import static com.LosCiruelos.padel_club_api.TestData.reserva;
@@ -64,9 +65,9 @@ class StockServiceTest {
 
         when(entityManager.find(Producto.class, 1L)).thenReturn(pelotas);
         when(entityManager.find(Producto.class, 2L)).thenReturn(paletas);
-        when(productoRepository.findByCodigoIn(anyCollection())).thenAnswer(inv -> {
-            var codigos = inv.<java.util.Collection<String>>getArgument(0);
-            return List.of(pelotas, paletas).stream().filter(p -> codigos.contains(p.getCodigo())).toList();
+        when(productoRepository.findAllById(anyCollection())).thenAnswer(inv -> {
+            var ids = inv.<java.util.Collection<Long>>getArgument(0);
+            return List.of(pelotas, paletas).stream().filter(p -> ids.contains(p.getId())).toList();
         });
         alquileres(List.of());
     }
@@ -119,7 +120,7 @@ class StockServiceTest {
         void ventaDescuentaStockYCongelaElPrecio() {
             Reserva reserva = nuevaReserva();
 
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 3), AHORA);
+            servicio.moverStock(List.of(), reserva, Map.of(1L, 3), AHORA);
 
             assertThat(pelotas.getStock()).isEqualTo(7);
             assertThat(reserva.cantidadDe(Producto.CODIGO_PELOTAS)).isEqualTo(3);
@@ -130,11 +131,32 @@ class StockServiceTest {
         }
 
         @Test
+        void unProductoQueNoExisteEs400YElClienteSoloPideLoQueSeOfrece() {
+            assertThatThrownBy(() -> servicio.moverStock(List.of(), nuevaReserva(), Map.of(99L, 1), AHORA))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessage("El producto 99 no existe.");
+
+            pelotas.setOfrecerAlReservar(true);
+            paletas.setOfrecerAlReservar(false);
+            servicio.exigirQueSeOfrezcan(Map.of(1L, 2));
+            assertThatThrownBy(() -> servicio.exigirQueSeOfrezcan(Map.of(1L, 2, 2L, 1)))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessage("Paletas no se puede pedir al reservar: pedíselo al club.");
+        }
+
+        @Test
+        void losProductosRepetidosEnElPedidoSeSuman() {
+            assertThat(StockService.pedido(List.of(new ProductoPedidoRequest(1L, 2), new ProductoPedidoRequest(1L, 3),
+                    new ProductoPedidoRequest(2L, 1)))).isEqualTo(Map.of(1L, 5, 2L, 1));
+            assertThat(StockService.pedido(null)).isEmpty();
+        }
+
+        @Test
         void unProductoSinControlDeStockSePideSinLimiteYNoMueveElStock() {
             pelotas.setControlaStock(false);
             Reserva reserva = nuevaReserva();
 
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 50), AHORA);
+            servicio.moverStock(List.of(), reserva, Map.of(1L, 50), AHORA);
 
             assertThat(reserva.cantidadDe(Producto.CODIGO_PELOTAS)).isEqualTo(50);
             assertThat(pelotas.getStock()).isEqualTo(10);
@@ -145,7 +167,7 @@ class StockServiceTest {
         @Test
         void ventaSinStockSuficiente() {
             assertThatThrownBy(() -> servicio.moverStock(List.of(), nuevaReserva(),
-                    Map.of(Producto.CODIGO_PELOTAS, 11), AHORA))
+                    Map.of(1L, 11), AHORA))
                     .isInstanceOf(StockInsuficienteException.class)
                     .hasMessageContaining("Pelotas: hay 10 unidades en stock");
             assertThat(pelotas.getStock()).isEqualTo(10);
@@ -157,12 +179,12 @@ class StockServiceTest {
 
             // de 18:00 a 19:30 hay como máximo 2 en uso: quedan 2 de 4
             assertThatThrownBy(() -> servicio.moverStock(List.of(), nuevaReserva(),
-                    Map.of(Producto.CODIGO_PALETAS, 3), AHORA))
+                    Map.of(2L, 3), AHORA))
                     .isInstanceOf(StockInsuficienteException.class)
                     .hasMessageContaining("Paletas: hay 2 unidades disponibles para ese horario");
 
             Reserva reserva = nuevaReserva();
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PALETAS, 2), AHORA);
+            servicio.moverStock(List.of(), reserva, Map.of(2L, 2), AHORA);
             assertThat(reserva.cantidadDe(Producto.CODIGO_PALETAS)).isEqualTo(2);
             assertThat(reserva.getMontoProductos()).isEqualByComparingTo("4000");
             assertThat(paletas.getStock()).isEqualTo(4);
@@ -174,7 +196,7 @@ class StockServiceTest {
             when(reservaRepository.sumarSinDevolver(eq(2L), anyCollection(), any(), any())).thenReturn(3L);
 
             assertThatThrownBy(() -> servicio.moverStock(List.of(), nuevaReserva(),
-                    Map.of(Producto.CODIGO_PALETAS, 2), AHORA))
+                    Map.of(2L, 2), AHORA))
                     .isInstanceOf(StockInsuficienteException.class)
                     .hasMessageContaining("1 unidad");
         }
@@ -182,7 +204,7 @@ class StockServiceTest {
         @Test
         void devolucionCompletaNoTocaElStockYConFaltantesLoBaja() {
             Reserva reserva = nuevaReserva();
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PALETAS, 3), AHORA);
+            servicio.moverStock(List.of(), reserva, Map.of(2L, 3), AHORA);
             ReservaProducto item = reserva.getProductos().getFirst();
 
             servicio.registrarDevolucion(item, 3, AHORA);
@@ -200,7 +222,7 @@ class StockServiceTest {
             paletas.setActivo(false);
 
             assertThatThrownBy(() -> servicio.moverStock(List.of(), nuevaReserva(),
-                    Map.of(Producto.CODIGO_PALETAS, 1), AHORA))
+                    Map.of(2L, 1), AHORA))
                     .isInstanceOf(ReservaException.class)
                     .hasMessageContaining("no está disponible");
         }
@@ -208,7 +230,7 @@ class StockServiceTest {
         @Test
         void sinProductosPedidosNoHaceNada() {
             Reserva reserva = nuevaReserva();
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 0), AHORA);
+            servicio.moverStock(List.of(), reserva, Map.of(1L, 0), AHORA);
             assertThat(reserva.getProductos()).isEmpty();
         }
 
@@ -216,7 +238,7 @@ class StockServiceTest {
         void alCancelarOExpirarSeDevuelveSoloLoVendido() {
             Reserva reserva = nuevaReserva();
             servicio.moverStock(List.of(), reserva,
-                    Map.of(Producto.CODIGO_PELOTAS, 3, Producto.CODIGO_PALETAS, 2), AHORA);
+                    Map.of(1L, 3, 2L, 2), AHORA);
             assertThat(pelotas.getStock()).isEqualTo(7);
 
             servicio.liberar(reserva);
@@ -228,17 +250,17 @@ class StockServiceTest {
         @Test
         void modificarActualizaLosItemsEnElLugarYAjustaElStock() {
             Reserva reserva = nuevaReserva();
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 2), AHORA);
+            servicio.moverStock(List.of(), reserva, Map.of(1L, 2), AHORA);
             ReservaProducto item = reserva.getProductos().getFirst();
             assertThat(pelotas.getStock()).isEqualTo(8);
 
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 5), AHORA);
+            servicio.moverStock(List.of(), reserva, Map.of(1L, 5), AHORA);
 
             assertThat(reserva.getProductos()).containsExactly(item); // mismo ítem, no se recrea
             assertThat(item.getCantidad()).isEqualTo(5);
             assertThat(pelotas.getStock()).isEqualTo(5);
 
-            servicio.moverStock(List.of(), reserva, Map.of(Producto.CODIGO_PELOTAS, 0), AHORA);
+            servicio.moverStock(List.of(), reserva, Map.of(1L, 0), AHORA);
             assertThat(reserva.getProductos()).isEmpty();
             assertThat(pelotas.getStock()).isEqualTo(10);
         }
@@ -246,12 +268,12 @@ class StockServiceTest {
         @Test
         void liberarOtrasReservasYTomarParaLaNuevaEnUnSoloPaso() {
             Reserva vencida = nuevaReserva();
-            servicio.moverStock(List.of(), vencida, Map.of(Producto.CODIGO_PELOTAS, 10), AHORA);
+            servicio.moverStock(List.of(), vencida, Map.of(1L, 10), AHORA);
             assertThat(pelotas.getStock()).isZero();
 
             // las pelotas de la reserva vencida vuelven y alcanzan para la nueva
             Reserva nueva = nuevaReserva();
-            servicio.moverStock(List.of(vencida), nueva, Map.of(Producto.CODIGO_PELOTAS, 4), AHORA);
+            servicio.moverStock(List.of(vencida), nueva, Map.of(1L, 4), AHORA);
 
             assertThat(pelotas.getStock()).isEqualTo(6);
             assertThat(nueva.cantidadDe(Producto.CODIGO_PELOTAS)).isEqualTo(4);
