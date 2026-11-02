@@ -16,6 +16,8 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
     // Para buscar el pago cuando llega el webhook de MP
     Optional<Pago> findByExternalPaymentId(String externalPaymentId);
 
+    boolean existsByComprobante(String comprobante);
+
     // Solo ids: el webhook bloquea primero la reserva y después lee el pago actualizado
     @Query("SELECT p.reserva.id FROM Pago p WHERE p.externalPaymentId = :externalPaymentId")
     Optional<Long> findReservaIdByExternalPaymentId(@Param("externalPaymentId") String externalPaymentId);

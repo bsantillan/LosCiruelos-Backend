@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.LosCiruelos.padel_club_api.pagos.dto.request.BonificacionRequest;
+import com.LosCiruelos.padel_club_api.pagos.dto.request.CobroCuentaDniRequest;
 import com.LosCiruelos.padel_club_api.pagos.dto.request.PagoManualRequest;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
@@ -35,7 +36,15 @@ public class CobroAdminController {
                 PaymentProvider.MANUAL, authentication.getName()));
     }
 
-    /** Pago en el mostrador con tarjeta o QR de Mercado Pago. */
+    /** Pago con Cuenta DNI (Banco Provincia), con el número de comprobante. */
+    @PostMapping("/cobros/cuenta-dni")
+    public ResponseEntity<PagoResponse> cobrarCuentaDni(@PathVariable Long reservaId,
+            @Valid @RequestBody CobroCuentaDniRequest body, Authentication authentication) {
+        return ResponseEntity.ok(cobroService.registrarCuentaDni(reservaId, body.getMonto(), body.getComprobante(),
+                authentication.getName()));
+    }
+
+    /** Pago con Mercado Pago cargado a mano (por ejemplo, una transferencia al alias del club). */
     @PostMapping("/cobros/presencial")
     public ResponseEntity<PagoResponse> cobrarPresencial(@PathVariable Long reservaId,
             @Valid @RequestBody PagoManualRequest body, Authentication authentication) {

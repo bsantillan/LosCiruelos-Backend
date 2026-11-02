@@ -50,6 +50,24 @@ public class CobroService {
     @Transactional
     public PagoResponse registrarPagoManual(Long reservaId, BigDecimal monto, PaymentProvider provider,
             String email) {
+        return registrar(reservaId, monto, provider, null, email);
+    }
+
+    /**
+     * Pago con Cuenta DNI: no hay API, así que el personal lo registra con el número de comprobante
+     * (el que muestra la app al cobrar), que no se puede cargar dos veces.
+     */
+    @Transactional
+    public PagoResponse registrarCuentaDni(Long reservaId, BigDecimal monto, String comprobante, String email) {
+        String limpio = comprobante.trim();
+        if (pagoRepository.existsByComprobante(limpio)) {
+            throw new EstadoInvalidoException("Ese comprobante de Cuenta DNI ya está registrado.");
+        }
+        return registrar(reservaId, monto, PaymentProvider.CUENTA_DNI, limpio, email);
+    }
+
+    private PagoResponse registrar(Long reservaId, BigDecimal monto, PaymentProvider provider, String comprobante,
+            String email) {
         if (monto == null || monto.signum() <= 0) {
             throw new ReservaException("El monto debe ser mayor a cero.");
         }
@@ -77,6 +95,7 @@ public class CobroService {
                 .createdAt(ahora)
                 .paidAt(ahora)
                 .registradoPorId(personal.getId())
+                .comprobante(comprobante)
                 .build();
         reserva.agregarPago(pago);
         pago = pagoRepository.save(pago);

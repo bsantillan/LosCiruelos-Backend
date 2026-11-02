@@ -41,10 +41,11 @@ public class ResumenMapper {
                 Dinero.redondear(t.montoPorJugar().subtract(c.cobradoPorJugar()).subtract(c.bonificadoPorJugar())));
 
         BigDecimal efectivo = e.efectivo().add(v.efectivo());
-        BigDecimal mercadoPagoPresencial = e.mercadoPagoPresencial().add(v.mercadoPago());
-        BigDecimal total = efectivo.add(e.mercadoPagoOnline()).add(mercadoPagoPresencial);
-        Caja caja = new Caja(Dinero.redondear(total), Dinero.redondear(efectivo),
-                Dinero.redondear(e.mercadoPagoOnline()), Dinero.redondear(mercadoPagoPresencial),
+        BigDecimal mercadoPago = e.mercadoPago().add(v.mercadoPago());
+        BigDecimal cuentaDni = e.cuentaDni().add(v.cuentaDni());
+        BigDecimal total = efectivo.add(mercadoPago).add(cuentaDni);
+        Caja caja = new Caja(Dinero.redondear(total), Dinero.redondear(efectivo), Dinero.redondear(mercadoPago),
+                Dinero.redondear(cuentaDni),
                 Dinero.redondear(devoluciones), Dinero.redondear(total.subtract(devoluciones)));
 
         return new ResumenResponse(desde, hasta, jugados, porJugar, caja,

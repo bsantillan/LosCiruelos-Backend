@@ -22,6 +22,7 @@ public class PagoMapper {
         response.setPaidAt(pago.getPaidAt());
         response.setMontoReembolsado(pago.getMontoReembolsado());
         response.setMotivo(pago.getMotivo());
+        response.setComprobante(pago.getComprobante());
         response.setEstadoReserva(pago.getReserva().getEstado());
         return response;
     }

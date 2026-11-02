@@ -89,6 +89,10 @@ public class Pago {
     @Column(length = 200)
     private String motivo;
 
+    // Número de comprobante de un pago con Cuenta DNI (único)
+    @Column(length = 64)
+    private String comprobante;
+
     // Identifica al pago ante Mercado Pago (claves de idempotencia). Se genera al crearlo y no cambia.
     @Builder.Default
     @Column(name = "clave_idempotencia", nullable = false, unique = true, updatable = false)

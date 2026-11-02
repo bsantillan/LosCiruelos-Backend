@@ -56,7 +56,8 @@ public class VentaConsultaService {
 
     /** Cuántas ventas y lo cobrado por medio en [inicio, fin) (la caja del resumen). */
     public TotalesDeVentas totales(LocalDateTime inicio, LocalDateTime fin) {
-        return ventaRepository.totales(inicio, fin, MedioDePago.EFECTIVO, MedioDePago.MERCADO_PAGO);
+        return ventaRepository.totales(inicio, fin, MedioDePago.EFECTIVO, MedioDePago.MERCADO_PAGO,
+                MedioDePago.CUENTA_DNI);
     }
 
     /** Lo vendido de cada producto en [inicio, fin). */

@@ -294,6 +294,21 @@ class ControllersTest {
         }
 
         @Test
+        void cobroConCuentaDniPideElComprobante() throws Exception {
+            mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{\"monto\":7500}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.comprobante").exists());
+            mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{\"monto\":7500,\"comprobante\":\"a b\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.comprobante").exists());
+
+            when(cobroService.registrarCuentaDni(any(), any(), any(), anyString())).thenReturn(new PagoResponse());
+            mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{\"monto\":7500,\"comprobante\":\"CDNI-1\"}"))
+                    .andExpect(status().isOk());
+            verify(cobroService).registrarCuentaDni(4L, new BigDecimal("7500"), "CDNI-1", EMAIL);
+        }
+
+        @Test
         void webhookAceptaLosFormatosDeMercadoPago() throws Exception {
             mvc.perform(post("/pagos/notificacion").param("type", "payment").param("data.id", "111"))
                     .andExpect(status().isOk());
@@ -772,8 +787,9 @@ class ControllersTest {
                     .andExpect(jsonPath("$.porJugar.aCobrar").value(45000.00))
                     .andExpect(jsonPath("$.caja.total").value(230000.00))
                     .andExpect(jsonPath("$.caja.efectivo").value(90000.00))
-                    .andExpect(jsonPath("$.caja.mercadoPagoOnline").value(100000.00))
-                    .andExpect(jsonPath("$.caja.mercadoPagoPresencial").value(40000.00))
+                    .andExpect(jsonPath("$.caja.mercadoPago").value(100000.00))
+                    .andExpect(jsonPath("$.caja.cuentaDni").value(40000.00))
+                    .andExpect(jsonPath("$.caja.mercadoPagoOnline").doesNotExist())
                     .andExpect(jsonPath("$.caja.devoluciones").value(7500.00))
                     .andExpect(jsonPath("$.caja.neto").value(222500.00))
                     .andExpect(jsonPath("$.cancelaciones.turnos").value(3))
@@ -836,7 +852,8 @@ class ControllersTest {
             return new com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse(List.of(r), 0, 20, 57, 3,
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse.Totales(57,
                             new BigDecimal("855000.00"), new BigDecimal("690000.00"), new BigDecimal("410000.00"),
-                            new BigDecimal("280000.00"), new BigDecimal("15000.00"), new BigDecimal("165000.00")));
+                            new BigDecimal("250000.00"), new BigDecimal("30000.00"), new BigDecimal("15000.00"),
+                            new BigDecimal("165000.00")));
         }
 
         @Test
@@ -854,7 +871,8 @@ class ControllersTest {
                     .andExpect(jsonPath("$.totalElementos").value(57))
                     .andExpect(jsonPath("$.totales.reservas").value(57))
                     .andExpect(jsonPath("$.totales.cobradoEfectivo").value(410000.00))
-                    .andExpect(jsonPath("$.totales.cobradoMercadoPago").value(280000.00))
+                    .andExpect(jsonPath("$.totales.cobradoMercadoPago").value(250000.00))
+                    .andExpect(jsonPath("$.totales.cobradoCuentaDni").value(30000.00))
                     .andExpect(jsonPath("$.totales.montoBonificado").value(15000.00))
                     .andExpect(jsonPath("$.totales.montoPendiente").value(165000.00));
 

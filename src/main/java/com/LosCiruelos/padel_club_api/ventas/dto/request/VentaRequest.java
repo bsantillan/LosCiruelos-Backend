@@ -22,7 +22,7 @@ public class VentaRequest {
     @Size(max = 20, message = "Se pueden vender hasta 20 productos distintos")
     private List<@Valid @NotNull(message = "Indicá qué se vende") Item> items;
 
-    @NotNull(message = "Indicá cómo se cobró: EFECTIVO o MERCADO_PAGO")
+    @NotNull(message = "Indicá cómo se cobró: EFECTIVO, MERCADO_PAGO o CUENTA_DNI")
     private MedioDePago medio;
 
     // opcional

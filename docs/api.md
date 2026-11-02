@@ -29,7 +29,7 @@ Con el offset, `new Date(valor)` en el navegador da el instante correcto aunque 
 | `EstadoReserva` | `PENDIENTE`, `CONFIRMADA` (partido sin nada pagado: no vence), `SEÑADA` (solo reservas normales: un partido no tiene seña), `PARCIALMENTE_PAGADA`, `PAGADA`, `CANCELADA`, `EXPIRADA`, `COMPLETADA` |
 | `TipoReserva` | `NORMAL`, `PARTIDO` (4 jugadores, lo arma el ADMIN) |
 | `EstadoPago` | `PENDIENTE`, `APROBADO`, `RECHAZADO`, `EN_PROCESO`, `DEVUELTO`, `EXPIRADO`, `A_REEMBOLSAR`, `REEMBOLSO_PENDIENTE` |
-| `PaymentProvider` | `MERCADO_PAGO`, `MANUAL`, `BONIFICACION` (el ADMIN no le cobró al cliente: no es plata) |
+| `PaymentProvider` | `MANUAL` (efectivo), `MERCADO_PAGO`, `CUENTA_DNI` (Banco Provincia, cargado a mano con el comprobante), `BONIFICACION` (el ADMIN no le cobró al cliente: no es plata) |
 | `AuthProvider` | `LOCAL`, `GOOGLE` |
 
 ---
@@ -405,11 +405,12 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
   "externalPaymentId": "1234567890",
   "createdAt": "2026-10-12T17:01:00.000-03:00", "paidAt": "2026-10-12T17:02:10.000-03:00",
   "montoReembolsado": null,
+  "comprobante": null,
   "estadoReserva": "SEÑADA",
   "detalle": "accredited"
 }
 ```
-`paymentToken` es el id de la preferencia (para inicializar el Brick o el botón de MP); `externalPaymentId`, el id del pago en MP; `estadoReserva`, el estado de la reserva después de la operación; `detalle`, el `status_detail` de MP (solo al cobrar).
+`paymentToken` es el id de la preferencia (para inicializar el Brick o el botón de MP); `externalPaymentId`, el id del pago en MP; `comprobante`, el número de comprobante de un pago con Cuenta DNI; `estadoReserva`, el estado de la reserva después de la operación; `detalle`, el `status_detail` de MP (solo al cobrar).
 
 | Método y ruta | Rol | Descripción | Errores |
 |---|---|---|---|
@@ -418,7 +419,8 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 | `POST /pagos/notificacion` | público (Mercado Pago) | Webhook. Acepta `?type=payment&data.id=…`, body `{"type":"payment","data":{"id":…}}` o `?topic=payment&id=…`. Valida `x-signature` si está configurado `MP_WEBHOOK_SECRET`. | `200` también si el pago no existe en MP (se ignora) · `401` firma inválida · `502` error al consultar MP (MP reintenta) |
 | `POST /admin/reservas/{reservaId}/bonificacion` | **ADMIN** | Bonifica la reserva cuando no se le cobra al cliente (socio, torneo, cortesía): todo o una parte. Body opcional `{ "monto": 7500, "motivo": "socio" }`; sin `monto` bonifica todo lo que falta. Queda un pago `provider = BONIFICACION` que cubre el monto (la reserva se confirma o queda paga) pero **no es plata**: no cuenta como cobrado, no se devuelve si se cancela y no manda aviso. Se acepta en las mismas reservas que un pago en el club. | `400` monto inválido o mayor al pendiente · `403` EMPLEADO o CLIENTE · `409` reserva paga, vencida o con pago online en proceso |
 | `POST /admin/reservas/{reservaId}/cobros/efectivo` | ADMIN, EMPLEADO | Pago en efectivo ya aprobado (`provider = MANUAL`). Body `{ "monto": 5000 }`, también en un **partido** (se cobra el monto general, sin indicar el jugador). Si deja la reserva paga y el turno ya terminó, la reserva pasa a `COMPLETADA`. | `400` monto inválido o mayor al pendiente · `409` estado o pago online en proceso |
-| `POST /admin/reservas/{reservaId}/cobros/presencial` | ADMIN, EMPLEADO | Igual, con tarjeta o QR en el club (`provider = MERCADO_PAGO`). | igual |
+| `POST /admin/reservas/{reservaId}/cobros/presencial` | ADMIN, EMPLEADO | Igual, con Mercado Pago cargado a mano (`provider = MERCADO_PAGO`; por ejemplo, una transferencia a la cuenta del club). | igual |
+| `POST /admin/reservas/{reservaId}/cobros/cuenta-dni` | ADMIN, EMPLEADO | Igual, con Cuenta DNI (`provider = CUENTA_DNI`). Cuenta DNI no tiene API: el personal cobra desde la app del banco y carga el número de comprobante. Body `{ "monto": 7500, "comprobante": "CDNI-0001" }` (letras, números y guiones, hasta 64). Si se cancela con reembolso, se devuelve a mano (`A_REEMBOLSAR`). | los de `cobros/efectivo` · `400 errors.comprobante` · `409` "Ese comprobante de Cuenta DNI ya está registrado." |
 
 ---
 
@@ -524,7 +526,8 @@ Reservas pasadas y futuras de cualquier cliente, para consultarlas y cobrar en e
   "contenido": [ /* ReservaResponse completo, con pagos */ ],
   "pagina": 0, "tamanio": 20, "totalElementos": 57, "totalPaginas": 3,
   "totales": { "reservas": 57, "montoTotal": 855000.00, "montoCobrado": 690000.00,
-               "cobradoEfectivo": 410000.00, "cobradoMercadoPago": 280000.00, "montoBonificado": 15000.00,
+               "cobradoEfectivo": 410000.00, "cobradoMercadoPago": 250000.00, "cobradoCuentaDni": 30000.00,
+               "montoBonificado": 15000.00,
                "montoPendiente": 165000.00 }
 }
 ```
@@ -534,7 +537,7 @@ Reservas pasadas y futuras de cualquier cliente, para consultarlas y cobrar en e
 - `montoTotal`: suma de `montoTotal`.
 - `montoCobrado`: lo que el club se quedó de los pagos (aprobado menos lo devuelto o por devolver; de una cancelada sin reembolso, lo pagado).
 - `montoBonificado`: lo que el ADMIN bonificó (no es plata y no está en `montoCobrado`).
-- `cobradoEfectivo` y `cobradoMercadoPago`: `montoCobrado` por medio de pago. Efectivo son los `cobros/efectivo`; Mercado Pago, los cobros online (Brick o Wallet) y con tarjeta o QR en el mostrador (`cobros/presencial`). Siempre suman `montoCobrado`.
+- `cobradoEfectivo`, `cobradoMercadoPago` y `cobradoCuentaDni`: `montoCobrado` por medio de pago. Efectivo son los `cobros/efectivo`; Mercado Pago, los cobros online (Brick o Wallet) y los del club (`cobros/presencial`); Cuenta DNI, los `cobros/cuenta-dni`. Siempre suman `montoCobrado`.
 - `montoPendiente`: lo que deben las `SEÑADA` y `PARCIALMENTE_PAGADA` (las canceladas, vencidas o pendientes no deben).
 
 Errores: `400` si `desde` es posterior a `hasta`, un estado no existe (`errors.estado`), una fecha no tiene el formato, `size` está fuera de 1 a 100, `page` es negativa u `orden` no es `asc`/`desc` · `403` CLIENTE o PROFESOR.
@@ -613,8 +616,8 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
   "caja": {
     "total": 230000.00,
     "efectivo": 90000.00,
-    "mercadoPagoOnline": 100000.00,
-    "mercadoPagoPresencial": 40000.00,
+    "mercadoPago": 100000.00,
+    "cuentaDni": 40000.00,
     "devoluciones": 7500.00,
     "neto": 222500.00
   },
@@ -640,9 +643,9 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 | Campo | Cómo se calcula |
 |---|---|
 | `efectivo` | Monto completo de los pagos `MANUAL` (`cobros/efectivo`) cobrados en el período, más las ventas sueltas en `EFECTIVO` |
-| `mercadoPagoOnline` | Pagos `MERCADO_PAGO` con id de pago de MP (Brick o Wallet) cobrados en el período |
-| `mercadoPagoPresencial` | Pagos `MERCADO_PAGO` sin id de MP: tarjeta o QR en el mostrador (`cobros/presencial`), más las ventas sueltas con `MERCADO_PAGO` |
-| `total` | `efectivo + mercadoPagoOnline + mercadoPagoPresencial` |
+| `mercadoPago` | Pagos `MERCADO_PAGO` cobrados en el período, online o en el club, más las ventas sueltas con `MERCADO_PAGO` |
+| `cuentaDni` | Pagos `CUENTA_DNI` (`cobros/cuenta-dni`) cobrados en el período, más las ventas sueltas con `CUENTA_DNI` |
+| `total` | `efectivo + mercadoPago + cuentaDni` |
 | `devoluciones` | Lo devuelto (`montoReembolsado`) de los pagos `DEVUELTO` cuyo reembolso se hizo en el período |
 | `neto` | `total − devoluciones` (puede ser negativo un día con devoluciones y sin cobros) |
 
@@ -697,7 +700,7 @@ Body de `POST /admin/ventas`:
   ]
 }
 ```
-- `medio`: `EFECTIVO` o `MERCADO_PAGO` (tarjeta o QR en el club). Obligatorio.
+- `medio`: `EFECTIVO`, `MERCADO_PAGO` o `CUENTA_DNI`. Obligatorio.
 - `clienteId`: opcional; si viene, tiene que ser un CLIENTE (`400` "El usuario indicado no es un cliente.").
 - `items`: de 1 a 20; cada uno con `cantidad` de 1 a 99 y un producto del catálogo (`productoId`) o uno escrito a mano (`nombre` de 2 a 100 caracteres y `precio`). A mano: si ya hay un producto con ese nombre (sin importar mayúsculas) se usa ese, con su precio; si no, queda dado de alta como producto de venta, sin control de stock y sin ofrecerse al reservar (el ADMIN lo puede editar después). Un producto repetido suma sus cantidades.
 - Se cobra el precio de hoy de cada producto. El stock baja en los que lo controlan.

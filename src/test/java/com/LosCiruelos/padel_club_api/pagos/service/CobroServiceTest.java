@@ -248,6 +248,58 @@ class CobroServiceTest extends PagosTestBase {
     // ─────────────────────────────────────────────────────────────────────
 
     @Nested
+    class CuentaDni {
+
+        @Test
+        void quedaAprobadoConSuComprobante() {
+            Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
+
+            PagoResponse r = cobroService.registrarCuentaDni(10L, new BigDecimal("7500"), " CDNI-123 ",
+                    empleado.getEmail());
+
+            assertThat(r.getEstado()).isEqualTo(EstadoPago.APROBADO);
+            assertThat(r.getProvider()).isEqualTo(PaymentProvider.CUENTA_DNI);
+            assertThat(r.getComprobante()).isEqualTo("CDNI-123");
+            assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
+        }
+
+        @Test
+        void unComprobanteNoSeCargaDosVeces() {
+            Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
+            when(pagoRepository.existsByComprobante("CDNI-123")).thenReturn(true);
+
+            assertThatThrownBy(() -> cobroService.registrarCuentaDni(10L, new BigDecimal("7500"), "CDNI-123",
+                    empleado.getEmail()))
+                    .isInstanceOf(EstadoInvalidoException.class)
+                    .hasMessage("Ese comprobante de Cuenta DNI ya está registrado.");
+            assertThat(reserva.getPagos()).isEmpty();
+        }
+
+        @Test
+        void tieneLasMismasReglasQueUnPagoEnElClub() {
+            reservaBloqueada(EstadoReserva.PENDIENTE);
+
+            assertThatThrownBy(() -> cobroService.registrarCuentaDni(10L, new BigDecimal("15000.01"), "CDNI-9",
+                    empleado.getEmail()))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessageContaining("supera el pendiente");
+        }
+
+        @Test
+        void alCancelarSeDevuelveAMano() {
+            Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
+            cobroService.registrarCuentaDni(10L, new BigDecimal("7500"), "CDNI-77", empleado.getEmail());
+
+            reembolsoService.reembolsar(reserva, new BigDecimal("7500"));
+
+            Pago pago = reserva.getPagos().get(0);
+            assertThat(pago.getEstado()).isEqualTo(EstadoPago.A_REEMBOLSAR);
+            assertThat(pago.getMontoReembolsado()).isEqualByComparingTo("7500");
+            verify(mercadoPago, never()).reembolsar(any(), any());
+        }
+    }
+
+    @Nested
     class Bonificacion {
 
         private Usuario admin;

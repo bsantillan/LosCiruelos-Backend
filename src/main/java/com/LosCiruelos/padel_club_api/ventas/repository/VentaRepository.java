@@ -23,7 +23,8 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
             SELECT new com.LosCiruelos.padel_club_api.ventas.repository.TotalesDeVentas(
                    COUNT(v),
                    COALESCE(SUM(CASE WHEN v.medio = :efectivo THEN v.total ELSE 0 END), 0),
-                   COALESCE(SUM(CASE WHEN v.medio = :mercadoPago THEN v.total ELSE 0 END), 0))
+                   COALESCE(SUM(CASE WHEN v.medio = :mercadoPago THEN v.total ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN v.medio = :cuentaDni THEN v.total ELSE 0 END), 0))
             FROM Venta v
             WHERE v.createdAt >= :inicio AND v.createdAt < :fin
             """)
@@ -31,7 +32,8 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
             @Param("inicio") LocalDateTime inicio,
             @Param("fin") LocalDateTime fin,
             @Param("efectivo") MedioDePago efectivo,
-            @Param("mercadoPago") MedioDePago mercadoPago);
+            @Param("mercadoPago") MedioDePago mercadoPago,
+            @Param("cuentaDni") MedioDePago cuentaDni);
 
     /** Lo vendido de cada producto en [inicio, fin). */
     @Query("""

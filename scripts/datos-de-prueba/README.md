@@ -26,7 +26,7 @@
 5. **Carga reservas en varios estados**, con fechas relativas al día en que se corre:
    - **futuras:**
      - una pendiente, que vence a los 15 minutos;
-     - señadas, por Mercado Pago, en el club y con el posnet;
+     - señadas, por Mercado Pago, en efectivo y con Cuenta DNI;
      - pagadas, una con bonificación del ADMIN;
      - una con paletas alquiladas y una pelota;
      - una con un pago parcial;
@@ -40,7 +40,7 @@
      - una con 2 aguas que el personal sumó después de jugar;
      - una que venció sin pagar.
 
-6. **Carga ventas sueltas** (sin reserva) que registró el empleado: dos de hoy, una de ayer y una de la semana pasada, en efectivo y con Mercado Pago, con y sin cliente.
+6. **Carga ventas sueltas** (sin reserva) que registró el empleado: dos de hoy, una de ayer y una de la semana pasada, en efectivo, con Mercado Pago y con Cuenta DNI, con y sin cliente.
 
    Alcanzan para ver con datos el panel, el resumen, la caja, los saldos pendientes, las paletas sin devolver y las ventas.
 
