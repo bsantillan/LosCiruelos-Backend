@@ -17,6 +17,8 @@
 \set ON_ERROR_STOP on
 SET client_encoding = 'UTF8';
 SET client_min_messages = warning;
+-- las fechas y horas como las ve la app (now() y current_date del contenedor están en UTC)
+SET TIME ZONE 'America/Argentina/Buenos_Aires';
 
 \if :{?mail_cliente}
 \else
