@@ -30,6 +30,8 @@ import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.club.exception.StockInsuficienteException;
 import com.LosCiruelos.padel_club_api.club.repository.ProductoRepository;
 
+import jakarta.persistence.EntityManager;
+
 class ProductoServiceTest {
 
     private ProductoRepository productoRepository;
@@ -41,7 +43,7 @@ class ProductoServiceTest {
     @BeforeEach
     void setUp() {
         productoRepository = mock(ProductoRepository.class);
-        servicio = new ProductoService(productoRepository, new ProductoMapper());
+        servicio = new ProductoService(productoRepository, new ProductoMapper(), mock(EntityManager.class));
 
         pelotas = Producto.builder().id(1L).codigo(Producto.CODIGO_PELOTAS).nombre("Pelotas")
                 .tipo(TipoProducto.VENTA).precio(new BigDecimal("1500")).stock(10).build();
@@ -137,6 +139,44 @@ class ProductoServiceTest {
             assertThat(servicio.desactivar(2L).getActivo()).isFalse();
             assertThat(servicio.listarTodos()).hasSize(2);
             assertThat(servicio.listarParaReservar()).hasSize(1);
+        }
+    }
+
+    @Nested
+    class VentaSuelta {
+
+        private Producto agua() {
+            return Producto.builder().id(5L).nombre("Agua").tipo(TipoProducto.VENTA).precio(new BigDecimal("1500"))
+                    .stock(0).controlaStock(false).build();
+        }
+
+        @Test
+        void descuentaElStockDeLosQueLoControlan() {
+            Producto agua = agua();
+            java.util.Map<Producto, Integer> cantidades = new java.util.LinkedHashMap<>();
+            cantidades.put(pelotas, 3);
+            cantidades.put(agua, 5);
+
+            servicio.descontarVentaSuelta(cantidades);
+
+            assertThat(pelotas.getStock()).isEqualTo(7);
+            assertThat(agua.getStock()).isZero(); // sin control de stock: no se toca
+        }
+
+        @Test
+        void sinStockSuficienteNoSeVende() {
+            assertThatThrownBy(() -> servicio.descontarVentaSuelta(java.util.Map.of(pelotas, 11)))
+                    .isInstanceOf(StockInsuficienteException.class)
+                    .hasMessage("Pelotas: hay 10 unidades en stock.");
+            assertThat(pelotas.getStock()).isEqualTo(10);
+        }
+
+        @Test
+        void unProductoDadoDeBajaNoSeVende() {
+            pelotas.setActivo(false);
+            assertThatThrownBy(() -> servicio.descontarVentaSuelta(java.util.Map.of(pelotas, 1)))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessage("Pelotas no está disponible por el momento.");
         }
     }
 }

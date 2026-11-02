@@ -7,9 +7,10 @@ import java.util.List;
 import com.LosCiruelos.padel_club_api.reservas.repository.ProductoVendido;
 
 /**
- * Resumen del período para el panel del club. jugados, porJugar, cancelaciones y productos
- * toman las reservas cuyo turno cae entre desde y hasta; caja, los pagos cobrados y devueltos
- * en esas fechas (cierre de caja).
+ * Resumen del período para el panel del club. jugados, porJugar y cancelaciones toman las
+ * reservas cuyo turno cae entre desde y hasta; caja, los pagos cobrados y devueltos y las ventas
+ * sueltas de esas fechas (cierre de caja); productos, lo pedido en esas reservas más lo vendido
+ * suelto en esas fechas.
  */
 public record ResumenResponse(
         LocalDate desde,
@@ -18,6 +19,7 @@ public record ResumenResponse(
         PorJugar porJugar,
         Caja caja,
         Cancelaciones cancelaciones,
+        Ventas ventas,
         List<ProductoVendido> productos) {
 
     /** Turnos confirmados que ya terminaron. deuda = montoTotal - montoCobrado - montoBonificado. */
@@ -30,12 +32,19 @@ public record ResumenResponse(
             BigDecimal montoBonificado, BigDecimal aCobrar) {
     }
 
-    /** Plata que entró y salió en el período. total = efectivo + MP online + MP presencial; neto = total - devoluciones. */
+    /**
+     * Plata que entró y salió en el período, incluidas las ventas sueltas (en efectivo y MP presencial).
+     * total = efectivo + MP online + MP presencial; neto = total - devoluciones.
+     */
     public record Caja(BigDecimal total, BigDecimal efectivo, BigDecimal mercadoPagoOnline,
             BigDecimal mercadoPagoPresencial, BigDecimal devoluciones, BigDecimal neto) {
     }
 
     /** Reservas canceladas del período y lo pagado que el club no devolvió. */
     public record Cancelaciones(long turnos, BigDecimal retenido) {
+    }
+
+    /** Ventas sueltas del período (sin reserva): cuántas y cuánto se cobró. Ya están sumadas en la caja. */
+    public record Ventas(long cantidad, BigDecimal total) {
     }
 }

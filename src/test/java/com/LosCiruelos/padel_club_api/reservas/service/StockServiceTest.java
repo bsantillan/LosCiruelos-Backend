@@ -57,7 +57,7 @@ class StockServiceTest {
         productoRepository = mock(ProductoRepository.class);
         reservaRepository = mock(ReservaRepository.class);
         EntityManager entityManager = mock(EntityManager.class);
-        servicio = new StockService(new ProductoService(productoRepository, new ProductoMapper()), reservaRepository,
+        servicio = new StockService(new ProductoService(productoRepository, new ProductoMapper(), entityManager), reservaRepository,
                 entityManager, TestData.reloj(AHORA));
 
         pelotas = Producto.builder().id(1L).codigo(Producto.CODIGO_PELOTAS).nombre("Pelotas")

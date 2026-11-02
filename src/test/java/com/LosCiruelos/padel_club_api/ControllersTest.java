@@ -56,6 +56,11 @@ import com.LosCiruelos.padel_club_api.usuarios.dto.response.PerfilResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ProductoResponse;
 import com.LosCiruelos.padel_club_api.reservas.service.DisponibilidadService;
 import com.LosCiruelos.padel_club_api.reservas.controller.ReservaAdminController;
+import com.LosCiruelos.padel_club_api.ventas.controller.VentaAdminController;
+import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
+import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
+import com.LosCiruelos.padel_club_api.ventas.service.VentaConsultaService;
+import com.LosCiruelos.padel_club_api.ventas.service.VentaService;
 import com.LosCiruelos.padel_club_api.reservas.controller.ReservaController;
 import com.LosCiruelos.padel_club_api.reservas.service.StockService;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaResponse;
@@ -113,6 +118,8 @@ class ControllersTest {
     private NotificacionesService notificacionesService;
     private ConfiguracionService configuracionService;
     private ReservaConsultaService reservaConsultaService;
+    private VentaService ventaService;
+    private VentaConsultaService ventaConsultaService;
     private MockMvc mvc;
 
     @BeforeEach
@@ -134,6 +141,8 @@ class ControllersTest {
         notificacionesService = mock(NotificacionesService.class);
         configuracionService = mock(ConfiguracionService.class);
         reservaConsultaService = mock(ReservaConsultaService.class);
+        ventaService = mock(VentaService.class);
+        ventaConsultaService = mock(VentaConsultaService.class);
 
         mvc = MockMvcBuilders.standaloneSetup(
                 new ReservaController(reservaService, reservaConsultaService, cancelacionService),
@@ -148,7 +157,8 @@ class ControllersTest {
                 new ProductoAdminController(productoService),
                 new ConfiguracionAdminController(configuracionService),
                 new NotificacionesController(notificacionesService),
-                new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService))
+                new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService),
+                new VentaAdminController(ventaService, ventaConsultaService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
                 // mismo formato de fechas que la app
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
@@ -740,6 +750,8 @@ class ControllersTest {
                             new BigDecimal("40000.00"), new BigDecimal("7500.00"), new BigDecimal("222500.00")),
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Cancelaciones(3,
                             new BigDecimal("7500.00")),
+                    new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Ventas(3,
+                            new BigDecimal("15000.00")),
                     List.of(new com.LosCiruelos.padel_club_api.reservas.repository.ProductoVendido(1L, "Pelotas",
                             com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto.VENTA, 40L,
                             new BigDecimal("200000.00")))));
@@ -749,6 +761,8 @@ class ControllersTest {
                     .andExpect(jsonPath("$.desde").value("2026-10-01"))
                     .andExpect(jsonPath("$.hasta").value("2026-10-31"))
                     .andExpect(jsonPath("$.jugados.turnos").value(28))
+                    .andExpect(jsonPath("$.ventas.cantidad").value(3))
+                    .andExpect(jsonPath("$.ventas.total").value(15000.00))
                     .andExpect(jsonPath("$.jugados.montoTotal").value(420000.00))
                     .andExpect(jsonPath("$.jugados.montoCobrado").value(380000.00))
                     .andExpect(jsonPath("$.jugados.montoBonificado").value(15000.00))
@@ -970,6 +984,46 @@ class ControllersTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.id").value(10));
             verify(cobroService, never()).crearReservaBonificada(any(), anyString());
+        }
+    }
+
+    @Nested
+    class Ventas {
+
+        @Test
+        void registrarDevuelve201() throws Exception {
+            when(ventaService.registrar(any(), eq(EMAIL))).thenReturn(new VentaResponse(4L, TestData.AHORA,
+                    new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of()));
+
+            mvc.perform(json(post("/admin/ventas"), """
+                    {"medio":"EFECTIVO","items":[{"productoId":5,"cantidad":2},{"nombre":"Gatorade","precio":2500,"cantidad":1}]}
+                    """))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.id").value(4))
+                    .andExpect(jsonPath("$.total").value(3000.00))
+                    .andExpect(jsonPath("$.fecha").value("2026-10-13T10:00:00.000-03:00"));
+        }
+
+        @Test
+        void validaLaVenta() throws Exception {
+            mvc.perform(json(post("/admin/ventas"), "{\"items\":[]}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.items").exists())
+                    .andExpect(jsonPath("$.errors.medio").exists());
+            mvc.perform(json(post("/admin/ventas"), "{\"medio\":\"EFECTIVO\",\"items\":[{\"productoId\":5,\"cantidad\":0}]}"))
+                    .andExpect(status().isBadRequest());
+            verify(ventaService, never()).registrar(any(), anyString());
+        }
+
+        @Test
+        void listarPasaLasFechas() throws Exception {
+            when(ventaConsultaService.listar(any(), any(), eq(EMAIL))).thenReturn(List.of());
+
+            mvc.perform(get("/admin/ventas").param("desde", "2026-10-01").param("hasta", "2026-10-31").principal(AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(0));
+            verify(ventaConsultaService).listar(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31),
+                    EMAIL);
         }
     }
 }

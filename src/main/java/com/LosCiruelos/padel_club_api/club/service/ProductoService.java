@@ -4,6 +4,8 @@ import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,8 @@ import com.LosCiruelos.padel_club_api.club.exception.StockInsuficienteException;
 import com.LosCiruelos.padel_club_api.club.repository.ProductoRepository;
 import com.LosCiruelos.padel_club_api.mapper.ProductoMapper;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,6 +36,7 @@ public class ProductoService {
 
     private final ProductoRepository productoRepository;
     private final ProductoMapper productoMapper;
+    private final EntityManager entityManager;
 
     // ── Catálogo ─────────────────────────────────────────────────────────
 
@@ -143,6 +148,34 @@ public class ProductoService {
             log.info("Producto #{} {} dado de alta a mano (${})", nuevo.getId(), limpio, precio);
             return nuevo;
         });
+    }
+
+    /**
+     * Saca del stock lo de una venta suelta (producto → unidades). Bloquea los productos en orden de
+     * id y con sus valores actualizados; los que no controlan stock no se descuentan.
+     */
+    @Transactional
+    public void descontarVentaSuelta(Map<Producto, Integer> cantidades) {
+        Map<Long, Producto> porId = new TreeMap<>();
+        cantidades.keySet().forEach(p -> porId.put(p.getId(), p));
+        for (Producto producto : porId.values()) {
+            // refresh con lock: SELECT ... FOR UPDATE y valores actualizados aunque ya estuviera en memoria
+            entityManager.refresh(producto, LockModeType.PESSIMISTIC_WRITE);
+        }
+        for (Producto producto : porId.values()) {
+            if (!Boolean.TRUE.equals(producto.getActivo())) {
+                throw new ReservaException(producto.getNombre() + " no está disponible por el momento.");
+            }
+            int cantidad = cantidades.get(producto);
+            if (!producto.llevaStock()) {
+                continue;
+            }
+            if (cantidad > producto.getStock()) {
+                String unidades = producto.getStock() == 1 ? "1 unidad" : producto.getStock() + " unidades";
+                throw new StockInsuficienteException("%s: hay %s en stock.".formatted(producto.getNombre(), unidades));
+            }
+            producto.setStock(producto.getStock() - cantidad);
+        }
     }
 
     /** Productos con esos ids (los que no existen no vienen). */
