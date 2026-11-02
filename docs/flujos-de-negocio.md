@@ -122,6 +122,18 @@ Si cualquier paso falla, la transacción se revierte entera: no quedan reservas 
 - Si hay un pago online `EN_PROCESO` responde `409`, para evitar cobrar dos veces.
 - Si había un pago online iniciado y sin cobrar, se descarta.
 
+### 4 quater. Cobrar con QR dinámico de Mercado Pago — `/admin/reservas/{reservaId}/cobros/qr`
+- El personal genera un QR por la seña, el saldo o una parte. El pago queda `EN_PROCESO` con la order de Mercado Pago y vence a los 10 minutos.
+- **Mientras el QR está activo**, la reserva tiene un pago en proceso. No se puede cobrar de otra forma, cambiar los productos ni cancelar la reserva, y la reserva no expira: así el saldo no cambia con el QR en pantalla. Pedirlo otra vez por el mismo monto devuelve el mismo QR; por otro monto, `409`.
+- **Confirmación**: el webhook (tipo `order`) o, si no llega, el job de cada minuto consultan la order a Mercado Pago, con la reserva bloqueada; nunca se usa lo que trae el aviso.
+  - Cobrada por el mismo monto → `APROBADO` y la reserva se recalcula (seña, parcial o paga).
+  - Otro monto, o la reserva ya cancelada → `A_REEMBOLSAR`, con aviso a los ADMIN.
+  - Vencida o cancelada → `EXPIRADO`.
+  - Un aviso repetido no cambia nada.
+- **Cerrar el modal** cancela la order. Si ya se pagó, se registra el cobro.
+- **Reembolso**: al cancelar con reembolso, el cobro con QR se devuelve por la API de Mercado Pago, igual que un pago online (con reintentos). En la caja cuenta como `mercadoPago`.
+- **Pendiente con Mercado Pago**: la documentación no confirma que el QR se pueda pagar desde Cuenta DNI u otros bancos. Para Cuenta DNI está el cobro a mano con comprobante (ver [mercado-pago-qr.md](mercado-pago-qr.md)).
+
 ### 4 bis. Bonificar (no cobrar) — `POST /admin/reservas/{reservaId}/bonificacion`, solo ADMIN
 - El dueño a veces no le cobra a un cliente (socio, torneo, cortesía). Puede bonificar **todo o una parte**, al crear la reserva (campo `bonificacion` en `POST /admin/reservas`, todo en una transacción) o después.
 - Body opcional `{ "monto": 7500, "motivo": "socio" }`: sin `monto` bonifica todo lo pendiente; más que lo pendiente → `400`. EMPLEADO o CLIENTE → `403`.

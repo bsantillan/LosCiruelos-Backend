@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.LosCiruelos.padel_club_api.pagos.exception.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.pagos.mercadopago.MercadoPagoWebhookValidator;
+import com.LosCiruelos.padel_club_api.pagos.service.CobroQrService;
 import com.LosCiruelos.padel_club_api.pagos.service.PagoOnlineService;
 
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MercadoPagoWebhookController {
 
     private final PagoOnlineService pagoOnlineService;
+    private final CobroQrService cobroQrService;
     private final MercadoPagoWebhookValidator webhookValidator;
 
     /**
@@ -51,6 +53,9 @@ public class MercadoPagoWebhookController {
         String tipo = type != null ? type : topic;
         if (tipo == null && body != null && body.get("type") != null) {
             tipo = body.get("type").toString();
+        }
+        if ("order".equals(tipo)) {
+            return notificacionDeOrder(dataId, body);
         }
         if (!"payment".equals(tipo)) {
             return ResponseEntity.ok().build();
@@ -80,6 +85,24 @@ public class MercadoPagoWebhookController {
             // 200 para que MP no reintente: el pago no existe (ej. notificación simulada desde el panel)
             log.warn("Notificación de MP ignorada: {}", e.getMessage());
         }
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Order de un cobro con QR (tópico "Order (Mercado Pago)"). No se valida la firma: la
+     * documentación de MP se contradice sobre si las notificaciones de QR se firman con la clave
+     * secreta, y no hace falta porque nunca se confía en el contenido: siempre se consulta la order.
+     */
+    private ResponseEntity<Void> notificacionDeOrder(String dataId, Map<String, Object> body) {
+        String orderId = dataId;
+        if (orderId == null && body != null && body.get("data") instanceof Map<?, ?> data && data.get("id") != null) {
+            orderId = data.get("id").toString();
+        }
+        if (orderId == null || orderId.isBlank()) {
+            log.warn("Notificación de MP sin id de order");
+            return ResponseEntity.ok().build();
+        }
+        cobroQrService.notificacion(orderId);
         return ResponseEntity.ok().build();
     }
 }

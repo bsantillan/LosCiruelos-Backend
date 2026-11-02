@@ -46,6 +46,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Cobro con QR dinámico de Mercado Pago** (ADMIN y EMPLEADO): nuevos `POST`, `GET` y `DELETE /admin/reservas/{id}/cobros/qr`, que responden `CobroQrResponse` con `qrData` para dibujar el QR. Mientras el QR está activo, la reserva tiene un pago `EN_PROCESO`: cobrar en efectivo, sumar productos o cancelar responden `409` hasta que se pague, venza o se cancele. Con el QR sin configurar (`MP_QR_EXTERNAL_POS_ID`), `503`. `PagoResponse` puede traer pagos `MERCADO_PAGO` cobrados por QR (sin `externalPaymentId`).
 - **Medios de pago: efectivo, Mercado Pago y Cuenta DNI**:
   - Nuevo `POST /admin/reservas/{id}/cobros/cuenta-dni` con `{ monto, comprobante }` (ADMIN y EMPLEADO). `PaymentProvider` suma `CUENTA_DNI` y `PagoResponse` suma `comprobante`.
   - **La caja del resumen cambia de forma**: `caja` pasa a `{ total, efectivo, mercadoPago, cuentaDni, devoluciones, neto }`. Se van `mercadoPagoOnline` y `mercadoPagoPresencial` (ahora es todo `mercadoPago`).

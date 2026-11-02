@@ -416,11 +416,35 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 |---|---|---|---|
 | `POST /pagos/{reservaId}/iniciar?pagarTotal=false` | CLIENTE (dueño) | Un partido no se paga online (`409`). Crea el pago `PENDIENTE` y la preferencia de MP (sirve para el Payment Brick y para el Wallet Brick; vuelve a `FRONTEND_URL/pago/resultado` y vence con la reserva). `pagarTotal=true` cobra todo el saldo; `false` (por defecto) lo que falta para la seña. Si ya hay uno iniciado por el mismo monto, lo devuelve. | `404` · `409` vencida, estado inválido, seña ya paga o pago en proceso · `502` MP |
 | `POST /pagos/{reservaId}/pago` | CLIENTE (dueño) | Cobra con el `formData` del Payment Brick (`token`, `payment_method_id`, `installments`, `issuer_id`, `payer`). El monto lo define el servidor. | `400` datos de tarjeta · `404` · `409` sin pago iniciado o reserva fuera de plazo · `502` MP |
-| `POST /pagos/notificacion` | público (Mercado Pago) | Webhook. Acepta `?type=payment&data.id=…`, body `{"type":"payment","data":{"id":…}}` o `?topic=payment&id=…`. Valida `x-signature` si está configurado `MP_WEBHOOK_SECRET`. | `200` también si el pago no existe en MP (se ignora) · `401` firma inválida · `502` error al consultar MP (MP reintenta) |
+| `POST /pagos/notificacion` | público (Mercado Pago) | Webhook. Acepta `?type=payment&data.id=…`, body `{"type":"payment","data":{"id":…}}` o `?topic=payment&id=…`. Valida `x-signature` si está configurado `MP_WEBHOOK_SECRET`. También recibe las orders de los cobros con QR (`?type=order&data.id=ORD…` o body `{"type":"order","data":{"id":…}}`): consulta la order a MP y no valida la firma (ver [mercado-pago-qr.md](mercado-pago-qr.md)). | `200` también si el pago no existe en MP (se ignora) · `401` firma inválida · `502` error al consultar MP (MP reintenta) |
 | `POST /admin/reservas/{reservaId}/bonificacion` | **ADMIN** | Bonifica la reserva cuando no se le cobra al cliente (socio, torneo, cortesía): todo o una parte. Body opcional `{ "monto": 7500, "motivo": "socio" }`; sin `monto` bonifica todo lo que falta. Queda un pago `provider = BONIFICACION` que cubre el monto (la reserva se confirma o queda paga) pero **no es plata**: no cuenta como cobrado, no se devuelve si se cancela y no manda aviso. Se acepta en las mismas reservas que un pago en el club. | `400` monto inválido o mayor al pendiente · `403` EMPLEADO o CLIENTE · `409` reserva paga, vencida o con pago online en proceso |
 | `POST /admin/reservas/{reservaId}/cobros/efectivo` | ADMIN, EMPLEADO | Pago en efectivo ya aprobado (`provider = MANUAL`). Body `{ "monto": 5000 }`, también en un **partido** (se cobra el monto general, sin indicar el jugador). Si deja la reserva paga y el turno ya terminó, la reserva pasa a `COMPLETADA`. | `400` monto inválido o mayor al pendiente · `409` estado o pago online en proceso |
 | `POST /admin/reservas/{reservaId}/cobros/presencial` | ADMIN, EMPLEADO | Igual, con Mercado Pago cargado a mano (`provider = MERCADO_PAGO`; por ejemplo, una transferencia a la cuenta del club). | igual |
 | `POST /admin/reservas/{reservaId}/cobros/cuenta-dni` | ADMIN, EMPLEADO | Igual, con Cuenta DNI (`provider = CUENTA_DNI`). Cuenta DNI no tiene API: el personal cobra desde la app del banco y carga el número de comprobante. Body `{ "monto": 7500, "comprobante": "CDNI-0001" }` (letras, números y guiones, hasta 64). Si se cancela con reembolso, se devuelve a mano (`A_REEMBOLSAR`). | los de `cobros/efectivo` · `400 errors.comprobante` · `409` "Ese comprobante de Cuenta DNI ya está registrado." |
+
+### Cobro con QR dinámico — `/admin/reservas/{reservaId}/cobros/qr` (rol: ADMIN, EMPLEADO)
+
+El personal genera un QR de Mercado Pago por el monto exacto; el cliente lo paga con la app de Mercado Pago y el pago se registra solo. Detalle, puesta en marcha y prueba en [mercado-pago-qr.md](mercado-pago-qr.md).
+
+**`CobroQrResponse`**
+```json
+{
+  "pagoId": 31, "orderId": "ORD01JQ4S4KY8HWQ6NA5PXB65B3D3", "qrData": "00020101021243650016com.mercadolibre…",
+  "monto": 7500.00, "venceAt": "2026-10-13T10:10:00.000-03:00",
+  "estado": "EN_PROCESO", "estadoReserva": "PENDIENTE", "montoPendiente": 15000.00
+}
+```
+`qrData` es la trama del QR (EMVCo): el front la convierte en imagen. `estado` es el del pago:
+- `EN_PROCESO`: esperando el pago;
+- `APROBADO`: cobrado;
+- `EXPIRADO`: venció o se canceló;
+- `A_REEMBOLSAR`: Mercado Pago cobró otro monto o la reserva ya no estaba activa (hay que devolverlo).
+
+| Método y ruta | Descripción | Errores |
+|---|---|---|
+| `POST …/cobros/qr` → `200` | Genera el QR. Body opcional `{ "monto": 7500 }`; sin body, por todo lo que falta. Si ya hay un QR activo por el mismo monto, devuelve ese. El pago queda `EN_PROCESO` hasta que se paga, vence (10 min) o se cancela: mientras tanto no se puede cobrar de otra forma, cambiar productos ni cancelar la reserva (`409`). Se acepta en las mismas reservas que un pago en el club, también en partidos. | `400` monto inválido o mayor al pendiente · `404` · `409` QR activo por otro monto ("Ya hay un QR activo para esta reserva: cancelalo antes de generar otro."), reserva que no admite pagos o pago en proceso · `502` Mercado Pago · `503` "El cobro con QR no está configurado." |
+| `GET …/cobros/qr` → `200` | El último QR de la reserva, para que el modal muestre el estado (consultarlo cada 3 s, por ejemplo). Solo lee la base. | `404` "La reserva no tiene un cobro con QR." |
+| `DELETE …/cobros/qr` → `200` | El empleado cerró el modal: cancela la order. Si Mercado Pago ya la cobró, la registra como cobrada y responde `APROBADO`. | `409` "No hay un QR activo para esta reserva." · `502` |
 
 ---
 

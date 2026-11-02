@@ -40,6 +40,7 @@ import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentService;
+import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentServiceFactory;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 
@@ -58,6 +59,8 @@ abstract class PagosTestBase {
     protected CobroService cobroService;
     protected ReembolsoService reembolsoService;
     protected ApplicationEventPublisher eventos;
+    protected ProveedorCobroQr proveedorQr;
+    protected CobroQrService cobroQrService;
 
     protected Usuario cliente;
     protected Usuario empleado;
@@ -99,7 +102,11 @@ abstract class PagosTestBase {
                 usuarioService, estados, reloj, new PagoMapper());
         cobroService = new CobroService(reservaService, reservaConsultaService, pagoRepository, usuarioService, estados,
                 reloj, new PagoMapper());
-        reembolsoService = new ReembolsoService(factory, reservaService, pagoRepository, estados, reloj);
+        proveedorQr = mock(ProveedorCobroQr.class);
+        when(proveedorQr.estaConfigurado()).thenReturn(true);
+        reembolsoService = new ReembolsoService(factory, proveedorQr, reservaService, pagoRepository, estados, reloj);
+        cobroQrService = new CobroQrService(reservaService, pagoRepository, usuarioService, estados, proveedorQr,
+                new PagoMapper(), reloj, 10);
     }
 
     protected Reserva reservaBloqueada(EstadoReserva estado) {

@@ -13,6 +13,7 @@ import com.LosCiruelos.padel_club_api.reservas.service.TurnoFijoService;
 import com.LosCiruelos.padel_club_api.pagos.service.ReembolsoService;
 import com.LosCiruelos.padel_club_api.reservas.service.RecordatorioService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
+import com.LosCiruelos.padel_club_api.pagos.service.CobroQrService;
 
 class ReservaJobsTest {
 
@@ -20,7 +21,19 @@ class ReservaJobsTest {
     private final ReembolsoService reembolsoService = mock(ReembolsoService.class);
     private final RecordatorioService recordatorioService = mock(RecordatorioService.class);
     private final TurnoFijoService turnoFijoService = mock(TurnoFijoService.class);
-    private final ReservaJobs jobs = new ReservaJobs(reservaService, reembolsoService, recordatorioService, turnoFijoService);
+    private final CobroQrService cobroQrService = mock(CobroQrService.class);
+    private final ReservaJobs jobs = new ReservaJobs(reservaService, reembolsoService, recordatorioService, turnoFijoService,
+            cobroQrService);
+
+    @Test
+    void revisaLosQrVencidosYSiUnoFallaSigueConLosDemas() {
+        when(cobroQrService.idsQrVencidos()).thenReturn(List.of(7L, 8L));
+        when(cobroQrService.revisar(7L)).thenThrow(new IllegalStateException("MP no responde"));
+
+        jobs.revisarCobrosQr();
+
+        org.mockito.Mockito.verify(cobroQrService).revisar(8L);
+    }
 
     @Test
     void siUnaReservaFallaSeSigueConLasDemas() {

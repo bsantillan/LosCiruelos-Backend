@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.pagos.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +18,14 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
     Optional<Pago> findByExternalPaymentId(String externalPaymentId);
 
     boolean existsByComprobante(String comprobante);
+
+    @Query("SELECT p.reserva.id FROM Pago p WHERE p.orderId = :orderId")
+    Optional<Long> findReservaIdByOrderId(@Param("orderId") String orderId);
+
+    /** Cobros con QR que siguen esperando el pago y ya vencieron (antes de :limite): los revisa el job. */
+    @Query("SELECT p.id FROM Pago p WHERE p.orderId IS NOT NULL AND p.estado = :enProceso AND p.venceAt < :limite"
+            + " ORDER BY p.id")
+    List<Long> findIdsQrVencidos(@Param("enProceso") EstadoPago enProceso, @Param("limite") LocalDateTime limite);
 
     // Solo ids: el webhook bloquea primero la reserva y después lee el pago actualizado
     @Query("SELECT p.reserva.id FROM Pago p WHERE p.externalPaymentId = :externalPaymentId")

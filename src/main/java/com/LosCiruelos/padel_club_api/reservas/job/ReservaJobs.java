@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
+import com.LosCiruelos.padel_club_api.pagos.service.CobroQrService;
 import com.LosCiruelos.padel_club_api.pagos.service.ReembolsoService;
 import com.LosCiruelos.padel_club_api.reservas.service.TurnoFijoService;
 import com.LosCiruelos.padel_club_api.reservas.service.RecordatorioService;
@@ -23,6 +24,7 @@ public class ReservaJobs {
     private final ReembolsoService reembolsoService;
     private final RecordatorioService recordatorioService;
     private final TurnoFijoService turnoFijoService;
+    private final CobroQrService cobroQrService;
 
     /**
      * Cada minuto: expira las reservas PENDIENTE cuyo plazo para pagar venció y que no
@@ -47,6 +49,25 @@ public class ReservaJobs {
             }
         }
         log.info("Job de expiración: {} de {} reservas vencidas expiradas", expiradas, vencidas.size());
+    }
+
+    /**
+     * Cada minuto: revisa los cobros con QR que vencieron sin que llegara la notificación de
+     * Mercado Pago (se cobraron, vencieron o se cancelaron). Cada uno en su propia transacción.
+     */
+    @Scheduled(fixedDelay = 60_000, initialDelay = 40_000)
+    public void revisarCobrosQr() {
+        List<Long> vencidos = cobroQrService.idsQrVencidos();
+        for (Long id : vencidos) {
+            try {
+                cobroQrService.revisar(id);
+            } catch (Exception e) {
+                log.error("No se pudo revisar el cobro con QR #{}", id, e);
+            }
+        }
+        if (!vencidos.isEmpty()) {
+            log.info("Job de cobros con QR: {} revisados", vencidos.size());
+        }
     }
 
     /**
