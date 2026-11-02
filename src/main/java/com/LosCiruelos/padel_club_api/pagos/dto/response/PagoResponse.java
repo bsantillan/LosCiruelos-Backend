@@ -13,8 +13,6 @@ import lombok.Data;
 public class PagoResponse {
     Long id;
     Long reservaId;
-    // partido: qué jugador pagó (o a quién se le bonificó)
-    Long jugadorId;
     BigDecimal monto;
     EstadoPago estado;
     PaymentProvider provider;

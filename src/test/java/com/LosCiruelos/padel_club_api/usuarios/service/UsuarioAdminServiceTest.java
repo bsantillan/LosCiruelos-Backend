@@ -104,9 +104,20 @@ class UsuarioAdminServiceTest {
         assertThatThrownBy(() -> adminService.crearUsuario(crear(Role.EMPLEADO, null, null)))
                 .isInstanceOf(EmailEnUsoException.class);
 
-        when(usuarioService.findByEmail("nuevo@test.com")).thenReturn(null);
-        assertThatThrownBy(() -> adminService.crearUsuario(crear(Role.CLIENTE, null, Posicion.Drive)))
-                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void unClienteSeDaDeAltaConLoMinimo() {
+        Usuario creado = usuario(9L, Role.CLIENTE);
+        creado.asignarRol(Role.CLIENTE);
+        when(usuarioService.crearUsuario(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(creado);
+
+        adminService.crearUsuario(crear(Role.CLIENTE, null, null));
+
+        // sin categoría ni posición: las completa él (hasta entonces, perfil incompleto)
+        verify(clienteProfileService).cargarDatosDeJugador(creado, null, null);
+        verify(verificationService).enviarBienvenida(eq(creado.getEmail()), anyString());
     }
 
     @Test

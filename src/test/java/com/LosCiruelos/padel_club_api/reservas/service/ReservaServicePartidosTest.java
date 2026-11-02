@@ -13,7 +13,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -132,13 +131,14 @@ class ReservaServicePartidosTest {
     class Crear {
 
         @Test
-        void quedaConfirmadoSinVencimientoConLosCuatroJugadoresYElAdminComoTitular() {
+        void quedaConfirmadoSinVencimientoConLosCuatroJugadoresYElJugador1ComoResponsable() {
             ReservaResponse r = reservas.crearPartido(pedidoBasico(), admin.getEmail());
 
             assertThat(r.getTipo()).isEqualTo(TipoReserva.PARTIDO);
             assertThat(r.getEstado()).isEqualTo(EstadoReserva.CONFIRMADA);
             assertThat(r.getExpiresAt()).isNull();
-            assertThat(r.getClienteId()).isEqualTo(admin.getId());
+            // el cliente de la reserva es el jugador 1, no el ADMIN que lo armó
+            assertThat(r.getClienteId()).isEqualTo(1L);
             assertThat(r.getMontoTotal()).isEqualByComparingTo("15000");
             assertThat(r.getMontoPendiente()).isEqualByComparingTo("15000");
             assertThat(r.getJugadores()).extracting(JugadorResponse::getPosicion).containsExactly(1, 2, 3, 4);
@@ -147,11 +147,16 @@ class ReservaServicePartidosTest {
                     .containsExactly("Nombre1 Apellido1", "Nombre2 Apellido2", "Juan Invitado", "Pedro");
             assertThat(r.getJugadores()).extracting(JugadorResponse::getInvitado)
                     .containsExactly(false, false, true, true);
-            // cada uno debe su parte: 15000 / 4
-            assertThat(r.getJugadores()).extracting(JugadorResponse::getParte)
-                    .allSatisfy(parte -> assertThat(parte).isEqualByComparingTo("3750"));
-            assertThat(r.getJugadores()).extracting(JugadorResponse::getDebe)
-                    .allSatisfy(debe -> assertThat(debe).isEqualByComparingTo("3750"));
+        }
+
+        @Test
+        void elJugador1TieneQueSerUnClienteRegistrado() {
+            PartidoRequest sinResponsable = pedido(MANIANA, "18:00", "19:30", JugadorRequest.invitado("Juan Invitado"),
+                    JugadorRequest.registrado(1L), JugadorRequest.registrado(2L), JugadorRequest.invitado("Pedro"));
+
+            assertThatThrownBy(() -> reservas.crearPartido(sinResponsable, admin.getEmail()))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessage("El jugador 1 tiene que ser un cliente registrado: es el responsable del partido.");
         }
 
         @Test
@@ -254,21 +259,25 @@ class ReservaServicePartidosTest {
         }
 
         @Test
-        void noSePuedeReemplazarAUnJugadorQueYaPago() {
+        void elResponsableEsSiempreElJugador1() {
+            ReservaResponse r = reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(2L),
+                    JugadorRequest.registrado(1L), JugadorRequest.invitado("Invitado 3"),
+                    JugadorRequest.invitado("Invitado 4")), admin.getEmail());
+
+            assertThat(r.getClienteId()).isEqualTo(2L);
+        }
+
+        @Test
+        void conPagosSeReemplazaACualquierJugador() {
+            // el partido se paga como un todo: los pagos no son de ningún jugador
             Pago pago = TestData.pago(1L, partido, EstadoPago.APROBADO, "3750");
             pago.setProvider(PaymentProvider.MANUAL);
-            pago.setJugador(partido.getJugadores().get(1));
 
-            assertThatThrownBy(() -> reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
-                    JugadorRequest.registrado(2L), JugadorRequest.invitado("Invitado 3"),
-                    JugadorRequest.invitado("Invitado 4")), admin.getEmail()))
-                    .isInstanceOf(EstadoInvalidoException.class)
-                    .hasMessage("Invitado 2 ya pagó o tiene una bonificación: no se lo puede reemplazar.");
-
-            // al mismo jugador (mismo nombre de invitado) sí se le puede cambiar el teléfono
             ReservaResponse r = reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
-                    new JugadorRequest(null, "invitado 2", "11 4444-0000"), JugadorRequest.invitado("Invitado 3"),
+                    new JugadorRequest(null, "Otro invitado", "11 4444-0000"), JugadorRequest.invitado("Invitado 3"),
                     JugadorRequest.invitado("Invitado 4")), admin.getEmail());
+
+            assertThat(r.getJugadores().get(1).getNombre()).isEqualTo("Otro invitado");
             assertThat(r.getJugadores().get(1).getTelefono()).isEqualTo("11 4444-0000");
             // con 3750 pagado (menos que la seña) queda parcial
             assertThat(r.getEstado()).isEqualTo(EstadoReserva.PARCIALMENTE_PAGADA);
@@ -284,7 +293,7 @@ class ReservaServicePartidosTest {
             assertThat(r.getMontoTotal()).isEqualByComparingTo("30000");
             assertThat(r.getHoraFin()).isEqualTo(LocalTime.of(21, 0));
 
-            TestData.pago(1L, partido, EstadoPago.APROBADO, "20000").setJugador(partido.getJugadores().get(0));
+            TestData.pago(1L, partido, EstadoPago.APROBADO, "20000");
             assertThatThrownBy(() -> reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
                     JugadorRequest.invitado("Invitado 2"), JugadorRequest.invitado("Invitado 3"),
                     JugadorRequest.invitado("Invitado 4")), admin.getEmail()))
@@ -353,7 +362,8 @@ class ReservaServicePartidosTest {
             verify(reservaRepository).saveAndFlush(guardada.capture());
             Reserva r = guardada.getValue();
             assertThat(r.getTurnoFijo()).isSameAs(tf);
-            assertThat(r.getCliente()).isSameAs(admin);
+            assertThat(r.getCliente()).isSameAs(cliente); // el jugador 1 del turno fijo
+            assertThat(r.getCreatedBy()).isSameAs(admin);
             assertThat(r.getEstado()).isEqualTo(EstadoReserva.CONFIRMADA);
             assertThat(r.getJugadores()).hasSize(4);
             assertThat(r.getJugadores().get(0).getUsuario()).isSameAs(cliente);
@@ -381,16 +391,5 @@ class ReservaServicePartidosTest {
             assertThatThrownBy(() -> reservas.crearPartidoDeTurnoFijo(8L, MANIANA))
                     .isInstanceOf(HorarioOcupadoException.class);
         }
-    }
-
-    @Test
-    void laParteDeCadaJugadorRepartiendoLosCentavos() {
-        Reserva partido = TestData.partido(60L, admin, cliente, "10000.01");
-
-        assertThat(partido.parteDe(1)).isEqualByComparingTo("2500.00");
-        assertThat(partido.parteDe(3)).isEqualByComparingTo("2500.00");
-        assertThat(partido.parteDe(4)).isEqualByComparingTo("2500.01");
-        assertThat(partido.parteDe(1).multiply(BigDecimal.valueOf(3)).add(partido.parteDe(4)))
-                .isEqualByComparingTo("10000.01");
     }
 }

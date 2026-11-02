@@ -39,12 +39,11 @@ import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 class MappersTest {
 
     @Test
-    void unPagoConSuJugadorYElEstadoDeLaReserva() {
+    void unPagoYElEstadoDeLaReserva() {
         Reserva partido = TestData.partido(10L, usuario(3L, Role.ADMIN), usuario(1L, Role.CLIENTE), "15000");
         Pago pago = TestData.pago(5L, partido, EstadoPago.APROBADO, "3750");
         pago.setProvider(PaymentProvider.BONIFICACION);
         pago.setMotivo("socio");
-        pago.setJugador(partido.getJugadores().get(2));
 
         PagoResponse r = new PagoMapper().aResponse(pago);
 
@@ -53,7 +52,6 @@ class MappersTest {
         assertThat(r.getMonto()).isEqualByComparingTo("3750");
         assertThat(r.getProvider()).isEqualTo(PaymentProvider.BONIFICACION);
         assertThat(r.getMotivo()).isEqualTo("socio");
-        assertThat(r.getJugadorId()).isEqualTo(203L);
         assertThat(r.getEstadoReserva()).isEqualTo(EstadoReserva.CONFIRMADA);
     }
 

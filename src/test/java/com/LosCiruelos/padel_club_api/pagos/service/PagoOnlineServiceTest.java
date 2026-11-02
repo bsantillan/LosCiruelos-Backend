@@ -32,7 +32,6 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentResult;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
-import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.pagos.exception.ReembolsoFallidoException;
@@ -334,7 +333,7 @@ class PagoOnlineServiceTest extends PagosTestBase {
         void pagarLaSeniaAvisaReservaConfirmada() {
             reservaBloqueada(EstadoReserva.PENDIENTE);
 
-            cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, empleado.getEmail());
+            cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL, empleado.getEmail());
 
             assertThat(publicados()).singleElement().satisfies(a -> {
                 assertThat(a.tipo()).isEqualTo(TipoAviso.RESERVA_CONFIRMADA);
@@ -347,7 +346,7 @@ class PagoOnlineServiceTest extends PagosTestBase {
             Reserva reserva = reservaBloqueada(EstadoReserva.SEÑADA);
             pago(1L, reserva, EstadoPago.APROBADO, "7500");
 
-            cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, empleado.getEmail());
+            cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL, empleado.getEmail());
 
             assertThat(publicados()).extracting(AvisoReserva::tipo).containsExactly(TipoAviso.SALDO_COBRADO);
         }
@@ -356,7 +355,7 @@ class PagoOnlineServiceTest extends PagosTestBase {
         void unPagoQueNoLlegaALaSeniaNoAvisa() {
             reservaBloqueada(EstadoReserva.PENDIENTE);
 
-            cobroService.registrarPagoManual(10L, new BigDecimal("3000"), PaymentProvider.MANUAL, null, empleado.getEmail());
+            cobroService.registrarPagoManual(10L, new BigDecimal("3000"), PaymentProvider.MANUAL, empleado.getEmail());
 
             assertThat(publicados()).isEmpty();
         }

@@ -60,13 +60,8 @@ public class UsuarioAdminService {
             throw new EmailEnUsoException();
         }
 
-        // Validación: si es CLIENTE, categoria y posicion son obligatorios
-        if (request.getRol() == Role.CLIENTE) {
-            if (request.getCategoria() == null || request.getPosicion() == null) {
-                throw new IllegalArgumentException("La categoría y posición son obligatorias para clientes");
-            }
-        }
-
+        // un CLIENTE se puede dar de alta con lo mínimo (por ejemplo, el responsable de un partido):
+        // la categoría y la posición las completa él cuando entra
         String passwordTemporal = generarPasswordTemporal();
 
         Usuario usuario = usuarioService.crearUsuario(

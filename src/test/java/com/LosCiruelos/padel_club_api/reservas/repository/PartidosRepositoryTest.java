@@ -69,7 +69,8 @@ class PartidosRepositoryTest {
     }
 
     private Reserva partido(LocalDate fecha, EstadoReserva estado, TurnoFijo turnoFijo, Usuario registrado) {
-        Reserva r = Reserva.builder().cancha(cancha).cliente(admin).createdBy(admin).fechaReserva(fecha)
+        // el cliente del partido es su responsable, el jugador 1
+        Reserva r = Reserva.builder().cancha(cancha).cliente(registrado).createdBy(admin).fechaReserva(fecha)
                 .horaInicio(LocalTime.of(20, 0)).horaFin(LocalTime.of(21, 30)).montoTotal(new BigDecimal("15000"))
                 .estado(estado).tipo(TipoReserva.PARTIDO).turnoFijo(turnoFijo).createdAt(TestData.AHORA).build();
         r.getJugadores().add(ReservaJugador.builder().reserva(r).posicion(1).usuario(registrado).build());
@@ -146,8 +147,23 @@ class PartidosRepositoryTest {
 
         assertThat(reservaRepository.findAll(ReservaSpecification.delClienteOJugador(jugador), Pageable.unpaged())
                 .getContent()).containsExactlyInAnyOrder(suyo, propia);
-        // el admin que los armó los ve como suyos
+        // el admin que los armó no es su cliente
         assertThat(reservaRepository.findAll(ReservaSpecification.delClienteOJugador(admin), Pageable.unpaged())
-                .getContent()).hasSize(2);
+                .getContent()).isEmpty();
+    }
+
+    @Test
+    void elFiltroPorClienteDelPersonalIncluyeLosPartidosEnLosQueJuega() {
+        Reserva responsable = partido(MIERCOLES, EstadoReserva.CONFIRMADA, null, jugador);
+        Reserva comoJugador2 = partido(MIERCOLES.plusWeeks(1), EstadoReserva.CONFIRMADA, null, otro);
+        comoJugador2.getJugadores().get(1).setNombre(null);
+        comoJugador2.getJugadores().get(1).setUsuario(jugador);
+        partido(MIERCOLES.plusWeeks(2), EstadoReserva.CONFIRMADA, null, otro);
+        em.flush();
+
+        FiltroReservas porCliente = new FiltroReservas(null, null, null, jugador.getId(), null, null, null);
+
+        assertThat(reservaRepository.findAll(ReservaSpecification.paraPersonal(porCliente), Pageable.unpaged())
+                .getContent()).containsExactlyInAnyOrder(responsable, comoJugador2);
     }
 }

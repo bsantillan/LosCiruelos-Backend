@@ -32,7 +32,7 @@ public class CobroAdminController {
     public ResponseEntity<PagoResponse> cobrarEfectivo(@PathVariable Long reservaId,
             @Valid @RequestBody PagoManualRequest body, Authentication authentication) {
         return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
-                PaymentProvider.MANUAL, body.getJugadorId(), authentication.getName()));
+                PaymentProvider.MANUAL, authentication.getName()));
     }
 
     /** Pago en el mostrador con tarjeta o QR de Mercado Pago. */
@@ -40,7 +40,7 @@ public class CobroAdminController {
     public ResponseEntity<PagoResponse> cobrarPresencial(@PathVariable Long reservaId,
             @Valid @RequestBody PagoManualRequest body, Authentication authentication) {
         return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
-                PaymentProvider.MERCADO_PAGO, body.getJugadorId(), authentication.getName()));
+                PaymentProvider.MERCADO_PAGO, authentication.getName()));
     }
 
     /**
@@ -53,6 +53,6 @@ public class CobroAdminController {
             @Valid @RequestBody(required = false) BonificacionRequest body, Authentication authentication) {
         BonificacionRequest datos = body != null ? body : new BonificacionRequest();
         return ResponseEntity.ok(cobroService.bonificar(reservaId, datos.getMonto(), datos.getMotivo(),
-                datos.getJugadorId(), authentication.getName()));
+                authentication.getName()));
     }
 }

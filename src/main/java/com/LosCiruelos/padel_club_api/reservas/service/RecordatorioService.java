@@ -105,18 +105,18 @@ public class RecordatorioService {
         return true;
     }
 
-    /** Partido: a cada jugador registrado que recibe recordatorios, con lo que le falta de su parte. */
+    /** Partido: a cada jugador registrado que recibe recordatorios, con el saldo del partido. */
     private void avisarJugadores(Reserva reserva) {
+        BigDecimal pendiente = reserva.getMontoPendiente();
+        String detalle = pendiente.signum() > 0
+                ? "Saldo del partido a pagar en el club: " + Dinero.texto(pendiente) + "."
+                : "El partido está pago. ¡Que lo disfrutes!";
         for (ReservaJugador jugador : reserva.getJugadores()) {
             if (jugador.getUsuario() == null
                     || !jugador.getUsuario().recibeRecordatorios()) {
                 continue;
             }
-            BigDecimal debe = reserva.debeDe(jugador);
-            String detalle = debe.signum() > 0
-                    ? "Tu parte a pagar en el club: " + Dinero.texto(debe) + "."
-                    : "El partido está pago. ¡Que lo disfrutes!";
-            eventos.publishEvent(AvisoReserva.para(TipoAviso.RECORDATORIO, reserva, jugador.getUsuario(), debe,
+            eventos.publishEvent(AvisoReserva.para(TipoAviso.RECORDATORIO, reserva, jugador.getUsuario(), pendiente,
                     detalle));
         }
         log.info("Recordatorio del partido #{} ({} {}) a sus jugadores", reserva.getId(), reserva.getFechaReserva(),

@@ -8,7 +8,6 @@ import java.util.UUID;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
-import com.LosCiruelos.padel_club_api.reservas.entity.ReservaJugador;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -89,11 +88,6 @@ public class Pago {
     // Motivo de una bonificación (opcional), ej. "socio", "torneo", "cortesía"
     @Column(length = 200)
     private String motivo;
-
-    // Partido: qué jugador pagó (o a quién se le bonificó)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "jugador_id")
-    private ReservaJugador jugador;
 
     // Identifica al pago ante Mercado Pago (claves de idempotencia). Se genera al crearlo y no cambia.
     @Builder.Default

@@ -274,8 +274,9 @@ public class ReservaService {
 
     // ── Partidos ─────────────────────────────────────────────────────────
     // Reservas tipo PARTIDO que arma el ADMIN con 4 jugadores (sueltos o de un turno fijo): no
-    // vencen (sin nada pagado quedan CONFIRMADA), su "cliente" es el ADMIN que las armó y cada
-    // jugador paga su parte en el club. Mismas reglas de horario, solapamiento y stock que una
+    // vencen (sin nada pagado quedan CONFIRMADA), su cliente es el jugador 1 (un cliente
+    // registrado: el responsable), quien la armó queda en createdBy y cada jugador paga su parte
+    // en el club. Mismas reglas de horario, solapamiento y stock que una
     // reserva normal, con la cancha bloqueada mientras se crea o se cambia el turno.
 
     @Transactional
@@ -325,9 +326,10 @@ public class ReservaService {
         return Optional.of(partido.getId());
     }
 
-    private Reserva armarPartido(Usuario admin, Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin,
+    private Reserva armarPartido(Usuario creadoPor, Long canchaId, LocalDate fecha, LocalTime inicio, LocalTime fin,
             List<DatosJugador> jugadores, Integer pelotas, Integer paletas, TurnoFijo turnoFijo,
             Configuracion config, long duracion, LocalDateTime ahora) {
+        Usuario responsable = JugadoresService.responsable(jugadores);
         // lock de la cancha: los pedidos simultáneos para esta cancha esperan su turno
         Cancha cancha = canchaService.bloquear(canchaId);
         List<Reserva> aLiberar = expirarVencidasQueSeSuperponen(cancha.getId(), fecha, inicio, fin,
@@ -337,8 +339,8 @@ public class ReservaService {
 
         Reserva partido = Reserva.builder()
                 .cancha(cancha)
-                .cliente(admin)
-                .createdBy(admin)
+                .cliente(responsable)
+                .createdBy(creadoPor)
                 .fechaReserva(fecha)
                 .horaInicio(inicio)
                 .horaFin(fin)
@@ -407,6 +409,7 @@ public class ReservaService {
         }
 
         JugadoresService.actualizar(partido, jugadores);
+        partido.setCliente(JugadoresService.responsable(jugadores));
         // devuelve el stock de los productos anteriores y toma los nuevos (los alquileres se
         // vuelven a validar porque pudo cambiar el horario)
         stockService.moverStock(aLiberar, partido,

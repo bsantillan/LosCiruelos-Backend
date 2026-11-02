@@ -85,7 +85,7 @@ public class ReservaMapper {
         response.setEstado(reserva.getEstado());
         response.setTipo(reserva.getTipo());
         response.setTurnoFijoId(reserva.getTurnoFijo() != null ? reserva.getTurnoFijo().getId() : null);
-        response.setJugadores(reserva.getJugadores().stream().map(j -> jugador(reserva, j)).toList());
+        response.setJugadores(reserva.getJugadores().stream().map(ReservaMapper::jugador).toList());
         response.setClienteId(reserva.getCliente().getId());
         response.setClienteNombre(nombreCompleto(reserva.getCliente()));
         response.setCreatedAt(reserva.getCreatedAt());
@@ -111,12 +111,11 @@ public class ReservaMapper {
         return r;
     }
 
-    private static JugadorResponse jugador(Reserva reserva, ReservaJugador jugador) {
+    private static JugadorResponse jugador(ReservaJugador jugador) {
         return new JugadorResponse(jugador.getId(), jugador.getPosicion(),
                 jugador.getUsuario() != null ? jugador.getUsuario().getId() : null, jugador.nombreParaMostrar(),
                 jugador.getUsuario() != null ? jugador.getUsuario().getTelefono() : jugador.getTelefono(),
-                jugador.esInvitado(), reserva.parteDe(jugador.getPosicion()), reserva.pagadoPor(jugador),
-                reserva.bonificadoA(jugador), reserva.debeDe(jugador));
+                jugador.esInvitado());
     }
 
     private static String nombreCompleto(Usuario cliente) {

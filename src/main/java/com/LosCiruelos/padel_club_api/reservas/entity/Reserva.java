@@ -1,7 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.entity;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -143,46 +142,6 @@ public class Reserva {
     }
 
     /**
-     * Parte del jugador en esa posición (1 a 4): el total dividido entre los 4, redondeado para
-     * abajo a centavos; los centavos que sobran van al último.
-     */
-    public BigDecimal parteDe(int posicion) {
-        BigDecimal parte = montoTotal.divide(BigDecimal.valueOf(Jugadores.POR_PARTIDO), 2, RoundingMode.DOWN);
-        if (posicion < Jugadores.POR_PARTIDO) {
-            return parte;
-        }
-        return montoTotal.subtract(parte.multiply(BigDecimal.valueOf(Jugadores.POR_PARTIDO - 1)));
-    }
-
-    /** Pagos (y bonificaciones) registrados a nombre del jugador. */
-    private java.util.stream.Stream<Pago> pagosDe(ReservaJugador jugador) {
-        return pagos.stream().filter(p -> p.getJugador() != null && p.getJugador().getId() != null
-                && p.getJugador().getId().equals(jugador.getId()));
-    }
-
-    /** Plata que pagó el jugador (sin bonificaciones, descontado lo devuelto). */
-    public BigDecimal pagadoPor(ReservaJugador jugador) {
-        return Dinero.sumar(pagosDe(jugador).filter(p -> !p.esBonificacion()).map(Pago::getMontoRetenido));
-    }
-
-    /** Lo que se le bonificó al jugador. */
-    public BigDecimal bonificadoA(ReservaJugador jugador) {
-        return Dinero.sumar(pagosDe(jugador).filter(Pago::esBonificacion).map(Pago::getMontoRetenido));
-    }
-
-    /**
-     * Lo que le falta al jugador de su parte, sin pasarse de lo que falta en la reserva. Si la
-     * reserva ya está cubierta (por ejemplo, otro pagó todo), nadie debe nada.
-     */
-    public BigDecimal debeDe(ReservaJugador jugador) {
-        if (getMontoPendiente().signum() <= 0) {
-            return BigDecimal.ZERO;
-        }
-        return parteDe(jugador.getPosicion()).subtract(pagadoPor(jugador)).subtract(bonificadoA(jugador))
-                .max(BigDecimal.ZERO).min(getMontoPendiente());
-    }
-
-    /**
      * La puede operar (pagar, cancelar, modificar): su cliente o el personal. Si no puede, se
      * responde "no encontrada" para no revelar ids ajenos.
      */
@@ -297,7 +256,8 @@ public class Reserva {
      * total → PAGADA (o COMPLETADA si el turno ya terminó, ej. el saldo se cobró en el club después
      * de jugar; si no, la completa el job al terminar).
      * Una reserva confirmada que queda sin nada cubierto (reembolso) pasa a CANCELADA. Un partido
-     * sin nada pagado queda CONFIRMADA (no vence ni se cancela por eso).
+     * no tiene seña: sin nada pagado queda CONFIRMADA (no vence ni se cancela por eso), con algo
+     * PARCIALMENTE_PAGADA y entero PAGADA (o COMPLETADA).
      * CANCELADA, EXPIRADA y COMPLETADA no cambian.
      *
      * @return true si el estado cambió
@@ -314,7 +274,8 @@ public class Reserva {
             nuevo = estado == EstadoReserva.PENDIENTE ? EstadoReserva.PENDIENTE : EstadoReserva.CANCELADA;
         } else if (cubierto.compareTo(montoTotal) >= 0) {
             nuevo = turnoTermino(ahora) ? EstadoReserva.COMPLETADA : EstadoReserva.PAGADA;
-        } else if (cubierto.compareTo(senia) >= 0) {
+        } else if (cubierto.compareTo(senia) >= 0 && !esPartido()) {
+            // un partido no tiene seña: hasta pagarse entero queda PARCIALMENTE_PAGADA
             nuevo = EstadoReserva.SEÑADA;
         } else {
             nuevo = EstadoReserva.PARCIALMENTE_PAGADA;

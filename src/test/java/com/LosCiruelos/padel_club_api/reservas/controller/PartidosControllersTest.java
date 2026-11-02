@@ -95,16 +95,16 @@ class PartidosControllersTest {
         r.setId(60L);
         r.setTipo(TipoReserva.PARTIDO);
         r.setEstado(EstadoReserva.CONFIRMADA);
-        r.setJugadores(List.of(new JugadorResponse(201L, 1, 1L, "Ana", null, false, new BigDecimal("3750"),
-                BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("3750"))));
+        r.setJugadores(List.of(new JugadorResponse(201L, 1, 1L, "Ana", null, false)));
         when(reservaService.crearPartido(any(), eq(EMAIL))).thenReturn(r);
 
         mvc.perform(json(post("/admin/reservas/partidos"), PARTIDO))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.tipo").value("PARTIDO"))
                 .andExpect(jsonPath("$.estado").value("CONFIRMADA"))
-                .andExpect(jsonPath("$.jugadores[0].parte").value(3750))
-                .andExpect(jsonPath("$.jugadores[0].debe").value(3750));
+                .andExpect(jsonPath("$.jugadores[0].nombre").value("Ana"))
+                // el partido se paga como un todo: sin montos por jugador
+                .andExpect(jsonPath("$.jugadores[0].parte").doesNotExist());
 
         ArgumentCaptor<PartidoRequest> req = ArgumentCaptor.forClass(PartidoRequest.class);
         verify(reservaService).crearPartido(req.capture(), eq(EMAIL));
@@ -132,22 +132,22 @@ class PartidosControllersTest {
     }
 
     @Test
-    void elPagoDeUnJugadorLlevaSuId() throws Exception {
-        when(cobroService.registrarPagoManual(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
-        when(cobroService.bonificar(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
+    void unPartidoSeCobraSinIndicarElJugador() throws Exception {
+        when(cobroService.registrarPagoManual(any(), any(), any(), any())).thenReturn(new PagoResponse());
+        when(cobroService.bonificar(any(), any(), any(), any())).thenReturn(new PagoResponse());
 
-        mvc.perform(json(post("/admin/reservas/60/cobros/efectivo"), "{\"monto\":3750,\"jugadorId\":202}"))
+        mvc.perform(json(post("/admin/reservas/60/cobros/efectivo"), "{\"monto\":3750}"))
                 .andExpect(status().isOk());
-        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.MANUAL, 202L, EMAIL);
+        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.MANUAL, EMAIL);
 
-        mvc.perform(json(post("/admin/reservas/60/cobros/presencial"), "{\"monto\":3750,\"jugadorId\":201}"))
+        mvc.perform(json(post("/admin/reservas/60/cobros/presencial"), "{\"monto\":3750}"))
                 .andExpect(status().isOk());
-        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.MERCADO_PAGO, 201L,
+        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.MERCADO_PAGO,
                 EMAIL);
 
-        mvc.perform(json(post("/admin/reservas/60/bonificacion"), "{\"jugadorId\":203,\"motivo\":\"socio\"}"))
+        mvc.perform(json(post("/admin/reservas/60/bonificacion"), "{\"motivo\":\"socio\"}"))
                 .andExpect(status().isOk());
-        verify(cobroService).bonificar(60L, null, "socio", 203L, EMAIL);
+        verify(cobroService).bonificar(60L, null, "socio", EMAIL);
     }
 
     @Test

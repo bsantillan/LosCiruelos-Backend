@@ -97,7 +97,13 @@ public final class ReservaSpecification {
                         : root.get("estado").in(filtro.estados()));
             }
             if (filtro.clienteId() != null) {
-                condiciones.add(cb.equal(root.get("cliente").get("id"), filtro.clienteId()));
+                // sus reservas y los partidos en los que juega (aunque no sea el responsable)
+                Subquery<Long> juega = query.subquery(Long.class);
+                Root<ReservaJugador> jugador = juega.from(ReservaJugador.class);
+                juega.select(jugador.get("id")).where(
+                        cb.equal(jugador.get("reserva"), root),
+                        cb.equal(jugador.get("usuario").get("id"), filtro.clienteId()));
+                condiciones.add(cb.or(cb.equal(root.get("cliente").get("id"), filtro.clienteId()), cb.exists(juega)));
             }
             if (filtro.canchaId() != null) {
                 condiciones.add(cb.equal(root.get("cancha").get("id"), filtro.canchaId()));

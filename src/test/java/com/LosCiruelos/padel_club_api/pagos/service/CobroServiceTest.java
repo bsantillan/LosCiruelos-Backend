@@ -46,8 +46,7 @@ class CobroServiceTest extends PagosTestBase {
         void pagarLaSeniaDejaLaReservaSenada() {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
 
-            PagoResponse r = cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL,
-                    null, empleado.getEmail());
+            PagoResponse r = cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL, empleado.getEmail());
 
             assertThat(r.getEstado()).isEqualTo(EstadoPago.APROBADO);
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
@@ -58,7 +57,7 @@ class CobroServiceTest extends PagosTestBase {
             // antes quedaba PARCIALMENTE_PAGADA porque la lista de pagos en memoria no incluía el nuevo
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
 
-            cobroService.registrarPagoManual(10L, new BigDecimal("15000"), PaymentProvider.MANUAL, null, empleado.getEmail());
+            cobroService.registrarPagoManual(10L, new BigDecimal("15000"), PaymentProvider.MANUAL, empleado.getEmail());
 
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.PAGADA);
             assertThat(reserva.getMontoPendiente()).isEqualByComparingTo("0");
@@ -68,11 +67,11 @@ class CobroServiceTest extends PagosTestBase {
         void menosQueLaSeniaQuedaParcialYLuegoSePuedeCompletar() {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
 
-            cobroService.registrarPagoManual(10L, new BigDecimal("3000"), PaymentProvider.MANUAL, null, empleado.getEmail());
+            cobroService.registrarPagoManual(10L, new BigDecimal("3000"), PaymentProvider.MANUAL, empleado.getEmail());
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.PARCIALMENTE_PAGADA);
 
             // antes una reserva PARCIALMENTE_PAGADA no admitía más pagos
-            cobroService.registrarPagoManual(10L, new BigDecimal("12000"), PaymentProvider.MANUAL, null, empleado.getEmail());
+            cobroService.registrarPagoManual(10L, new BigDecimal("12000"), PaymentProvider.MANUAL, empleado.getEmail());
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.PAGADA);
         }
 
@@ -81,7 +80,7 @@ class CobroServiceTest extends PagosTestBase {
             reservaBloqueada(EstadoReserva.PENDIENTE);
 
             assertThatThrownBy(() -> cobroService.registrarPagoManual(10L, new BigDecimal("15000.01"),
-                    PaymentProvider.MANUAL, null, empleado.getEmail()))
+                    PaymentProvider.MANUAL, empleado.getEmail()))
                     .isInstanceOf(ReservaException.class)
                     .hasMessageContaining("supera el pendiente");
         }
@@ -89,10 +88,10 @@ class CobroServiceTest extends PagosTestBase {
         @Test
         void montoCeroONegativoSeRechaza() {
             assertThatThrownBy(() -> cobroService.registrarPagoManual(10L, new BigDecimal("-5000"),
-                    PaymentProvider.MANUAL, null, empleado.getEmail()))
+                    PaymentProvider.MANUAL, empleado.getEmail()))
                     .isInstanceOf(ReservaException.class);
             assertThatThrownBy(() -> cobroService.registrarPagoManual(10L, null,
-                    PaymentProvider.MANUAL, null, empleado.getEmail()))
+                    PaymentProvider.MANUAL, empleado.getEmail()))
                     .isInstanceOf(ReservaException.class);
         }
 
@@ -102,7 +101,7 @@ class CobroServiceTest extends PagosTestBase {
             pago(1L, reserva, EstadoPago.EN_PROCESO, "7500");
 
             assertThatThrownBy(() -> cobroService.registrarPagoManual(10L, new BigDecimal("7500"),
-                    PaymentProvider.MANUAL, null, empleado.getEmail()))
+                    PaymentProvider.MANUAL, empleado.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class);
         }
 
@@ -111,7 +110,7 @@ class CobroServiceTest extends PagosTestBase {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
             Pago iniciado = pago(1L, reserva, EstadoPago.PENDIENTE, "7500");
 
-            cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, empleado.getEmail());
+            cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL, empleado.getEmail());
 
             assertThat(iniciado.getEstado()).isEqualTo(EstadoPago.EXPIRADO);
         }
@@ -122,7 +121,7 @@ class CobroServiceTest extends PagosTestBase {
             reserva.setExpiresAt(AHORA.minusMinutes(1));
 
             assertThatThrownBy(() -> cobroService.registrarPagoManual(10L, new BigDecimal("7500"),
-                    PaymentProvider.MANUAL, null, empleado.getEmail()))
+                    PaymentProvider.MANUAL, empleado.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class)
                     .hasMessageContaining("expiró");
         }
@@ -134,7 +133,7 @@ class CobroServiceTest extends PagosTestBase {
             reserva.setFechaReserva(AHORA.toLocalDate().minusDays(1));
             pago(1L, reserva, EstadoPago.APROBADO, "7500");
 
-            cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, empleado.getEmail());
+            cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL, empleado.getEmail());
 
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.COMPLETADA);
             assertThat(reserva.getMontoPendiente()).isEqualByComparingTo("0");
@@ -148,7 +147,7 @@ class CobroServiceTest extends PagosTestBase {
             reserva.setHoraInicio(AHORA.toLocalTime().minusMinutes(30));
             reserva.setHoraFin(AHORA.toLocalTime().plusMinutes(60));
 
-            cobroService.registrarPagoManual(10L, new BigDecimal("15000"), PaymentProvider.MANUAL, null, empleado.getEmail());
+            cobroService.registrarPagoManual(10L, new BigDecimal("15000"), PaymentProvider.MANUAL, empleado.getEmail());
 
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.PAGADA);
         }
@@ -158,7 +157,7 @@ class CobroServiceTest extends PagosTestBase {
             reservaBloqueada(EstadoReserva.COMPLETADA);
 
             assertThatThrownBy(() -> cobroService.registrarPagoManual(10L, new BigDecimal("1"),
-                    PaymentProvider.MANUAL, null, empleado.getEmail()))
+                    PaymentProvider.MANUAL, empleado.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class);
         }
     }
@@ -180,60 +179,32 @@ class CobroServiceTest extends PagosTestBase {
         }
 
         @Test
-        void cadaPagoQuedaANombreDelJugadorYElPartidoPasaDeConfirmadaASeniadaYPagada() {
+        void unPartidoSeCobraComoUnTodoSinIndicarElJugador() {
             PagoResponse r = cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL,
-                    202L, empleado.getEmail());
+                    empleado.getEmail());
 
-            assertThat(r.getJugadorId()).isEqualTo(202L);
-            assertThat(partido.getPagos().get(0).getJugador().getId()).isEqualTo(202L);
-            assertThat(partido.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
-            // el jugador 2 cubrió su parte (3750) y la del 3: la reserva sigue debiendo 7500
-            assertThat(partido.pagadoPor(partido.getJugadores().get(1))).isEqualByComparingTo("7500");
-            assertThat(partido.debeDe(partido.getJugadores().get(1))).isEqualByComparingTo("0");
-            assertThat(partido.debeDe(partido.getJugadores().get(0))).isEqualByComparingTo("3750");
+            assertThat(r.getMonto()).isEqualByComparingTo("7500");
+            assertThat(partido.getMontoPendiente()).isEqualByComparingTo("7500");
+            // un partido no tiene seña: con la mitad paga queda parcial
+            assertThat(partido.getEstado()).isEqualTo(EstadoReserva.PARCIALMENTE_PAGADA);
 
-            cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO, 201L,
+            cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO,
                     empleado.getEmail());
             assertThat(partido.getEstado()).isEqualTo(EstadoReserva.PAGADA);
-            // pagado entre dos: nadie debe nada
-            assertThat(partido.getJugadores())
-                    .allSatisfy(j -> assertThat(partido.debeDe(j)).isEqualByComparingTo("0"));
+            assertThat(partido.getMontoPendiente()).isEqualByComparingTo("0");
             // los pagos de un partido no le mandan avisos al ADMIN (lo arma y lo sigue él)
             verify(eventos, never()).publishEvent(any());
         }
 
         @Test
-        void hayQueIndicarUnJugadorDelPartido() {
-            assertThatThrownBy(() -> cobroService.registrarPagoManual(10L, new BigDecimal("3750"),
-                    PaymentProvider.MANUAL, null, empleado.getEmail()))
-                    .isInstanceOf(ReservaException.class)
-                    .hasMessage("Indicá qué jugador paga (jugadorId).");
-            assertThatThrownBy(() -> cobroService.registrarPagoManual(10L, new BigDecimal("3750"),
-                    PaymentProvider.MANUAL, 999L, empleado.getEmail()))
-                    .hasMessage("El jugador 999 no es de este partido.");
-            assertThat(partido.getPagos()).isEmpty();
-        }
-
-        @Test
-        void enUnaReservaNormalNoSeIndicaJugador() {
-            reservaBloqueada(EstadoReserva.SEÑADA);
-            assertThatThrownBy(() -> cobroService.registrarPagoManual(10L, new BigDecimal("3750"),
-                    PaymentProvider.MANUAL, 201L, empleado.getEmail()))
-                    .hasMessage("La reserva no es un partido: no se indica el jugador.");
-        }
-
-        @Test
-        void bonificarSinMontoCubreLoQueLeFaltaAlJugador() {
-            cobroService.registrarPagoManual(10L, new BigDecimal("1000"), PaymentProvider.MANUAL, 203L,
+        void bonificarSinMontoCubreTodoLoQueFalta() {
+            cobroService.registrarPagoManual(10L, new BigDecimal("1000"), PaymentProvider.MANUAL,
                     empleado.getEmail());
 
-            PagoResponse r = cobroService.bonificar(10L, null, "socio", 203L, admin.getEmail());
+            PagoResponse r = cobroService.bonificar(10L, null, "socio", admin.getEmail());
 
-            assertThat(r.getMonto()).isEqualByComparingTo("2750");
-            assertThat(r.getJugadorId()).isEqualTo(203L);
-            assertThatThrownBy(() -> cobroService.bonificar(10L, null, null, 203L, admin.getEmail()))
-                    .isInstanceOf(EstadoInvalidoException.class)
-                    .hasMessage("Invitado 3 ya cubrió su parte.");
+            assertThat(r.getMonto()).isEqualByComparingTo("14000");
+            assertThat(partido.getEstado()).isEqualTo(EstadoReserva.PAGADA);
         }
 
         @Test
@@ -246,13 +217,31 @@ class CobroServiceTest extends PagosTestBase {
         @Test
         void unPartidoQueSeQuedaSinPagosVuelveAConfirmadaYNoSeCancela() {
             Pago pago = pago(1L, partido, EstadoPago.APROBADO, "7500");
-            partido.setEstado(EstadoReserva.SEÑADA);
+            partido.setEstado(EstadoReserva.PARCIALMENTE_PAGADA);
             pago.setEstado(EstadoPago.DEVUELTO);
             pago.setMontoReembolsado(new BigDecimal("7500"));
 
             assertThat(partido.recalcularEstado(new BigDecimal("7500"), AHORA)).isTrue();
 
             assertThat(partido.getEstado()).isEqualTo(EstadoReserva.CONFIRMADA);
+        }
+
+        @Test
+        void unPartidoNoTieneSeniaYUnaReservaNormalSi() {
+            BigDecimal senia = new BigDecimal("7500");
+            pago(1L, partido, EstadoPago.APROBADO, "10000");
+            partido.recalcularEstado(senia, AHORA);
+            assertThat(partido.getEstado()).isEqualTo(EstadoReserva.PARCIALMENTE_PAGADA);
+
+            Reserva normal = TestData.reserva(11L, cliente, EstadoReserva.PENDIENTE, "15000");
+            pago(2L, normal, EstadoPago.APROBADO, "10000");
+            normal.recalcularEstado(senia, AHORA);
+            assertThat(normal.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
+
+            // jugado y sin pagar entero: queda como deuda (no pasa a COMPLETADA)
+            partido.setFechaReserva(AHORA.toLocalDate().minusDays(1));
+            partido.recalcularEstado(senia, AHORA);
+            assertThat(partido.getEstado()).isEqualTo(EstadoReserva.PARCIALMENTE_PAGADA);
         }
     }
 
@@ -273,7 +262,7 @@ class CobroServiceTest extends PagosTestBase {
         void sinMontoBonificaTodoYLaReservaQuedaPagaSinPlataCobrada() {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
 
-            PagoResponse r = cobroService.bonificar(10L, null, "  socio ", null, admin.getEmail());
+            PagoResponse r = cobroService.bonificar(10L, null, "  socio ", admin.getEmail());
 
             assertThat(r.getProvider()).isEqualTo(PaymentProvider.BONIFICACION);
             assertThat(r.getMonto()).isEqualByComparingTo("15000");
@@ -290,7 +279,7 @@ class CobroServiceTest extends PagosTestBase {
             Reserva reserva = reservaBloqueada(EstadoReserva.SEÑADA);
             pago(1L, reserva, EstadoPago.APROBADO, "7500").setExternalPaymentId("mp-1");
 
-            cobroService.bonificar(10L, null, null, null, admin.getEmail());
+            cobroService.bonificar(10L, null, null, admin.getEmail());
 
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.PAGADA);
             assertThat(reserva.getMontoPagado()).isEqualByComparingTo("7500");
@@ -301,7 +290,7 @@ class CobroServiceTest extends PagosTestBase {
         void unaBonificacionParcialCuentaParaLaSenia() {
             Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
 
-            cobroService.bonificar(10L, new BigDecimal("7500"), null, null, admin.getEmail());
+            cobroService.bonificar(10L, new BigDecimal("7500"), null, admin.getEmail());
 
             assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
             assertThat(reserva.getMontoPendiente()).isEqualByComparingTo("7500");
@@ -312,11 +301,11 @@ class CobroServiceTest extends PagosTestBase {
             Reserva reserva = reservaBloqueada(EstadoReserva.SEÑADA);
             pago(1L, reserva, EstadoPago.APROBADO, "7500");
 
-            assertThatThrownBy(() -> cobroService.bonificar(10L, new BigDecimal("8000"), null, null, admin.getEmail()))
+            assertThatThrownBy(() -> cobroService.bonificar(10L, new BigDecimal("8000"), null, admin.getEmail()))
                     .isInstanceOf(ReservaException.class).hasMessageContaining("supera el pendiente");
 
             pago(2L, reserva, EstadoPago.APROBADO, "7500");
-            assertThatThrownBy(() -> cobroService.bonificar(10L, null, null, null, admin.getEmail()))
+            assertThatThrownBy(() -> cobroService.bonificar(10L, null, null, admin.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class).hasMessage("La reserva ya está paga.");
         }
 
@@ -324,7 +313,7 @@ class CobroServiceTest extends PagosTestBase {
         void soloElAdminPuedeBonificar() {
             reservaBloqueada(EstadoReserva.PENDIENTE);
 
-            assertThatThrownBy(() -> cobroService.bonificar(10L, null, null, null, empleado.getEmail()))
+            assertThatThrownBy(() -> cobroService.bonificar(10L, null, null, empleado.getEmail()))
                     .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class)
                     .hasMessage("Solo el ADMIN puede bonificar una reserva.");
             verify(pagoRepository, never()).save(any());
@@ -334,7 +323,7 @@ class CobroServiceTest extends PagosTestBase {
         void laBonificacionNoAvisaAlAdmin() {
             reservaBloqueada(EstadoReserva.PENDIENTE);
 
-            cobroService.bonificar(10L, null, null, null, admin.getEmail());
+            cobroService.bonificar(10L, null, null, admin.getEmail());
 
             verify(eventos, never()).publishEvent(any());
         }

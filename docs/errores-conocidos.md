@@ -46,6 +46,11 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Partidos con responsable y monto general**:
+  - El **jugador 1 tiene que ser un cliente registrado** (`400` si es un invitado): es el responsable y el `clienteId`/`clienteNombre` de la reserva (antes era el ADMIN que lo armó). En el panel, el filtro por cliente trae también los partidos en los que juega.
+  - **Un solo monto por partido**: se van `parte`, `pagado`, `bonificado` y `debe` de cada jugador, `jugadorId` de `PagoResponse` y `jugadorId` de los cobros y la bonificación (en un partido ya no se manda; sin `monto`, la bonificación cubre todo lo que falta). Se puede reemplazar a un jugador aunque el partido tenga pagos.
+  - **Un partido no tiene seña**: con algo pagado queda `PARCIALMENTE_PAGADA` (nunca `SEÑADA`) hasta que se paga entero.
+  - `POST /admin/usuarios`: `categoria` y `posicion` de un CLIENTE pasan a ser opcionales (alta con lo mínimo).
 - **Anticipación máxima para reservar** (30 días por defecto):
   - `POST /reservas` (el cliente) responde `400` "Podés reservar hasta el … (n días de anticipación)." si la fecha pasa del tope. El personal (`POST /admin/reservas` y los partidos) no tiene tope.
   - `GET /canchas/{id}/disponibilidad` suma `reservableHasta` (fecha): el último día que el cliente puede reservar, para limitar el calendario.
