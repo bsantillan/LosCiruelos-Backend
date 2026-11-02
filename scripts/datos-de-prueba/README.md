@@ -9,7 +9,7 @@
    - la configuración ($5.000 la media hora, seña del 50 %, turnos de 90 a 180 minutos, el cliente reserva hasta 30 días adelante);
    - los días de apertura;
    - las 4 canchas;
-   - las pelotas y paletas.
+   - las pelotas y paletas, que se ofrecen al reservar, y dos productos que se venden en el club: agua mineral (con stock) y Gatorade (sin control de stock, como uno cargado a mano).
 3. **Conserva los ADMIN que había:** mismo mail, contraseña, nombre, celular y canal de avisos. Si no había ninguno, lo crea la app al arrancar, con `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
 4. **Carga las cuentas de prueba.** Todas entran con la contraseña **`Prueba123!`**.
 
@@ -37,9 +37,12 @@
    - **pasadas:**
      - completadas;
      - una jugada que debe el saldo y no devolvió las paletas;
+     - una con 2 aguas que el personal sumó después de jugar;
      - una que venció sin pagar.
 
-   Alcanzan para ver con datos el panel, el resumen, la caja, los saldos pendientes y las paletas sin devolver.
+6. **Carga ventas sueltas** (sin reserva) que registró el empleado: dos de hoy, una de ayer y una de la semana pasada, en efectivo y con Mercado Pago, con y sin cliente.
+
+   Alcanzan para ver con datos el panel, el resumen, la caja, los saldos pendientes, las paletas sin devolver y las ventas.
 
 Los partidos de 4 jugadores y los turnos fijos todavía no se cargan.
 
