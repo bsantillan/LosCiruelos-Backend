@@ -255,7 +255,7 @@ Un CLIENTE solo ve y opera sus propias reservas, y además **ve** (sin pagar ni 
 
 **`ReservaResponse`**
 
-`montoPagado` es solo plata cobrada; `montoBonificado`, lo que el ADMIN bonificó; `montoPendiente = montoTotal − montoPagado − montoBonificado`. En `pagos`, una bonificación aparece con `provider: "BONIFICACION"` y su `motivo`. `tipo` es `NORMAL` o `PARTIDO`; en un partido vienen `jugadores` (ver [Partidos](#partidos-y-turnos-fijos--adminpartidos-adminturnos-fijos-rol-admin)), `turnoFijoId` si lo creó un turno fijo, y `clienteId` es el ADMIN que lo armó. En una reserva normal `jugadores` es `[]`.
+`montoPagado` es solo plata cobrada; `montoBonificado`, lo que el ADMIN bonificó; `montoPendiente = montoTotal − montoPagado − montoBonificado`. En `pagos`, una bonificación aparece con `provider: "BONIFICACION"` y su `motivo`. `tipo` es `NORMAL` o `PARTIDO`; en un partido vienen `jugadores` (ver [Partidos](#partidos-y-turnos-fijos--adminpartidos-adminturnos-fijos-rol-admin)), `turnoFijoId` si lo creó un turno fijo, y `clienteId` es el jugador 1 (el responsable). En una reserva normal `jugadores` es `[]`.
 ```json
 {
   "id": 10, "canchaId": 1, "canchaNumero": 1,
@@ -263,7 +263,6 @@ Un CLIENTE solo ve y opera sus propias reservas, y además **ve** (sin pagar ni 
   "montoCancha": 15000.00, "montoProductos": 9000.00,
   "montoTotal": 24000.00, "montoSenia": 12000.00, "montoPagado": 0, "montoBonificado": 0,
   "montoPendiente": 24000.00,
-  "cantidadPelotas": 2, "cantidadPaletas": 3,
   "productos": [
     { "productoId": 1, "codigo": "PELOTAS", "nombre": "Pelotas", "tipo": "VENTA",
       "cantidad": 2, "precioUnitario": 1500.00, "subtotal": 3000.00 },
@@ -346,12 +345,13 @@ Body de `POST /reservas` (el de `POST /admin/reservas` suma `clienteId` y `bonif
   "fechaReserva": "2026-10-15",
   "horaInicio": "18:00",
   "horaFin": "19:30",
-  "cantidadPelotas": 2,
-  "cantidadPaletas": 3
+  "productos": [ { "productoId": 1, "cantidad": 2 }, { "productoId": 2, "cantidad": 3 } ]
 }
 ```
 - `fechaReserva`: hoy o futuro.
-- `cantidadPelotas` (0 a 50) y `cantidadPaletas` (0 a 20) son opcionales; por defecto 0. El total es `montoCancha + Σ cantidad × precio unitario`, y la seña se calcula sobre ese total.
+- `productos` es opcional (hasta 20 ítems, cada uno con `cantidad` de 1 a 99; un producto repetido suma sus cantidades). El total es `montoCancha + Σ cantidad × precio unitario`, y la seña se calcula sobre ese total.
+- El cliente solo puede pedir los productos que **se ofrecen al reservar** (`GET /productos`); otro responde `400` "Gatorade no se puede pedir al reservar: pedíselo al club.". El personal (`POST /admin/reservas`, partidos y turnos fijos) puede pedir cualquier producto activo. Un producto inexistente → `400` "El producto 9 no existe.".
+- Los productos sin control de stock no se limitan.
 - Sin stock suficiente responde `409`, por ejemplo `"Paletas: hay 1 unidad disponible para ese horario."`.
 - Los precios unitarios quedan congelados en la reserva: un cambio de precio posterior no la modifica.
 - Volver a pedir la misma cancha, fecha e inicio con otra hora de fin u otras cantidades actualiza la reserva pendiente existente (si no hay pago en curso y no se superpone).
@@ -362,28 +362,31 @@ Body de `POST /reservas` (el de `POST /admin/reservas` suma `clienteId` y `bonif
 
 ## Productos — `/productos` (público)
 
-Catálogo y disponibilidad de pelotas y paletas: también sin iniciar sesión.
+Lo que el cliente puede pedir al reservar (los productos activos con `ofrecerAlReservar`): también sin iniciar sesión.
 
 | Método y ruta | Descripción |
 |---|---|
-| `GET /productos` → `200` | Productos activos con precio por unidad, tipo y stock. |
-| `GET /productos/disponibilidad?fecha=2026-10-20&horaInicio=18:00&horaFin=19:30` → `200` | Unidades que se pueden pedir de cada producto en ese horario: `[{ "id", "codigo", "nombre", "tipo", "precio", "disponibles" }]`. Sirve para limitar los selectores de cantidad del front. |
+| `GET /productos` → `200` | Productos que se ofrecen al reservar, con precio por unidad, tipo y stock. |
+| `GET /productos/disponibilidad?fecha=2026-10-20&horaInicio=18:00&horaFin=19:30` → `200` | Unidades que se pueden pedir de cada uno en ese horario: `[{ "id", "codigo", "nombre", "tipo", "precio", "disponibles" }]`. `disponibles` es `null` en un producto sin control de stock (no tiene tope). Sirve para limitar los selectores de cantidad del front. |
 
 ## Configuración: stock de productos — `/admin/configuracion/productos` (rol: ADMIN; EMPLEADO puede listar y ajustar stock)
 
 **`ProductoResponse`**
 ```json
 { "id": 1, "codigo": "PELOTAS", "nombre": "Pelotas", "descripcion": "Pelota de pádel, precio por unidad",
-  "tipo": "VENTA", "precio": 1500.00, "stock": 10, "activo": true }
+  "tipo": "VENTA", "precio": 1500.00, "stock": 10, "activo": true,
+  "ofrecerAlReservar": true, "controlaStock": true }
 ```
+- `ofrecerAlReservar`: si el cliente lo ve y lo puede pedir al reservar (`GET /productos`). Si no, solo lo carga el personal (en una reserva, un partido o una venta suelta).
+- `controlaStock`: si es `false`, el stock no se mira ni se descuenta (por ejemplo, algo que se compra cuando hace falta).
 - `tipo`: `VENTA` (el stock son las unidades disponibles y baja con cada reserva) o `ALQUILER` (el stock es el total de unidades; se controla cuántas están en uso en cada horario).
 - `codigo`: `PELOTAS` y `PALETAS` son los productos del sistema que se piden en la reserva; los que crea el admin tienen `codigo: null`.
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
 | `GET /admin/configuracion/productos` → `200` | **ADMIN, EMPLEADO.** Todos los productos, incluidos los inactivos. | |
-| `POST /admin/configuracion/productos` → `201` | Crea un producto. Body: `nombre` (obligatorio, único), `descripcion`, `tipo`, `precio` (≥ 0, 2 decimales), `stock` (≥ 0), `activo` (por defecto `true`). | `400` validación · `409` nombre repetido |
-| `PUT /admin/configuracion/productos/{id}` → `200` | Reemplaza nombre, descripción, precio, stock y activo. El `tipo` no se puede cambiar. | `400` · `404` · `409` |
+| `POST /admin/configuracion/productos` → `201` | Crea un producto. Body: `nombre` (obligatorio, único), `descripcion`, `tipo`, `precio` (≥ 0, 2 decimales), `stock` (≥ 0), `activo` (por defecto `true`), `ofrecerAlReservar` (por defecto `false`) y `controlaStock` (por defecto `true`). | `400` validación · `409` nombre repetido |
+| `PUT /admin/configuracion/productos/{id}` → `200` | Reemplaza nombre, descripción, precio y stock; `activo`, `ofrecerAlReservar` y `controlaStock` se cambian solo si vienen. El `tipo` no se puede cambiar. | `400` · `404` · `409` |
 | `PATCH /admin/configuracion/productos/{id}/stock` → `200` | **ADMIN, EMPLEADO.** Suma o resta unidades: `{ "ajuste": 12 }` (reposición), `{ "ajuste": -1 }` (rotura). | `404` · `409` si quedaría negativo |
 | `DELETE /admin/configuracion/productos/{id}` → `200` | Baja lógica (`activo = false`): deja de poder pedirse; las reservas existentes lo conservan. | `404` |
 
@@ -439,7 +442,7 @@ Los partidos se consultan, se cobran y se cancelan como cualquier reserva en `/a
     { "nombre": "Juan" },
     { "nombre": "Pedro", "telefono": "11 5555-0000" }
   ],
-  "cantidadPelotas": 1, "cantidadPaletas": 0
+  "productos": [ { "productoId": 1, "cantidad": 1 } ]
 }
 ```
 - `jugadores`: exactamente 4, en orden (la posición es el lugar en la lista). Cada uno con `usuarioId` (un CLIENTE activo, sin repetir) o `nombre` (2 a 100 caracteres). El **jugador 1 tiene que ser un cliente registrado** (`400` "El jugador 1 tiene que ser un cliente registrado: es el responsable del partido.").
@@ -474,7 +477,7 @@ Un **turno fijo** es el mismo partido (cancha, día de la semana, horario y juga
 {
   "id": 8, "canchaId": 2, "canchaNumero": 2, "diaSemana": "THURSDAY",
   "horaInicio": "20:00", "horaFin": "21:30", "desde": "2026-10-29",
-  "cantidadPelotas": 0, "cantidadPaletas": 0, "activo": true,
+  "productos": [ { "productoId": 1, "nombre": "Pelotas", "cantidad": 1 } ], "activo": true,
   "createdAt": "2026-10-25T10:00:00.000-03:00", "dadoDeBajaAt": null,
   "jugadores": [ { "posicion": 1, "usuarioId": 3, "nombre": "Ana López", "telefono": "5491122334455", "invitado": false } ],
   "proximosPartidos": [
@@ -491,7 +494,7 @@ Un **turno fijo** es el mismo partido (cancha, día de la semana, horario y juga
 |---|---|---|
 | `GET /admin/turnos-fijos?activos=true` → `200 [TurnoFijoResponse]` | `activos=true` solo activos, `false` solo dados de baja, sin el parámetro todos. | |
 | `GET /admin/turnos-fijos/{id}` → `200` | Detalle con sus próximos partidos. | `404` |
-| `POST /admin/turnos-fijos` → `201` | Body `{ "canchaId", "desde", "horaInicio", "horaFin", "jugadores": [4], "cantidadPelotas", "cantidadPaletas" }`. El día de la semana es el de `desde` (hoy o futuro). El horario se valida en la primera fecha que se juega. | `400` datos o jugadores inválidos, horario fuera de apertura · `404` cancha · `409` otro turno fijo activo superpuesto en esa cancha y día |
+| `POST /admin/turnos-fijos` → `201` | Body `{ "canchaId", "desde", "horaInicio", "horaFin", "jugadores": [4], "productos": [{ "productoId", "cantidad" }] }` (los productos de cada partido). El día de la semana es el de `desde` (hoy o futuro). El horario se valida en la primera fecha que se juega. | `400` datos o jugadores inválidos, horario fuera de apertura · `404` cancha · `409` otro turno fijo activo superpuesto en esa cancha y día |
 | `PUT /admin/turnos-fijos/{id}` → `200` | Mismo body, completo (un `desde` que ya pasó se acepta si no cambia). Los partidos futuros **sin pagos** se vuelven a crear con los datos nuevos; los que **tienen pagos** quedan como estaban y vienen en `partidosSinCambiar` (se editan uno por uno con `PUT /admin/partidos/{id}`). Las fechas dadas de baja siguen libres. | igual · `409` dado de baja |
 | `DELETE /admin/turnos-fijos/{id}?reembolso=TOTAL\|SENIA\|NADA` → `200` | **Baja general**: deja de bloquear el horario y cancela los partidos que todavía no empezaron (aviso a los jugadores). `reembolso` es obligatorio si alguno tiene plata cobrada. Los ya jugados no cambian. | `400` falta el reembolso · `409` ya dado de baja |
 | `DELETE /admin/turnos-fijos/{id}/fechas/{fecha}?reembolso=…` → `200 ReservaResponse` | **Baja de una fecha** (esa semana no vienen): cancela el partido de esa fecha o, si todavía no se creó, la registra como cancelada. Ese horario queda libre para otros y no se vuelve a crear. | `400` el turno fijo no se juega esa fecha o falta el reembolso · `409` fecha ya dada de baja o turno empezado |
@@ -567,6 +570,8 @@ Errores: `400 errors.buscar` si falta · `400` si tiene menos de 2 caracteres ·
 | `GET /admin/reservas/saldos-pendientes` → `200` | Turnos ya jugados que deben saldo (`SEÑADA` o `PARCIALMENTE_PAGADA` con el turno terminado), del más viejo al más nuevo. El listado con `?pendientes=true` también los muestra. | |
 | `GET /admin/reservas/devoluciones-pendientes` → `200` | Reservas cuyo turno ya empezó y tienen paletas sin devolver. | |
 | `POST /admin/reservas/{id}/devolucion` → `200` | Body `{ "paletasDevueltas": 3 }`. Registra la devolución; las faltantes se descuentan del stock. Devuelve la reserva. | `400` cantidad fuera de rango · `404` · `409` turno sin empezar, reserva sin paletas, no confirmada o devolución ya registrada |
+| `POST /admin/reservas/{id}/productos` → `200 ReservaResponse` | Suma un producto a una reserva o partido: lo que el cliente pide en el club antes, durante o después del turno. Body `{ "productoId": 1, "cantidad": 2 }` o, para algo que no está en el catálogo, `{ "nombre": "Gatorade", "precio": 3000, "cantidad": 1 }`: si ya hay un producto con ese nombre (sin importar mayúsculas) se usa ese, con su precio; si no, queda dado de alta como producto de venta, sin control de stock y sin ofrecerse al reservar. Si la reserva ya lo tenía, suma unidades al mismo precio que ya tenía; uno nuevo toma el precio de hoy. El total sube y el estado se recalcula: una reserva paga (o completada) vuelve a quedar con saldo. | `400` sin producto ni nombre y precio, o producto dado de baja · `404` reserva o producto · `409` reserva pendiente, cancelada o expirada, pago online en proceso o sin stock |
+| `DELETE /admin/reservas/{id}/productos/{productoId}?cantidad=1` → `200 ReservaResponse` | Saca unidades de un producto (sin `cantidad`, todas). El stock de venta vuelve y el total baja; no puede quedar por debajo de lo ya pagado. | `400` la reserva no tiene ese producto o cantidad fuera de rango · `404` · `409` como al sumar, total menor a lo pagado o un alquiler con la devolución ya registrada |
 
 Cobrar en el club la seña, el saldo o el total: `POST /admin/reservas/{reservaId}/cobros/efectivo` y `/cobros/presencial`, body `{ "monto": 7500 }`. Aceptan reservas `SEÑADA` y `PARCIALMENTE_PAGADA` aunque el turno no se haya jugado, y `PENDIENTE` mientras esté en plazo (15 min).
 
@@ -577,8 +582,10 @@ Cobrar en el club la seña, el saldo o el total: `POST /admin/reservas/{reservaI
 ### `GET /admin/reservas/resumen?desde=2026-10-01&hasta=2026-10-31` → `200 ResumenResponse`
 Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-dd`) y van las dos juntas o ninguna: **sin fechas, el resumen es del día de hoy**.
 
-- `jugados`, `porJugar`, `cancelaciones` y `productos` toman las **reservas cuyo turno (`fechaReserva`) cae en el período**.
-- `caja` toma los **pagos cobrados y devueltos en el período**, sea cual sea la fecha del turno: es el cierre de caja. Una seña pagada hoy para un turno del mes que viene está en la caja de hoy y en `porJugar` del período del turno.
+- `jugados`, `porJugar` y `cancelaciones` toman las **reservas cuyo turno (`fechaReserva`) cae en el período**.
+- `caja` toma los **pagos cobrados y devueltos en el período**, sea cual sea la fecha del turno, más las **ventas sueltas** del período: es el cierre de caja. Una seña pagada hoy para un turno del mes que viene está en la caja de hoy y en `porJugar` del período del turno.
+- `ventas`: las ventas sueltas del período (cuántas y cuánto se cobró); ya están sumadas en `caja`.
+- `productos` suma lo pedido en las reservas del período y lo vendido suelto en esas fechas.
 
 | Rol | Qué puede ver |
 |---|---|
@@ -612,6 +619,7 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
     "neto": 222500.00
   },
   "cancelaciones": { "turnos": 3, "retenido": 7500.00 },
+  "ventas": { "cantidad": 12, "total": 30000.00 },
   "productos": [ { "productoId": 1, "nombre": "Pelotas", "tipo": "VENTA", "cantidad": 40, "monto": 200000.00 } ]
 }
 ```
@@ -631,9 +639,9 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 
 | Campo | Cómo se calcula |
 |---|---|
-| `efectivo` | Monto completo de los pagos `MANUAL` (`cobros/efectivo`) cobrados en el período |
+| `efectivo` | Monto completo de los pagos `MANUAL` (`cobros/efectivo`) cobrados en el período, más las ventas sueltas en `EFECTIVO` |
 | `mercadoPagoOnline` | Pagos `MERCADO_PAGO` con id de pago de MP (Brick o Wallet) cobrados en el período |
-| `mercadoPagoPresencial` | Pagos `MERCADO_PAGO` sin id de MP: tarjeta o QR en el mostrador (`cobros/presencial`) |
+| `mercadoPagoPresencial` | Pagos `MERCADO_PAGO` sin id de MP: tarjeta o QR en el mostrador (`cobros/presencial`), más las ventas sueltas con `MERCADO_PAGO` |
 | `total` | `efectivo + mercadoPagoOnline + mercadoPagoPresencial` |
 | `devoluciones` | Lo devuelto (`montoReembolsado`) de los pagos `DEVUELTO` cuyo reembolso se hizo en el período |
 | `neto` | `total − devoluciones` (puede ser negativo un día con devoluciones y sin cobros) |
@@ -648,11 +656,52 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 |---|---|
 | `cancelaciones.turnos` | Reservas `CANCELADA` del período (las `EXPIRADA` no cuentan) |
 | `cancelaciones.retenido` | De esas reservas, lo pagado que el club no devolvió (sin bonificaciones) |
-| `productos` | Por producto, unidades y monto (con el precio congelado en cada reserva) de las reservas `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA` y `COMPLETADA`; solo los que tienen cantidad > 0. Las paletas cuentan las alquiladas |
+| `ventas.cantidad` / `ventas.total` | Ventas sueltas registradas en el período (por fecha de la venta) y lo cobrado |
+| `productos` | Por producto y en orden de id, unidades y monto (con el precio congelado en cada reserva o venta) de las reservas `CONFIRMADA`, `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA` y `COMPLETADA` del período, más las ventas sueltas del período; solo los que tienen cantidad > 0. Las paletas cuentan las alquiladas |
 
 - Montos con 2 decimales; fechas `yyyy-MM-dd`.
 - Todo se calcula con consultas agregadas en la base.
 - Errores: `400` si viene una sola de las dos fechas · `400 errors.desde` / `errors.hasta` si una fecha no tiene el formato · `400` si `desde` es posterior a `hasta` · `400` si el período supera los 366 días · `403` si un EMPLEADO pide otro período que no sea hoy · `403` para CLIENTE.
+
+---
+
+## Ventas sueltas — `/admin/ventas` (rol: ADMIN, EMPLEADO)
+
+Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelotas). Se cobra en el momento y entra en la caja del día. Lo que se consume en un turno se carga en la reserva (`POST /admin/reservas/{id}/productos`), no acá.
+
+**`VentaResponse`**
+```json
+{
+  "id": 4, "fecha": "2026-10-13T10:00:00.000-03:00", "total": 7500.00, "medio": "EFECTIVO",
+  "clienteId": 3, "clienteNombre": "Juan Pérez", "registradaPor": "Carla Méndez",
+  "items": [
+    { "productoId": 5, "nombre": "Agua mineral", "cantidad": 3, "precioUnitario": 1500.00, "subtotal": 4500.00 },
+    { "productoId": 9, "nombre": "Gatorade", "cantidad": 1, "precioUnitario": 3000.00, "subtotal": 3000.00 }
+  ]
+}
+```
+
+| Método y ruta | Descripción | Errores |
+|---|---|---|
+| `POST /admin/ventas` → `201 VentaResponse` | Registra una venta ya cobrada. Body abajo. | ver abajo |
+| `GET /admin/ventas?desde=2026-10-01&hasta=2026-10-31` → `200 [VentaResponse]` | Ventas del período (por fecha de la venta), de la más nueva a la más vieja. Sin fechas, las de hoy. El ADMIN ve cualquier período; el EMPLEADO, solo hoy. | `400` una sola fecha o `desde` posterior a `hasta` · `403` EMPLEADO con otro período ("Solo podés ver las ventas de hoy.") o CLIENTE |
+
+Body de `POST /admin/ventas`:
+```json
+{
+  "medio": "EFECTIVO",
+  "clienteId": 3,
+  "items": [
+    { "productoId": 5, "cantidad": 3 },
+    { "nombre": "Gatorade", "precio": 3000, "cantidad": 1 }
+  ]
+}
+```
+- `medio`: `EFECTIVO` o `MERCADO_PAGO` (tarjeta o QR en el club). Obligatorio.
+- `clienteId`: opcional; si viene, tiene que ser un CLIENTE (`400` "El usuario indicado no es un cliente.").
+- `items`: de 1 a 20; cada uno con `cantidad` de 1 a 99 y un producto del catálogo (`productoId`) o uno escrito a mano (`nombre` de 2 a 100 caracteres y `precio`). A mano: si ya hay un producto con ese nombre (sin importar mayúsculas) se usa ese, con su precio; si no, queda dado de alta como producto de venta, sin control de stock y sin ofrecerse al reservar (el ADMIN lo puede editar después). Un producto repetido suma sus cantidades.
+- Se cobra el precio de hoy de cada producto. El stock baja en los que lo controlan.
+- Errores: `400` validación (`errors.items`, `errors.medio`…), ítem sin producto ni nombre y precio ("Indicá el producto (productoId) o su nombre y precio."), un alquiler ("Paletas se alquila con un turno: no se vende suelto.") o un producto dado de baja · `404` producto o cliente inexistente · `409` sin stock ("Agua mineral: hay 2 unidades en stock.") · `403` CLIENTE.
 
 ---
 
