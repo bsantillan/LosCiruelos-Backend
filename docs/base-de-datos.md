@@ -1,6 +1,6 @@
 # Base de datos
 
-PostgreSQL 16. El esquema lo crea Flyway en `src/main/resources/db/Migrations`: `V1__schema_inicial.sql` tiene el esquema completo (unifica las migraciones de desarrollo anteriores), `V2__stock_inicial_productos.sql` carga el stock inicial de pelotas y paletas, `V3__indice_mis_reservas.sql` agrega el índice del listado de reservas del cliente , `V4__politica_cancelacion.sql` agrega la política de reembolso a la configuración y `monto_reembolsado` a los pagos y `V5__reembolsos_pendientes_y_clave_idempotencia.sql` agrega el estado `REEMBOLSO_PENDIENTE`, `reembolso_solicitado_at` y `clave_idempotencia`,, `V6__stock_50_pelotas_y_paletas.sql` deja el stock en 50 pelotas y 50 paletas, `V7__precio_pelotas_y_paletas.sql` les pone precio de $5000 y `V8__whatsapp.sql` agrega el canal de notificaciones y la verificación del teléfono de los usuarios, la tabla `avisos_admin`, el recordatorio del turno y el tipo de código `VERIFY_PHONE`,, `V9__avisos_admin_activos.sql` el interruptor general de los avisos de cada ADMIN, `V10__preferencias_notificaciones.sql` el consentimiento de notificaciones del registro y los avisos que elige el cliente, `V11__celular_verificado_unico.sql` un índice único parcial (un celular verificado pertenece a una sola cuenta activa), `V12__topes_codigo_telefono.sql` la tabla `envios_codigo_telefono` para los topes de códigos por WhatsApp y `V13__NormalizarTelefonos` (migración **Java**, en `src/main/java/db/Migrations`) normaliza los teléfonos guardados antes de V8 con la misma regla que la app, sin tocar la verificación (los inválidos quedan en null),, `V14__indices_panel_reservas.sql` agrega índices para el listado del personal, `V15__bonificaciones.sql` el provider `BONIFICACION` y, en los pagos, quién los registró y el motivo,, `V16__fecha_reembolso.sql` la fecha de reembolso de los pagos (`reembolsado_at`) y los índices del cierre de caja, y `V17__partidos_y_turnos_fijos.sql` los partidos de 4 jugadores y los turnos fijos (estado `CONFIRMADA`, `reservas.tipo` y `turno_fijo_id`, tablas `reserva_jugadores`, `turnos_fijos` y `turno_fijo_jugadores`, y `pagos.jugador_id`). Las tres siguientes arman el **perfil de cada rol** colgado de la cuenta: `V18__suscripciones_en_clientes.sql` pasa `recibe_recordatorios` y `recibe_promociones` de `usuarios` a `clientes` (con sus valores), `V19__perfil_admin.sql` renombra `avisos_admin` a `admins` y crea la fila de cada ADMIN que no la tenía (con todos los avisos, lo mismo que significaba no tenerla) y `V20__perfiles_empleado_y_profesor.sql` crea `empleados` y `profesores` con la fila de cada usuario con ese rol. `V21__anticipacion_reservas.sql` agrega `configuracion.dias_anticipacion_reserva` (30 por defecto). `V22__partidos_con_responsable.sql` deja como cliente de cada partido a su jugador 1 (si era un invitado, el primer registrado pasa a ese lugar, también en los turnos fijos), `V23__partido_monto_general.sql` saca `pagos.jugador_id` (un partido se paga como un todo) y `V24__partidos_sin_senia.sql` pasa los partidos `SEÑADA` a `PARCIALMENTE_PAGADA`. V16 completa los datos viejos con la fecha más cercana que hay (pedido del reembolso a MP, cobro o creación del pago) y pone `paid_at` a los cobros de MP que quedaron devueltos o por devolver sin haber pasado por `APROBADO`. Hibernate solo **valida** que las entidades coincidan con las tablas (`ddl-auto=validate`).
+PostgreSQL 16. El esquema lo crea Flyway en `src/main/resources/db/Migrations`: `V1__schema_inicial.sql` tiene el esquema completo (unifica las migraciones de desarrollo anteriores), `V2__stock_inicial_productos.sql` carga el stock inicial de pelotas y paletas, `V3__indice_mis_reservas.sql` agrega el índice del listado de reservas del cliente , `V4__politica_cancelacion.sql` agrega la política de reembolso a la configuración y `monto_reembolsado` a los pagos y `V5__reembolsos_pendientes_y_clave_idempotencia.sql` agrega el estado `REEMBOLSO_PENDIENTE`, `reembolso_solicitado_at` y `clave_idempotencia`,, `V6__stock_50_pelotas_y_paletas.sql` deja el stock en 50 pelotas y 50 paletas, `V7__precio_pelotas_y_paletas.sql` les pone precio de $5000 y `V8__whatsapp.sql` agrega el canal de notificaciones y la verificación del teléfono de los usuarios, la tabla `avisos_admin`, el recordatorio del turno y el tipo de código `VERIFY_PHONE`,, `V9__avisos_admin_activos.sql` el interruptor general de los avisos de cada ADMIN, `V10__preferencias_notificaciones.sql` el consentimiento de notificaciones del registro y los avisos que elige el cliente, `V11__celular_verificado_unico.sql` un índice único parcial (un celular verificado pertenece a una sola cuenta activa), `V12__topes_codigo_telefono.sql` la tabla `envios_codigo_telefono` para los topes de códigos por WhatsApp y `V13__NormalizarTelefonos` (migración **Java**, en `src/main/java/db/Migrations`) normaliza los teléfonos guardados antes de V8 con la misma regla que la app, sin tocar la verificación (los inválidos quedan en null),, `V14__indices_panel_reservas.sql` agrega índices para el listado del personal, `V15__bonificaciones.sql` el provider `BONIFICACION` y, en los pagos, quién los registró y el motivo,, `V16__fecha_reembolso.sql` la fecha de reembolso de los pagos (`reembolsado_at`) y los índices del cierre de caja, y `V17__partidos_y_turnos_fijos.sql` los partidos de 4 jugadores y los turnos fijos (estado `CONFIRMADA`, `reservas.tipo` y `turno_fijo_id`, tablas `reserva_jugadores`, `turnos_fijos` y `turno_fijo_jugadores`, y `pagos.jugador_id`). Las tres siguientes arman el **perfil de cada rol** colgado de la cuenta: `V18__suscripciones_en_clientes.sql` pasa `recibe_recordatorios` y `recibe_promociones` de `usuarios` a `clientes` (con sus valores), `V19__perfil_admin.sql` renombra `avisos_admin` a `admins` y crea la fila de cada ADMIN que no la tenía (con todos los avisos, lo mismo que significaba no tenerla) y `V20__perfiles_empleado_y_profesor.sql` crea `empleados` y `profesores` con la fila de cada usuario con ese rol. `V21__anticipacion_reservas.sql` agrega `configuracion.dias_anticipacion_reserva` (30 por defecto). `V22__partidos_con_responsable.sql` deja como cliente de cada partido a su jugador 1 (si era un invitado, el primer registrado pasa a ese lugar, también en los turnos fijos), `V23__partido_monto_general.sql` saca `pagos.jugador_id` (un partido se paga como un todo) y `V24__partidos_sin_senia.sql` pasa los partidos `SEÑADA` a `PARCIALMENTE_PAGADA`. `V25__productos_al_reservar_y_stock.sql` agrega a los productos `ofrecer_al_reservar` (los que ya había, en true) y `controla_stock`, `V26__productos_de_turnos_fijos.sql` pasa `cantidad_pelotas` y `cantidad_paletas` de los turnos fijos a la tabla `turno_fijo_productos` (y saca esas columnas) y `V27__ventas_sueltas.sql` crea `ventas` y `venta_items`. V16 completa los datos viejos con la fecha más cercana que hay (pedido del reembolso a MP, cobro o creación del pago) y pone `paid_at` a los cobros de MP que quedaron devueltos o por devolver sin haber pasado por `APROBADO`. Hibernate solo **valida** que las entidades coincidan con las tablas (`ddl-auto=validate`).
 
 ## Cómo funcionan las migraciones
 
@@ -27,6 +27,9 @@ reservas 1──N pagos
 reservas 1──N reserva_jugadores   (partidos: 4 jugadores; el 1 es el responsable = reservas.cliente_id)
 turnos_fijos 1──N reservas        (reservas.turno_fijo_id, un partido por fecha)
 turnos_fijos 1──N turno_fijo_jugadores
+turnos_fijos 1──N turno_fijo_productos N──1 productos
+ventas   1──N venta_items N──1 productos   (ventas sueltas, sin reserva)
+usuarios 1──N ventas              (ventas.registrado_por_id; ventas.cliente_id, opcional)
 configuracion 1──N dias           (dias.configuracion_general_id)
 ```
 
@@ -120,12 +123,13 @@ Los 4 jugadores de un partido.
 | dia_semana | varchar(10) | `MONDAY` … `SUNDAY` |
 | hora_inicio, hora_fin | time(0) | |
 | desde | date | primera fecha que se juega |
-| cantidad_pelotas, cantidad_paletas | integer | productos de cada partido |
 | activo | boolean | false: dado de baja |
-| created_by_id | bigint | FK → usuarios (el ADMIN; es el "cliente" de sus partidos) |
+| created_by_id | bigint | FK → usuarios (el ADMIN que lo armó; el cliente de sus partidos es el jugador 1) |
 | created_at, dado_de_baja_at | timestamp | |
 
 `turno_fijo_jugadores` tiene las mismas columnas que `reserva_jugadores` con `turno_fijo_id` (ON DELETE CASCADE). Índice parcial `idx_turnos_fijos_activos (cancha_id, dia_semana) WHERE activo`.
+
+`turno_fijo_productos` (`TurnoFijoProducto`, V26): los productos de cada partido del turno fijo. `turno_fijo_id` (FK, ON DELETE CASCADE), `producto_id` (FK → productos), `cantidad integer` (> 0); `UNIQUE (turno_fijo_id, producto_id)`.
 
 ### `productos` (`Producto`)
 | Columna | Tipo | Notas |
@@ -138,6 +142,8 @@ Los 4 jugadores de un partido.
 | precio | numeric(10,2) | por unidad, ≥ 0 |
 | stock | integer | ≥ 0; VENTA = disponibles, ALQUILER = total |
 | activo | boolean | baja lógica |
+| ofrecer_al_reservar | boolean | el cliente lo pide al reservar (V25; default false, los existentes en true) |
+| controla_stock | boolean | false: el stock no se mira ni se descuenta (V25; default true) |
 
 ### `reserva_productos` (`ReservaProducto`)
 | Columna | Tipo | Notas |
@@ -151,6 +157,30 @@ Los 4 jugadores de un partido.
 | devuelta_at | timestamp | cuándo se registró la devolución |
 
 `UNIQUE (reserva_id, producto_id)`.
+
+### `ventas` (`Venta`) — V27
+Ventas sueltas (sin reserva), cobradas en el momento.
+| Columna | Tipo | Notas |
+|---|---|---|
+| id | bigint identity | PK |
+| created_at | timestamp(6) | cuándo se vendió (cuenta en la caja de ese día) |
+| total | numeric(10,2) | ≥ 0; suma de los ítems |
+| medio | varchar(20) | CHECK: EFECTIVO, MERCADO_PAGO (tarjeta o QR en el club) |
+| cliente_id | bigint | FK → usuarios, opcional |
+| registrado_por_id | bigint | FK → usuarios (ADMIN o EMPLEADO) |
+
+Índice `idx_ventas_created_at (created_at)`.
+
+### `venta_items` (`VentaItem`) — V27
+| Columna | Tipo | Notas |
+|---|---|---|
+| id | bigint identity | PK |
+| venta_id | bigint | FK → ventas, ON DELETE CASCADE |
+| producto_id | bigint | FK → productos |
+| cantidad | integer | > 0 |
+| precio_unitario | numeric(10,2) | ≥ 0; el precio del momento |
+
+`UNIQUE (venta_id, producto_id)`.
 
 ### `pagos` (`Pago`)
 | Columna | Tipo | Notas |
@@ -210,4 +240,4 @@ Además, las restricciones `UNIQUE` (email, código de producto, `verification_t
 
 ## Datos de prueba (solo desarrollo)
 
-`scripts/datos-de-prueba/datos-de-prueba.sql` borra todos los datos de la base de desarrollo y carga un ecosistema para probar a mano: lo básico (configuración, días, canchas y productos), los ADMIN que había (mismo mail y contraseña), un empleado, un profesor, siete clientes (uno con el perfil incompleto, uno de Google y uno desactivado) y reservas en varios estados con sus pagos. Las fechas son relativas al día en que se corre. Cómo usarlo, en [scripts/datos-de-prueba/README.md](../scripts/datos-de-prueba/README.md). Nunca se corre en producción.
+`scripts/datos-de-prueba/datos-de-prueba.sql` borra todos los datos de la base de desarrollo y carga un ecosistema para probar a mano: lo básico (configuración, días, canchas y productos), los ADMIN que había (mismo mail y contraseña), un empleado, un profesor, siete clientes (uno con el perfil incompleto, uno de Google y uno desactivado) reservas en varios estados con sus pagos, un consumo cargado después de jugar y ventas sueltas. Las fechas son relativas al día en que se corre. Cómo usarlo, en [scripts/datos-de-prueba/README.md](../scripts/datos-de-prueba/README.md). Nunca se corre en producción.

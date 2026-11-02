@@ -57,7 +57,7 @@ Después, con la cancha bloqueada:
 6. Se guarda en `PENDIENTE` con `expiresAt = ahora + 15 min`.
 
 **Monto de la cancha** = `montoReserva + montoXMediaHora × (duración / 30)`. Con la configuración inicial, 90 min = $15 000.
-**Monto de productos** = `cantidadPelotas × precio de Pelotas + cantidadPaletas × precio de Paletas` (precios del momento, congelados en la reserva).
+**Monto de productos** = `Σ cantidad × precio de cada producto pedido` (precios del momento, congelados en la reserva). El cliente pide solo los que se ofrecen al reservar; el personal, cualquiera activo.
 **Total** = cancha + productos. **Seña** = `total × porcentajeSenia / 100`. Ej.: 90 min + 2 pelotas a $1 500 + 3 paletas a $2 000 → total $24 000, seña $12 000.
 
 Si cualquier paso falla, la transacción se revierte entera: no quedan reservas canceladas a medias.
@@ -198,19 +198,33 @@ Se ocultan siempre las **descartadas**: canceladas o vencidas sin ningún pago q
 - Si vuelven menos de las alquiladas, las faltantes (rotas o perdidas) **se descuentan del stock total** y queda un warning en el log.
 - **Mientras no se registre la devolución**, las paletas de un turno terminado cuentan como afuera del club y no se pueden volver a alquilar. Ejemplo: 4 paletas en total, 3 de un turno de las 18:00 sin devolver → a las 20:00 solo se ofrece 1.
 
+### 9 bis. Productos que suma el personal — `POST/DELETE /admin/reservas/{id}/productos`
+- Lo que el cliente pide en el club (una bebida, otro tubo de pelotas) se carga en su reserva o partido **antes, durante o después del turno**, mientras esté confirmado (también `COMPLETADA`) y sin un pago online en proceso.
+- Un producto del catálogo o uno escrito a mano (nombre y precio): si no existe con ese nombre, se da de alta como producto de venta, sin control de stock y sin ofrecerse al reservar.
+- El total cambia y el estado se recalcula con lo pagado: una reserva `PAGADA` o `COMPLETADA` que suma algo vuelve a quedar con saldo (`SEÑADA` o `PARCIALMENTE_PAGADA`; un partido, `PARCIALMENTE_PAGADA`) y, si ya se jugó, aparece como deuda hasta que se cobra.
+- Sacar unidades devuelve el stock de venta; el total no puede quedar por debajo de lo ya pagado.
+
+### 9 ter. Ventas sueltas — `/admin/ventas`
+- El personal registra lo que vende sin reserva (una bebida, pelotas): se cobra en el momento, en efectivo o con Mercado Pago en el club, y se puede asociar a un cliente.
+- Cada ítem es un producto de venta del catálogo o uno escrito a mano, que queda dado de alta igual que en una reserva. Los alquileres (paletas) no se venden sueltos.
+- El stock baja en el momento (con los productos bloqueados en orden de id) y no vuelve: una venta no se cancela.
+- Entra en la caja del día (`efectivo` o `mercadoPagoPresencial`), en `ventas` y en `productos` del resumen. El EMPLEADO ve solo las de hoy, igual que el resumen.
+
 ### 10. Consultas
 - `GET /reservas/mias`: reservas del usuario, de la más reciente a la más antigua.
 - `GET /reservas/{id}`: detalle con sus pagos (dueño o staff). El front la consulta para saber cómo terminó un pago `EN_PROCESO`.
 
 ### Productos y stock
 
-Pelotas y paletas son productos del catálogo (`/admin/configuracion/productos`), con precio por unidad y stock. El admin puede sumar otros productos al catálogo (por ejemplo, agua), aunque por ahora la reserva solo pide pelotas y paletas.
+Pelotas, paletas y lo que el ADMIN sume (por ejemplo, agua) son productos del catálogo (`/admin/configuracion/productos`), con precio por unidad y stock. Cada producto dice:
+- **si se ofrece al reservar** (`ofrecerAlReservar`): el cliente lo ve y lo pide al reservar. Los demás los carga solo el personal, en una reserva, un partido o una venta suelta;
+- **si controla stock** (`controlaStock`): si no, no tiene tope y el stock no se mueve.
 
 **Quién maneja el stock**: el ADMIN crea y edita productos (nombre, precio, tipo, stock). El EMPLEADO puede ver el catálogo y ajustar el stock (`PATCH …/stock`, por ejemplo +12 al reponer o −1 por una rotura) y registra las devoluciones de paletas.
 
 | Tipo | Qué significa el stock | Al reservar | Al cancelar o expirar | Al terminar el turno |
 |---|---|---|---|---|
-| `VENTA` (pelotas) | unidades disponibles hoy | baja | vuelve | no vuelve (se entregaron) |
+| `VENTA` (pelotas, bebidas) | unidades disponibles hoy | baja (también al sumarlo después o en una venta suelta) | vuelve | no vuelve (se entregaron) |
 | `ALQUILER` (paletas) | unidades totales del club | no cambia; se controla el uso en ese horario | se libera sola (la reserva deja de contar) | quedan "afuera" hasta que el personal registra la devolución; las faltantes bajan el stock |
 
 - **Alquiler**: las unidades libres para un horario son `stock − máximo en uso al mismo tiempo − unidades de turnos terminados sin devolver`, sumando **todas las canchas**. Se cuentan las reservas que ocupan su turno (las mismas que bloquean la cancha). Ejemplo con 4 paletas: si hay 2 alquiladas de 18:00 a 19:30 y 2 de 19:30 a 21:00, para 18:30 a 20:00 quedan 2, porque nunca se usan las 4 juntas.

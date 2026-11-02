@@ -5,7 +5,6 @@ import java.util.Comparator;
 
 import org.springframework.stereotype.Component;
 
-import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.common.Reloj;
@@ -79,8 +78,6 @@ public class ReservaMapper {
         response.setMontoPagado(reserva.getMontoPagado());
         response.setMontoBonificado(reserva.getMontoBonificado());
         response.setMontoPendiente(reserva.getMontoPendiente());
-        response.setCantidadPelotas(reserva.cantidadDe(Producto.CODIGO_PELOTAS));
-        response.setCantidadPaletas(reserva.cantidadDe(Producto.CODIGO_PALETAS));
         response.setProductos(reserva.getProductos().stream().map(ReservaMapper::producto).toList());
         response.setEstado(reserva.getEstado());
         response.setTipo(reserva.getTipo());

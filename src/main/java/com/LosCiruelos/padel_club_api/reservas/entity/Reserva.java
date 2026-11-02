@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.reservas.entity;
 
+import java.util.TreeMap;
+import java.util.Map;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -158,6 +160,13 @@ public class Reserva {
         return jugadores.stream().anyMatch(j -> j.getUsuario() != null && j.getUsuario().getId().equals(usuario.getId()));
     }
 
+    /** Lo pedido: id del producto → cantidad. */
+    public Map<Long, Integer> pedidoDeProductos() {
+        Map<Long, Integer> pedido = new TreeMap<>();
+        productos.forEach(i -> pedido.put(i.getProducto().getId(), i.getCantidad()));
+        return pedido;
+    }
+
     /** Cantidad pedida del producto del sistema con ese código (0 si no se pidió). */
     public int cantidadDe(String codigoProducto) {
         return productos.stream()
@@ -285,6 +294,17 @@ public class Reserva {
         }
         estado = nuevo;
         return true;
+    }
+
+    /**
+     * Cambió el total (productos que suma o saca el personal): el estado se recalcula con lo
+     * cubierto. Una COMPLETADA que queda con saldo vuelve a estar abierta (deuda) hasta que se cobre.
+     */
+    public void recalcularPorCambioDeTotal(BigDecimal senia, LocalDateTime ahora) {
+        if (estado == EstadoReserva.COMPLETADA && getMontoPendiente().signum() > 0) {
+            estado = EstadoReserva.PAGADA;
+        }
+        recalcularEstado(senia, ahora);
     }
 
     /** Fecha y horario de la reserva (duración, superposición, si empezó o terminó). */

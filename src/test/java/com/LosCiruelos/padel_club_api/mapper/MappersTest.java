@@ -59,8 +59,7 @@ class MappersTest {
     void unTurnoFijoConSusJugadoresYProximosPartidos() {
         Usuario cliente = usuario(1L, Role.CLIENTE);
         TurnoFijo tf = TurnoFijo.builder().id(8L).cancha(TestData.cancha()).diaSemana(DayOfWeek.WEDNESDAY)
-                .horaInicio(LocalTime.of(20, 0)).horaFin(LocalTime.of(21, 30)).desde(MANIANA).cantidadPelotas(1)
-                .cantidadPaletas(0).activo(true).createdAt(AHORA).build();
+                .horaInicio(LocalTime.of(20, 0)).horaFin(LocalTime.of(21, 30)).desde(MANIANA).activo(true).createdAt(AHORA).build();
         tf.getJugadores().add(TurnoFijoJugador.builder().posicion(1).usuario(cliente).build());
         tf.getJugadores().add(TurnoFijoJugador.builder().posicion(2).nombre("Invitado").telefono("11 5555-0000").build());
         Reserva proximo = TestData.reserva(70L, cliente, EstadoReserva.CONFIRMADA, "15000");

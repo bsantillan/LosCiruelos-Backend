@@ -21,8 +21,8 @@ public class TurnoFijoResponse {
     LocalTime horaFin;
     // primera fecha que se juega
     LocalDate desde;
-    Integer cantidadPelotas;
-    Integer cantidadPaletas;
+    // lo que se pide en cada partido
+    List<Producto> productos;
     Boolean activo;
     LocalDateTime createdAt;
     LocalDateTime dadoDeBajaAt;
@@ -36,6 +36,9 @@ public class TurnoFijoResponse {
     List<Long> partidosSinCambiar;
 
     public record Jugador(Integer posicion, Long usuarioId, String nombre, String telefono, Boolean invitado) {
+    }
+
+    public record Producto(Long productoId, String nombre, Integer cantidad) {
     }
 
     public record Partido(Long reservaId, LocalDate fecha, EstadoReserva estado, BigDecimal montoTotal,

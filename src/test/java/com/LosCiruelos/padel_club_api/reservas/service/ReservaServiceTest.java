@@ -1,5 +1,9 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import static org.mockito.ArgumentMatchers.anyInt;
+import com.LosCiruelos.padel_club_api.reservas.dto.request.AgregarProductoRequest;
+import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaProductoResponse;
+import com.LosCiruelos.padel_club_api.reservas.dto.request.ProductoPedidoRequest;
 import static com.LosCiruelos.padel_club_api.TestData.AHORA;
 import static com.LosCiruelos.padel_club_api.TestData.HOY;
 import static com.LosCiruelos.padel_club_api.TestData.MANIANA;
@@ -140,8 +144,6 @@ class ReservaServiceTest {
         req.setFechaReserva(fecha);
         req.setHoraInicio(LocalTime.parse(inicio));
         req.setHoraFin(LocalTime.parse(fin));
-        req.setCantidadPelotas(0);
-        req.setCantidadPaletas(0);
         return req;
     }
 
@@ -152,8 +154,6 @@ class ReservaServiceTest {
         req.setFechaReserva(MANIANA);
         req.setHoraInicio(LocalTime.parse("18:00"));
         req.setHoraFin(LocalTime.parse("19:30"));
-        req.setCantidadPelotas(0);
-        req.setCantidadPaletas(0);
         req.setClienteId(clienteId);
         return req;
     }
@@ -237,8 +237,7 @@ class ReservaServiceTest {
                 return null;
             }).when(stockService).moverStock(any(), any(), any(), any());
             CrearReservaRequest req = pedido(MANIANA, "18:00", "19:30");
-            req.setCantidadPelotas(2);
-            req.setCantidadPaletas(4);
+            req.setProductos(List.of(new ProductoPedidoRequest(1L, 2), new ProductoPedidoRequest(2L, 4)));
 
             ReservaResponse r = reservaService.crearParaMi(req, cliente.getEmail());
 
@@ -246,10 +245,10 @@ class ReservaServiceTest {
             assertThat(r.getMontoProductos()).isEqualByComparingTo("11000");
             assertThat(r.getMontoTotal()).isEqualByComparingTo("26000");
             assertThat(r.getMontoSenia()).isEqualByComparingTo("13000"); // 50 % del total
-            assertThat(r.getCantidadPelotas()).isEqualTo(2);
-            assertThat(r.getCantidadPaletas()).isEqualTo(4);
-            verify(stockService).moverStock(eq(List.of()), any(Reserva.class),
-                    eq(Map.of(Producto.CODIGO_PELOTAS, 2, Producto.CODIGO_PALETAS, 4)), eq(AHORA));
+            assertThat(r.getProductos()).extracting(ReservaProductoResponse::getCantidad).containsExactly(2, 4);
+            verify(stockService).moverStock(eq(List.of()), any(Reserva.class), eq(Map.of(1L, 2, 2L, 4)), eq(AHORA));
+            // el cliente pide solo lo que se ofrece al reservar
+            verify(stockService).exigirQueSeOfrezcan(Map.of(1L, 2, 2L, 4));
         }
 
         @Test
@@ -403,7 +402,7 @@ class ReservaServiceTest {
                 return null;
             }).when(stockService).moverStock(any(), eq(existente), any(), any());
             CrearReservaRequest req = pedido(MANIANA, "18:00", "19:30");
-            req.setCantidadPelotas(3);
+            req.setProductos(List.of(new ProductoPedidoRequest(1L, 3)));
 
             ReservaResponse r = reservaService.crearParaMi(req, cliente.getEmail());
 
@@ -538,5 +537,82 @@ class ReservaServiceTest {
                 eq(HOY), eq(AHORA.toLocalTime()))).thenReturn(3);
 
         assertThat(reservaService.marcarCompletadas()).isEqualTo(3);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class ProductosQueSumaElPersonal {
+
+        private Reserva reserva;
+        private final Producto agua = Producto.builder().id(9L).nombre("Agua").tipo(TipoProducto.VENTA)
+                .precio(new BigDecimal("2000")).stock(10).build();
+
+        @BeforeEach
+        void reservaPagada() {
+            reserva = reserva(30L, cliente, EstadoReserva.PAGADA, "15000");
+            pago(1L, reserva, EstadoPago.APROBADO, "15000");
+            when(reservaRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(reserva));
+            when(stockService.productoParaAgregar(9L, null, null)).thenReturn(agua);
+            // el stock agrega el producto a la reserva
+            doAnswer(inv -> {
+                agregarProducto(inv.getArgument(0), "AGUA", TipoProducto.VENTA, inv.getArgument(2), "2000");
+                return null;
+            }).when(stockService).agregar(any(), eq(agua), anyInt(), any());
+        }
+
+        private AgregarProductoRequest agua(int cantidad) {
+            AgregarProductoRequest req = new AgregarProductoRequest();
+            req.setProductoId(9L);
+            req.setCantidad(cantidad);
+            return req;
+        }
+
+        @Test
+        void unaReservaPagaVuelveAQuedarConSaldo() {
+            ReservaResponse r = reservaService.agregarProducto(30L, agua(2), admin.getEmail());
+
+            assertThat(r.getMontoTotal()).isEqualByComparingTo("19000");
+            assertThat(r.getMontoCancha()).isEqualByComparingTo("15000");
+            assertThat(r.getMontoPendiente()).isEqualByComparingTo("4000");
+            // 15000 cubiertos de 19000: más que la seña (9500)
+            assertThat(r.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
+        }
+
+        @Test
+        void unaReservaYaJugadaYCompletadaSeReabreComoDeuda() {
+            reserva.setEstado(EstadoReserva.COMPLETADA);
+            reserva.setFechaReserva(HOY.minusDays(1));
+
+            ReservaResponse r = reservaService.agregarProducto(30L, agua(1), admin.getEmail());
+
+            assertThat(r.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
+            assertThat(r.getMontoPendiente()).isEqualByComparingTo("2000");
+            assertThat(r.getDebeSaldo()).isTrue();
+        }
+
+        @Test
+        void unaReservaPendienteNoAdmiteProductosDelPersonal() {
+            reserva.setEstado(EstadoReserva.PENDIENTE);
+
+            assertThatThrownBy(() -> reservaService.agregarProducto(30L, agua(1), admin.getEmail()))
+                    .isInstanceOf(EstadoInvalidoException.class)
+                    .hasMessage("No se pueden cambiar los productos de una reserva PENDIENTE.");
+        }
+
+        @Test
+        void sacarUnProductoNoPuedeDejarElTotalPorDebajoDeLoPagado() {
+            agregarProducto(reserva, "AGUA", TipoProducto.VENTA, 2, "2000");
+            reserva.setMontoTotal(new BigDecimal("19000"));
+            pago(2L, reserva, EstadoPago.APROBADO, "4000");
+            doAnswer(inv -> {
+                reserva.getProductos().clear();
+                return null;
+            }).when(stockService).quitar(reserva, 9L, null);
+
+            assertThatThrownBy(() -> reservaService.quitarProducto(30L, 9L, null, admin.getEmail()))
+                    .isInstanceOf(EstadoInvalidoException.class)
+                    .hasMessage("El total nuevo ($15000) es menor que lo ya pagado ($19000).");
+        }
     }
 }

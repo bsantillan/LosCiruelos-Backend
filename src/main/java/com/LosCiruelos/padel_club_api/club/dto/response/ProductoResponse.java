@@ -17,4 +17,6 @@ public class ProductoResponse {
     private BigDecimal precio;
     private Integer stock;
     private Boolean activo;
+    private Boolean ofrecerAlReservar;
+    private Boolean controlaStock;
 }

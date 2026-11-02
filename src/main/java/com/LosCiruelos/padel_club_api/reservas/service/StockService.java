@@ -1,5 +1,8 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
+import java.math.BigDecimal;
+import com.LosCiruelos.padel_club_api.reservas.dto.request.ProductoPedidoRequest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -51,16 +54,16 @@ public class StockService {
     private final EntityManager entityManager;
     private final Reloj reloj;
 
-    /** Unidades que se pueden pedir de cada producto activo para un horario. */
+    /** Unidades que se pueden pedir de cada producto que se ofrece al reservar, para un horario. */
     @Transactional(readOnly = true)
     public List<ProductoDisponibleResponse> disponibilidad(LocalDate fecha, LocalTime inicio, LocalTime fin) {
         if (!inicio.isBefore(fin)) {
             throw new ReservaException("La hora de inicio debe ser anterior a la hora de fin.");
         }
         LocalDateTime ahora = reloj.ahora();
-        return productoService.activos().stream()
+        return productoService.paraReservar().stream()
                 .map(p -> new ProductoDisponibleResponse(p.getId(), p.getCodigo(), p.getNombre(), p.getTipo(),
-                        p.getPrecio(), disponibles(p, fecha, inicio, fin, null, ahora)))
+                        p.getPrecio(), p.llevaStock() ? disponibles(p, fecha, inicio, fin, null, ahora) : null))
                 .toList();
     }
 
@@ -69,16 +72,16 @@ public class StockService {
      * <ol>
      * <li>devuelve el stock de VENTA de {@code aLiberar} (reservas que se cancelan o expiran);</li>
      * <li>si hay {@code destino}, devuelve el stock de sus productos actuales y los reemplaza por
-     * {@code pedido} (código de producto → cantidad), validando el stock disponible.</li>
+     * {@code pedido} (id de producto → cantidad), validando el stock disponible.</li>
      * </ol>
      * Las reservas de {@code aLiberar} y {@code destino} tienen que estar bloqueadas de antes.
      */
-    public void moverStock(Collection<Reserva> aLiberar, Reserva destino, Map<String, Integer> pedido,
+    public void moverStock(Collection<Reserva> aLiberar, Reserva destino, Map<Long, Integer> pedido,
             LocalDateTime ahora) {
-        Map<String, Integer> cantidades = new TreeMap<>();
-        pedido.forEach((codigo, cantidad) -> {
+        Map<Long, Integer> cantidades = new TreeMap<>();
+        pedido.forEach((productoId, cantidad) -> {
             if (cantidad != null && cantidad > 0) {
-                cantidades.put(codigo, cantidad);
+                cantidades.put(productoId, cantidad);
             }
         });
 
@@ -88,7 +91,7 @@ public class StockService {
         if (destino != null) {
             destino.getProductos().forEach(i -> ids.add(i.getProducto().getId()));
         }
-        List<Producto> pedidos = cantidades.isEmpty() ? List.of() : productoService.buscarPorCodigos(cantidades.keySet());
+        List<Producto> pedidos = productosDe(cantidades);
         pedidos.forEach(p -> ids.add(p.getId()));
         if (ids.isEmpty()) {
             return;
@@ -106,15 +109,130 @@ public class StockService {
         devolverStockDeVenta(destino);
         // los ítems que se siguen pidiendo se actualizan en el lugar (borrar y recrear choca con
         // UNIQUE (reserva_id, producto_id) porque Hibernate inserta antes de borrar)
-        destino.getProductos().removeIf(i -> !cantidades.containsKey(i.getProducto().getCodigo()));
+        destino.getProductos().removeIf(i -> !cantidades.containsKey(i.getProducto().getId()));
 
         // 3. Tomar lo pedido
-        for (Map.Entry<String, Integer> entrada : cantidades.entrySet()) {
+        for (Map.Entry<Long, Integer> entrada : cantidades.entrySet()) {
             Producto producto = pedidos.stream()
-                    .filter(p -> p.getCodigo().equals(entrada.getKey()))
+                    .filter(p -> p.getId().equals(entrada.getKey()))
                     .findFirst()
-                    .orElseThrow(() -> new ReservaException("El producto " + entrada.getKey() + " no existe."));
+                    .orElseThrow();
             tomar(destino, producto, entrada.getValue(), ahora);
+        }
+    }
+
+    /** Lo pedido en una reserva, un partido o un turno fijo: id de producto → cantidad (los repetidos se suman). */
+    public static Map<Long, Integer> pedido(List<ProductoPedidoRequest> productos) {
+        Map<Long, Integer> pedido = new TreeMap<>();
+        if (productos != null) {
+            productos.forEach(p -> pedido.merge(p.getProductoId(), p.getCantidad(), Integer::sum));
+        }
+        return pedido;
+    }
+
+    /** Los productos de un pedido; si alguno no existe, 400. */
+    public List<Producto> productosDe(Map<Long, Integer> pedido) {
+        if (pedido.isEmpty()) {
+            return List.of();
+        }
+        List<Producto> productos = productoService.buscarPorIds(pedido.keySet());
+        pedido.keySet().stream()
+                .filter(id -> productos.stream().noneMatch(p -> p.getId().equals(id)))
+                .findFirst()
+                .ifPresent(id -> {
+                    throw new ReservaException("El producto " + id + " no existe.");
+                });
+        return productos;
+    }
+
+    /** El cliente solo pide al reservar los productos que se ofrecen (el resto los agrega el personal). */
+    public void exigirQueSeOfrezcan(Map<Long, Integer> pedido) {
+        productosDe(pedido).stream()
+                .filter(p -> !p.seOfreceAlReservar())
+                .findFirst()
+                .ifPresent(p -> {
+                    throw new ReservaException(p.getNombre() + " no se puede pedir al reservar: pedíselo al club.");
+                });
+    }
+
+    /**
+     * El producto que suma el personal: uno del catálogo o, si no hay {@code productoId}, uno escrito
+     * a mano (nombre y precio), que queda dado de alta.
+     */
+    public Producto productoParaAgregar(Long productoId, String nombre, BigDecimal precio) {
+        if (productoId != null) {
+            return productoService.obtener(productoId);
+        }
+        if (nombre == null || nombre.isBlank() || precio == null) {
+            throw new ReservaException("Indicá el producto (productoId) o su nombre y precio.");
+        }
+        return productoService.productoManual(nombre, precio);
+    }
+
+    /**
+     * Suma unidades de un producto a la reserva (ya bloqueada), con el producto bloqueado. Los que ya
+     * tenía mantienen su precio; uno nuevo toma el precio de hoy.
+     */
+    public void agregar(Reserva reserva, Producto producto, int cantidad, LocalDateTime ahora) {
+        entityManager.refresh(producto, LockModeType.PESSIMISTIC_WRITE);
+        if (!Boolean.TRUE.equals(producto.getActivo())) {
+            throw new ReservaException(producto.getNombre() + " no está disponible por el momento.");
+        }
+        ReservaProducto item = reserva.getProductos().stream()
+                .filter(i -> i.getProducto().getId().equals(producto.getId()))
+                .findFirst()
+                .orElse(null);
+        int yaPedidas = item != null ? item.getCantidad() : 0;
+        if (producto.llevaStock()) {
+            // venta: el stock ya tiene descontado lo de esta reserva; alquiler: cuenta el total en uso
+            int disponibles = disponibles(producto, reserva.getFechaReserva(), reserva.getHoraInicio(),
+                    reserva.getHoraFin(), reserva.getId(), ahora);
+            int necesarias = producto.getTipo() == TipoProducto.VENTA ? cantidad : yaPedidas + cantidad;
+            if (necesarias > disponibles) {
+                String unidades = disponibles == 1 ? "1 unidad" : disponibles + " unidades";
+                throw new StockInsuficienteException(producto.getTipo() == TipoProducto.VENTA
+                        ? "%s: hay %s en stock.".formatted(producto.getNombre(), unidades)
+                        : "%s: hay %s disponibles para ese horario.".formatted(producto.getNombre(), unidades));
+            }
+            if (producto.getTipo() == TipoProducto.VENTA) {
+                producto.setStock(producto.getStock() - cantidad);
+            }
+        }
+        if (item == null) {
+            reserva.getProductos().add(ReservaProducto.builder().reserva(reserva).producto(producto)
+                    .cantidad(cantidad).precioUnitario(producto.getPrecio()).build());
+        } else {
+            item.setCantidad(yaPedidas + cantidad);
+        }
+    }
+
+    /**
+     * Saca unidades de un producto de la reserva (ya bloqueada); null saca todas. El stock de venta
+     * vuelve. No se puede sacar un alquiler que ya tiene la devolución registrada.
+     */
+    public void quitar(Reserva reserva, Long productoId, Integer cantidad) {
+        ReservaProducto item = reserva.getProductos().stream()
+                .filter(i -> i.getProducto().getId().equals(productoId))
+                .findFirst()
+                .orElseThrow(() -> new ReservaException("La reserva no tiene el producto " + productoId + "."));
+        int aSacar = cantidad != null ? cantidad : item.getCantidad();
+        if (aSacar < 1 || aSacar > item.getCantidad()) {
+            throw new ReservaException("Se pidieron %d: se pueden sacar entre 1 y %d."
+                    .formatted(item.getCantidad(), item.getCantidad()));
+        }
+        if (item.devolucionRegistrada()) {
+            throw new EstadoInvalidoException("La devolución de " + item.getProducto().getNombre()
+                    + " ya fue registrada: no se puede sacar.");
+        }
+        Producto producto = item.getProducto();
+        entityManager.refresh(producto, LockModeType.PESSIMISTIC_WRITE);
+        if (producto.getTipo() == TipoProducto.VENTA && producto.llevaStock()) {
+            producto.setStock(producto.getStock() + aSacar);
+        }
+        if (aSacar == item.getCantidad()) {
+            reserva.getProductos().remove(item);
+        } else {
+            item.setCantidad(item.getCantidad() - aSacar);
         }
     }
 
@@ -127,15 +245,15 @@ public class StockService {
         if (!Boolean.TRUE.equals(producto.getActivo())) {
             throw new ReservaException(producto.getNombre() + " no está disponible por el momento.");
         }
-        int disponibles = disponibles(producto, destino.getFechaReserva(), destino.getHoraInicio(),
-                destino.getHoraFin(), destino.getId(), ahora);
+        int disponibles = producto.llevaStock() ? disponibles(producto, destino.getFechaReserva(),
+                destino.getHoraInicio(), destino.getHoraFin(), destino.getId(), ahora) : Integer.MAX_VALUE;
         if (cantidad > disponibles) {
             String unidades = disponibles == 1 ? "1 unidad" : disponibles + " unidades";
             throw new StockInsuficienteException(producto.getTipo() == TipoProducto.VENTA
                     ? "%s: hay %s en stock.".formatted(producto.getNombre(), unidades)
                     : "%s: hay %s disponibles para ese horario.".formatted(producto.getNombre(), unidades));
         }
-        if (producto.getTipo() == TipoProducto.VENTA) {
+        if (producto.getTipo() == TipoProducto.VENTA && producto.llevaStock()) {
             producto.setStock(producto.getStock() - cantidad);
         }
 
@@ -154,7 +272,7 @@ public class StockService {
     private void devolverStockDeVenta(Reserva reserva) {
         for (ReservaProducto item : reserva.getProductos()) {
             Producto producto = item.getProducto();
-            if (producto.getTipo() == TipoProducto.VENTA) {
+            if (producto.getTipo() == TipoProducto.VENTA && producto.llevaStock()) {
                 producto.setStock(producto.getStock() + item.getCantidad());
             }
         }

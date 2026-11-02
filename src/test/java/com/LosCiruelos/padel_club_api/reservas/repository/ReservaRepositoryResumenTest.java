@@ -30,6 +30,14 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.club.entity.Producto;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
+import com.LosCiruelos.padel_club_api.mapper.VentaMapper;
+import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
+import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
+import com.LosCiruelos.padel_club_api.ventas.repository.VentaRepository;
+import com.LosCiruelos.padel_club_api.ventas.service.VentaConsultaService;
+import com.LosCiruelos.padel_club_api.reservas.entity.ReservaProducto;
 
 /**
  * Las consultas del resumen contra una base real (H2, esquema generado por Hibernate), a través
@@ -48,6 +56,9 @@ class ReservaRepositoryResumenTest {
 
     @Autowired
     private ReservaRepository repo;
+
+    @Autowired
+    private VentaRepository ventaRepo;
 
     private Usuario cliente;
     private Cancha cancha;
@@ -121,8 +132,10 @@ class ReservaRepositoryResumenTest {
 
     private ResumenResponse resumen(LocalDate desde, LocalDate hasta, LocalDateTime ahora) {
         Reloj reloj = TestData.reloj(ahora);
+        VentaConsultaService ventas = new VentaConsultaService(ventaRepo, mock(UsuarioService.class), new VentaMapper(),
+                reloj);
         return new ReservaConsultaService(mock(UsuarioService.class), repo, mock(ReservaMapper.class), new ResumenMapper(),
-                reloj).resumen(desde, hasta);
+                ventas, reloj).resumen(desde, hasta);
     }
 
     private static BigDecimal $(String monto) {
@@ -218,6 +231,40 @@ class ReservaRepositoryResumenTest {
     }
 
     @Test
+    void lasVentasSueltasEntranEnLaCajaYEnLosProductosDelDiaEnQueSeCobraron() {
+        Producto agua = em.persist(Producto.builder().nombre("Agua").tipo(TipoProducto.VENTA).precio($("1500"))
+                .stock(10).activo(true).ofrecerAlReservar(false).controlaStock(true).build());
+        Producto pelotas = em.persist(Producto.builder().nombre("Pelotas").tipo(TipoProducto.VENTA).precio($("8000"))
+                .stock(10).activo(true).ofrecerAlReservar(true).controlaStock(true).build());
+        // la reserva de hoy terminada se llevó un tubo de pelotas
+        Reserva hoyTerminada = repo.findAll().stream().filter(r -> r.getFechaReserva().equals(HOY)
+                && r.getHoraInicio().equals(LocalTime.of(8, 0))).findFirst().orElseThrow();
+        em.persist(ReservaProducto.builder().reserva(hoyTerminada).producto(pelotas).cantidad(1)
+                .precioUnitario($("8000")).build());
+        venta(HOY.atTime(9, 50), MedioDePago.EFECTIVO, agua, 2);
+        venta(HOY.atTime(9, 55), MedioDePago.MERCADO_PAGO, pelotas, 1);
+        venta(HOY.minusDays(1).atTime(21, 0), MedioDePago.EFECTIVO, agua, 5); // ayer: no cuenta hoy
+        em.flush();
+
+        ResumenResponse r = resumen(HOY, HOY, TestData.AHORA);
+
+        assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(2, $("11000.00")));
+        // efectivo: el agua (3.000); MP presencial: el mostrador (12.000) + las pelotas (8.000)
+        assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("36500.00"), $("3000.00"), $("13500.00"),
+                $("20000.00"), $("0.00"), $("36500.00")));
+        assertThat(r.productos()).extracting(ProductoVendido::nombre, ProductoVendido::cantidad)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("Agua", 2L),
+                        org.assertj.core.groups.Tuple.tuple("Pelotas", 2L));
+        assertThat(r.productos().get(1).monto()).isEqualByComparingTo("16000");
+    }
+
+    private void venta(LocalDateTime cuando, MedioDePago medio, Producto producto, int cantidad) {
+        Venta venta = Venta.builder().createdAt(cuando).medio(medio).registradoPor(cliente).build();
+        venta.agregar(producto, cantidad);
+        em.persist(venta);
+    }
+
+    @Test
     void unPeriodoSinNadaDaTodoEnCero() {
         ResumenResponse r = resumen(LocalDate.of(2027, 1, 1), LocalDate.of(2027, 1, 31), TestData.AHORA);
 
@@ -225,6 +272,7 @@ class ReservaRepositoryResumenTest {
         assertThat(r.porJugar().montoTotal()).isEqualTo($("0.00"));
         assertThat(r.caja().neto()).isEqualTo($("0.00"));
         assertThat(r.cancelaciones()).isEqualTo(new ResumenResponse.Cancelaciones(0, $("0.00")));
+        assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(0, $("0.00")));
         assertThat(r.productos()).isEmpty();
     }
 }

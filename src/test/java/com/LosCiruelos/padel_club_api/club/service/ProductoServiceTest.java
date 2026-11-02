@@ -30,6 +30,8 @@ import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.club.exception.StockInsuficienteException;
 import com.LosCiruelos.padel_club_api.club.repository.ProductoRepository;
 
+import jakarta.persistence.EntityManager;
+
 class ProductoServiceTest {
 
     private ProductoRepository productoRepository;
@@ -41,16 +43,16 @@ class ProductoServiceTest {
     @BeforeEach
     void setUp() {
         productoRepository = mock(ProductoRepository.class);
-        servicio = new ProductoService(productoRepository, new ProductoMapper());
+        servicio = new ProductoService(productoRepository, new ProductoMapper(), mock(EntityManager.class));
 
         pelotas = Producto.builder().id(1L).codigo(Producto.CODIGO_PELOTAS).nombre("Pelotas")
                 .tipo(TipoProducto.VENTA).precio(new BigDecimal("1500")).stock(10).build();
         paletas = Producto.builder().id(2L).codigo(Producto.CODIGO_PALETAS).nombre("Paletas")
                 .tipo(TipoProducto.ALQUILER).precio(new BigDecimal("2000")).stock(4).build();
 
-        when(productoRepository.findByCodigoIn(anyCollection())).thenAnswer(inv -> {
-            var codigos = inv.<java.util.Collection<String>>getArgument(0);
-            return List.of(pelotas, paletas).stream().filter(p -> codigos.contains(p.getCodigo())).toList();
+        when(productoRepository.findAllById(anyCollection())).thenAnswer(inv -> {
+            var ids = inv.<java.util.Collection<Long>>getArgument(0);
+            return List.of(pelotas, paletas).stream().filter(p -> ids.contains(p.getId())).toList();
         });
     }
 
@@ -77,6 +79,22 @@ class ProductoServiceTest {
             assertThat(r.getNombre()).isEqualTo("Agua");
             assertThat(r.getActivo()).isTrue();
             assertThat(r.getCodigo()).isNull();
+            // por defecto no se ofrece al reservar (lo agrega el personal) y controla stock
+            assertThat(r.getOfrecerAlReservar()).isFalse();
+            assertThat(r.getControlaStock()).isTrue();
+        }
+
+        @Test
+        void elAdminEligeSiSeOfreceAlReservarYSiControlaStock() {
+            when(productoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            var pedido = pedido("Agua", TipoProducto.VENTA);
+            pedido.setOfrecerAlReservar(true);
+            pedido.setControlaStock(false);
+
+            var r = servicio.crear(pedido);
+
+            assertThat(r.getOfrecerAlReservar()).isTrue();
+            assertThat(r.getControlaStock()).isFalse();
         }
 
         @Test
@@ -116,11 +134,49 @@ class ProductoServiceTest {
             when(productoRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(paletas));
             when(productoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
             when(productoRepository.findAllByOrderByNombreAsc()).thenReturn(List.of(paletas, pelotas));
-            when(productoRepository.findAllByActivoTrueOrderByNombreAsc()).thenReturn(List.of(pelotas));
+            when(productoRepository.findAllByActivoTrueAndOfrecerAlReservarTrueOrderByNombreAsc()).thenReturn(List.of(pelotas));
 
             assertThat(servicio.desactivar(2L).getActivo()).isFalse();
             assertThat(servicio.listarTodos()).hasSize(2);
-            assertThat(servicio.listarActivos()).hasSize(1);
+            assertThat(servicio.listarParaReservar()).hasSize(1);
+        }
+    }
+
+    @Nested
+    class VentaSuelta {
+
+        private Producto agua() {
+            return Producto.builder().id(5L).nombre("Agua").tipo(TipoProducto.VENTA).precio(new BigDecimal("1500"))
+                    .stock(0).controlaStock(false).build();
+        }
+
+        @Test
+        void descuentaElStockDeLosQueLoControlan() {
+            Producto agua = agua();
+            java.util.Map<Producto, Integer> cantidades = new java.util.LinkedHashMap<>();
+            cantidades.put(pelotas, 3);
+            cantidades.put(agua, 5);
+
+            servicio.descontarVentaSuelta(cantidades);
+
+            assertThat(pelotas.getStock()).isEqualTo(7);
+            assertThat(agua.getStock()).isZero(); // sin control de stock: no se toca
+        }
+
+        @Test
+        void sinStockSuficienteNoSeVende() {
+            assertThatThrownBy(() -> servicio.descontarVentaSuelta(java.util.Map.of(pelotas, 11)))
+                    .isInstanceOf(StockInsuficienteException.class)
+                    .hasMessage("Pelotas: hay 10 unidades en stock.");
+            assertThat(pelotas.getStock()).isEqualTo(10);
+        }
+
+        @Test
+        void unProductoDadoDeBajaNoSeVende() {
+            pelotas.setActivo(false);
+            assertThatThrownBy(() -> servicio.descontarVentaSuelta(java.util.Map.of(pelotas, 1)))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessage("Pelotas no está disponible por el momento.");
         }
     }
 }

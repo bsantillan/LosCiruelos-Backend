@@ -4,7 +4,8 @@
 -- Borra todos los datos (el esquema y el historial de Flyway no se tocan) y carga un ecosistema
 -- para probar el sistema a mano: configuración, canchas y productos como los deja la app, los
 -- ADMIN que había (mismo mail y contraseña), un empleado, un profesor, clientes y reservas en
--- varios estados. Las fechas son relativas al día en que se corre.
+-- varios estados, un consumo cargado después de jugar y ventas sueltas. Las fechas son relativas
+-- al día en que se corre.
 --
 -- Cómo correrlo: ver README.md en esta carpeta. Todas las cuentas nuevas entran con la
 -- contraseña Prueba123! (los ADMIN conservan la suya).
@@ -17,6 +18,8 @@
 \set ON_ERROR_STOP on
 SET client_encoding = 'UTF8';
 SET client_min_messages = warning;
+-- las fechas y horas como las ve la app (now() y current_date del contenedor están en UTC)
+SET TIME ZONE 'America/Argentina/Buenos_Aires';
 
 \if :{?mail_cliente}
 \else
@@ -42,7 +45,8 @@ ORDER BY id;
 -- ── Borrar todos los datos ───────────────────────────────────────────────
 TRUNCATE admins, canchas, clientes, configuracion, dias, empleados, envios_codigo_telefono, pagos,
          productos, profesores, refresh_tokens, reserva_jugadores, reserva_productos, reservas,
-         turno_fijo_jugadores, turnos_fijos, usuarios, verification_tokens
+         turno_fijo_jugadores, turno_fijo_productos, turnos_fijos, usuarios, venta_items, ventas,
+         verification_tokens
          RESTART IDENTITY CASCADE;
 
 -- ── Lo básico: lo mismo que dejan las migraciones y la carga inicial ─────
@@ -59,9 +63,12 @@ INSERT INTO dias (dia, horario_inicio, horario_fin, configuracion_general_id) VA
 INSERT INTO canchas (numero, descripcion)
 SELECT n, 'Cancha de césped sintético con iluminación LED.' FROM generate_series(1, 4) n;
 
-INSERT INTO productos (codigo, nombre, descripcion, tipo, precio, stock, activo) VALUES
-    ('PELOTAS', 'Pelotas', 'Pelota de pádel, precio por unidad', 'VENTA', 5000, 50, true),
-    ('PALETAS', 'Paletas', 'Alquiler de paleta durante el turno, precio por unidad', 'ALQUILER', 5000, 50, true);
+INSERT INTO productos (codigo, nombre, descripcion, tipo, precio, stock, activo, ofrecer_al_reservar, controla_stock) VALUES
+    ('PELOTAS', 'Pelotas', 'Pelota de pádel, precio por unidad', 'VENTA', 5000, 50, true, true, true),
+    ('PALETAS', 'Paletas', 'Alquiler de paleta durante el turno, precio por unidad', 'ALQUILER', 5000, 50, true, true, true),
+    -- se venden en el club (no se ofrecen al reservar): una con stock y una cargada a mano, sin control de stock
+    (NULL, 'Agua mineral', 'Botella de 500 ml', 'VENTA', 1500, 24, true, false, true),
+    (NULL, 'Gatorade', NULL, 'VENTA', 3000, 0, true, false, false);
 
 -- ── Ayudas (solo existen durante esta sesión) ────────────────────────────
 CREATE FUNCTION pg_temp.usuario(p_email text) RETURNS bigint LANGUAGE sql AS
@@ -241,6 +248,14 @@ BEGIN
     SELECT r, id, 2, precio FROM productos WHERE codigo = 'PALETAS';
     PERFORM pg_temp.pago(r, 12500, 'APROBADO', 'MANUAL', interval '4 days', emp);
 
+    -- después de jugar el personal le sumó 2 aguas, que pagó en efectivo con el saldo: $15.000 + $3.000
+    r := pg_temp.reserva(c, c, 3, -1, '12:00', '13:30', 'COMPLETADA', interval '3 days', 3000);
+    INSERT INTO reserva_productos (reserva_id, producto_id, cantidad, precio_unitario)
+    SELECT r, id, 2, precio FROM productos WHERE nombre = 'Agua mineral';
+    UPDATE productos SET stock = stock - 2 WHERE nombre = 'Agua mineral';
+    PERFORM pg_temp.pago(r, 7500, 'APROBADO', 'MERCADO_PAGO', interval '3 days', NULL, 'mp-prueba-' || r);
+    PERFORM pg_temp.pago(r, 10500, 'APROBADO', 'MANUAL', interval '1 day', emp);
+
     r := pg_temp.reserva('diego@test.com', 'diego@test.com', 1, -6, '10:00', '12:00', 'COMPLETADA', interval '10 days');
     PERFORM pg_temp.pago(r, 20000, 'APROBADO', 'MERCADO_PAGO', interval '10 days', NULL, 'mp-prueba-' || r);
 
@@ -248,6 +263,30 @@ BEGIN
     r := pg_temp.reserva('lucia@test.com', 'lucia@test.com', 3, -1, '18:00', '19:30', 'EXPIRADA', interval '4 days');
     PERFORM pg_temp.pago(r, 7500, 'EXPIRADO', 'MERCADO_PAGO', interval '4 days');
 END $$;
+
+-- ── Ventas sueltas (sin reserva), cobradas en el momento ────────────────
+CREATE FUNCTION pg_temp.venta(p_hace interval, p_medio text, p_cliente text, p_productos text[], p_cantidades int[])
+RETURNS void LANGUAGE plpgsql AS $$
+DECLARE v_id bigint;
+BEGIN
+    INSERT INTO ventas (created_at, total, medio, cliente_id, registrado_por_id)
+    VALUES (now() - p_hace, 0, p_medio, pg_temp.usuario(p_cliente), pg_temp.usuario('empleado@test.com'))
+    RETURNING id INTO v_id;
+    INSERT INTO venta_items (venta_id, producto_id, cantidad, precio_unitario)
+    SELECT v_id, p.id, x.cantidad, p.precio
+    FROM unnest(p_productos, p_cantidades) AS x(nombre, cantidad) JOIN productos p ON p.nombre = x.nombre;
+    UPDATE ventas SET total = (SELECT sum(cantidad * precio_unitario) FROM venta_items WHERE venta_id = v_id)
+    WHERE id = v_id;
+    -- el stock baja solo en los que lo controlan
+    UPDATE productos p SET stock = p.stock - i.cantidad
+    FROM venta_items i WHERE i.venta_id = v_id AND i.producto_id = p.id AND p.controla_stock;
+END $$;
+
+-- hoy (para la caja del EMPLEADO), ayer y la semana pasada
+SELECT pg_temp.venta(interval '1 hour', 'EFECTIVO', NULL, ARRAY['Agua mineral', 'Gatorade'], ARRAY[2, 1]);
+SELECT pg_temp.venta(interval '30 minutes', 'MERCADO_PAGO', 'ana@test.com', ARRAY['Pelotas'], ARRAY[3]);
+SELECT pg_temp.venta(interval '1 day', 'EFECTIVO', current_setting('datos.mail_cliente'), ARRAY['Gatorade'], ARRAY[2]);
+SELECT pg_temp.venta(interval '6 days', 'MERCADO_PAGO', NULL, ARRAY['Agua mineral', 'Pelotas'], ARRAY[4, 1]);
 
 DROP EXTENSION pgcrypto;
 
@@ -259,3 +298,5 @@ COMMIT;
 SELECT rol, count(*) AS cantidad, string_agg(email, ', ' ORDER BY id) AS cuentas FROM usuarios GROUP BY rol ORDER BY rol;
 \echo 'Reservas por estado:'
 SELECT estado, count(*) AS cantidad FROM reservas GROUP BY estado ORDER BY estado;
+\echo 'Ventas sueltas:'
+SELECT created_at::date AS dia, medio, count(*) AS cantidad, sum(total) AS total FROM ventas GROUP BY 1, 2 ORDER BY 1, 2;

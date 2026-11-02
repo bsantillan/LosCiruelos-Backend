@@ -58,7 +58,7 @@ class PartidosRepositoryTest {
         // los miércoles de 20:00 a 21:30 desde mañana
         tf = em.persist(TurnoFijo.builder().cancha(cancha).diaSemana(DayOfWeek.WEDNESDAY)
                 .horaInicio(LocalTime.of(20, 0)).horaFin(LocalTime.of(21, 30)).desde(MIERCOLES)
-                .cantidadPelotas(0).cantidadPaletas(0).activo(true).createdBy(admin)
+                .activo(true).createdBy(admin)
                 .createdAt(TestData.AHORA).build());
         em.flush();
     }

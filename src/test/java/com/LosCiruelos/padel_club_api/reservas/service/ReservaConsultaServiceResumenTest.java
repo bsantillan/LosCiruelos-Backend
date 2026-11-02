@@ -37,6 +37,9 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
+import com.LosCiruelos.padel_club_api.ventas.repository.TotalesDeVentas;
+import com.LosCiruelos.padel_club_api.ventas.repository.VentaPorProducto;
+import com.LosCiruelos.padel_club_api.ventas.service.VentaConsultaService;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 
 /** Cómo arma el servicio la respuesta. Las consultas en sí se prueban en ReservaRepositoryResumenTest. */
@@ -50,6 +53,7 @@ class ReservaConsultaServiceResumenTest {
 
     private ReservaRepository repo;
     private UsuarioService usuarioService;
+    private VentaConsultaService ventas;
     private ReservaConsultaService resumen;
 
     @BeforeEach
@@ -58,8 +62,10 @@ class ReservaConsultaServiceResumenTest {
         usuarioService = mock(UsuarioService.class);
         when(usuarioService.autenticado(ADMIN)).thenReturn(usuario(1L, Role.ADMIN));
         when(usuarioService.autenticado(EMPLEADO)).thenReturn(usuario(2L, Role.EMPLEADO));
+        ventas = mock(VentaConsultaService.class);
+        when(ventas.totales(any(), any())).thenReturn(new TotalesDeVentas(0L, $("0"), $("0")));
         resumen = new ReservaConsultaService(usuarioService, repo, mock(ReservaMapper.class), new ResumenMapper(),
-                TestData.reloj(AHORA));
+                ventas, TestData.reloj(AHORA));
         // sin reservas ni pagos: las cantidades vienen en null y los montos en 0
         when(repo.resumenTurnos(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new TurnosDelPeriodo(null, $("0"), null, $("0"), null));
@@ -105,6 +111,28 @@ class ReservaConsultaServiceResumenTest {
                 $("40000.00"), $("7500.00"), $("222500.00")));
         assertThat(r.cancelaciones()).isEqualTo(new ResumenResponse.Cancelaciones(3, $("7500.00")));
         assertThat(r.productos()).containsExactly(pelotas);
+    }
+
+    @Test
+    void sumaLasVentasSueltasALaCajaYJuntaLosProductosVendidos() {
+        when(repo.resumenEntradasDeCaja(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new EntradasDeCaja($("90000"), $("100000"), $("40000")));
+        when(repo.resumenProductos(DESDE, HASTA, Reserva.ESTADOS_QUE_SE_JUEGAN)).thenReturn(List.of(
+                new ProductoVendido(1L, "Pelotas", TipoProducto.VENTA, 40L, $("200000"))));
+        when(ventas.totales(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay()))
+                .thenReturn(new TotalesDeVentas(3L, $("6000"), $("9000")));
+        when(ventas.porProducto(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay())).thenReturn(List.of(
+                new VentaPorProducto(1L, "Pelotas", TipoProducto.VENTA, 1L, $("5000")),
+                new VentaPorProducto(7L, "Gatorade", TipoProducto.VENTA, 4L, $("10000"))));
+
+        ResumenResponse r = resumen.resumen(DESDE, HASTA);
+
+        assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(3, $("15000.00")));
+        assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("245000.00"), $("96000.00"), $("100000.00"),
+                $("49000.00"), $("0.00"), $("245000.00")));
+        assertThat(r.productos()).containsExactly(
+                new ProductoVendido(1L, "Pelotas", TipoProducto.VENTA, 41L, $("205000")),
+                new ProductoVendido(7L, "Gatorade", TipoProducto.VENTA, 4L, $("10000")));
     }
 
     @Test
@@ -173,7 +201,7 @@ class ReservaConsultaServiceResumenTest {
     void validaElPeriodo() {
         ReservaRepository sinUso = mock(ReservaRepository.class);
         ReservaConsultaService servicio = new ReservaConsultaService(usuarioService, sinUso, mock(ReservaMapper.class),
-                new ResumenMapper(), TestData.reloj(AHORA));
+                new ResumenMapper(), mock(VentaConsultaService.class), TestData.reloj(AHORA));
         assertThatThrownBy(() -> servicio.resumen(HASTA, DESDE))
                 .isInstanceOf(ReservaException.class)
                 .hasMessage("La fecha desde no puede ser posterior a hasta.");

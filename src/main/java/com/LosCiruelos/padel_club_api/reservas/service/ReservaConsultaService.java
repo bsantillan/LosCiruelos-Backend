@@ -45,6 +45,7 @@ import com.LosCiruelos.padel_club_api.reservas.repository.FiltroReservas;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaRepository;
 import com.LosCiruelos.padel_club_api.reservas.repository.ReservaSpecification;
 
+import com.LosCiruelos.padel_club_api.ventas.service.VentaConsultaService;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -65,6 +66,7 @@ public class ReservaConsultaService {
     private final ReservaRepository reservaRepository;
     private final ReservaMapper mapper;
     private final ResumenMapper resumenMapper;
+    private final VentaConsultaService ventaConsultaService;
     private final Reloj reloj;
 
     // ── Del cliente ──────────────────────────────────────────────────────
@@ -242,7 +244,8 @@ public class ReservaConsultaService {
         BigDecimal devoluciones = reservaRepository.resumenDevoluciones(inicio, fin, EstadoPago.DEVUELTO,
                 PaymentProvider.BONIFICACION);
         return resumenMapper.aResponse(desde, hasta, t, c, e, devoluciones,
-                reservaRepository.resumenProductos(desde, hasta, juegan));
+                reservaRepository.resumenProductos(desde, hasta, juegan), ventaConsultaService.totales(inicio, fin),
+                ventaConsultaService.porProducto(inicio, fin));
     }
 
     // ── Números del perfil del jugador ───────────────────────────────────

@@ -341,8 +341,7 @@ class ReservaServicePartidosTest {
         @BeforeEach
         void turnoFijo() {
             tf = TurnoFijo.builder().id(8L).cancha(TestData.cancha()).diaSemana(MANIANA.getDayOfWeek())
-                    .horaInicio(LocalTime.of(20, 0)).horaFin(LocalTime.of(21, 30)).desde(MANIANA)
-                    .cantidadPelotas(0).cantidadPaletas(0).activo(true).createdBy(admin).createdAt(AHORA).build();
+                    .horaInicio(LocalTime.of(20, 0)).horaFin(LocalTime.of(21, 30)).desde(MANIANA).activo(true).createdBy(admin).createdAt(AHORA).build();
             tf.getJugadores().add(TurnoFijoJugador.builder().turnoFijo(tf).posicion(1).usuario(cliente).build());
             for (int posicion = 2; posicion <= 4; posicion++) {
                 tf.getJugadores().add(TurnoFijoJugador.builder().turnoFijo(tf).posicion(posicion)

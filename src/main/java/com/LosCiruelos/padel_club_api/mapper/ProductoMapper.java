@@ -19,6 +19,8 @@ public class ProductoMapper {
         response.setPrecio(producto.getPrecio());
         response.setStock(producto.getStock());
         response.setActivo(producto.getActivo());
+        response.setOfrecerAlReservar(producto.getOfrecerAlReservar());
+        response.setControlaStock(producto.getControlaStock());
         return response;
     }
 }

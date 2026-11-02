@@ -1,5 +1,8 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijoProducto;
+import com.LosCiruelos.padel_club_api.club.entity.Producto;
+import java.util.Map;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -110,13 +113,12 @@ public class TurnoFijoService {
                 .horaInicio(req.getHoraInicio())
                 .horaFin(req.getHoraFin())
                 .desde(req.getDesde())
-                .cantidadPelotas(cantidad(req.getCantidadPelotas()))
-                .cantidadPaletas(cantidad(req.getCantidadPaletas()))
                 .activo(true)
                 .createdBy(admin)
                 .createdAt(ahora)
                 .build();
         asignarJugadores(tf, jugadores);
+        asignarProductos(tf, StockService.pedido(req.getProductos()));
         tf = turnoFijoRepository.save(tf);
         log.info("Turno fijo #{} creado por {}: cancha {}, los {} de {} a {} desde el {}", tf.getId(), email,
                 cancha.getNumero(), dia(tf.getDiaSemana()), tf.getHoraInicio(), tf.getHoraFin(), tf.getDesde());
@@ -144,9 +146,8 @@ public class TurnoFijoService {
         tf.setDesde(req.getDesde());
         tf.setHoraInicio(req.getHoraInicio());
         tf.setHoraFin(req.getHoraFin());
-        tf.setCantidadPelotas(cantidad(req.getCantidadPelotas()));
-        tf.setCantidadPaletas(cantidad(req.getCantidadPaletas()));
         asignarJugadores(tf, jugadores);
+        asignarProductos(tf, StockService.pedido(req.getProductos()));
         turnoFijoRepository.save(tf);
 
         List<Long> sinCambiar = new ArrayList<>();
@@ -361,8 +362,21 @@ public class TurnoFijoService {
         return usuario;
     }
 
-    private static int cantidad(Integer cantidad) {
-        return cantidad != null ? cantidad : 0;
+    /** Los productos de cada partido, en su lugar (los que siguen se actualizan, los que no se sacan). */
+    private void asignarProductos(TurnoFijo tf, Map<Long, Integer> pedido) {
+        List<Producto> productos = stockService.productosDe(pedido);
+        tf.getProductos().removeIf(p -> !pedido.containsKey(p.getProducto().getId()));
+        for (Producto producto : productos) {
+            TurnoFijoProducto item = tf.getProductos().stream()
+                    .filter(p -> p.getProducto().getId().equals(producto.getId()))
+                    .findFirst()
+                    .orElseGet(() -> {
+                        TurnoFijoProducto nuevo = TurnoFijoProducto.builder().turnoFijo(tf).producto(producto).build();
+                        tf.getProductos().add(nuevo);
+                        return nuevo;
+                    });
+            item.setCantidad(pedido.get(producto.getId()));
+        }
     }
 
     static String dia(DayOfWeek dia) {

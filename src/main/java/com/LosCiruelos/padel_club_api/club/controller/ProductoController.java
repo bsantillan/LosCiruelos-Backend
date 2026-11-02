@@ -29,7 +29,7 @@ public class ProductoController {
 
     @GetMapping
     public ResponseEntity<List<ProductoResponse>> listar() {
-        return ResponseEntity.ok(productoService.listarActivos());
+        return ResponseEntity.ok(productoService.listarParaReservar());
     }
 
     /** Unidades disponibles de cada producto para un horario (para limitar los selectores del front). */

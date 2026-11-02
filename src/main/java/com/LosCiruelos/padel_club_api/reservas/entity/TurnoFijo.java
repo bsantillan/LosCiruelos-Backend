@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.reservas.entity;
 
+import java.util.TreeMap;
+import java.util.Map;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -66,12 +68,6 @@ public class TurnoFijo {
     @Column(nullable = false)
     private LocalDate desde;
 
-    @Column(name = "cantidad_pelotas", nullable = false)
-    private Integer cantidadPelotas;
-
-    @Column(name = "cantidad_paletas", nullable = false)
-    private Integer cantidadPaletas;
-
     @Column(nullable = false)
     private Boolean activo;
 
@@ -91,6 +87,11 @@ public class TurnoFijo {
     @OneToMany(mappedBy = "turnoFijo", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TurnoFijoJugador> jugadores = new ArrayList<>();
 
+    // lo que se pide en cada partido
+    @Builder.Default
+    @OneToMany(mappedBy = "turnoFijo", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TurnoFijoProducto> productos = new ArrayList<>();
+
     /** El turno de esa fecha (cancha aparte). */
     public Turno turnoEl(LocalDate fecha) {
         return new Turno(fecha, horaInicio, horaFin);
@@ -99,5 +100,12 @@ public class TurnoFijo {
     /** La fecha cae en este turno fijo: mismo día de la semana y desde la fecha de inicio. */
     public boolean seJuegaEl(LocalDate fecha) {
         return fecha.getDayOfWeek() == diaSemana && !fecha.isBefore(desde);
+    }
+
+    /** Lo que se pide en cada partido: id del producto → cantidad. */
+    public Map<Long, Integer> pedidoDeProductos() {
+        Map<Long, Integer> pedido = new TreeMap<>();
+        productos.forEach(p -> pedido.put(p.getProducto().getId(), p.getCantidad()));
+        return pedido;
     }
 }

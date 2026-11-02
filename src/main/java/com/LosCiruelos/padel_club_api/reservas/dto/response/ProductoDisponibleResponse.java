@@ -17,6 +17,6 @@ public class ProductoDisponibleResponse {
     private String nombre;
     private TipoProducto tipo;
     private BigDecimal precio;
-    // unidades que se pueden pedir para ese horario
+    // unidades que se pueden pedir para ese horario (null: sin límite, el producto no controla stock)
     private Integer disponibles;
 }

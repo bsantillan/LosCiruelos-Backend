@@ -17,11 +17,12 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
 
     List<Producto> findAllByOrderByNombreAsc();
 
-    List<Producto> findAllByActivoTrueOrderByNombreAsc();
+    List<Producto> findAllByActivoTrueAndOfrecerAlReservarTrueOrderByNombreAsc();
 
-    List<Producto> findByCodigoIn(Collection<String> codigos);
 
     boolean existsByNombreIgnoreCase(String nombre);
+
+    Optional<Producto> findFirstByNombreIgnoreCase(String nombre);
 
     boolean existsByNombreIgnoreCaseAndIdNot(String nombre, Long id);
 

@@ -5,8 +5,6 @@ import java.time.LocalTime;
 import java.util.List;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -35,11 +33,8 @@ public class TurnoFijoRequest {
     @Size(min = 4, max = 4, message = "Un partido tiene 4 jugadores")
     private List<@Valid @NotNull(message = "Indicá los 4 jugadores") JugadorRequest> jugadores;
 
-    @Min(value = 0, message = "La cantidad de pelotas no puede ser negativa")
-    @Max(value = 50, message = "Se pueden pedir hasta 50 pelotas")
-    private Integer cantidadPelotas;
-
-    @Min(value = 0, message = "La cantidad de paletas no puede ser negativa")
-    @Max(value = 20, message = "Se pueden pedir hasta 20 paletas")
-    private Integer cantidadPaletas;
+    // productos del catálogo (opcional): cada uno con productoId y cantidad
+    @Valid
+    @Size(max = 20, message = "Se pueden pedir hasta 20 productos distintos")
+    private List<ProductoPedidoRequest> productos;
 }

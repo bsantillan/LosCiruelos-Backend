@@ -1,7 +1,11 @@
 package com.LosCiruelos.padel_club_api.club.service;
 
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +20,8 @@ import com.LosCiruelos.padel_club_api.club.exception.StockInsuficienteException;
 import com.LosCiruelos.padel_club_api.club.repository.ProductoRepository;
 import com.LosCiruelos.padel_club_api.mapper.ProductoMapper;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,12 +36,14 @@ public class ProductoService {
 
     private final ProductoRepository productoRepository;
     private final ProductoMapper productoMapper;
+    private final EntityManager entityManager;
 
     // ── Catálogo ─────────────────────────────────────────────────────────
 
+    /** El catálogo del cliente: los activos que se ofrecen al reservar. */
     @Transactional(readOnly = true)
-    public List<ProductoResponse> listarActivos() {
-        return productoRepository.findAllByActivoTrueOrderByNombreAsc().stream().map(productoMapper::aResponse).toList();
+    public List<ProductoResponse> listarParaReservar() {
+        return paraReservar().stream().map(productoMapper::aResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -55,6 +63,8 @@ public class ProductoService {
                 .precio(req.getPrecio())
                 .stock(req.getStock())
                 .activo(req.getActivo() == null || req.getActivo())
+                .ofrecerAlReservar(Boolean.TRUE.equals(req.getOfrecerAlReservar()))
+                .controlaStock(req.getControlaStock() == null || req.getControlaStock())
                 .build();
         return productoMapper.aResponse(productoRepository.save(producto));
     }
@@ -74,6 +84,12 @@ public class ProductoService {
         producto.setStock(req.getStock());
         if (req.getActivo() != null) {
             producto.setActivo(req.getActivo());
+        }
+        if (req.getOfrecerAlReservar() != null) {
+            producto.setOfrecerAlReservar(req.getOfrecerAlReservar());
+        }
+        if (req.getControlaStock() != null) {
+            producto.setControlaStock(req.getControlaStock());
         }
         log.info("Producto #{} actualizado: precio ${}, stock {}", id, producto.getPrecio(), producto.getStock());
         return productoMapper.aResponse(productoRepository.save(producto));
@@ -101,14 +117,70 @@ public class ProductoService {
         return productoMapper.aResponse(productoRepository.save(producto));
     }
 
-    /** Productos activos (los que se pueden pedir en una reserva). */
-    public List<Producto> activos() {
-        return productoRepository.findAllByActivoTrueOrderByNombreAsc();
+    /** Los activos que se ofrecen al reservar (los que ve y pide el cliente). */
+    public List<Producto> paraReservar() {
+        return productoRepository.findAllByActivoTrueAndOfrecerAlReservarTrueOrderByNombreAsc();
     }
 
-    /** Productos con esos códigos (PELOTAS, PALETAS). */
-    public List<Producto> buscarPorCodigos(Collection<String> codigos) {
-        return productoRepository.findByCodigoIn(codigos);
+    /** El producto con ese id; si no existe, 404. */
+    public Producto obtener(Long id) {
+        return productoRepository.findById(id).orElseThrow(() -> new ProductoNoEncontradoException(id));
+    }
+
+    /**
+     * Un producto que el personal escribe a mano (en una reserva o una venta suelta): si ya hay uno
+     * con ese nombre se usa ese; si no, queda dado de alta como producto de venta, sin control de
+     * stock y sin ofrecerse al reservar (el ADMIN después lo puede editar).
+     */
+    @Transactional
+    public Producto productoManual(String nombre, BigDecimal precio) {
+        String limpio = nombre.trim();
+        return productoRepository.findFirstByNombreIgnoreCase(limpio).orElseGet(() -> {
+            Producto nuevo = productoRepository.save(Producto.builder()
+                    .nombre(limpio)
+                    .tipo(TipoProducto.VENTA)
+                    .precio(precio)
+                    .stock(0)
+                    .activo(true)
+                    .ofrecerAlReservar(false)
+                    .controlaStock(false)
+                    .build());
+            log.info("Producto #{} {} dado de alta a mano (${})", nuevo.getId(), limpio, precio);
+            return nuevo;
+        });
+    }
+
+    /**
+     * Saca del stock lo de una venta suelta (producto → unidades). Bloquea los productos en orden de
+     * id y con sus valores actualizados; los que no controlan stock no se descuentan.
+     */
+    @Transactional
+    public void descontarVentaSuelta(Map<Producto, Integer> cantidades) {
+        Map<Long, Producto> porId = new TreeMap<>();
+        cantidades.keySet().forEach(p -> porId.put(p.getId(), p));
+        for (Producto producto : porId.values()) {
+            // refresh con lock: SELECT ... FOR UPDATE y valores actualizados aunque ya estuviera en memoria
+            entityManager.refresh(producto, LockModeType.PESSIMISTIC_WRITE);
+        }
+        for (Producto producto : porId.values()) {
+            if (!Boolean.TRUE.equals(producto.getActivo())) {
+                throw new ReservaException(producto.getNombre() + " no está disponible por el momento.");
+            }
+            int cantidad = cantidades.get(producto);
+            if (!producto.llevaStock()) {
+                continue;
+            }
+            if (cantidad > producto.getStock()) {
+                String unidades = producto.getStock() == 1 ? "1 unidad" : producto.getStock() + " unidades";
+                throw new StockInsuficienteException("%s: hay %s en stock.".formatted(producto.getNombre(), unidades));
+            }
+            producto.setStock(producto.getStock() - cantidad);
+        }
+    }
+
+    /** Productos con esos ids (los que no existen no vienen). */
+    public List<Producto> buscarPorIds(Collection<Long> ids) {
+        return productoRepository.findAllById(ids);
     }
 
     private Producto bloquearProducto(Long id) {
