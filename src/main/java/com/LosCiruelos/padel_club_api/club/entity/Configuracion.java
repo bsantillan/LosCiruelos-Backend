@@ -69,6 +69,12 @@ public class Configuracion {
     @Column(nullable = false, name = "minutos_recordatorio")
     private Integer minutosRecordatorio = 120;
 
+    // El cliente reserva como mucho con estos días de anticipación; los turnos fijos generan sus
+    // partidos hasta ahí
+    @Builder.Default
+    @Column(nullable = false, name = "dias_anticipacion_reserva")
+    private Integer diasAnticipacionReserva = 30;
+
     @Builder.Default
     @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(nullable = false, name = "configuracion_general_id")
@@ -84,6 +90,20 @@ public class Configuracion {
                 .filter(d -> d.getDia().equalsIgnoreCase(nombreDia))
                 .findFirst()
                 .orElseThrow(() -> new DiaSinAperturaException("El club no abre los " + nombreDia + "."));
+    }
+
+    /** Último día que el cliente puede reservar: hoy más los días de anticipación. */
+    public LocalDate reservableHasta(LocalDate hoy) {
+        return hoy.plusDays(diasAnticipacionReserva);
+    }
+
+    /** El cliente no puede reservar más allá de los días de anticipación. */
+    public void validarAnticipacion(LocalDate fecha, LocalDate hoy) {
+        LocalDate hasta = reservableHasta(hoy);
+        if (fecha.isAfter(hasta)) {
+            throw new ReservaException("Podés reservar hasta el %s (%d días de anticipación)."
+                    .formatted(Fechas.textoFecha(hasta), diasAnticipacionReserva));
+        }
     }
 
     /** Duración múltiplo de 30 y dentro del mínimo y máximo configurados. */

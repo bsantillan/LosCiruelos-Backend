@@ -190,6 +190,8 @@ Cada usuario elige si recibe los avisos por mail o por WhatsApp. Detalle de qué
 | `POST /perfil/avisos/prueba` → `200` | **ADMIN.** Manda un aviso de ejemplo por su canal: `{ "enviado": true, "canal": "WHATSAPP", "destino": "549..." }`. | `403` |
 | `GET /admin/configuracion/avisos` → `200` | **ADMIN.** Recordatorio del turno: `{ "recordatorioActivo": true, "minutosRecordatorio": 120 }`. | |
 | `PUT /admin/configuracion/avisos` → `200` | **ADMIN.** Mismo body; minutos entre 15 y 1440. | `400` |
+| `GET /admin/configuracion/reservas` → `200` | **ADMIN.** Hasta cuántos días adelante puede reservar el cliente: `{ "diasAnticipacion": 30 }`. | |
+| `PUT /admin/configuracion/reservas` → `200` | **ADMIN.** Mismo body; entre 1 y 365 días. También es hasta dónde se generan los partidos de los turnos fijos. | `400` |
 
 ---
 
@@ -234,13 +236,15 @@ Se pueden consultar sin iniciar sesión (un visitante ve los horarios libres y l
   "montoCancha": 15000.00,
   "horarioMinimoInicio": "08:00",
   "slotsOcupados":     [ { "horaInicio": "18:00", "horaFin": "19:30" } ],
-  "turnosDisponibles": [ { "horaInicio": "08:00", "horaFin": "09:30" }, { "horaInicio": "08:30", "horaFin": "10:00" } ]
+  "turnosDisponibles": [ { "horaInicio": "08:00", "horaFin": "09:30" }, { "horaInicio": "08:30", "horaFin": "10:00" } ],
+  "reservableHasta": "2026-11-14"
 }
 ```
 - `turnosDisponibles`: turnos de la duración pedida que se pueden reservar, cada 30 min desde la apertura, sin solaparse con ninguno ocupado. Usa las mismas reglas que `POST /reservas`.
 - `montoCancha`: precio de la cancha para esa duración (sin pelotas ni paletas). Se calcula con el mismo método que usa la reserva (`montoReserva + montoXMediaHora × duración / 30`), así que coincide con el `montoCancha` que se cobra.
 - `duracion` es opcional (por defecto, la mínima); tiene que ser múltiplo de 30 y estar entre el mínimo y el máximo.
 - Si la fecha es hoy, `horarioMinimoInicio` es el próximo bloque disponible (`null` si ya no quedan turnos ese día).
+- `reservableHasta`: el último día que el **cliente** puede reservar (hoy + los días de anticipación de la configuración, 30 por defecto). Sirve para limitar el calendario. La disponibilidad responde también fechas posteriores, porque el personal puede reservar más lejos.
 - Errores: `400` fecha pasada, duración inválida o día sin apertura; `404` cancha inexistente.
 
 ---
@@ -278,7 +282,7 @@ Todas las rutas de `/reservas` son **solo del CLIENTE** (el personal recibe `403
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
-| `POST /reservas` → `201` | Crea una reserva `PENDIENTE` para el cliente autenticado, que vence en 15 min si no se paga. Body abajo. | `400` horario o datos inválidos · `403` perfil incompleto · `404` cancha · `409` turno ocupado, sin stock o reserva con pago en curso |
+| `POST /reservas` → `201` | Crea una reserva `PENDIENTE` para el cliente autenticado, que vence en 15 min si no se paga. Body abajo. | `400` horario o datos inválidos, o fecha más allá de la anticipación ("Podés reservar hasta el sábado 14/11 (30 días de anticipación).") · `403` perfil incompleto · `404` cancha · `409` turno ocupado, sin stock o reserva con pago en curso |
 | `GET /reservas/mias` → `200` | Reservas del usuario autenticado, **paginadas y filtradas** (ver abajo). | `400` parámetros inválidos |
 | `GET /reservas/{id}` → `200` | Detalle con los pagos: una reserva propia o un partido en el que juega. Sirve para consultar el resultado de un pago en proceso. | `404` |
 | `DELETE /reservas/{id}/cancelar` → `200 ReservaResponse` | Cancela la reserva y hace los reembolsos según la política (ver abajo). Devuelve la reserva con los pagos actualizados. El personal cancela con `DELETE /admin/reservas/{id}/cancelar`. | `403` partido (lo cancela el ADMIN) · `404` · `409` turno empezado/terminado, reserva finalizada o pago en proceso. Si Mercado Pago no acepta el reembolso, **se cancela igual** (`200`) y el pago queda `REEMBOLSO_PENDIENTE` |
@@ -471,7 +475,7 @@ Un jugador puede pagar más que su parte (hasta lo que falta de la reserva). Lo 
 ### Turnos fijos
 Un **turno fijo** es el mismo partido (cancha, día de la semana, horario y jugadores) todas las semanas desde `desde`, hasta que se da de baja.
 - **Bloqueo del horario.** El horario queda bloqueado todas las semanas: un cliente no lo puede reservar (`409` "Ese horario es un turno fijo del club en esa cancha.") y la disponibilidad lo muestra ocupado, aunque falten meses.
-- **Partidos semanales.** Los crea un job cada hora con **4 semanas de anticipación** (`turnos-fijos.semanas-anticipacion`), con los jugadores y productos del turno fijo y el precio vigente. Cada semana se paga aparte. Al crear o modificar el turno fijo se crean en el momento.
+- **Partidos semanales.** Los crea un job cada hora **hasta el tope para reservar** de la configuración (hoy + 30 días por defecto, `GET/PUT /admin/configuracion/reservas`), con los jugadores y productos del turno fijo y el precio vigente. Cada semana se paga aparte. Al crear o modificar el turno fijo se crean en el momento. A medida que pasan los días se suman las fechas nuevas; si el ADMIN achica el tope, los partidos ya creados se mantienen.
 - **Fechas omitidas.** Si una fecha no se puede crear (otra reserva ya ocupa ese horario, el club no abre, falta stock), se informa en `fechasOmitidas` y el job lo vuelve a intentar.
 
 **`TurnoFijoResponse`**

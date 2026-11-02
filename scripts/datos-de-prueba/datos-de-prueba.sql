@@ -48,8 +48,8 @@ TRUNCATE admins, canchas, clientes, configuracion, dias, empleados, envios_codig
 -- ── Lo básico: lo mismo que dejan las migraciones y la carga inicial ─────
 INSERT INTO configuracion (id, monto_reserva, monto_x_media_hora, porcentaje_senia, duracion_minima_turno,
                            duracion_maxima_turno, minutos_reembolso_total, minutos_reembolso_senia,
-                           recordatorio_activo, minutos_recordatorio)
-VALUES (1, 0, 5000, 50, 90, 180, 1440, 720, true, 120);
+                           recordatorio_activo, minutos_recordatorio, dias_anticipacion_reserva)
+VALUES (1, 0, 5000, 50, 90, 180, 1440, 720, true, 120, 30);
 
 INSERT INTO dias (dia, horario_inicio, horario_fin, configuracion_general_id) VALUES
     ('Lunes', '08:00', '23:00', 1), ('Martes', '08:00', '23:00', 1), ('Miércoles', '08:00', '23:00', 1),

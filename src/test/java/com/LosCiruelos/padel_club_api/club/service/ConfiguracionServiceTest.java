@@ -12,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 
 import com.LosCiruelos.padel_club_api.TestData;
 import com.LosCiruelos.padel_club_api.club.dto.request.RecordatorioConfigRequest;
+import com.LosCiruelos.padel_club_api.club.dto.request.ReservasConfigRequest;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
@@ -50,5 +51,19 @@ class ConfiguracionServiceTest {
 
         assertThat(r.recordatorioActivo()).isEqualTo(TestData.configuracion().getRecordatorioActivo());
         assertThat(r.minutosRecordatorio()).isEqualTo(TestData.configuracion().getMinutosRecordatorio());
+    }
+
+    @Test
+    void configuraLaAnticipacionParaReservar() {
+        Configuracion config = TestData.configuracion();
+        when(configuracionRepository.obtener()).thenReturn(config);
+        assertThat(configuracionService.reservas().diasAnticipacion()).isEqualTo(30); // por defecto
+        ReservasConfigRequest req = new ReservasConfigRequest();
+        req.setDiasAnticipacion(45);
+
+        var r = configuracionService.actualizarReservas(req);
+
+        assertThat(r.diasAnticipacion()).isEqualTo(45);
+        assertThat(config.getDiasAnticipacionReserva()).isEqualTo(45); // se guarda al terminar la transacción
     }
 }

@@ -1,6 +1,7 @@
 package com.LosCiruelos.padel_club_api.reservas.dto.response;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -26,6 +27,8 @@ public class DisponibilidadResponse {
     private List<Turno> slotsOcupados;
     // turnos de la duración pedida que se pueden reservar
     private List<Turno> turnosDisponibles;
+    // último día que el cliente puede reservar (días de anticipación de la configuración)
+    private LocalDate reservableHasta;
 
     @Data
     @AllArgsConstructor

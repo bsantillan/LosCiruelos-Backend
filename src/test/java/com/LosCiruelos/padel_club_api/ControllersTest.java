@@ -703,6 +703,18 @@ class ControllersTest {
             mvc.perform(json(put("/admin/configuracion/avisos"), "{\"recordatorioActivo\":true,\"minutosRecordatorio\":120}"))
                     .andExpect(status().isOk());
         }
+
+        @Test
+        void anticipacionParaReservar() throws Exception {
+            mvc.perform(json(put("/admin/configuracion/reservas"), "{\"diasAnticipacion\":0}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.diasAnticipacion").value("Mínimo 1 día"));
+            mvc.perform(json(put("/admin/configuracion/reservas"), "{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.diasAnticipacion").value("Es obligatorio"));
+            mvc.perform(json(put("/admin/configuracion/reservas"), "{\"diasAnticipacion\":30}"))
+                    .andExpect(status().isOk());
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────

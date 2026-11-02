@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
 import com.LosCiruelos.padel_club_api.mapper.CanchaMapper;
 import com.LosCiruelos.padel_club_api.club.service.CanchaService;
@@ -93,7 +94,7 @@ class TurnoFijoServiceTest {
                 stockService, mapper, disponibilidad, jugadoresService, turnoFijoRepository, TestData.reloj(AHORA));
         turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, canchaService, reservaService,
                 disponibilidad, mapper, new TurnoFijoMapper(), jugadoresService, cancelacionService, stockService, configuracionService, usuarioService,
-                TestData.reloj(AHORA), 4);
+                TestData.reloj(AHORA));
 
         admin = usuario(3L, Role.ADMIN);
         empleado = usuario(4L, Role.EMPLEADO);
@@ -293,24 +294,33 @@ class TurnoFijoServiceTest {
     // ── Generación ───────────────────────────────────────────────────────
 
     @Test
-    void elGeneradorCreaUnaFechaPorSemanaDentroDeLaAnticipacionEInformaLasQueNoPudo() {
+    void elGeneradorCreaUnaFechaPorSemanaHastaElTopeEInformaLasQueNoPudo() {
         TurnoFijo tf = turnoFijo();
         ReservaService reservaService = mock(ReservaService.class);
         when(reservaService.crearPartidoDeTurnoFijo(eq(8L), any())).thenReturn(Optional.of(1L));
         when(reservaService.crearPartidoDeTurnoFijo(8L, MANIANA.plusWeeks(2)))
                 .thenThrow(new HorarioOcupadoException());
+        Configuracion config = TestData.configuracion();
+        ConfiguracionService configuracion = mock(ConfiguracionService.class);
+        when(configuracion.obtener()).thenReturn(config);
         turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, mock(CanchaService.class),
                 reservaService, mock(DisponibilidadService.class), mock(ReservaMapper.class),
                 new TurnoFijoMapper(), mock(JugadoresService.class), cancelacionService, stockService,
-                mock(ConfiguracionService.class), mock(UsuarioService.class), TestData.reloj(AHORA), 4);
+                configuracion, mock(UsuarioService.class), TestData.reloj(AHORA));
 
         TurnoFijoService.Generacion r = turnos.generar(8L);
 
-        // del miércoles 14/10 al 4/11 (hoy + 4 semanas = martes 10/11): 4 fechas, una ocupada
-        assertThat(r.creados()).hasSize(3);
+        // los miércoles del 14/10 al 11/11 (hoy + 30 días = jueves 12/11): 5 fechas, una ocupada
+        assertThat(r.creados()).hasSize(4);
         assertThat(r.omitidas()).extracting(TurnoFijoResponse.FechaOmitida::fecha)
                 .containsExactly(MANIANA.plusWeeks(2));
-        verify(reservaService, times(4)).crearPartidoDeTurnoFijo(anyLong(), any());
+        verify(reservaService, times(5)).crearPartidoDeTurnoFijo(anyLong(), any());
+
+        // con un tope de 7 días (hasta el martes 20/10), solo el miércoles 14/10
+        config.setDiasAnticipacionReserva(7);
+        TurnoFijoService.Generacion corta = turnos.generar(8L);
+        assertThat(corta.creados()).hasSize(1);
+        verify(reservaService, times(6)).crearPartidoDeTurnoFijo(anyLong(), any());
 
         tf.setActivo(false);
         assertThat(turnos.generar(8L).creados()).isEmpty();
