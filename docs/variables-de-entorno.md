@@ -22,6 +22,7 @@
 | `MP_ACCESS_TOKEN` | `mercadopago.access-token` | Access token de Mercado Pago (usar el `TEST-...` en desarrollo) | Sí | `TEST-123...` |
 | `MP_WEBHOOK_URL` | `mercadopago.webhook-url` | URL pública a la que MP envía las notificaciones. Debe apuntar a `/pagos/notificacion` (en local, con un túnel tipo ngrok) | Sí | `https://xxxx.ngrok.app/pagos/notificacion` |
 | `FRONTEND_URL` | `app.frontend-url` | URL del frontend. Mercado Pago devuelve al cliente a `FRONTEND_URL/pago/resultado?reservaId=…&resultado=aprobado\|rechazado\|pendiente` después de pagar con su cuenta. Con `https://` además vuelve solo al aprobarse (`auto_return`) | No (por defecto `http://localhost:5173`) | `https://reservas.losciruelos.com` |
+| `MP_QR_ACCESS_TOKEN` | `mercadopago.qr.access-token` | Access token de la aplicación de Mercado Pago de **pagos presenciales (Código QR)**, la de la caja. Hace falta si es otra aplicación que la de los pagos online: el token de una aplicación de pagos online no tiene permiso para sucursales, cajas ni orders (`403`). Sin ella se usa `MP_ACCESS_TOKEN` | No | `APP_USR-…` |
 | `MP_QR_EXTERNAL_POS_ID` | `mercadopago.qr.external-pos-id` | `external_id` de la caja de Mercado Pago, la del QR impreso del mostrador, ([mercado-pago-qr.md](mercado-pago-qr.md)). Sin ella, el cobro con QR responde `503` | No | `LOSCIRUELOS-CAJA1` |
 | `MP_QR_MINUTOS_VENCIMIENTO` | `mercadopago.qr.minutos-vencimiento` | Minutos que la caja espera el pago de un cobro con QR (por defecto 10) | No | `10` |
 | `MP_API_URL` | `mercadopago.api-url` | URL de la API de Mercado Pago para las orders de QR (por defecto `https://api.mercadopago.com`; la prueba punta a punta apunta a un stub local) | No | `https://api.mercadopago.com` |
@@ -88,6 +89,7 @@ GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
 MP_ACCESS_TOKEN=TEST-xxxxxxxx
 MP_WEBHOOK_URL=https://tu-tunel.ngrok.app/pagos/notificacion
 MP_WEBHOOK_SECRET=
+MP_QR_ACCESS_TOKEN=
 MP_QR_EXTERNAL_POS_ID=
 
 # --- Opcionales ---

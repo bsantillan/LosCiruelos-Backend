@@ -34,7 +34,7 @@ Se usa la **API de Orders** con `type: "qr"` y `config.qr.mode: "static"`.
 
 ## Puesta en marcha (una sola vez por cuenta)
 
-1. **Credenciales.** `MP_ACCESS_TOKEN` es el mismo del pago online. En desarrollo se usa el de la cuenta de prueba "vendedor" (Tus integraciones > Credenciales de prueba).
+1. **Credenciales.** El QR necesita una aplicación de Mercado Pago de **pagos presenciales con Código QR** (Tus integraciones > Crear aplicación > Pagos presenciales > Código QR). El token de una aplicación de pagos online no sirve: Mercado Pago responde `403` "At least one policy returned UNAUTHORIZED." en sucursales, cajas y orders. Su access token va en `MP_QR_ACCESS_TOKEN`; si las dos cosas fueran de la misma aplicación, alcanza con `MP_ACCESS_TOKEN`. En desarrollo se usa el de la cuenta vendedor de prueba de esa aplicación (Credenciales de prueba).
 2. **Sucursal.** `POST https://api.mercadopago.com/users/{user_id}/stores`.
    - Obligatorios: `name`, `external_id` (hasta 60 caracteres, único) y `location` (`street_number`, `street_name`, `city_name`, `state_name`, `latitude`, `longitude`, `reference`).
 3. **Caja.** `POST https://api.mercadopago.com/v2/pos`, con `X-Idempotency-Key`.
