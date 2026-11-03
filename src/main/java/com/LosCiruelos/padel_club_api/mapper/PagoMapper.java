@@ -6,6 +6,7 @@ import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.CobroQrResponse;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 
 /** Pago → PagoResponse y, si es un cobro con QR, CobroQrResponse. */
 @Component
@@ -30,7 +31,10 @@ public class PagoMapper {
         response.setPaidAt(pago.getPaidAt());
         response.setMontoReembolsado(pago.getMontoReembolsado());
         response.setMotivo(pago.getMotivo());
-        response.setComprobante(pago.getComprobante());
+        if (pago.getProvider() == PaymentProvider.CUENTA_DNI) {
+            response.setVerificado(pago.estaVerificado());
+            response.setVerificadoAt(pago.getVerificadoAt());
+        }
         response.setEstadoReserva(pago.getReserva().getEstado());
         return response;
     }

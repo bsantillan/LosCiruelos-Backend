@@ -57,7 +57,7 @@ La documentación oficial (leída el 02/11/2026) no confirma o contradice estos 
 
 | Tema | Qué dice la documentación | Qué hace la app |
 |---|---|---|
-| **Pagar el QR con Cuenta DNI u otro banco** | No figura. La única interoperabilidad descrita es para pagos con **tarjeta de crédito** desde billeteras externas incorporadas a un programa, y la configuran ellas. | Nada: el QR se paga con la app de Mercado Pago. Para Cuenta DNI está el cobro a mano con comprobante. **Consultarlo con Mercado Pago antes de contar con eso.** |
+| **Pagar el QR con Cuenta DNI u otro banco** | No figura. La única interoperabilidad descrita es para pagos con **tarjeta de crédito** desde billeteras externas incorporadas a un programa, y la configuran ellas. | Nada: el QR se paga con la app de Mercado Pago. Para Cuenta DNI está el cobro a mano, que después verifica el ADMIN. **Consultarlo con Mercado Pago antes de contar con eso.** |
 | Firma `x-signature` de los avisos de QR | La página de QR dice que se valida con la clave secreta. La página general de webhooks dice que las notificaciones de QR **no** se pueden validar con la clave secreta. | No valida la firma de los avisos `order`. No hace falta: nunca usa el contenido del aviso y siempre consulta la order. |
 | Monto cobrado en `GET /v1/orders/{id}` | El ejemplo trae `transactions.payments[].paid_amount`, pero con un valor distinto de `amount` y sin explicación. | Usa `paid_amount` si viene y si no, `amount`, y lo compara con el monto del QR. |
 | Plazo para reembolsar | 180 días en la guía, 360 en la referencia. | Si MP rechaza el reembolso por plazo, queda `A_REEMBOLSAR`. |

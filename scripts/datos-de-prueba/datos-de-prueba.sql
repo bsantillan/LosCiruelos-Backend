@@ -134,7 +134,7 @@ BEGIN
 END $$;
 
 -- Pago: MANUAL (efectivo en el club), MERCADO_PAGO (online con external_id, o en el club sin él),
--- CUENTA_DNI (con comprobante) o BONIFICACION. p_devuelto es cuánto se devolvió (o hay que devolver) de ese pago.
+-- CUENTA_DNI (el ADMIN lo verifica después contra la cuenta) o BONIFICACION. p_devuelto es cuánto se devolvió (o hay que devolver) de ese pago.
 CREATE FUNCTION pg_temp.pago(p_reserva bigint, p_monto numeric, p_estado text, p_provider text,
         p_pagado_hace interval, p_registrado_por bigint DEFAULT NULL, p_external text DEFAULT NULL,
         p_devuelto numeric DEFAULT NULL, p_devuelto_hace interval DEFAULT NULL, p_motivo text DEFAULT NULL)
@@ -217,7 +217,6 @@ BEGIN
     -- hoy a la tarde, señada con Cuenta DNI en el club (para el resumen de hoy del EMPLEADO)
     r := pg_temp.reserva('ana@test.com', 'empleado@test.com', 4, 0, '18:30', '20:00', 'SEÑADA', interval '2 hours');
     PERFORM pg_temp.pago(r, 7500, 'APROBADO', 'CUENTA_DNI', interval '2 hours', emp);
-    UPDATE pagos SET comprobante = 'CDNI-' || r WHERE reserva_id = r;
 
     -- Canceladas
     -- a tiempo: se le devolvió todo por Mercado Pago

@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.UUID;
 
+import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
@@ -99,9 +100,12 @@ public class Pago {
     @Column(length = 200)
     private String motivo;
 
-    // Número de comprobante de un pago con Cuenta DNI (único)
-    @Column(length = 64)
-    private String comprobante;
+    // Pago con Cuenta DNI: el ADMIN comprobó en la cuenta del club que la plata entró (null: sin verificar)
+    @Column(name = "verificado_at")
+    private LocalDateTime verificadoAt;
+
+    @Column(name = "verificado_por_id")
+    private Long verificadoPorId;
 
     // Identifica al pago ante Mercado Pago (claves de idempotencia). Se genera al crearlo y no cambia.
     @Builder.Default
@@ -145,6 +149,22 @@ public class Pago {
             EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE);
 
     /** Una bonificación cubre parte del turno sin que el cliente pague: no es plata. */
+    /**
+     * Marca (o desmarca) un pago con Cuenta DNI como verificado: el ADMIN comprobó en la cuenta del
+     * club que la plata entró. Los otros medios no se verifican.
+     */
+    public void verificar(boolean verificado, Long adminId, LocalDateTime ahora) {
+        if (provider != PaymentProvider.CUENTA_DNI) {
+            throw new EstadoInvalidoException("Solo se verifican los pagos con Cuenta DNI.");
+        }
+        verificadoAt = verificado ? ahora : null;
+        verificadoPorId = verificado ? adminId : null;
+    }
+
+    public boolean estaVerificado() {
+        return verificadoAt != null;
+    }
+
     public boolean esBonificacion() {
         return provider == PaymentProvider.BONIFICACION;
     }
