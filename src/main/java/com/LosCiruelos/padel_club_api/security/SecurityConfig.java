@@ -64,7 +64,8 @@ public class SecurityConfig {
                         .permitAll()
 
                         // Stock de productos: el personal puede verlo y ajustarlo; el resto es del ADMIN
-                        .requestMatchers(HttpMethod.GET, "/admin/configuracion/productos")
+                        .requestMatchers(HttpMethod.GET, "/admin/configuracion/productos",
+                                "/admin/configuracion/productos/disponibilidad")
                         .hasAnyRole("ADMIN", "EMPLEADO")
                         .requestMatchers(HttpMethod.PATCH, "/admin/configuracion/productos/*/stock")
                         .hasAnyRole("ADMIN", "EMPLEADO")

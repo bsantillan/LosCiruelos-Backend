@@ -19,4 +19,6 @@ public class ProductoDisponibleResponse {
     private BigDecimal precio;
     // unidades que se pueden pedir para ese horario (null: sin límite, el producto no controla stock)
     private Integer disponibles;
+    // si el cliente lo ve al reservar (el panel muestra primero esos y el resto como "Más productos")
+    private Boolean ofrecerAlReservar;
 }

@@ -122,6 +122,11 @@ public class ProductoService {
         return productoRepository.findAllByActivoTrueAndOfrecerAlReservarTrueOrderByNombreAsc();
     }
 
+    /** Todos los activos, en orden de id: los que puede pedir el personal (se ofrezcan o no al reservar). */
+    public List<Producto> activos() {
+        return productoRepository.findAllByActivoTrueOrderByIdAsc();
+    }
+
     /** El producto con ese id; si no existe, 404. */
     public Producto obtener(Long id) {
         return productoRepository.findById(id).orElseThrow(() -> new ProductoNoEncontradoException(id));
