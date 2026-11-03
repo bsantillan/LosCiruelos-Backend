@@ -10,6 +10,8 @@ import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.club.service.ProductoService;
 import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.common.Roles;
+import com.LosCiruelos.padel_club_api.ventas.exception.VentaNoEncontradaException;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.mapper.VentaMapper;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
@@ -62,6 +64,17 @@ public class VentaService {
         venta = ventaRepository.save(venta);
         log.info("Venta #{} de ${} ({}) registrada por {}", venta.getId(), venta.getTotal(), venta.getMedio(),
                 emailPersonal);
+        return ventaMapper.aResponse(venta);
+    }
+
+    /** Solo ADMIN: marca (o desmarca) una venta con Cuenta DNI como verificada en la cuenta del club. */
+    @Transactional
+    public VentaResponse verificar(Long ventaId, boolean verificada, String email) {
+        Usuario admin = usuarioService.autenticado(email);
+        Roles.exigirAdmin(admin, "Solo el ADMIN puede verificar una venta con Cuenta DNI.");
+        Venta venta = ventaRepository.findById(ventaId).orElseThrow(() -> new VentaNoEncontradaException(ventaId));
+        venta.verificar(verificada, admin.getId(), reloj.ahora());
+        log.info("Venta #{} con Cuenta DNI {} por {}", ventaId, verificada ? "verificada" : "sin verificar", email);
         return ventaMapper.aResponse(venta);
     }
 

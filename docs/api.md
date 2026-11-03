@@ -422,7 +422,7 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 | `POST /admin/reservas/{reservaId}/cobros/presencial` | ADMIN, EMPLEADO | Igual, con Mercado Pago cargado a mano (`provider = MERCADO_PAGO`; por ejemplo, una transferencia a la cuenta del club). | igual |
 | `POST /admin/reservas/{reservaId}/cobros/cuenta-dni` | ADMIN, EMPLEADO | Igual, con Cuenta DNI (`provider = CUENTA_DNI`). Cuenta DNI no tiene API: el personal cobra desde la app del banco y lo registra acá. Body `{ "monto": 7500 }`. Queda **sin verificar** (`verificado: false`) hasta que el ADMIN lo controle contra la cuenta. Si se cancela con reembolso, se devuelve a mano (`A_REEMBOLSAR`). | los de `cobros/efectivo` |
 | `PUT /admin/reservas/{reservaId}/pagos/{pagoId}/verificacion` | **ADMIN** | Marca un pago con Cuenta DNI como verificado (el ADMIN comprobó en la cuenta del club que la plata entró) o lo desmarca. Body `{ "verificado": true }`. Responde el pago con `verificado` y `verificadoAt`. | `400 errors.verificado` · `403` EMPLEADO ("Solo el ADMIN puede verificar un pago con Cuenta DNI.") · `404` reserva o pago · `409` "Solo se verifican los pagos con Cuenta DNI." |
-| `GET /admin/pagos/cuenta-dni?desde=2026-10-01&hasta=2026-10-31&verificado=false` | **ADMIN** | Pagos con Cuenta DNI cobrados en el período (por fecha de cobro), del más viejo al más nuevo, para controlarlos contra la cuenta. `verificado=false` trae los pendientes de verificar; sin el parámetro, todos. Responde `[PagoResponse]` (con `reservaId`). | `400` falta una fecha o `desde` posterior a `hasta` · `403` EMPLEADO o CLIENTE |
+| `GET /admin/pagos/cuenta-dni?desde=2026-10-01&hasta=2026-10-31&verificado=false` | **ADMIN** | Todo lo cobrado con Cuenta DNI en el período (pagos de reservas y ventas sueltas, por fecha de cobro), del más viejo al más nuevo, para controlarlo contra la cuenta. `verificado=false` trae lo pendiente de verificar; sin el parámetro, todo. Responde `[{ "origen": "RESERVA" \| "VENTA", "id", "reservaId", "monto", "fecha", "verificado", "verificadoAt" }]`: `id` es el del pago (se verifica con `PUT /admin/reservas/{reservaId}/pagos/{id}/verificacion`) o el de la venta (`PUT /admin/ventas/{id}/verificacion`); `reservaId` es `null` en una venta. | `400` falta una fecha o `desde` posterior a `hasta` · `403` EMPLEADO o CLIENTE |
 
 ---
 
@@ -682,13 +682,16 @@ Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelot
   "items": [
     { "productoId": 5, "nombre": "Agua mineral", "cantidad": 3, "precioUnitario": 1500.00, "subtotal": 4500.00 },
     { "productoId": 9, "nombre": "Gatorade", "cantidad": 1, "precioUnitario": 3000.00, "subtotal": 3000.00 }
-  ]
+  ],
+  "verificada": null, "verificadaAt": null
 }
 ```
+`verificada` y `verificadaAt`: en una venta con Cuenta DNI, si el ADMIN comprobó en la cuenta del club que la plata entró, y cuándo (`null` en los otros medios).
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
 | `POST /admin/ventas` → `201 VentaResponse` | Registra una venta ya cobrada. Body abajo. | ver abajo |
+| `PUT /admin/ventas/{id}/verificacion` → `200 VentaResponse` | **Solo ADMIN.** Marca una venta con Cuenta DNI como verificada o la desmarca. Body `{ "verificada": true }`. | `400 errors.verificada` · `403` EMPLEADO ("Solo el ADMIN puede verificar una venta con Cuenta DNI.") · `404` · `409` "Solo se verifican las ventas con Cuenta DNI." |
 | `GET /admin/ventas?desde=2026-10-01&hasta=2026-10-31` → `200 [VentaResponse]` | Ventas del período (por fecha de la venta), de la más nueva a la más vieja. Sin fechas, las de hoy. El ADMIN ve cualquier período; el EMPLEADO, solo hoy. | `400` una sola fecha o `desde` posterior a `hasta` · `403` EMPLEADO con otro período ("Solo podés ver las ventas de hoy.") o CLIENTE |
 
 Body de `POST /admin/ventas`:

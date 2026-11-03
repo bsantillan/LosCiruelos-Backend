@@ -22,8 +22,19 @@ import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
+import com.LosCiruelos.padel_club_api.club.entity.Producto;
+import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
+import com.LosCiruelos.padel_club_api.mapper.CuentaDniMapper;
+import com.LosCiruelos.padel_club_api.mapper.VentaMapper;
+import com.LosCiruelos.padel_club_api.pagos.dto.response.CobroCuentaDniResponse;
+import com.LosCiruelos.padel_club_api.pagos.dto.response.CobroCuentaDniResponse.Origen;
+import com.LosCiruelos.padel_club_api.pagos.service.PagoConsultaService;
+import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
+import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
+import com.LosCiruelos.padel_club_api.ventas.repository.VentaRepository;
+import com.LosCiruelos.padel_club_api.ventas.service.VentaConsultaService;
 
-/** El listado de pagos con Cuenta DNI que el ADMIN controla contra la cuenta (H2). */
+/** El listado de lo cobrado con Cuenta DNI (reservas y ventas) que el ADMIN controla contra la cuenta (H2). */
 @DataJpaTest(properties = { "spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect" })
 class PagoRepositoryCuentaDniTest {
@@ -35,6 +46,9 @@ class PagoRepositoryCuentaDniTest {
 
     @Autowired
     private PagoRepository repo;
+
+    @Autowired
+    private VentaRepository ventaRepo;
 
     private Usuario admin;
     private Pago verificado;
@@ -73,6 +87,33 @@ class PagoRepositoryCuentaDniTest {
     @Test
     void traeLosDeCuentaDniDelPeriodoDelMasViejoAlMasNuevo() {
         assertThat(cuentaDni(null)).containsExactly(verificado, sinVerificar);
+    }
+
+    @Test
+    void elServicioJuntaLosPagosYLasVentasPorFecha() {
+        Producto agua = em.persist(Producto.builder().nombre("Agua").tipo(TipoProducto.VENTA)
+                .precio(new BigDecimal("1500")).stock(10).build());
+        Venta venta = Venta.builder().createdAt(HOY.atTime(8, 0)).medio(MedioDePago.CUENTA_DNI).registradoPor(admin)
+                .build();
+        venta.agregar(agua, 2);
+        em.persist(venta);
+        Venta enEfectivo = Venta.builder().createdAt(HOY.atTime(8, 30)).medio(MedioDePago.EFECTIVO)
+                .registradoPor(admin).build();
+        enEfectivo.agregar(agua, 1);
+        em.persist(enEfectivo);
+        em.flush();
+        PagoConsultaService servicio = new PagoConsultaService(repo,
+                new VentaConsultaService(ventaRepo, null, new VentaMapper(), TestData.reloj(TestData.AHORA)),
+                new CuentaDniMapper());
+
+        var cobros = servicio.cuentaDni(HOY.minusDays(2), HOY, false);
+
+        // la venta de hoy a las 8:00 y el pago de hoy a las 9:00 (el verificado de ayer no)
+        assertThat(cobros).extracting(CobroCuentaDniResponse::origen, CobroCuentaDniResponse::id)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(Origen.VENTA, venta.getId()),
+                        org.assertj.core.groups.Tuple.tuple(Origen.RESERVA, sinVerificar.getId()));
+        assertThat(cobros.get(0).monto()).isEqualByComparingTo("3000");
+        assertThat(servicio.cuentaDni(HOY.minusDays(2), HOY, null)).hasSize(3);
     }
 
     @Test

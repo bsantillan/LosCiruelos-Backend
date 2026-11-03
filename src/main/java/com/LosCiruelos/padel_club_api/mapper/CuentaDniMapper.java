@@ -1,0 +1,24 @@
+package com.LosCiruelos.padel_club_api.mapper;
+
+import org.springframework.stereotype.Component;
+
+import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.pagos.dto.response.CobroCuentaDniResponse;
+import com.LosCiruelos.padel_club_api.pagos.dto.response.CobroCuentaDniResponse.Origen;
+import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
+
+/** Pago de una reserva o venta suelta con Cuenta DNI → CobroCuentaDniResponse. */
+@Component
+public class CuentaDniMapper {
+
+    public CobroCuentaDniResponse aResponse(Pago pago) {
+        return new CobroCuentaDniResponse(Origen.RESERVA, pago.getId(), pago.getReserva().getId(),
+                Dinero.redondear(pago.getMonto()), pago.getPaidAt(), pago.estaVerificado(), pago.getVerificadoAt());
+    }
+
+    public CobroCuentaDniResponse aResponse(Venta venta) {
+        return new CobroCuentaDniResponse(Origen.VENTA, venta.getId(), null, Dinero.redondear(venta.getTotal()),
+                venta.getCreatedAt(), venta.estaVerificada(), venta.getVerificadoAt());
+    }
+}

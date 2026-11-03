@@ -6,6 +6,7 @@ import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
+import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 
 /** Venta suelta → VentaResponse. */
 @Component
@@ -20,7 +21,8 @@ public class VentaMapper {
                         .map(i -> new VentaResponse.Item(i.getProducto().getId(), i.getProducto().getNombre(),
                                 i.getCantidad(), Dinero.redondear(i.getPrecioUnitario()),
                                 Dinero.redondear(i.getSubtotal())))
-                        .toList());
+                        .toList(),
+                venta.getMedio() == MedioDePago.CUENTA_DNI ? venta.estaVerificada() : null, venta.getVerificadoAt());
     }
 
     private static String nombre(Usuario usuario) {
