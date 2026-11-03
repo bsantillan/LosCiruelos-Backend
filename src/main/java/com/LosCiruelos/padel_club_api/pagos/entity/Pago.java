@@ -68,12 +68,9 @@ public class Pago {
     @Column(name = "preference_id")
     private String paymentToken;
 
-    // Cobro con QR dinámico: la order de Mercado Pago, la trama del QR y cuándo vence
+    // Cobro con el QR de la caja: la order de Mercado Pago y hasta cuándo se puede pagar
     @Column(name = "order_id", length = 64)
     private String orderId;
-
-    @Column(name = "qr_data", columnDefinition = "text")
-    private String qrData;
 
     @Column(name = "vence_at")
     private LocalDateTime venceAt;
@@ -170,7 +167,7 @@ public class Pago {
     }
 
     /** Lo que el club se queda de este pago: lo aprobado menos lo devuelto o a devolver. */
-    /** Un cobro con QR dinámico de Mercado Pago (tiene una order). */
+    /** Un cobro con el QR de la caja de Mercado Pago (tiene una order). */
     public boolean esCobroQr() {
         return orderId != null;
     }

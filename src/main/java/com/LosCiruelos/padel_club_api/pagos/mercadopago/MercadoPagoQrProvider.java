@@ -25,9 +25,10 @@ import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * QR dinámico con la API de Orders de Mercado Pago (POST/GET /v1/orders, /cancel y /refund).
- * Todas las llamadas llevan X-Idempotency-Key derivada del UUID del pago. La order se crea en la
- * caja {@code MP_QR_EXTERNAL_POS_ID}, que se da de alta una sola vez (ver docs/mercado-pago-qr.md).
+ * QR de la caja con la API de Orders de Mercado Pago (POST/GET /v1/orders, /cancel y /refund), en
+ * modo estático: la order se asigna a la caja {@code MP_QR_EXTERNAL_POS_ID}, cuyo QR está impreso en
+ * el mostrador, y el cliente la paga al escanearlo. La caja se da de alta una sola vez (ver
+ * docs/mercado-pago-qr.md). Todas las llamadas llevan X-Idempotency-Key derivada del UUID del pago.
  */
 @Slf4j
 @Component
@@ -68,7 +69,7 @@ public class MercadoPagoQrProvider implements ProveedorCobroQr {
     }
 
     @Override
-    public OrdenQr crear(Pago pago, String descripcion, int minutos) {
+    public String crear(Pago pago, String descripcion, int minutos) {
         String monto = monto(pago.getMonto());
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", "qr");
@@ -77,7 +78,7 @@ public class MercadoPagoQrProvider implements ProveedorCobroQr {
         body.put("total_amount", monto);
         body.put("description", descripcion);
         body.put("expiration_time", "PT" + minutos + "M");
-        body.put("config", Map.of("qr", Map.of("external_pos_id", externalPosId, "mode", "dynamic")));
+        body.put("config", Map.of("qr", Map.of("external_pos_id", externalPosId, "mode", "static")));
         body.put("transactions", Map.of("payments", List.of(Map.of("amount", monto))));
         try {
             Map<?, ?> respuesta = api.post().uri("/v1/orders")
@@ -87,13 +88,11 @@ public class MercadoPagoQrProvider implements ProveedorCobroQr {
                     .retrieve()
                     .body(Map.class);
             String orderId = texto(respuesta, "id");
-            String qrData = respuesta != null && respuesta.get("type_response") instanceof Map<?, ?> tr
-                    ? texto(tr, "qr_data") : null;
-            if (orderId == null || qrData == null) {
-                log.error("MP creó la order del pago #{} sin id o sin qr_data: {}", pago.getId(), respuesta);
+            if (orderId == null) {
+                log.error("MP creó la order del pago #{} sin id: {}", pago.getId(), respuesta);
                 throw new PagoProveedorException(ERROR_MP);
             }
-            return new OrdenQr(orderId, qrData);
+            return orderId;
         } catch (RestClientResponseException e) {
             log.error("Error de MP creando la order del pago #{}: {} — {}", pago.getId(), e.getStatusCode(),
                     e.getResponseBodyAsString());

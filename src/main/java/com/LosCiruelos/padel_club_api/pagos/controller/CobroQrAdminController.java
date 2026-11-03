@@ -18,7 +18,7 @@ import com.LosCiruelos.padel_club_api.pagos.service.CobroQrService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-/** Cobro en el club con QR dinámico de Mercado Pago (ADMIN y EMPLEADO). */
+/** Cobro en el club con el QR impreso de la caja de Mercado Pago (ADMIN y EMPLEADO). */
 @RestController
 @RequestMapping("/admin/reservas/{reservaId}/cobros/qr")
 @RequiredArgsConstructor
@@ -27,7 +27,7 @@ public class CobroQrAdminController {
 
     private final CobroQrService cobroQrService;
 
-    /** Genera el QR (sin monto, por todo lo que falta). Si ya hay uno activo por el mismo monto, lo devuelve. */
+    /** Le asigna a la caja el cobro (sin monto, por todo lo que falta). Si ya hay uno activo por el mismo monto, lo devuelve. */
     @PostMapping
     public ResponseEntity<CobroQrResponse> generar(@PathVariable Long reservaId,
             @Valid @RequestBody(required = false) CobroQrRequest body, Authentication authentication) {
@@ -41,7 +41,7 @@ public class CobroQrAdminController {
         return ResponseEntity.ok(cobroQrService.ultimo(reservaId, authentication.getName()));
     }
 
-    /** Cancela el QR activo (el personal cerró el modal sin que se pagara). */
+    /** Cancela el cobro activo y libera la caja (el personal cerró el modal sin que se pagara). */
     @DeleteMapping
     public ResponseEntity<CobroQrResponse> cancelar(@PathVariable Long reservaId, Authentication authentication) {
         return ResponseEntity.ok(cobroQrService.cancelar(reservaId, authentication.getName()));

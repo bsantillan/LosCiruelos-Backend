@@ -301,7 +301,7 @@ class ControllersTest {
 
         @Test
         void cobroConQrGeneraConsultaYCancela() throws Exception {
-            var qr = new com.LosCiruelos.padel_club_api.pagos.dto.response.CobroQrResponse(100L, "ORD1", "000201",
+            var qr = new com.LosCiruelos.padel_club_api.pagos.dto.response.CobroQrResponse(100L, "ORD1",
                     new BigDecimal("15000.00"), TestData.AHORA.plusMinutes(10),
                     com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago.EN_PROCESO, EstadoReserva.PENDIENTE,
                     new BigDecimal("15000.00"));
@@ -312,7 +312,8 @@ class ControllersTest {
             // sin body: por todo lo que falta
             mvc.perform(post("/admin/reservas/4/cobros/qr").principal(AUTH))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.qrData").value("000201"))
+                    .andExpect(jsonPath("$.orderId").value("ORD1"))
+                    .andExpect(jsonPath("$.qrData").doesNotExist())
                     .andExpect(jsonPath("$.venceAt").value("2026-10-13T10:10:00.000-03:00"));
             verify(cobroQrService).generar(4L, null, EMAIL);
             mvc.perform(json(post("/admin/reservas/4/cobros/qr"), "{\"monto\":7500}")).andExpect(status().isOk());

@@ -13,7 +13,7 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 public class PagoMapper {
 
     public CobroQrResponse aCobroQr(Pago pago) {
-        return new CobroQrResponse(pago.getId(), pago.getOrderId(), pago.getQrData(), Dinero.redondear(pago.getMonto()),
+        return new CobroQrResponse(pago.getId(), pago.getOrderId(), Dinero.redondear(pago.getMonto()),
                 pago.getVenceAt(), pago.getEstado(), pago.getReserva().getEstado(),
                 Dinero.redondear(pago.getReserva().getMontoPendiente()));
     }

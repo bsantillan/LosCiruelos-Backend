@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +26,6 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr;
 import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr.EstadoOrdenQr;
 import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr.OrdenNoCancelableException;
-import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr.OrdenQr;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
@@ -35,8 +35,9 @@ import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Cobro en el club con QR dinámico: el personal genera un QR por el monto exacto, el cliente lo
- * paga con su billetera y el pago se confirma solo (webhook o, si no llega, el job de respaldo).
+ * Cobro en el club con el QR de la caja (impreso en el mostrador): el personal le asigna a la caja
+ * el monto exacto, el cliente escanea el QR y paga, y el pago se confirma solo (webhook o, si no
+ * llega, el job de respaldo). Como la caja tiene un solo QR, hay un solo cobro esperando a la vez.
  *
  * Mientras el QR está activo el pago queda EN_PROCESO, así que no se puede cobrar de otra forma,
  * cambiar los productos ni cancelar la reserva hasta que se pague, venza o se cancele: el saldo no
@@ -75,8 +76,9 @@ public class CobroQrService {
     // ── El personal ──────────────────────────────────────────────────────
 
     /**
-     * Genera el QR por {@code monto} (null: todo lo que falta). Si ya hay uno activo por el mismo
-     * monto, devuelve ese; por otro monto, 409.
+     * Le asigna a la caja el cobro por {@code monto} (null: todo lo que falta). Si esta reserva ya
+     * tiene uno activo por el mismo monto, devuelve ese; por otro monto, 409. Si la caja está
+     * esperando el pago de otra reserva, 409.
      */
     @Transactional
     public CobroQrResponse generar(Long reservaId, BigDecimal monto, String email) {
@@ -114,6 +116,7 @@ public class CobroQrService {
             throw new ReservaException("El monto ($%s) supera el pendiente ($%s)."
                     .formatted(aCobrar, reserva.getMontoPendiente()));
         }
+        liberarCajaOFallar(reserva, ahora);
         // un pago online iniciado y sin cobrar ya no corresponde
         reserva.expirarPagosPendientes().forEach(pagoRepository::save);
 
@@ -126,15 +129,49 @@ public class CobroQrService {
                 .registradoPorId(personal.getId())
                 .build();
         reserva.agregarPago(pago);
-        pago = pagoRepository.save(pago); // el id va en la referencia de la order
+        try {
+            pago = pagoRepository.save(pago); // el id va en la referencia de la order
+        } catch (DataIntegrityViolationException e) {
+            // otro empleado ocupó la caja en el mismo momento (índice único de QR en curso)
+            throw new EstadoInvalidoException(CAJA_OCUPADA);
+        }
 
         // si el proveedor falla, la transacción se revierte y no queda el pago
-        OrdenQr orden = proveedor.crear(pago, descripcion(reserva), minutosVencimiento);
-        pago.setOrderId(orden.orderId());
-        pago.setQrData(orden.qrData());
-        log.info("QR #{} (order {}) por ${} para la reserva #{}, generado por {}", pago.getId(), orden.orderId(),
+        String orderId = proveedor.crear(pago, descripcion(reserva), minutosVencimiento);
+        pago.setOrderId(orderId);
+        log.info("QR de la caja #{} (order {}) por ${} para la reserva #{}, por {}", pago.getId(), orderId,
                 aCobrar, reserva.getId(), email);
         return pagoMapper.aCobroQr(pago);
+    }
+
+    static final String CAJA_OCUPADA = "El QR de la caja está esperando otro cobro: esperá a que se pague o cancelalo.";
+
+    /**
+     * La caja tiene un solo QR: si está esperando el pago de otra reserva, 409 (con el monto y hasta
+     * cuándo). Uno que ya venció y todavía no resolvió el job se resuelve ahora, con esa reserva
+     * bloqueada.
+     */
+    private void liberarCajaOFallar(Reserva reserva, LocalDateTime ahora) {
+        for (Pago otro : pagoRepository.findQrEnCurso(EstadoPago.EN_PROCESO)) {
+            Long otraReservaId = otro.getReserva().getId();
+            if (otraReservaId.equals(reserva.getId())) {
+                continue;
+            }
+            if (otro.getVenceAt().isAfter(ahora)) {
+                throw new EstadoInvalidoException(("El QR de la caja está esperando el pago de %s de la reserva #%d "
+                        + "hasta las %s: esperá a que se pague o cancelalo.").formatted(Dinero.texto(otro.getMonto()),
+                        otraReservaId, Fechas.textoHora(otro.getVenceAt().toLocalTime())));
+            }
+            Reserva otra = reservaService.bloquear(otraReservaId);
+            otra.getPagos().stream()
+                    .filter(p -> p.getId().equals(otro.getId()) && p.getEstado() == EstadoPago.EN_PROCESO)
+                    .findFirst()
+                    .ifPresent(p -> resolver(otra, p));
+            if (otra.getPagos().stream().anyMatch(p -> p.getId().equals(otro.getId())
+                    && p.getEstado() == EstadoPago.EN_PROCESO)) {
+                throw new EstadoInvalidoException(CAJA_OCUPADA);
+            }
+        }
     }
 
     /** El último QR de la reserva, para que el modal muestre el estado (solo lee la base). */

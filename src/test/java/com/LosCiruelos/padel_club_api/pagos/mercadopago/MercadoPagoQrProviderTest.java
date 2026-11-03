@@ -53,7 +53,7 @@ class MercadoPagoQrProviderTest {
     }
 
     @Test
-    void creaLaOrderConElMontoExactoEnLaCajaDelClub() {
+    void leAsignaALaCajaUnaOrderEnModoEstaticoPorElMontoExacto() {
         mp.expect(requestTo(API + "/v1/orders"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "Bearer TEST-token"))
@@ -61,17 +61,14 @@ class MercadoPagoQrProviderTest {
                 .andExpect(content().json("""
                         {"type":"qr","external_reference":"reserva-10-pago-55","total_amount":"7500.00",
                          "description":"Turno","expiration_time":"PT10M",
-                         "config":{"qr":{"external_pos_id":"CAJA1","mode":"dynamic"}},
+                         "config":{"qr":{"external_pos_id":"CAJA1","mode":"static"}},
                          "transactions":{"payments":[{"amount":"7500.00"}]}}
                         """, true))
                 .andRespond(withSuccess("""
-                        {"id":"ORD1","status":"created","type_response":{"qr_data":"000201010212"}}
+                        {"id":"ORD1","status":"created","config":{"qr":{"external_pos_id":"CAJA1","mode":"static"}}}
                         """, MediaType.APPLICATION_JSON));
 
-        var orden = proveedor.crear(pago, "Turno", 10);
-
-        assertThat(orden.orderId()).isEqualTo("ORD1");
-        assertThat(orden.qrData()).isEqualTo("000201010212");
+        assertThat(proveedor.crear(pago, "Turno", 10)).isEqualTo("ORD1");
         mp.verify();
     }
 

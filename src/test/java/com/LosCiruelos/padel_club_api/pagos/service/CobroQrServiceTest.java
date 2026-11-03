@@ -33,11 +33,10 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr.EstadoOrden;
 import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr.EstadoOrdenQr;
 import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr.OrdenNoCancelableException;
-import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr.OrdenQr;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 
-/** Cobro en el club con QR dinámico. Hoy es el 13/10/2026 a las 10:00; la reserva es de $15.000. */
+/** Cobro en el club con el QR de la caja. Hoy es el 13/10/2026 a las 10:00; la reserva es de $15.000. */
 class CobroQrServiceTest extends PagosTestBase {
 
     private static final String ORDER = "ORD01JQ4S4KY8HWQ6NA5PXB65B3D3";
@@ -46,7 +45,7 @@ class CobroQrServiceTest extends PagosTestBase {
     @BeforeEach
     void unaReserva() {
         reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
-        when(proveedorQr.crear(any(), anyString(), anyInt())).thenReturn(new OrdenQr(ORDER, "00020101021243650016"));
+        when(proveedorQr.crear(any(), anyString(), anyInt())).thenReturn(ORDER);
         when(pagoRepository.findReservaIdByOrderId(ORDER)).thenReturn(Optional.of(10L));
         when(pagoRepository.findReservaIdByPagoId(100L)).thenReturn(Optional.of(10L));
     }
@@ -72,7 +71,6 @@ class CobroQrServiceTest extends PagosTestBase {
             CobroQrResponse r = generar(null);
 
             assertThat(r.orderId()).isEqualTo(ORDER);
-            assertThat(r.qrData()).isEqualTo("00020101021243650016");
             assertThat(r.monto()).isEqualTo(new BigDecimal("15000.00"));
             assertThat(r.venceAt()).isEqualTo(AHORA.plusMinutes(10));
             assertThat(r.estado()).isEqualTo(EstadoPago.EN_PROCESO);
@@ -124,12 +122,59 @@ class CobroQrServiceTest extends PagosTestBase {
                     .venceAt(AHORA.minusMinutes(10)).orderId(ORDER).build();
             reserva.agregarPago(viejo);
             laOrderQueda(EstadoOrden.VENCIDA, null);
-            when(proveedorQr.crear(any(), anyString(), anyInt())).thenReturn(new OrdenQr("ORD-NUEVA", "0002"));
+            when(proveedorQr.crear(any(), anyString(), anyInt())).thenReturn("ORD-NUEVA");
 
             CobroQrResponse r = generar(null);
 
             assertThat(viejo.getEstado()).isEqualTo(EstadoPago.EXPIRADO);
             assertThat(r.orderId()).isEqualTo("ORD-NUEVA");
+        }
+    }
+
+    @Nested
+    class UnSoloQrEnLaCaja {
+
+        private Pago qrDeOtraReserva(java.time.LocalDateTime venceAt) {
+            Reserva otra = com.LosCiruelos.padel_club_api.TestData.reserva(20L, cliente, EstadoReserva.SEÑADA, "15000");
+            Pago pago = Pago.builder().id(77L).reserva(otra).monto(new BigDecimal("7500"))
+                    .estado(EstadoPago.EN_PROCESO).provider(PaymentProvider.MERCADO_PAGO)
+                    .createdAt(venceAt.minusMinutes(10)).venceAt(venceAt).orderId("ORD-OTRA").build();
+            otra.agregarPago(pago);
+            when(reservaService.bloquear(20L)).thenReturn(otra);
+            when(pagoRepository.findQrEnCurso(EstadoPago.EN_PROCESO)).thenReturn(List.of(pago));
+            return pago;
+        }
+
+        @Test
+        void siLaCajaEsperaElPagoDeOtraReservaHayQueEsperar() {
+            qrDeOtraReserva(AHORA.plusMinutes(4));
+
+            assertThatThrownBy(() -> generar(null))
+                    .isInstanceOf(EstadoInvalidoException.class)
+                    .hasMessage("El QR de la caja está esperando el pago de $7.500 de la reserva #20 hasta las 10:04: "
+                            + "esperá a que se pague o cancelalo.");
+            verify(proveedorQr, never()).crear(any(), anyString(), anyInt());
+        }
+
+        @Test
+        void unQrVencidoDeOtraReservaSeResuelveYLaCajaQuedaLibre() {
+            Pago otro = qrDeOtraReserva(AHORA.minusMinutes(1));
+            when(proveedorQr.consultar("ORD-OTRA")).thenReturn(new EstadoOrdenQr(EstadoOrden.VENCIDA, null, null));
+
+            CobroQrResponse r = generar(null);
+
+            assertThat(otro.getEstado()).isEqualTo(EstadoPago.EXPIRADO);
+            assertThat(r.estado()).isEqualTo(EstadoPago.EN_PROCESO);
+        }
+
+        @Test
+        void siOtroEmpleadoOcupaLaCajaEnElMismoMomentoEs409() {
+            when(pagoRepository.save(any(Pago.class)))
+                    .thenThrow(new org.springframework.dao.DataIntegrityViolationException("uk_pagos_qr_en_curso"));
+
+            assertThatThrownBy(() -> generar(null))
+                    .isInstanceOf(EstadoInvalidoException.class)
+                    .hasMessage("El QR de la caja está esperando otro cobro: esperá a que se pague o cancelalo.");
         }
     }
 
