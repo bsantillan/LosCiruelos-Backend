@@ -32,6 +32,18 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
     List<Pago> cuentaDni(@Param("cuentaDni") PaymentProvider cuentaDni, @Param("inicio") LocalDateTime inicio,
             @Param("fin") LocalDateTime fin, @Param("verificado") Boolean verificado);
 
+    @Query("SELECT p.reserva.id FROM Pago p WHERE p.orderId = :orderId")
+    Optional<Long> findReservaIdByOrderId(@Param("orderId") String orderId);
+
+    /** Los cobros con el QR de la caja que esperan el pago (como mucho uno: la caja tiene un solo QR). */
+    @Query("SELECT p FROM Pago p JOIN FETCH p.reserva WHERE p.venceAt IS NOT NULL AND p.estado = :enProceso")
+    List<Pago> findQrEnCurso(@Param("enProceso") EstadoPago enProceso);
+
+    /** Cobros con QR que siguen esperando el pago y ya vencieron (antes de :limite): los revisa el job. */
+    @Query("SELECT p.id FROM Pago p WHERE p.orderId IS NOT NULL AND p.estado = :enProceso AND p.venceAt < :limite"
+            + " ORDER BY p.id")
+    List<Long> findIdsQrVencidos(@Param("enProceso") EstadoPago enProceso, @Param("limite") LocalDateTime limite);
+
     // Solo ids: el webhook bloquea primero la reserva y después lee el pago actualizado
     @Query("SELECT p.reserva.id FROM Pago p WHERE p.externalPaymentId = :externalPaymentId")
     Optional<Long> findReservaIdByExternalPaymentId(@Param("externalPaymentId") String externalPaymentId);

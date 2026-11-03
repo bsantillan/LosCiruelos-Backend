@@ -2,13 +2,21 @@ package com.LosCiruelos.padel_club_api.mapper;
 
 import org.springframework.stereotype.Component;
 
+import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.pagos.dto.response.CobroQrResponse;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 
-/** Pago → PagoResponse. */
+/** Pago → PagoResponse y, si es un cobro con QR, CobroQrResponse. */
 @Component
 public class PagoMapper {
+
+    public CobroQrResponse aCobroQr(Pago pago) {
+        return new CobroQrResponse(pago.getId(), pago.getOrderId(), Dinero.redondear(pago.getMonto()),
+                pago.getVenceAt(), pago.getEstado(), pago.getReserva().getEstado(),
+                Dinero.redondear(pago.getReserva().getMontoPendiente()));
+    }
 
     public PagoResponse aResponse(Pago pago) {
         PagoResponse response = new PagoResponse();

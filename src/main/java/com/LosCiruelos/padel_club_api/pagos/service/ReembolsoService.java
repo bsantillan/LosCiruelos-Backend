@@ -17,6 +17,8 @@ import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentService;
+import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr;
+import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr.EstadoOrden;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentServiceFactory;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
@@ -27,7 +29,8 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Reembolsos de lo pagado cuando se cancela una reserva: por API de Mercado Pago lo cobrado online
- * (con reintentos si MP no lo acepta en el momento) y a mano lo cobrado en el club.
+ * y con QR (con reintentos si MP no lo acepta en el momento) y a mano lo cobrado en el club en
+ * efectivo, con Cuenta DNI o cargado a mano.
  */
 @Slf4j
 @Service
@@ -38,6 +41,7 @@ public class ReembolsoService {
     static final Duration PLAZO_REINTENTO_REEMBOLSO = Duration.ofHours(24);
 
     private final PaymentServiceFactory paymentServiceFactory;
+    private final ProveedorCobroQr proveedorQr;
     private final ReservaService reservaService;
     private final PagoRepository pagoRepository;
     private final EstadosDePago estados;
@@ -57,7 +61,7 @@ public class ReembolsoService {
         BigDecimal restante = monto;
         List<Pago> aprobados = reserva.getPagos().stream()
                 .filter(p -> p.getEstado() == EstadoPago.APROBADO && !p.esBonificacion()) // no es plata
-                .sorted(Comparator.comparing((Pago p) -> p.getExternalPaymentId() == null)
+                .sorted(Comparator.comparing((Pago p) -> !p.seDevuelvePorApi())
                         .thenComparing(Pago::getCreatedAt, Comparator.reverseOrder()))
                 .toList();
 
@@ -70,9 +74,9 @@ public class ReembolsoService {
                 continue;
             }
             pago.setMontoReembolsado(aDevolver);
-            if (pago.getExternalPaymentId() != null) {
+            if (pago.seDevuelvePorApi()) {
                 try {
-                    paymentServiceFactory.getService().reembolsar(pago, aDevolver);
+                    devolverPorApi(pago, aDevolver);
                     estados.cambiar(pago, EstadoPago.DEVUELTO);
                 } catch (ReembolsoFallidoException e) {
                     pago.setReembolsoSolicitadoAt(reloj.ahora());
@@ -128,6 +132,9 @@ public class ReembolsoService {
         }
 
         BigDecimal aDevolver = pago.getMontoReembolsado() != null ? pago.getMontoReembolsado() : pago.getMonto();
+        if (pago.esCobroQr()) {
+            return reintentarReembolsoQr(pago, reserva, aDevolver);
+        }
         PaymentService proveedor = paymentServiceFactory.getService();
         try {
             BigDecimal yaDevuelto = proveedor.consultarPago(pago.getExternalPaymentId()).getMontoDevuelto();
@@ -166,6 +173,44 @@ public class ReembolsoService {
             }
         }
         return pago.getEstado();
+    }
+
+    /** Como {@link #reintentarReembolso} para un cobro con QR: se consulta la order antes de reintentar. */
+    private EstadoPago reintentarReembolsoQr(Pago pago, Reserva reserva, BigDecimal aDevolver) {
+        try {
+            if (proveedorQr.consultar(pago.getOrderId()).estado() == EstadoOrden.DEVUELTA
+                    && aDevolver.compareTo(pago.getMonto()) == 0) {
+                estados.cambiar(pago, EstadoPago.DEVUELTO);
+                log.info("QR #{}: MP ya tenía devuelta la order {}; queda DEVUELTO", pago.getId(), pago.getOrderId());
+                estados.avisarReembolsoRealizado(reserva, aDevolver);
+                return pago.getEstado();
+            }
+            proveedorQr.reembolsar(pago, aDevolver);
+            estados.cambiar(pago, EstadoPago.DEVUELTO);
+            estados.avisarReembolsoRealizado(reserva, aDevolver);
+            log.info("QR #{}: reembolso de ${} hecho en el reintento (reserva #{})", pago.getId(), aDevolver,
+                    reserva.getId());
+        } catch (ReembolsoFallidoException e) {
+            if (e.isDefinitivo() || plazoDeReintentoVencido(pago)) {
+                pasarAReembolsoManual(pago, reserva, "Mercado Pago no aceptó el reembolso (order "
+                        + pago.getOrderId() + ").");
+            }
+        } catch (PagoProveedorException e) {
+            if (plazoDeReintentoVencido(pago)) {
+                pasarAReembolsoManual(pago, reserva, "Mercado Pago no respondió durante 24 h (order "
+                        + pago.getOrderId() + ").");
+            }
+        }
+        return pago.getEstado();
+    }
+
+    /** Un pago online se devuelve con la API de pagos; un QR, con la de orders. */
+    private void devolverPorApi(Pago pago, BigDecimal monto) {
+        if (pago.esCobroQr()) {
+            proveedorQr.reembolsar(pago, monto);
+        } else {
+            paymentServiceFactory.getService().reembolsar(pago, monto);
+        }
     }
 
     private boolean plazoDeReintentoVencido(Pago pago) {

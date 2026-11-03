@@ -105,6 +105,7 @@ class ControllersTest {
     private CancelacionService cancelacionService;
     private PagoOnlineService pagoOnlineService;
     private CobroService cobroService;
+    private com.LosCiruelos.padel_club_api.pagos.service.CobroQrService cobroQrService;
     private com.LosCiruelos.padel_club_api.pagos.service.PagoConsultaService pagoConsultaService;
     private MercadoPagoWebhookValidator webhookValidator;
     private AuthService authService;
@@ -129,6 +130,7 @@ class ControllersTest {
         cancelacionService = mock(CancelacionService.class);
         pagoOnlineService = mock(PagoOnlineService.class);
         cobroService = mock(CobroService.class);
+        cobroQrService = mock(com.LosCiruelos.padel_club_api.pagos.service.CobroQrService.class);
         pagoConsultaService = mock(com.LosCiruelos.padel_club_api.pagos.service.PagoConsultaService.class);
         webhookValidator = mock(MercadoPagoWebhookValidator.class);
         authService = mock(AuthService.class);
@@ -149,8 +151,9 @@ class ControllersTest {
         mvc = MockMvcBuilders.standaloneSetup(
                 new ReservaController(reservaService, reservaConsultaService, cancelacionService),
                 new PagoController(pagoOnlineService),
-                new MercadoPagoWebhookController(pagoOnlineService, webhookValidator),
+                new MercadoPagoWebhookController(pagoOnlineService, cobroQrService, webhookValidator),
                 new CobroAdminController(cobroService),
+                new com.LosCiruelos.padel_club_api.pagos.controller.CobroQrAdminController(cobroQrService),
                 new com.LosCiruelos.padel_club_api.pagos.controller.PagoAdminController(pagoConsultaService),
                 new AuthController(authService, verificationService, passwordResetService),
                 new PerfilController(perfilService),
@@ -294,6 +297,57 @@ class ControllersTest {
             mvc.perform(json(post("/admin/reservas/4/cobros/presencial"), "{\"monto\":7500}")).andExpect(status().isOk());
             verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, EMAIL);
             verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO, EMAIL);
+        }
+
+        @Test
+        void cobroConQrGeneraConsultaYCancela() throws Exception {
+            var qr = new com.LosCiruelos.padel_club_api.pagos.dto.response.CobroQrResponse(100L, "ORD1",
+                    new BigDecimal("15000.00"), TestData.AHORA.plusMinutes(10),
+                    com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago.EN_PROCESO, EstadoReserva.PENDIENTE,
+                    new BigDecimal("15000.00"));
+            when(cobroQrService.generar(any(), any(), anyString())).thenReturn(qr);
+            when(cobroQrService.ultimo(4L, EMAIL)).thenReturn(qr);
+            when(cobroQrService.cancelar(4L, EMAIL)).thenReturn(qr);
+
+            // sin body: por todo lo que falta
+            mvc.perform(post("/admin/reservas/4/cobros/qr").principal(AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.orderId").value("ORD1"))
+                    .andExpect(jsonPath("$.qrData").doesNotExist())
+                    .andExpect(jsonPath("$.venceAt").value("2026-10-13T10:10:00.000-03:00"));
+            verify(cobroQrService).generar(4L, null, EMAIL);
+            mvc.perform(json(post("/admin/reservas/4/cobros/qr"), "{\"monto\":7500}")).andExpect(status().isOk());
+            verify(cobroQrService).generar(4L, new BigDecimal("7500"), EMAIL);
+            mvc.perform(json(post("/admin/reservas/4/cobros/qr"), "{\"monto\":0}")).andExpect(status().isBadRequest());
+
+            mvc.perform(get("/admin/reservas/4/cobros/qr").principal(AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.estado").value("EN_PROCESO"));
+            mvc.perform(delete("/admin/reservas/4/cobros/qr").principal(AUTH)).andExpect(status().isOk());
+        }
+
+        @Test
+        void sinConfigurarElQrResponde503() throws Exception {
+            when(cobroQrService.generar(any(), any(), anyString()))
+                    .thenThrow(new com.LosCiruelos.padel_club_api.pagos.exception.CobroQrNoConfiguradoException());
+
+            mvc.perform(post("/admin/reservas/4/cobros/qr").principal(AUTH))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.error").value("El cobro con QR no está configurado."));
+        }
+
+        @Test
+        void elWebhookDeUnaOrderConsultaLaOrderSinMirarLaFirma() throws Exception {
+            mvc.perform(post("/pagos/notificacion").param("type", "order").param("data.id", "ORD1")
+                    .header("x-signature", "ts=1,v1=cualquiera").header("x-request-id", "r1"))
+                    .andExpect(status().isOk());
+            verify(cobroQrService).notificacion("ORD1");
+
+            mvc.perform(post("/pagos/notificacion").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"type\":\"order\",\"action\":\"order.processed\",\"data\":{\"id\":\"ORD2\"}}"))
+                    .andExpect(status().isOk());
+            verify(cobroQrService).notificacion("ORD2");
+            verify(pagoOnlineService, never()).procesarNotificacion(anyString());
         }
 
         @Test

@@ -68,6 +68,13 @@ public class Pago {
     @Column(name = "preference_id")
     private String paymentToken;
 
+    // Cobro con el QR de la caja: la order de Mercado Pago y hasta cuándo se puede pagar
+    @Column(name = "order_id", length = 64)
+    private String orderId;
+
+    @Column(name = "vence_at")
+    private LocalDateTime venceAt;
+
     // Parte del pago que se devolvió (DEVUELTO) o que hay que devolver (A_REEMBOLSAR,
     // REEMBOLSO_PENDIENTE). null en esos estados significa el monto completo.
     @Column(name = "monto_reembolsado", precision = 10, scale = 2)
@@ -160,6 +167,21 @@ public class Pago {
     }
 
     /** Lo que el club se queda de este pago: lo aprobado menos lo devuelto o a devolver. */
+    /** Un cobro con el QR de la caja de Mercado Pago (tiene una order). */
+    public boolean esCobroQr() {
+        return orderId != null;
+    }
+
+    /** Un QR que todavía se puede pagar: esperando el pago y sin vencer. */
+    public boolean esQrActivo(LocalDateTime ahora) {
+        return esCobroQr() && estado == EstadoPago.EN_PROCESO && venceAt != null && venceAt.isAfter(ahora);
+    }
+
+    /** Se devuelve por la API del proveedor (un pago online o un QR); los demás, a mano. */
+    public boolean seDevuelvePorApi() {
+        return externalPaymentId != null || esCobroQr();
+    }
+
     public BigDecimal getMontoRetenido() {
         return switch (estado) {
             case APROBADO -> montoReembolsado == null ? monto : monto.subtract(montoReembolsado);

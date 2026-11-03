@@ -4,7 +4,7 @@ public enum EstadoPago {
     PENDIENTE,      // preferencia generada, esperando pago
     APROBADO,       // pago confirmado
     RECHAZADO,      // pago rechazado o cancelado
-    EN_PROCESO,     // en revisión por MP o esperando acreditación
+    EN_PROCESO,     // en revisión por MP o esperando acreditación; un QR del club mientras está activo
     DEVUELTO,       // reembolsado o contracargo
     EXPIRADO,       // nunca se cobró y la reserva expiró o se canceló
     A_REEMBOLSAR,   // hay que devolverlo a mano (pago en el club, cobro sobre una reserva inactiva o reembolso de MP que no se pudo hacer)
