@@ -167,4 +167,43 @@ class VentaServiceTest {
                 .isInstanceOf(ReservaException.class)
                 .hasMessage("El usuario indicado no es un cliente.");
     }
+
+    @Test
+    void unaVentaConCuentaDniQuedaSinVerificar() {
+        VentaResponse r = servicio.registrar(pedido(MedioDePago.CUENTA_DNI, null, item(5L, 1)), empleado.getEmail());
+
+        assertThat(r.verificada()).isFalse();
+        assertThat(servicio.registrar(pedido(MedioDePago.EFECTIVO, null, item(5L, 1)), empleado.getEmail())
+                .verificada()).isNull();
+    }
+
+    @Test
+    void soloElAdminVerificaYSoloLasDeCuentaDni() {
+        Usuario admin = usuario(1L, Role.ADMIN);
+        when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
+        Venta dni = Venta.builder().id(7L).createdAt(AHORA).medio(MedioDePago.CUENTA_DNI).registradoPor(empleado)
+                .build();
+        dni.agregar(agua, 1);
+        Venta efectivo = Venta.builder().id(8L).createdAt(AHORA).medio(MedioDePago.EFECTIVO).registradoPor(empleado)
+                .build();
+        efectivo.agregar(agua, 1);
+        when(ventaRepository.findById(7L)).thenReturn(java.util.Optional.of(dni));
+        when(ventaRepository.findById(8L)).thenReturn(java.util.Optional.of(efectivo));
+
+        VentaResponse r = servicio.verificar(7L, true, admin.getEmail());
+        assertThat(r.verificada()).isTrue();
+        assertThat(r.verificadaAt()).isEqualTo(AHORA);
+        assertThat(dni.getVerificadoPorId()).isEqualTo(1L);
+        assertThat(servicio.verificar(7L, false, admin.getEmail()).verificada()).isFalse();
+
+        assertThatThrownBy(() -> servicio.verificar(7L, true, empleado.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class)
+                .hasMessage("Solo el ADMIN puede verificar una venta con Cuenta DNI.");
+        assertThatThrownBy(() -> servicio.verificar(8L, true, admin.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException.class)
+                .hasMessage("Solo se verifican las ventas con Cuenta DNI.");
+        when(ventaRepository.findById(99L)).thenReturn(java.util.Optional.empty());
+        assertThatThrownBy(() -> servicio.verificar(99L, true, admin.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.ventas.exception.VentaNoEncontradaException.class);
+    }
 }

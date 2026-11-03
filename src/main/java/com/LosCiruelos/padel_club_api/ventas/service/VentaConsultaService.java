@@ -14,6 +14,7 @@ import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.mapper.VentaMapper;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
+import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
 import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 import com.LosCiruelos.padel_club_api.ventas.repository.TotalesDeVentas;
 import com.LosCiruelos.padel_club_api.ventas.repository.VentaPorProducto;
@@ -58,6 +59,11 @@ public class VentaConsultaService {
     public TotalesDeVentas totales(LocalDateTime inicio, LocalDateTime fin) {
         return ventaRepository.totales(inicio, fin, MedioDePago.EFECTIVO, MedioDePago.MERCADO_PAGO,
                 MedioDePago.CUENTA_DNI);
+    }
+
+    /** Ventas con Cuenta DNI en [inicio, fin), para que el ADMIN las controle contra la cuenta. */
+    public List<Venta> cuentaDni(LocalDateTime inicio, LocalDateTime fin, Boolean verificada) {
+        return ventaRepository.porMedio(MedioDePago.CUENTA_DNI, inicio, fin, verificada);
     }
 
     /** Lo vendido de cada producto en [inicio, fin). */

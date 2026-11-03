@@ -286,6 +286,8 @@ END $$;
 SELECT pg_temp.venta(interval '1 hour', 'EFECTIVO', NULL, ARRAY['Agua mineral', 'Gatorade'], ARRAY[2, 1]);
 SELECT pg_temp.venta(interval '30 minutes', 'MERCADO_PAGO', 'ana@test.com', ARRAY['Pelotas'], ARRAY[3]);
 SELECT pg_temp.venta(interval '1 day', 'CUENTA_DNI', current_setting('datos.mail_cliente'), ARRAY['Gatorade'], ARRAY[2]);
+-- el ADMIN ya controló la de ayer en la cuenta; el pago con Cuenta DNI de hoy sigue sin verificar
+UPDATE ventas SET verificado_at = now(), verificado_por_id = pg_temp.admin() WHERE medio = 'CUENTA_DNI';
 SELECT pg_temp.venta(interval '6 days', 'MERCADO_PAGO', NULL, ARRAY['Agua mineral', 'Pelotas'], ARRAY[4, 1]);
 
 DROP EXTENSION pgcrypto;

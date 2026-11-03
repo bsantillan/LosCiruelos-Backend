@@ -77,6 +77,7 @@ public class SecurityConfig {
                         .requestMatchers("/admin/reservas/partidos", "/admin/reservas/partidos/**").hasRole("ADMIN")
                         .requestMatchers("/admin/reservas", "/admin/reservas/**").hasAnyRole("ADMIN", "EMPLEADO")
                         .requestMatchers(HttpMethod.GET, "/admin/usuarios/clientes").hasAnyRole("ADMIN", "EMPLEADO")
+                        .requestMatchers("/admin/ventas/*/verificacion").hasRole("ADMIN")
                         .requestMatchers("/admin/ventas", "/admin/ventas/**").hasAnyRole("ADMIN", "EMPLEADO")
                         // Reservas del cliente (las del personal están en /admin/reservas)
                         .requestMatchers("/reservas", "/reservas/**").hasRole("CLIENTE")

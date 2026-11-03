@@ -370,12 +370,17 @@ class ControllersTest {
 
         @Test
         void listadoDeCuentaDniParaControlar() throws Exception {
-            when(pagoConsultaService.cuentaDni(any(), any(), any())).thenReturn(List.of(new PagoResponse()));
+            when(pagoConsultaService.cuentaDni(any(), any(), any())).thenReturn(List.of(
+                    new com.LosCiruelos.padel_club_api.pagos.dto.response.CobroCuentaDniResponse(
+                            com.LosCiruelos.padel_club_api.pagos.dto.response.CobroCuentaDniResponse.Origen.VENTA, 8L,
+                            null, new BigDecimal("3000.00"), TestData.AHORA, false, null)));
 
             mvc.perform(get("/admin/pagos/cuenta-dni").param("desde", "2026-10-01").param("hasta", "2026-10-31")
                     .param("verificado", "false").principal(AUTH))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.length()").value(1));
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].origen").value("VENTA"))
+                    .andExpect(jsonPath("$[0].verificado").value(false));
             verify(pagoConsultaService).cuentaDni(java.time.LocalDate.of(2026, 10, 1),
                     java.time.LocalDate.of(2026, 10, 31), false);
             mvc.perform(get("/admin/pagos/cuenta-dni").param("desde", "2026-10-01").principal(AUTH))
@@ -1085,7 +1090,7 @@ class ControllersTest {
         @Test
         void registrarDevuelve201() throws Exception {
             when(ventaService.registrar(any(), eq(EMAIL))).thenReturn(new VentaResponse(4L, TestData.AHORA,
-                    new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of()));
+                    new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of(), null, null));
 
             mvc.perform(json(post("/admin/ventas"), """
                     {"medio":"EFECTIVO","items":[{"productoId":5,"cantidad":2},{"nombre":"Gatorade","precio":2500,"cantidad":1}]}
@@ -1105,6 +1110,20 @@ class ControllersTest {
             mvc.perform(json(post("/admin/ventas"), "{\"medio\":\"EFECTIVO\",\"items\":[{\"productoId\":5,\"cantidad\":0}]}"))
                     .andExpect(status().isBadRequest());
             verify(ventaService, never()).registrar(any(), anyString());
+        }
+
+        @Test
+        void elAdminVerificaUnaVentaConCuentaDni() throws Exception {
+            mvc.perform(json(put("/admin/ventas/8/verificacion"), "{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.verificada").exists());
+            when(ventaService.verificar(8L, true, EMAIL)).thenReturn(new VentaResponse(8L, TestData.AHORA,
+                    new java.math.BigDecimal("3000.00"), MedioDePago.CUENTA_DNI, null, null, "Ana Pérez", List.of(),
+                    true, TestData.AHORA));
+
+            mvc.perform(json(put("/admin/ventas/8/verificacion"), "{\"verificada\":true}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.verificada").value(true));
         }
 
         @Test

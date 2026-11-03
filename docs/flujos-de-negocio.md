@@ -116,7 +116,7 @@ Si cualquier paso falla, la transacción se revierte entera: no quedan reservas 
 - Body `{ "monto": 7500 }`: mayor a 0, como máximo lo pendiente, hasta 2 decimales.
 - `cobros/efectivo` registra `provider = MANUAL`; `cobros/presencial` registra `MERCADO_PAGO` cargado a mano; `cobros/cuenta-dni` registra `CUENTA_DNI`.
 - **Medios de pago**: para la caja solo hay tres, efectivo, Mercado Pago y Cuenta DNI. Lo que no es efectivo es plata que entra a una cuenta, sin importar si fue online o en el club.
-- **Cuenta DNI** (Banco Provincia) no tiene API: el personal cobra desde la app del banco y registra el pago, que cuenta en la caja en el momento pero queda **sin verificar**. El ADMIN controla la cuenta del club (`GET /admin/pagos/cuenta-dni?verificado=false`) y marca cada pago como verificado; solo él puede marcarlo o desmarcarlo. Si después se cancela con reembolso, el pago queda `A_REEMBOLSAR` y se devuelve a mano.
+- **Cuenta DNI** (Banco Provincia) no tiene API: el personal cobra desde la app del banco y registra el pago, que cuenta en la caja en el momento pero queda **sin verificar**. El ADMIN controla la cuenta del club (`GET /admin/pagos/cuenta-dni?verificado=false`, con los pagos de reservas y las ventas sueltas juntos) y marca cada cobro como verificado; solo él puede marcarlo o desmarcarlo. Si después se cancela con reembolso, el pago queda `A_REEMBOLSAR` y se devuelve a mano.
 - Se acepta en reservas `PENDIENTE` dentro del plazo, `SEÑADA` y `PARCIALMENTE_PAGADA`, también después del turno (el saldo se suele cobrar después de jugar).
 - Si el pago deja la reserva **totalmente paga y el turno ya terminó**, pasa a `COMPLETADA` en el acto. Si se paga antes o durante el turno, queda `PAGADA` y la completa el job cuando termina.
 - Si hay un pago online `EN_PROCESO` responde `409`, para evitar cobrar dos veces.
@@ -222,6 +222,7 @@ Se ocultan siempre las **descartadas**: canceladas o vencidas sin ningún pago q
 - El personal registra lo que vende sin reserva (una bebida, pelotas): se cobra en el momento, en efectivo o con Mercado Pago en el club, y se puede asociar a un cliente.
 - Cada ítem es un producto de venta del catálogo o uno escrito a mano, que queda dado de alta igual que en una reserva. Los alquileres (paletas) no se venden sueltos.
 - El stock baja en el momento (con los productos bloqueados en orden de id) y no vuelve: una venta no se cancela.
+- Una venta con Cuenta DNI queda sin verificar hasta que el ADMIN la controla contra la cuenta (`PUT /admin/ventas/{id}/verificacion`), igual que un pago de una reserva.
 - Se cobra en efectivo, con Mercado Pago o con Cuenta DNI, y entra en la caja del día (`efectivo`, `mercadoPago` o `cuentaDni`), en `ventas` y en `productos` del resumen. El EMPLEADO ve solo las de hoy, igual que el resumen.
 
 ### 10. Consultas
