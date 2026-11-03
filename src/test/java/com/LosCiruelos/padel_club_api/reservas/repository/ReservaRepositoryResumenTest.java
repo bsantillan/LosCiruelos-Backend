@@ -264,7 +264,6 @@ class ReservaRepositoryResumenTest {
         Reserva hoyPorJugar = repo.findAll().stream().filter(r -> r.getFechaReserva().equals(HOY)
                 && r.getHoraInicio().equals(LocalTime.of(11, 0))).findFirst().orElseThrow();
         Pago dni = pago(hoyPorJugar, PaymentProvider.CUENTA_DNI, null, EstadoPago.APROBADO, "4000", HOY.atTime(9, 20));
-        dni.setComprobante("CDNI-0001");
         Producto agua = em.persist(Producto.builder().nombre("Agua").tipo(TipoProducto.VENTA).precio($("1500"))
                 .stock(10).activo(true).ofrecerAlReservar(false).controlaStock(true).build());
         venta(HOY.atTime(9, 50), MedioDePago.CUENTA_DNI, agua, 2);

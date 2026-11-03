@@ -29,7 +29,7 @@ Con el offset, `new Date(valor)` en el navegador da el instante correcto aunque 
 | `EstadoReserva` | `PENDIENTE`, `CONFIRMADA` (partido sin nada pagado: no vence), `SEÑADA` (solo reservas normales: un partido no tiene seña), `PARCIALMENTE_PAGADA`, `PAGADA`, `CANCELADA`, `EXPIRADA`, `COMPLETADA` |
 | `TipoReserva` | `NORMAL`, `PARTIDO` (4 jugadores, lo arma el ADMIN) |
 | `EstadoPago` | `PENDIENTE`, `APROBADO`, `RECHAZADO`, `EN_PROCESO`, `DEVUELTO`, `EXPIRADO`, `A_REEMBOLSAR`, `REEMBOLSO_PENDIENTE` |
-| `PaymentProvider` | `MANUAL` (efectivo), `MERCADO_PAGO`, `CUENTA_DNI` (Banco Provincia, cargado a mano con el comprobante), `BONIFICACION` (el ADMIN no le cobró al cliente: no es plata) |
+| `PaymentProvider` | `MANUAL` (efectivo), `MERCADO_PAGO`, `CUENTA_DNI` (Banco Provincia, cargado a mano; el ADMIN lo verifica contra la cuenta), `BONIFICACION` (el ADMIN no le cobró al cliente: no es plata) |
 | `AuthProvider` | `LOCAL`, `GOOGLE` |
 
 ---
@@ -405,12 +405,12 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
   "externalPaymentId": "1234567890",
   "createdAt": "2026-10-12T17:01:00.000-03:00", "paidAt": "2026-10-12T17:02:10.000-03:00",
   "montoReembolsado": null,
-  "comprobante": null,
+  "verificado": null, "verificadoAt": null,
   "estadoReserva": "SEÑADA",
   "detalle": "accredited"
 }
 ```
-`paymentToken` es el id de la preferencia (para inicializar el Brick o el botón de MP); `externalPaymentId`, el id del pago en MP; `comprobante`, el número de comprobante de un pago con Cuenta DNI; `estadoReserva`, el estado de la reserva después de la operación; `detalle`, el `status_detail` de MP (solo al cobrar).
+`paymentToken` es el id de la preferencia (para inicializar el Brick o el botón de MP); `externalPaymentId`, el id del pago en MP; `verificado` y `verificadoAt`, si el ADMIN comprobó en la cuenta del club que entró un pago con Cuenta DNI, y cuándo (`null` en los otros medios); `estadoReserva`, el estado de la reserva después de la operación; `detalle`, el `status_detail` de MP (solo al cobrar).
 
 | Método y ruta | Rol | Descripción | Errores |
 |---|---|---|---|
@@ -420,7 +420,9 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 | `POST /admin/reservas/{reservaId}/bonificacion` | **ADMIN** | Bonifica la reserva cuando no se le cobra al cliente (socio, torneo, cortesía): todo o una parte. Body opcional `{ "monto": 7500, "motivo": "socio" }`; sin `monto` bonifica todo lo que falta. Queda un pago `provider = BONIFICACION` que cubre el monto (la reserva se confirma o queda paga) pero **no es plata**: no cuenta como cobrado, no se devuelve si se cancela y no manda aviso. Se acepta en las mismas reservas que un pago en el club. | `400` monto inválido o mayor al pendiente · `403` EMPLEADO o CLIENTE · `409` reserva paga, vencida o con pago online en proceso |
 | `POST /admin/reservas/{reservaId}/cobros/efectivo` | ADMIN, EMPLEADO | Pago en efectivo ya aprobado (`provider = MANUAL`). Body `{ "monto": 5000 }`, también en un **partido** (se cobra el monto general, sin indicar el jugador). Si deja la reserva paga y el turno ya terminó, la reserva pasa a `COMPLETADA`. | `400` monto inválido o mayor al pendiente · `409` estado o pago online en proceso |
 | `POST /admin/reservas/{reservaId}/cobros/presencial` | ADMIN, EMPLEADO | Igual, con Mercado Pago cargado a mano (`provider = MERCADO_PAGO`; por ejemplo, una transferencia a la cuenta del club). | igual |
-| `POST /admin/reservas/{reservaId}/cobros/cuenta-dni` | ADMIN, EMPLEADO | Igual, con Cuenta DNI (`provider = CUENTA_DNI`). Cuenta DNI no tiene API: el personal cobra desde la app del banco y carga el número de comprobante. Body `{ "monto": 7500, "comprobante": "CDNI-0001" }` (letras, números y guiones, hasta 64). Si se cancela con reembolso, se devuelve a mano (`A_REEMBOLSAR`). | los de `cobros/efectivo` · `400 errors.comprobante` · `409` "Ese comprobante de Cuenta DNI ya está registrado." |
+| `POST /admin/reservas/{reservaId}/cobros/cuenta-dni` | ADMIN, EMPLEADO | Igual, con Cuenta DNI (`provider = CUENTA_DNI`). Cuenta DNI no tiene API: el personal cobra desde la app del banco y lo registra acá. Body `{ "monto": 7500 }`. Queda **sin verificar** (`verificado: false`) hasta que el ADMIN lo controle contra la cuenta. Si se cancela con reembolso, se devuelve a mano (`A_REEMBOLSAR`). | los de `cobros/efectivo` |
+| `PUT /admin/reservas/{reservaId}/pagos/{pagoId}/verificacion` | **ADMIN** | Marca un pago con Cuenta DNI como verificado (el ADMIN comprobó en la cuenta del club que la plata entró) o lo desmarca. Body `{ "verificado": true }`. Responde el pago con `verificado` y `verificadoAt`. | `400 errors.verificado` · `403` EMPLEADO ("Solo el ADMIN puede verificar un pago con Cuenta DNI.") · `404` reserva o pago · `409` "Solo se verifican los pagos con Cuenta DNI." |
+| `GET /admin/pagos/cuenta-dni?desde=2026-10-01&hasta=2026-10-31&verificado=false` | **ADMIN** | Pagos con Cuenta DNI cobrados en el período (por fecha de cobro), del más viejo al más nuevo, para controlarlos contra la cuenta. `verificado=false` trae los pendientes de verificar; sin el parámetro, todos. Responde `[PagoResponse]` (con `reservaId`). | `400` falta una fecha o `desde` posterior a `hasta` · `403` EMPLEADO o CLIENTE |
 
 ---
 

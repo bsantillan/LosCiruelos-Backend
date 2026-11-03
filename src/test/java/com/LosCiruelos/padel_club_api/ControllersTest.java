@@ -105,6 +105,7 @@ class ControllersTest {
     private CancelacionService cancelacionService;
     private PagoOnlineService pagoOnlineService;
     private CobroService cobroService;
+    private com.LosCiruelos.padel_club_api.pagos.service.PagoConsultaService pagoConsultaService;
     private MercadoPagoWebhookValidator webhookValidator;
     private AuthService authService;
     private VerificationService verificationService;
@@ -128,6 +129,7 @@ class ControllersTest {
         cancelacionService = mock(CancelacionService.class);
         pagoOnlineService = mock(PagoOnlineService.class);
         cobroService = mock(CobroService.class);
+        pagoConsultaService = mock(com.LosCiruelos.padel_club_api.pagos.service.PagoConsultaService.class);
         webhookValidator = mock(MercadoPagoWebhookValidator.class);
         authService = mock(AuthService.class);
         verificationService = mock(VerificationService.class);
@@ -149,6 +151,7 @@ class ControllersTest {
                 new PagoController(pagoOnlineService),
                 new MercadoPagoWebhookController(pagoOnlineService, webhookValidator),
                 new CobroAdminController(cobroService),
+                new com.LosCiruelos.padel_club_api.pagos.controller.PagoAdminController(pagoConsultaService),
                 new AuthController(authService, verificationService, passwordResetService),
                 new PerfilController(perfilService),
                 new UsuarioAdminController(usuarioAdminService),
@@ -294,18 +297,36 @@ class ControllersTest {
         }
 
         @Test
-        void cobroConCuentaDniPideElComprobante() throws Exception {
+        void cobroConCuentaDniYVerificacionDelAdmin() throws Exception {
+            mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.monto").exists());
+            when(cobroService.registrarPagoManual(any(), any(), any(), anyString())).thenReturn(new PagoResponse());
             mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{\"monto\":7500}"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.errors.comprobante").exists());
-            mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{\"monto\":7500,\"comprobante\":\"a b\"}"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.errors.comprobante").exists());
-
-            when(cobroService.registrarCuentaDni(any(), any(), any(), anyString())).thenReturn(new PagoResponse());
-            mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{\"monto\":7500,\"comprobante\":\"CDNI-1\"}"))
                     .andExpect(status().isOk());
-            verify(cobroService).registrarCuentaDni(4L, new BigDecimal("7500"), "CDNI-1", EMAIL);
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.CUENTA_DNI, EMAIL);
+
+            mvc.perform(json(put("/admin/reservas/4/pagos/9/verificacion"), "{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.verificado").exists());
+            when(cobroService.verificarCuentaDni(4L, 9L, true, EMAIL)).thenReturn(new PagoResponse());
+            mvc.perform(json(put("/admin/reservas/4/pagos/9/verificacion"), "{\"verificado\":true}"))
+                    .andExpect(status().isOk());
+            verify(cobroService).verificarCuentaDni(4L, 9L, true, EMAIL);
+        }
+
+        @Test
+        void listadoDeCuentaDniParaControlar() throws Exception {
+            when(pagoConsultaService.cuentaDni(any(), any(), any())).thenReturn(List.of(new PagoResponse()));
+
+            mvc.perform(get("/admin/pagos/cuenta-dni").param("desde", "2026-10-01").param("hasta", "2026-10-31")
+                    .param("verificado", "false").principal(AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1));
+            verify(pagoConsultaService).cuentaDni(java.time.LocalDate.of(2026, 10, 1),
+                    java.time.LocalDate.of(2026, 10, 31), false);
+            mvc.perform(get("/admin/pagos/cuenta-dni").param("desde", "2026-10-01").principal(AUTH))
+                    .andExpect(status().isBadRequest());
         }
 
         @Test

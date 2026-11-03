@@ -47,7 +47,8 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 ## Cambios de contrato para el front
 
 - **Medios de pago: efectivo, Mercado Pago y Cuenta DNI**:
-  - Nuevo `POST /admin/reservas/{id}/cobros/cuenta-dni` con `{ monto, comprobante }` (ADMIN y EMPLEADO). `PaymentProvider` suma `CUENTA_DNI` y `PagoResponse` suma `comprobante`.
+  - Nuevo `POST /admin/reservas/{id}/cobros/cuenta-dni` con `{ monto }` (ADMIN y EMPLEADO). `PaymentProvider` suma `CUENTA_DNI` y `PagoResponse` suma `verificado` y `verificadoAt` (solo en los pagos con Cuenta DNI).
+  - Nuevos, solo ADMIN: `PUT /admin/reservas/{id}/pagos/{pagoId}/verificacion` con `{ verificado }` y `GET /admin/pagos/cuenta-dni?desde&hasta&verificado` (los pagos con Cuenta DNI para controlar contra la cuenta).
   - **La caja del resumen cambia de forma**: `caja` pasa a `{ total, efectivo, mercadoPago, cuentaDni, devoluciones, neto }`. Se van `mercadoPagoOnline` y `mercadoPagoPresencial` (ahora es todo `mercadoPago`).
   - Los totales del listado (`GET /admin/reservas`) suman `cobradoCuentaDni`; `cobradoMercadoPago` ya no incluye Cuenta DNI.
   - Las ventas sueltas aceptan `medio: "CUENTA_DNI"`.

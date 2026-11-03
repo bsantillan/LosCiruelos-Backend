@@ -16,6 +16,7 @@ import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
+import com.LosCiruelos.padel_club_api.pagos.exception.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaAdminRequest;
@@ -50,24 +51,6 @@ public class CobroService {
     @Transactional
     public PagoResponse registrarPagoManual(Long reservaId, BigDecimal monto, PaymentProvider provider,
             String email) {
-        return registrar(reservaId, monto, provider, null, email);
-    }
-
-    /**
-     * Pago con Cuenta DNI: no hay API, así que el personal lo registra con el número de comprobante
-     * (el que muestra la app al cobrar), que no se puede cargar dos veces.
-     */
-    @Transactional
-    public PagoResponse registrarCuentaDni(Long reservaId, BigDecimal monto, String comprobante, String email) {
-        String limpio = comprobante.trim();
-        if (pagoRepository.existsByComprobante(limpio)) {
-            throw new EstadoInvalidoException("Ese comprobante de Cuenta DNI ya está registrado.");
-        }
-        return registrar(reservaId, monto, PaymentProvider.CUENTA_DNI, limpio, email);
-    }
-
-    private PagoResponse registrar(Long reservaId, BigDecimal monto, PaymentProvider provider, String comprobante,
-            String email) {
         if (monto == null || monto.signum() <= 0) {
             throw new ReservaException("El monto debe ser mayor a cero.");
         }
@@ -95,7 +78,6 @@ public class CobroService {
                 .createdAt(ahora)
                 .paidAt(ahora)
                 .registradoPorId(personal.getId())
-                .comprobante(comprobante)
                 .build();
         reserva.agregarPago(pago);
         pago = pagoRepository.save(pago);
@@ -103,6 +85,27 @@ public class CobroService {
         estados.recalcularReserva(reserva);
         log.info("Pago manual {} #{} — reserva #{} — monto ${} — registrado por {}",
                 provider, pago.getId(), reserva.getId(), monto, email);
+        return pagoMapper.aResponse(pago);
+    }
+
+    // ── Verificación de Cuenta DNI (ADMIN) ───────────────────────────────
+
+    /**
+     * Cuenta DNI no tiene API: el pago lo carga el personal y el ADMIN lo marca como verificado
+     * cuando comprueba en la cuenta del club que la plata entró (o lo desmarca si se equivocó).
+     */
+    @Transactional
+    public PagoResponse verificarCuentaDni(Long reservaId, Long pagoId, boolean verificado, String email) {
+        Usuario admin = usuarioService.autenticado(email);
+        Roles.exigirAdmin(admin, "Solo el ADMIN puede verificar un pago con Cuenta DNI.");
+        Reserva reserva = reservaService.bloquearConAcceso(reservaId, admin);
+        Pago pago = reserva.getPagos().stream()
+                .filter(p -> p.getId().equals(pagoId))
+                .findFirst()
+                .orElseThrow(() -> new PagoNoEncontradoException("Pago no encontrado: " + pagoId));
+        pago.verificar(verificado, admin.getId(), reloj.ahora());
+        log.info("Pago #{} con Cuenta DNI (reserva #{}) {} por {}", pagoId, reservaId,
+                verificado ? "verificado" : "sin verificar", email);
         return pagoMapper.aResponse(pago);
     }
 
