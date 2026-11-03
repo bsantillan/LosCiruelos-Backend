@@ -17,9 +17,9 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.LosCiruelos.padel_club_api.common.Dinero;
-import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.exception.PagoProveedorException;
 import com.LosCiruelos.padel_club_api.pagos.exception.ReembolsoFallidoException;
+import com.LosCiruelos.padel_club_api.pagos.payment.OrdenQr;
 import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr;
 
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
  * QR de la caja con la API de Orders de Mercado Pago (POST/GET /v1/orders, /cancel y /refund), en
  * modo estático: la order se asigna a la caja {@code MP_QR_EXTERNAL_POS_ID}, cuyo QR está impreso en
  * el mostrador, y el cliente la paga al escanearlo. La caja se da de alta una sola vez (ver
- * docs/mercado-pago-qr.md). Todas las llamadas llevan X-Idempotency-Key derivada del UUID del pago.
+ * docs/mercado-pago-qr.md). Todas las llamadas llevan X-Idempotency-Key derivada de la clave del cobro.
  */
 @Slf4j
 @Component
@@ -70,12 +70,12 @@ public class MercadoPagoQrProvider implements ProveedorCobroQr {
     }
 
     @Override
-    public String crear(Pago pago, String descripcion, int minutos) {
-        String monto = monto(pago.getMonto());
+    public String crear(OrdenQr orden, String descripcion, int minutos) {
+        String monto = monto(orden.monto());
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", "qr");
         // sin datos personales: solo ids internos
-        body.put("external_reference", "reserva-" + pago.getReserva().getId() + "-pago-" + pago.getId());
+        body.put("external_reference", orden.referencia());
         body.put("total_amount", monto);
         body.put("description", descripcion);
         body.put("expiration_time", "PT" + minutos + "M");
@@ -83,23 +83,23 @@ public class MercadoPagoQrProvider implements ProveedorCobroQr {
         body.put("transactions", Map.of("payments", List.of(Map.of("amount", monto))));
         try {
             Map<?, ?> respuesta = api.post().uri("/v1/orders")
-                    .header("X-Idempotency-Key", clave("qr", pago))
+                    .header("X-Idempotency-Key", clave("qr", orden))
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
                     .body(Map.class);
             String orderId = texto(respuesta, "id");
             if (orderId == null) {
-                log.error("MP creó la order del pago #{} sin id: {}", pago.getId(), respuesta);
+                log.error("MP creó la order de {} sin id: {}", orden.referencia(), respuesta);
                 throw new PagoProveedorException(ERROR_MP);
             }
             return orderId;
         } catch (RestClientResponseException e) {
-            log.error("Error de MP creando la order del pago #{}: {} — {}", pago.getId(), e.getStatusCode(),
+            log.error("Error de MP creando la order de {}: {} — {}", orden.referencia(), e.getStatusCode(),
                     e.getResponseBodyAsString());
             throw new PagoProveedorException(ERROR_MP);
         } catch (RestClientException e) {
-            log.error("Error de MP creando la order del pago #{}: {}", pago.getId(), e.getMessage());
+            log.error("Error de MP creando la order de {}: {}", orden.referencia(), e.getMessage());
             throw new PagoProveedorException(ERROR_MP);
         }
     }
@@ -120,10 +120,10 @@ public class MercadoPagoQrProvider implements ProveedorCobroQr {
     }
 
     @Override
-    public void cancelar(Pago pago) {
+    public void cancelar(OrdenQr orden) {
         try {
-            api.post().uri("/v1/orders/{id}/cancel", pago.getOrderId())
-                    .header("X-Idempotency-Key", clave("qrcancel", pago))
+            api.post().uri("/v1/orders/{id}/cancel", orden.orderId())
+                    .header("X-Idempotency-Key", clave("qrcancel", orden))
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientResponseException e) {
@@ -131,35 +131,35 @@ public class MercadoPagoQrProvider implements ProveedorCobroQr {
             if (e.getStatusCode().value() == HttpStatus.CONFLICT.value()) {
                 throw new OrdenNoCancelableException(e.getResponseBodyAsString());
             }
-            log.error("Error de MP cancelando la order {}: {} — {}", pago.getOrderId(), e.getStatusCode(),
+            log.error("Error de MP cancelando la order {}: {} — {}", orden.orderId(), e.getStatusCode(),
                     e.getResponseBodyAsString());
             throw new PagoProveedorException(ERROR_MP);
         } catch (RestClientException e) {
-            log.error("Error de MP cancelando la order {}: {}", pago.getOrderId(), e.getMessage());
+            log.error("Error de MP cancelando la order {}: {}", orden.orderId(), e.getMessage());
             throw new PagoProveedorException(ERROR_MP);
         }
     }
 
     @Override
-    public void reembolsar(Pago pago, BigDecimal monto) {
+    public void reembolsar(OrdenQr orden, BigDecimal monto) {
         try {
-            RestClient.RequestBodySpec pedido = api.post().uri("/v1/orders/{id}/refund", pago.getOrderId())
-                    .header("X-Idempotency-Key", clave("qrrefund", pago));
-            if (monto.compareTo(pago.getMonto()) < 0) {
+            RestClient.RequestBodySpec pedido = api.post().uri("/v1/orders/{id}/refund", orden.orderId())
+                    .header("X-Idempotency-Key", clave("qrrefund", orden));
+            if (monto.compareTo(orden.monto()) < 0) {
                 // parcial: hay que indicar el pago dentro de la order y el monto
-                String pagoId = consultar(pago.getOrderId()).pagoId();
+                String pagoId = consultar(orden.orderId()).pagoId();
                 pedido = pedido.contentType(MediaType.APPLICATION_JSON)
                         .body(Map.of("transactions", List.of(Map.of("id", pagoId, "amount", monto(monto)))));
             }
             pedido.retrieve().toBodilessEntity();
         } catch (RestClientResponseException e) {
             int status = e.getStatusCode().value();
-            log.error("MP no reembolsó la order {} (${}): {} — {}", pago.getOrderId(), monto, status,
+            log.error("MP no reembolsó la order {} (${}): {} — {}", orden.orderId(), monto, status,
                     e.getResponseBodyAsString());
             // 4xx (salvo 425: todavía no se puede) no se arregla reintentando
             throw new ReembolsoFallidoException(e.getStatusCode().is4xxClientError() && status != 425);
         } catch (RestClientException e) {
-            log.error("MP no respondió al reembolso de la order {}: {}", pago.getOrderId(), e.getMessage());
+            log.error("MP no respondió al reembolso de la order {}: {}", orden.orderId(), e.getMessage());
             throw new ReembolsoFallidoException(false);
         }
     }
@@ -202,7 +202,7 @@ public class MercadoPagoQrProvider implements ProveedorCobroQr {
         return Dinero.redondear(monto).toPlainString();
     }
 
-    private static String clave(String operacion, Pago pago) {
-        return "losciruelos-" + operacion + "-" + pago.getClaveIdempotencia();
+    private static String clave(String operacion, OrdenQr orden) {
+        return "losciruelos-" + operacion + "-" + orden.clave();
     }
 }

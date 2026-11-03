@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -79,7 +80,9 @@ class CobroQrServiceTest extends PagosTestBase {
             assertThat(pago.getRegistradoPorId()).isEqualTo(empleado.getId());
             // mientras el QR está activo no se puede cobrar de otra forma
             assertThat(reserva.tienePagoEnProceso()).isTrue();
-            verify(proveedorQr).crear(eq(pago), contains("cancha 1"), eq(10));
+            verify(proveedorQr).crear(argThat(o -> o.orderId() == null && o.referencia().equals("reserva-10-pago-" + pago.getId())
+                    && o.clave().equals(pago.getClaveIdempotencia().toString()) && o.monto().compareTo(pago.getMonto()) == 0),
+                    contains("cancha 1"), eq(10));
         }
 
         @Test
@@ -272,7 +275,7 @@ class CobroQrServiceTest extends PagosTestBase {
 
             CobroQrResponse r = cobroQrService.cancelar(10L, empleado.getEmail());
 
-            verify(proveedorQr).cancelar(qr());
+            verify(proveedorQr).cancelar(qr().ordenQr());
             assertThat(r.estado()).isEqualTo(EstadoPago.EXPIRADO);
             assertThat(reserva.tienePagoEnProceso()).isFalse();
         }
@@ -335,7 +338,7 @@ class CobroQrServiceTest extends PagosTestBase {
 
             reembolsoService.reembolsar(reserva, new BigDecimal("7500"));
 
-            verify(proveedorQr).reembolsar(qr(), new BigDecimal("7500"));
+            verify(proveedorQr).reembolsar(qr().ordenQr(), new BigDecimal("7500"));
             verify(mercadoPago, never()).reembolsar(any(), any());
             assertThat(qr().getEstado()).isEqualTo(EstadoPago.DEVUELTO);
             assertThat(qr().getMontoReembolsado()).isEqualByComparingTo("7500");

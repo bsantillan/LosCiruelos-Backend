@@ -68,7 +68,7 @@ class MercadoPagoQrProviderTest {
                         {"id":"ORD1","status":"created","config":{"qr":{"external_pos_id":"CAJA1","mode":"static"}}}
                         """, MediaType.APPLICATION_JSON));
 
-        assertThat(proveedor.crear(pago, "Turno", 10)).isEqualTo("ORD1");
+        assertThat(proveedor.crear(pago.ordenQr(), "Turno", 10)).isEqualTo("ORD1");
         mp.verify();
     }
 
@@ -76,7 +76,7 @@ class MercadoPagoQrProviderTest {
     void unErrorDeMercadoPagoAlCrearEs502() {
         mp.expect(requestTo(API + "/v1/orders")).andRespond(withStatus(HttpStatus.BAD_REQUEST));
 
-        assertThatThrownBy(() -> proveedor.crear(pago, "Turno", 10)).isInstanceOf(PagoProveedorException.class);
+        assertThatThrownBy(() -> proveedor.crear(pago.ordenQr(), "Turno", 10)).isInstanceOf(PagoProveedorException.class);
     }
 
     @Test
@@ -117,7 +117,7 @@ class MercadoPagoQrProviderTest {
                 .andExpect(header("X-Idempotency-Key", "losciruelos-qrcancel-" + CLAVE))
                 .andRespond(withStatus(HttpStatus.CONFLICT).body("{\"errors\":[{\"code\":\"order_already_canceled\"}]}"));
 
-        assertThatThrownBy(() -> proveedor.cancelar(pago)).isInstanceOf(OrdenNoCancelableException.class);
+        assertThatThrownBy(() -> proveedor.cancelar(pago.ordenQr())).isInstanceOf(OrdenNoCancelableException.class);
     }
 
     @Test
@@ -128,7 +128,7 @@ class MercadoPagoQrProviderTest {
                 .andExpect(content().string(""))
                 .andRespond(withStatus(HttpStatus.CREATED));
 
-        proveedor.reembolsar(pago, new BigDecimal("7500"));
+        proveedor.reembolsar(pago.ordenQr(), new BigDecimal("7500"));
         mp.verify();
     }
 
@@ -142,19 +142,19 @@ class MercadoPagoQrProviderTest {
                 .andExpect(content().json("{\"transactions\":[{\"id\":\"PAY1\",\"amount\":\"2500.00\"}]}", true))
                 .andRespond(withStatus(HttpStatus.CREATED));
 
-        proveedor.reembolsar(pago, new BigDecimal("2500"));
+        proveedor.reembolsar(pago.ordenQr(), new BigDecimal("2500"));
         mp.verify();
     }
 
     @Test
     void unRechazoDelReembolsoEsDefinitivoSalvoQueTodaviaNoSePueda() {
         mp.expect(requestTo(API + "/v1/orders/ORD1/refund")).andRespond(withStatus(HttpStatus.UNPROCESSABLE_ENTITY));
-        assertThatThrownBy(() -> proveedor.reembolsar(pago, new BigDecimal("7500")))
+        assertThatThrownBy(() -> proveedor.reembolsar(pago.ordenQr(), new BigDecimal("7500")))
                 .isInstanceOfSatisfying(ReembolsoFallidoException.class, e -> assertThat(e.isDefinitivo()).isTrue());
 
         mp.reset();
         mp.expect(requestTo(API + "/v1/orders/ORD1/refund")).andRespond(withStatus(HttpStatus.valueOf(425)));
-        assertThatThrownBy(() -> proveedor.reembolsar(pago, new BigDecimal("7500")))
+        assertThatThrownBy(() -> proveedor.reembolsar(pago.ordenQr(), new BigDecimal("7500")))
                 .isInstanceOfSatisfying(ReembolsoFallidoException.class, e -> assertThat(e.isDefinitivo()).isFalse());
     }
 

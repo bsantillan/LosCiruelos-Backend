@@ -137,7 +137,7 @@ public class CobroQrService {
         }
 
         // si el proveedor falla, la transacción se revierte y no queda el pago
-        String orderId = proveedor.crear(pago, descripcion(reserva), minutosVencimiento);
+        String orderId = proveedor.crear(pago.ordenQr(), descripcion(reserva), minutosVencimiento);
         pago.setOrderId(orderId);
         log.info("QR de la caja #{} (order {}) por ${} para la reserva #{}, por {}", pago.getId(), orderId,
                 aCobrar, reserva.getId(), email);
@@ -198,7 +198,7 @@ public class CobroQrService {
                 .findFirst()
                 .orElseThrow(() -> new EstadoInvalidoException("No hay un QR activo para esta reserva."));
         try {
-            proveedor.cancelar(pago);
+            proveedor.cancelar(pago.ordenQr());
             estados.cambiar(pago, EstadoPago.EXPIRADO);
             log.info("QR #{} (order {}) cancelado por {}", pago.getId(), pago.getOrderId(), email);
         } catch (OrdenNoCancelableException e) {

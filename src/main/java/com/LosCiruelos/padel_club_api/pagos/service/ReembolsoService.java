@@ -185,7 +185,7 @@ public class ReembolsoService {
                 estados.avisarReembolsoRealizado(reserva, aDevolver);
                 return pago.getEstado();
             }
-            proveedorQr.reembolsar(pago, aDevolver);
+            proveedorQr.reembolsar(pago.ordenQr(), aDevolver);
             estados.cambiar(pago, EstadoPago.DEVUELTO);
             estados.avisarReembolsoRealizado(reserva, aDevolver);
             log.info("QR #{}: reembolso de ${} hecho en el reintento (reserva #{})", pago.getId(), aDevolver,
@@ -207,7 +207,7 @@ public class ReembolsoService {
     /** Un pago online se devuelve con la API de pagos; un QR, con la de orders. */
     private void devolverPorApi(Pago pago, BigDecimal monto) {
         if (pago.esCobroQr()) {
-            proveedorQr.reembolsar(pago, monto);
+            proveedorQr.reembolsar(pago.ordenQr(), monto);
         } else {
             paymentServiceFactory.getService().reembolsar(pago, monto);
         }
