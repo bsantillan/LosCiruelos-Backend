@@ -240,7 +240,7 @@ public class ReservaConsultaService {
         LocalDateTime inicio = desde.atStartOfDay();
         LocalDateTime fin = hasta.plusDays(1).atStartOfDay();
         EntradasDeCaja e = reservaRepository.resumenEntradasDeCaja(inicio, fin, Pago.ESTADOS_COBRADOS, PaymentProvider.MANUAL,
-                PaymentProvider.MERCADO_PAGO, PaymentProvider.BONIFICACION);
+                PaymentProvider.MERCADO_PAGO, PaymentProvider.CUENTA_DNI, PaymentProvider.BONIFICACION);
         BigDecimal devoluciones = reservaRepository.resumenDevoluciones(inicio, fin, EstadoPago.DEVUELTO,
                 PaymentProvider.BONIFICACION);
         return resumenMapper.aResponse(desde, hasta, t, c, e, devoluciones,

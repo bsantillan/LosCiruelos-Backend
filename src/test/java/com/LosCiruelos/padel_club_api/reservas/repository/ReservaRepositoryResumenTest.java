@@ -153,10 +153,10 @@ class ReservaRepositoryResumenTest {
         assertThat(r.porJugar()).isEqualTo(new ResumenResponse.PorJugar(2, $("28000.00"), $("6000.00"),
                 $("10000.00"), $("12000.00")));
         assertThat(r.cancelaciones()).isEqualTo(new ResumenResponse.Cancelaciones(1, $("7500.00")));
-        // caja de octubre: efectivo 15.000; online 10.000 + 6.000 + 7.500 (seña de noviembre) + 15.000
-        // (el pago de la cancelada, que entró completo); mostrador 12.000; devueltos 7.500 el 9/10
-        assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("65500.00"), $("15000.00"), $("38500.00"),
-                $("12000.00"), $("7500.00"), $("58000.00")));
+        // caja de octubre: efectivo 15.000; Mercado Pago 10.000 + 6.000 + 7.500 (seña de noviembre) + 15.000
+        // (el pago de la cancelada, que entró completo) + 12.000 en el club; devueltos 7.500 el 9/10
+        assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("65500.00"), $("15000.00"), $("50500.00"),
+                $("0.00"), $("7500.00"), $("58000.00")));
     }
 
     @Test
@@ -194,9 +194,10 @@ class ReservaRepositoryResumenTest {
         assertThat(r.jugados().montoCobrado()).isEqualTo($("12000.00"));
         assertThat(r.porJugar().turnos()).isEqualTo(1);          // 11:00 a 12:30
         assertThat(r.porJugar().aCobrar()).isEqualTo($("12000.00"));
-        // seña de hoy (6.000) + seña de hoy para noviembre (7.500) + mostrador (12.000); la bonificación no
-        assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("25500.00"), $("0.00"), $("13500.00"),
-                $("12000.00"), $("0.00"), $("25500.00")));
+        // Mercado Pago: seña de hoy (6.000) + seña de hoy para noviembre (7.500) + en el club (12.000); la
+        // bonificación no
+        assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("25500.00"), $("0.00"), $("25500.00"),
+                $("0.00"), $("0.00"), $("25500.00")));
     }
 
     @Test
@@ -211,7 +212,7 @@ class ReservaRepositoryResumenTest {
 
     @Test
     void laSeniaDeUnTurnoFuturoEntraEnLaCajaDeHoyYEnPorJugarDelPeriodoDelTurno() {
-        assertThat(resumen(HOY, HOY, TestData.AHORA).caja().mercadoPagoOnline()).isEqualTo($("13500.00"));
+        assertThat(resumen(HOY, HOY, TestData.AHORA).caja().mercadoPago()).isEqualTo($("25500.00"));
 
         ResumenResponse noviembre = resumen(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 30), TestData.AHORA);
         assertThat(noviembre.porJugar().cobradoAnticipado()).isEqualTo($("7500.00"));
@@ -226,7 +227,7 @@ class ReservaRepositoryResumenTest {
         assertThat(delReembolso.caja().neto()).isEqualTo($("-7500.00"));
 
         ResumenResponse delCobro = resumen(LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 5), TestData.AHORA);
-        assertThat(delCobro.caja().mercadoPagoOnline()).isEqualTo($("15000.00"));
+        assertThat(delCobro.caja().mercadoPago()).isEqualTo($("15000.00"));
         assertThat(delCobro.caja().devoluciones()).isEqualTo($("0.00"));
     }
 
@@ -249,13 +250,37 @@ class ReservaRepositoryResumenTest {
         ResumenResponse r = resumen(HOY, HOY, TestData.AHORA);
 
         assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(2, $("11000.00")));
-        // efectivo: el agua (3.000); MP presencial: el mostrador (12.000) + las pelotas (8.000)
-        assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("36500.00"), $("3000.00"), $("13500.00"),
-                $("20000.00"), $("0.00"), $("36500.00")));
+        // efectivo: el agua (3.000); Mercado Pago: lo de hoy (25.500) + las pelotas (8.000)
+        assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("36500.00"), $("3000.00"), $("33500.00"),
+                $("0.00"), $("0.00"), $("36500.00")));
         assertThat(r.productos()).extracting(ProductoVendido::nombre, ProductoVendido::cantidad)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("Agua", 2L),
                         org.assertj.core.groups.Tuple.tuple("Pelotas", 2L));
         assertThat(r.productos().get(1).monto()).isEqualByComparingTo("16000");
+    }
+
+    @Test
+    void cuentaDniVaEnSuPropiaLineaDeCajaYEnLosTotalesDelListado() {
+        Reserva hoyPorJugar = repo.findAll().stream().filter(r -> r.getFechaReserva().equals(HOY)
+                && r.getHoraInicio().equals(LocalTime.of(11, 0))).findFirst().orElseThrow();
+        Pago dni = pago(hoyPorJugar, PaymentProvider.CUENTA_DNI, null, EstadoPago.APROBADO, "4000", HOY.atTime(9, 20));
+        Producto agua = em.persist(Producto.builder().nombre("Agua").tipo(TipoProducto.VENTA).precio($("1500"))
+                .stock(10).activo(true).ofrecerAlReservar(false).controlaStock(true).build());
+        venta(HOY.atTime(9, 50), MedioDePago.CUENTA_DNI, agua, 2);
+        em.flush();
+
+        ResumenResponse r = resumen(HOY, HOY, TestData.AHORA);
+
+        // Cuenta DNI: 4.000 de la reserva + 3.000 de la venta
+        assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("32500.00"), $("0.00"), $("25500.00"),
+                $("7000.00"), $("0.00"), $("32500.00")));
+
+        var totales = repo.totalesParaPersonal(new FiltroReservas(HOY, HOY, null, null, null, null, null));
+        // las dos de hoy: 12.000 por MP en el club + 6.000 de seña online + 4.000 con Cuenta DNI
+        assertThat(totales.cobradoEfectivo()).isEqualTo($("0.00"));
+        assertThat(totales.cobradoMercadoPago()).isEqualTo($("18000.00"));
+        assertThat(totales.cobradoCuentaDni()).isEqualTo($("4000.00"));
+        assertThat(totales.montoCobrado()).isEqualTo($("22000.00"));
     }
 
     private void venta(LocalDateTime cuando, MedioDePago medio, Producto producto, int cantidad) {

@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.pagos.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -9,12 +10,27 @@ import org.springframework.data.repository.query.Param;
 
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
+import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 
 
 public interface PagoRepository extends JpaRepository<Pago, Long> {
 
     // Para buscar el pago cuando llega el webhook de MP
     Optional<Pago> findByExternalPaymentId(String externalPaymentId);
+
+    /**
+     * Pagos con Cuenta DNI cobrados en [inicio, fin), del más viejo al más nuevo, para que el ADMIN
+     * los controle contra la cuenta. verificado null: todos.
+     */
+    @Query("""
+            SELECT p FROM Pago p JOIN FETCH p.reserva
+            WHERE p.provider = :cuentaDni AND p.paidAt >= :inicio AND p.paidAt < :fin
+              AND (:verificado IS NULL OR (:verificado = TRUE AND p.verificadoAt IS NOT NULL)
+                   OR (:verificado = FALSE AND p.verificadoAt IS NULL))
+            ORDER BY p.paidAt, p.id
+            """)
+    List<Pago> cuentaDni(@Param("cuentaDni") PaymentProvider cuentaDni, @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin, @Param("verificado") Boolean verificado);
 
     // Solo ids: el webhook bloquea primero la reserva y después lee el pago actualizado
     @Query("SELECT p.reserva.id FROM Pago p WHERE p.externalPaymentId = :externalPaymentId")

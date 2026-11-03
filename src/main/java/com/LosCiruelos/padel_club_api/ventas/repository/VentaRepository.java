@@ -18,12 +18,24 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     List<Venta> findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(LocalDateTime inicio,
             LocalDateTime fin);
 
+    /** Ventas de un medio en [inicio, fin), de la más vieja a la más nueva; verificada null: todas. */
+    @Query("""
+            SELECT v FROM Venta v
+            WHERE v.medio = :medio AND v.createdAt >= :inicio AND v.createdAt < :fin
+              AND (:verificada IS NULL OR (:verificada = TRUE AND v.verificadoAt IS NOT NULL)
+                   OR (:verificada = FALSE AND v.verificadoAt IS NULL))
+            ORDER BY v.createdAt, v.id
+            """)
+    List<Venta> porMedio(@Param("medio") MedioDePago medio, @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin, @Param("verificada") Boolean verificada);
+
     /** Cantidad de ventas y lo cobrado por medio en [inicio, fin), para la caja del resumen. */
     @Query("""
             SELECT new com.LosCiruelos.padel_club_api.ventas.repository.TotalesDeVentas(
                    COUNT(v),
                    COALESCE(SUM(CASE WHEN v.medio = :efectivo THEN v.total ELSE 0 END), 0),
-                   COALESCE(SUM(CASE WHEN v.medio = :mercadoPago THEN v.total ELSE 0 END), 0))
+                   COALESCE(SUM(CASE WHEN v.medio = :mercadoPago THEN v.total ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN v.medio = :cuentaDni THEN v.total ELSE 0 END), 0))
             FROM Venta v
             WHERE v.createdAt >= :inicio AND v.createdAt < :fin
             """)
@@ -31,7 +43,8 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
             @Param("inicio") LocalDateTime inicio,
             @Param("fin") LocalDateTime fin,
             @Param("efectivo") MedioDePago efectivo,
-            @Param("mercadoPago") MedioDePago mercadoPago);
+            @Param("mercadoPago") MedioDePago mercadoPago,
+            @Param("cuentaDni") MedioDePago cuentaDni);
 
     /** Lo vendido de cada producto en [inicio, fin). */
     @Query("""

@@ -105,6 +105,7 @@ class ControllersTest {
     private CancelacionService cancelacionService;
     private PagoOnlineService pagoOnlineService;
     private CobroService cobroService;
+    private com.LosCiruelos.padel_club_api.pagos.service.PagoConsultaService pagoConsultaService;
     private MercadoPagoWebhookValidator webhookValidator;
     private AuthService authService;
     private VerificationService verificationService;
@@ -128,6 +129,7 @@ class ControllersTest {
         cancelacionService = mock(CancelacionService.class);
         pagoOnlineService = mock(PagoOnlineService.class);
         cobroService = mock(CobroService.class);
+        pagoConsultaService = mock(com.LosCiruelos.padel_club_api.pagos.service.PagoConsultaService.class);
         webhookValidator = mock(MercadoPagoWebhookValidator.class);
         authService = mock(AuthService.class);
         verificationService = mock(VerificationService.class);
@@ -149,6 +151,7 @@ class ControllersTest {
                 new PagoController(pagoOnlineService),
                 new MercadoPagoWebhookController(pagoOnlineService, webhookValidator),
                 new CobroAdminController(cobroService),
+                new com.LosCiruelos.padel_club_api.pagos.controller.PagoAdminController(pagoConsultaService),
                 new AuthController(authService, verificationService, passwordResetService),
                 new PerfilController(perfilService),
                 new UsuarioAdminController(usuarioAdminService),
@@ -291,6 +294,44 @@ class ControllersTest {
             mvc.perform(json(post("/admin/reservas/4/cobros/presencial"), "{\"monto\":7500}")).andExpect(status().isOk());
             verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, EMAIL);
             verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MERCADO_PAGO, EMAIL);
+        }
+
+        @Test
+        void cobroConCuentaDniYVerificacionDelAdmin() throws Exception {
+            mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.monto").exists());
+            when(cobroService.registrarPagoManual(any(), any(), any(), anyString())).thenReturn(new PagoResponse());
+            mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{\"monto\":7500}"))
+                    .andExpect(status().isOk());
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.CUENTA_DNI, EMAIL);
+
+            mvc.perform(json(put("/admin/reservas/4/pagos/9/verificacion"), "{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.verificado").exists());
+            when(cobroService.verificarCuentaDni(4L, 9L, true, EMAIL)).thenReturn(new PagoResponse());
+            mvc.perform(json(put("/admin/reservas/4/pagos/9/verificacion"), "{\"verificado\":true}"))
+                    .andExpect(status().isOk());
+            verify(cobroService).verificarCuentaDni(4L, 9L, true, EMAIL);
+        }
+
+        @Test
+        void listadoDeCuentaDniParaControlar() throws Exception {
+            when(pagoConsultaService.cuentaDni(any(), any(), any())).thenReturn(List.of(
+                    new com.LosCiruelos.padel_club_api.pagos.dto.response.CobroCuentaDniResponse(
+                            com.LosCiruelos.padel_club_api.pagos.dto.response.CobroCuentaDniResponse.Origen.VENTA, 8L,
+                            null, new BigDecimal("3000.00"), TestData.AHORA, false, null)));
+
+            mvc.perform(get("/admin/pagos/cuenta-dni").param("desde", "2026-10-01").param("hasta", "2026-10-31")
+                    .param("verificado", "false").principal(AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].origen").value("VENTA"))
+                    .andExpect(jsonPath("$[0].verificado").value(false));
+            verify(pagoConsultaService).cuentaDni(java.time.LocalDate.of(2026, 10, 1),
+                    java.time.LocalDate.of(2026, 10, 31), false);
+            mvc.perform(get("/admin/pagos/cuenta-dni").param("desde", "2026-10-01").principal(AUTH))
+                    .andExpect(status().isBadRequest());
         }
 
         @Test
@@ -772,8 +813,9 @@ class ControllersTest {
                     .andExpect(jsonPath("$.porJugar.aCobrar").value(45000.00))
                     .andExpect(jsonPath("$.caja.total").value(230000.00))
                     .andExpect(jsonPath("$.caja.efectivo").value(90000.00))
-                    .andExpect(jsonPath("$.caja.mercadoPagoOnline").value(100000.00))
-                    .andExpect(jsonPath("$.caja.mercadoPagoPresencial").value(40000.00))
+                    .andExpect(jsonPath("$.caja.mercadoPago").value(100000.00))
+                    .andExpect(jsonPath("$.caja.cuentaDni").value(40000.00))
+                    .andExpect(jsonPath("$.caja.mercadoPagoOnline").doesNotExist())
                     .andExpect(jsonPath("$.caja.devoluciones").value(7500.00))
                     .andExpect(jsonPath("$.caja.neto").value(222500.00))
                     .andExpect(jsonPath("$.cancelaciones.turnos").value(3))
@@ -836,7 +878,8 @@ class ControllersTest {
             return new com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse(List.of(r), 0, 20, 57, 3,
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse.Totales(57,
                             new BigDecimal("855000.00"), new BigDecimal("690000.00"), new BigDecimal("410000.00"),
-                            new BigDecimal("280000.00"), new BigDecimal("15000.00"), new BigDecimal("165000.00")));
+                            new BigDecimal("250000.00"), new BigDecimal("30000.00"), new BigDecimal("15000.00"),
+                            new BigDecimal("165000.00")));
         }
 
         @Test
@@ -854,7 +897,8 @@ class ControllersTest {
                     .andExpect(jsonPath("$.totalElementos").value(57))
                     .andExpect(jsonPath("$.totales.reservas").value(57))
                     .andExpect(jsonPath("$.totales.cobradoEfectivo").value(410000.00))
-                    .andExpect(jsonPath("$.totales.cobradoMercadoPago").value(280000.00))
+                    .andExpect(jsonPath("$.totales.cobradoMercadoPago").value(250000.00))
+                    .andExpect(jsonPath("$.totales.cobradoCuentaDni").value(30000.00))
                     .andExpect(jsonPath("$.totales.montoBonificado").value(15000.00))
                     .andExpect(jsonPath("$.totales.montoPendiente").value(165000.00));
 
@@ -993,7 +1037,7 @@ class ControllersTest {
         @Test
         void registrarDevuelve201() throws Exception {
             when(ventaService.registrar(any(), eq(EMAIL))).thenReturn(new VentaResponse(4L, TestData.AHORA,
-                    new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of()));
+                    new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of(), null, null));
 
             mvc.perform(json(post("/admin/ventas"), """
                     {"medio":"EFECTIVO","items":[{"productoId":5,"cantidad":2},{"nombre":"Gatorade","precio":2500,"cantidad":1}]}
@@ -1013,6 +1057,20 @@ class ControllersTest {
             mvc.perform(json(post("/admin/ventas"), "{\"medio\":\"EFECTIVO\",\"items\":[{\"productoId\":5,\"cantidad\":0}]}"))
                     .andExpect(status().isBadRequest());
             verify(ventaService, never()).registrar(any(), anyString());
+        }
+
+        @Test
+        void elAdminVerificaUnaVentaConCuentaDni() throws Exception {
+            mvc.perform(json(put("/admin/ventas/8/verificacion"), "{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.verificada").exists());
+            when(ventaService.verificar(8L, true, EMAIL)).thenReturn(new VentaResponse(8L, TestData.AHORA,
+                    new java.math.BigDecimal("3000.00"), MedioDePago.CUENTA_DNI, null, null, "Ana Pérez", List.of(),
+                    true, TestData.AHORA));
+
+            mvc.perform(json(put("/admin/ventas/8/verificacion"), "{\"verificada\":true}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.verificada").value(true));
         }
 
         @Test

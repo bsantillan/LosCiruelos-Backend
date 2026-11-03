@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 
 /** Pago → PagoResponse. */
 @Component
@@ -22,6 +23,10 @@ public class PagoMapper {
         response.setPaidAt(pago.getPaidAt());
         response.setMontoReembolsado(pago.getMontoReembolsado());
         response.setMotivo(pago.getMotivo());
+        if (pago.getProvider() == PaymentProvider.CUENTA_DNI) {
+            response.setVerificado(pago.estaVerificado());
+            response.setVerificadoAt(pago.getVerificadoAt());
+        }
         response.setEstadoReserva(pago.getReserva().getEstado());
         return response;
     }

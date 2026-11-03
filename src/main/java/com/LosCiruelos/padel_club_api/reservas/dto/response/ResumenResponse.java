@@ -33,11 +33,12 @@ public record ResumenResponse(
     }
 
     /**
-     * Plata que entró y salió en el período, incluidas las ventas sueltas (en efectivo y MP presencial).
-     * total = efectivo + MP online + MP presencial; neto = total - devoluciones.
+     * Plata que entró y salió en el período, incluidas las ventas sueltas, por medio: efectivo y lo
+     * que entra a una cuenta (Mercado Pago, sea online o en el club, y Cuenta DNI).
+     * total = efectivo + mercadoPago + cuentaDni; neto = total - devoluciones.
      */
-    public record Caja(BigDecimal total, BigDecimal efectivo, BigDecimal mercadoPagoOnline,
-            BigDecimal mercadoPagoPresencial, BigDecimal devoluciones, BigDecimal neto) {
+    public record Caja(BigDecimal total, BigDecimal efectivo, BigDecimal mercadoPago, BigDecimal cuentaDni,
+            BigDecimal devoluciones, BigDecimal neto) {
     }
 
     /** Reservas canceladas del período y lo pagado que el club no devolvió. */

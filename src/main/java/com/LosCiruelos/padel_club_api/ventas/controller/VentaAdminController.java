@@ -9,13 +9,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VentaRequest;
+import com.LosCiruelos.padel_club_api.ventas.dto.request.VerificacionVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.service.VentaConsultaService;
 import com.LosCiruelos.padel_club_api.ventas.service.VentaService;
@@ -38,6 +41,14 @@ public class VentaAdminController {
     public ResponseEntity<VentaResponse> registrar(@Valid @RequestBody VentaRequest request,
             Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ventaService.registrar(request, authentication.getName()));
+    }
+
+    /** Solo ADMIN: marca (o desmarca) una venta con Cuenta DNI como verificada en la cuenta del club. */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}/verificacion")
+    public ResponseEntity<VentaResponse> verificar(@PathVariable Long id,
+            @Valid @RequestBody VerificacionVentaRequest body, Authentication authentication) {
+        return ResponseEntity.ok(ventaService.verificar(id, body.getVerificada(), authentication.getName()));
     }
 
     /** Ventas del período (sin fechas, las de hoy). El EMPLEADO ve solo las de hoy. */

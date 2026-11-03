@@ -26,6 +26,9 @@ public class PagoResponse {
     BigDecimal montoReembolsado;
     // motivo de una bonificación (provider BONIFICACION)
     String motivo;
+    // pago con Cuenta DNI: si el ADMIN comprobó que entró a la cuenta (null en los otros medios) y cuándo
+    Boolean verificado;
+    LocalDateTime verificadoAt;
     // estado de la reserva después de la operación
     EstadoReserva estadoReserva;
     // detalle del proveedor al cobrar (ej. motivo del rechazo); solo en la respuesta del cobro

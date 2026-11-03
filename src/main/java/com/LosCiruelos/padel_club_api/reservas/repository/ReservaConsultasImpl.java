@@ -67,19 +67,25 @@ public class ReservaConsultasImpl implements ReservaConsultas {
         Expression<BigDecimal> retenidoEfectivo = cb.<BigDecimal>selectCase()
                 .when(cb.equal(p.get("provider"), PaymentProvider.MANUAL), retenido)
                 .otherwise(BigDecimal.ZERO);
+        Expression<BigDecimal> retenidoCuentaDni = cb.<BigDecimal>selectCase()
+                .when(cb.equal(p.get("provider"), PaymentProvider.CUENTA_DNI), retenido)
+                .otherwise(BigDecimal.ZERO);
         qp.multiselect(cb.coalesce(cb.sum(cobrado), BigDecimal.ZERO),
                 cb.coalesce(cb.sum(retenidoQueDebe), BigDecimal.ZERO),
                 cb.coalesce(cb.sum(retenidoEfectivo), BigDecimal.ZERO),
-                cb.coalesce(cb.sum(bonificado), BigDecimal.ZERO))
+                cb.coalesce(cb.sum(bonificado), BigDecimal.ZERO),
+                cb.coalesce(cb.sum(retenidoCuentaDni), BigDecimal.ZERO))
                 .where(p.get("reserva").get("id").in(ids));
         Tuple cobros = em.createQuery(qp).getSingleResult();
 
         BigDecimal montoCobrado = monto(cobros, 0);
         BigDecimal efectivo = monto(cobros, 2);
+        BigDecimal cuentaDni = monto(cobros, 4);
         // lo que falta: el total de las que deben menos lo cubierto (pagado + bonificado) de ellas
         BigDecimal pendiente = monto(reservas, 2).subtract(monto(cobros, 1));
         return new Totales(reservas.get(0, Long.class), Dinero.redondear(monto(reservas, 1)), Dinero.redondear(montoCobrado),
-                Dinero.redondear(efectivo), Dinero.redondear(montoCobrado.subtract(efectivo)), Dinero.redondear(monto(cobros, 3)), Dinero.redondear(pendiente));
+                Dinero.redondear(efectivo), Dinero.redondear(montoCobrado.subtract(efectivo).subtract(cuentaDni)),
+                Dinero.redondear(cuentaDni), Dinero.redondear(monto(cobros, 3)), Dinero.redondear(pendiente));
     }
 
     /** Lo que el club se queda de un pago, igual que Pago.getMontoRetenido. */

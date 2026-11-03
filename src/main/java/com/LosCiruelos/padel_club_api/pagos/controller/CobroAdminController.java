@@ -5,11 +5,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.LosCiruelos.padel_club_api.pagos.dto.request.BonificacionRequest;
+import com.LosCiruelos.padel_club_api.pagos.dto.request.VerificacionRequest;
 import com.LosCiruelos.padel_club_api.pagos.dto.request.PagoManualRequest;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
@@ -35,7 +37,24 @@ public class CobroAdminController {
                 PaymentProvider.MANUAL, authentication.getName()));
     }
 
-    /** Pago en el mostrador con tarjeta o QR de Mercado Pago. */
+    /** Pago con Cuenta DNI (Banco Provincia). Queda sin verificar hasta que el ADMIN lo controle. */
+    @PostMapping("/cobros/cuenta-dni")
+    public ResponseEntity<PagoResponse> cobrarCuentaDni(@PathVariable Long reservaId,
+            @Valid @RequestBody PagoManualRequest body, Authentication authentication) {
+        return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
+                PaymentProvider.CUENTA_DNI, authentication.getName()));
+    }
+
+    /** Solo ADMIN: marca (o desmarca) un pago con Cuenta DNI como verificado en la cuenta del club. */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/pagos/{pagoId}/verificacion")
+    public ResponseEntity<PagoResponse> verificarCuentaDni(@PathVariable Long reservaId, @PathVariable Long pagoId,
+            @Valid @RequestBody VerificacionRequest body, Authentication authentication) {
+        return ResponseEntity.ok(cobroService.verificarCuentaDni(reservaId, pagoId, body.getVerificado(),
+                authentication.getName()));
+    }
+
+    /** Pago con Mercado Pago cargado a mano (por ejemplo, una transferencia al alias del club). */
     @PostMapping("/cobros/presencial")
     public ResponseEntity<PagoResponse> cobrarPresencial(@PathVariable Long reservaId,
             @Valid @RequestBody PagoManualRequest body, Authentication authentication) {

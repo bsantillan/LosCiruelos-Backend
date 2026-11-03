@@ -15,12 +15,14 @@ public record ListadoReservasResponse(List<ReservaResponse> contenido, int pagin
     /**
      * @param montoCobrado       lo que el club se quedó de los pagos (aprobado menos lo devuelto)
      * @param cobradoEfectivo    de eso, lo cobrado en efectivo
-     * @param cobradoMercadoPago de eso, lo cobrado con Mercado Pago (online o tarjeta/QR en el mostrador)
+     * @param cobradoMercadoPago de eso, lo cobrado con Mercado Pago (online o en el club)
+     * @param cobradoCuentaDni   de eso, lo cobrado con Cuenta DNI
      * @param montoBonificado    lo que el ADMIN bonificó (no es plata ni cuenta como cobrado)
      * @param montoPendiente     lo que deben las reservas SEÑADA y PARCIALMENTE_PAGADA
      */
     public record Totales(long reservas, BigDecimal montoTotal, BigDecimal montoCobrado, BigDecimal cobradoEfectivo,
-            BigDecimal cobradoMercadoPago, BigDecimal montoBonificado, BigDecimal montoPendiente) {
+            BigDecimal cobradoMercadoPago, BigDecimal cobradoCuentaDni, BigDecimal montoBonificado,
+            BigDecimal montoPendiente) {
     }
 
     public static ListadoReservasResponse de(Page<ReservaResponse> page, Totales totales) {

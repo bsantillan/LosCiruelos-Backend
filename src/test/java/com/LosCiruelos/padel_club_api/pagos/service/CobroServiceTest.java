@@ -35,6 +35,8 @@ import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
+import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
+import org.junit.jupiter.api.BeforeEach;
 
 /** Cobros en el club y bonificaciones del ADMIN. */
 class CobroServiceTest extends PagosTestBase {
@@ -246,6 +248,96 @@ class CobroServiceTest extends PagosTestBase {
     }
 
     // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    class CuentaDni {
+
+        private Usuario admin;
+
+        @BeforeEach
+        void unAdmin() {
+            admin = TestData.usuario(3L, Role.ADMIN);
+            when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
+        }
+
+        private PagoResponse cobrar(String monto) {
+            return cobroService.registrarPagoManual(10L, new BigDecimal(monto), PaymentProvider.CUENTA_DNI,
+                    empleado.getEmail());
+        }
+
+        @Test
+        void quedaAprobadoYSinVerificar() {
+            Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
+
+            PagoResponse r = cobrar("7500");
+
+            assertThat(r.getEstado()).isEqualTo(EstadoPago.APROBADO);
+            assertThat(r.getProvider()).isEqualTo(PaymentProvider.CUENTA_DNI);
+            assertThat(r.getVerificado()).isFalse();
+            assertThat(r.getVerificadoAt()).isNull();
+            assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.SEÑADA);
+        }
+
+        @Test
+        void elAdminLoVerificaYLoPuedeDesmarcar() {
+            reservaBloqueada(EstadoReserva.PENDIENTE);
+            Long pagoId = cobrar("7500").getId();
+
+            PagoResponse verificado = cobroService.verificarCuentaDni(10L, pagoId, true, admin.getEmail());
+            assertThat(verificado.getVerificado()).isTrue();
+            assertThat(verificado.getVerificadoAt()).isEqualTo(AHORA);
+
+            PagoResponse desmarcado = cobroService.verificarCuentaDni(10L, pagoId, false, admin.getEmail());
+            assertThat(desmarcado.getVerificado()).isFalse();
+            assertThat(desmarcado.getVerificadoAt()).isNull();
+        }
+
+        @Test
+        void elEmpleadoNoPuedeVerificar() {
+            reservaBloqueada(EstadoReserva.PENDIENTE);
+            Long pagoId = cobrar("7500").getId();
+
+            assertThatThrownBy(() -> cobroService.verificarCuentaDni(10L, pagoId, true, empleado.getEmail()))
+                    .isInstanceOf(PermisoDenegadoException.class)
+                    .hasMessage("Solo el ADMIN puede verificar un pago con Cuenta DNI.");
+        }
+
+        @Test
+        void soloSeVerificanLosPagosConCuentaDni() {
+            reservaBloqueada(EstadoReserva.PENDIENTE);
+            Long pagoId = cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL,
+                    empleado.getEmail()).getId();
+
+            assertThatThrownBy(() -> cobroService.verificarCuentaDni(10L, pagoId, true, admin.getEmail()))
+                    .isInstanceOf(EstadoInvalidoException.class)
+                    .hasMessage("Solo se verifican los pagos con Cuenta DNI.");
+            assertThatThrownBy(() -> cobroService.verificarCuentaDni(10L, 999L, true, admin.getEmail()))
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.pagos.exception.PagoNoEncontradoException.class);
+        }
+
+        @Test
+        void unPagoEnEfectivoNoTraeVerificado() {
+            reservaBloqueada(EstadoReserva.PENDIENTE);
+
+            PagoResponse r = cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL,
+                    empleado.getEmail());
+
+            assertThat(r.getVerificado()).isNull();
+        }
+
+        @Test
+        void alCancelarSeDevuelveAMano() {
+            Reserva reserva = reservaBloqueada(EstadoReserva.PENDIENTE);
+            cobrar("7500");
+
+            reembolsoService.reembolsar(reserva, new BigDecimal("7500"));
+
+            Pago pago = reserva.getPagos().get(0);
+            assertThat(pago.getEstado()).isEqualTo(EstadoPago.A_REEMBOLSAR);
+            assertThat(pago.getMontoReembolsado()).isEqualByComparingTo("7500");
+            verify(mercadoPago, never()).reembolsar(any(), any());
+        }
+    }
 
     @Nested
     class Bonificacion {
