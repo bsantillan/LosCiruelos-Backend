@@ -34,6 +34,7 @@ import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.mapper.VentaMapper;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
+import com.LosCiruelos.padel_club_api.ventas.entity.VentaDevolucion;
 import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 import com.LosCiruelos.padel_club_api.ventas.repository.VentaRepository;
 import com.LosCiruelos.padel_club_api.ventas.service.VentaConsultaService;
@@ -251,7 +252,7 @@ class ReservaRepositoryResumenTest {
 
         ResumenResponse r = resumen(HOY, HOY, TestData.AHORA);
 
-        assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(2, $("11000.00")));
+        assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(2, $("11000.00"), $("0.00")));
         // efectivo: el agua (3.000); Mercado Pago: lo de hoy (25.500) + las pelotas (8.000)
         assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("36500.00"), $("3000.00"), $("33500.00"),
                 $("0.00"), $("0.00"), $("36500.00")));
@@ -259,6 +260,43 @@ class ReservaRepositoryResumenTest {
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("Agua", 2L),
                         org.assertj.core.groups.Tuple.tuple("Pelotas", 2L));
         assertThat(r.productos().get(1).monto()).isEqualByComparingTo("16000");
+    }
+
+    @Test
+    void unaDevolucionCuentaEnLaCajaDelDiaEnQueSeHaceYSaleDeLoVendido() {
+        Producto agua = em.persist(Producto.builder().nombre("Agua").tipo(TipoProducto.VENTA).precio($("1500"))
+                .stock(10).activo(true).ofrecerAlReservar(false).controlaStock(true).build());
+        // vendida ayer: 4 aguas; hoy devuelve 3 (en dos veces)
+        Venta ayer = venta(HOY.minusDays(1).atTime(21, 0), MedioDePago.EFECTIVO, agua, 4);
+        em.flush();
+        ayer.devolver(java.util.List.of(new VentaDevolucion.Pedido(agua.getId(), 2, true)), "Vencidas", cliente,
+                HOY.atTime(9, 0));
+        ayer.devolver(java.util.List.of(new VentaDevolucion.Pedido(agua.getId(), 1, false)), "Abierta", cliente,
+                HOY.atTime(9, 30));
+        em.flush();
+        em.clear();
+
+        ResumenResponse hoy = resumen(HOY, HOY, TestData.AHORA);
+        ResumenResponse deAyer = resumen(HOY.minusDays(1), HOY.minusDays(1), TestData.AHORA);
+
+        assertThat(hoy.ventas()).isEqualTo(new ResumenResponse.Ventas(0, $("0.00"), $("4500.00")));
+        assertThat(hoy.caja().devoluciones()).isEqualTo($("4500.00"));
+        assertThat(hoy.caja().neto()).isEqualTo(hoy.caja().total().subtract($("4500.00")));
+        // la caja de ayer no cambia; lo vendido queda neto de lo devuelto (1 agua)
+        assertThat(deAyer.ventas()).isEqualTo(new ResumenResponse.Ventas(1, $("6000.00"), $("0.00")));
+        assertThat(deAyer.productos()).extracting(ProductoVendido::nombre, ProductoVendido::cantidad)
+                .contains(org.assertj.core.groups.Tuple.tuple("Agua", 1L));
+        Venta guardada = ventaRepo.findById(ayer.getId()).orElseThrow();
+        assertThat(guardada.getItems().get(0).getDevueltas()).isEqualTo(3);
+        assertThat(guardada.getDevoluciones()).hasSize(2);
+        assertThat(guardada.montoDevuelto()).isEqualByComparingTo("4500");
+
+        // devuelta entera: ya no aparece en lo vendido
+        guardada.devolver(java.util.List.of(new VentaDevolucion.Pedido(agua.getId(), 1, true)), "Otra", cliente,
+                HOY.atTime(9, 40));
+        em.flush();
+        assertThat(resumen(HOY.minusDays(1), HOY.minusDays(1), TestData.AHORA).productos())
+                .extracting(ProductoVendido::nombre).doesNotContain("Agua");
     }
 
     @Test
@@ -299,7 +337,7 @@ class ReservaRepositoryResumenTest {
         assertThat(r.porJugar().montoTotal()).isEqualTo($("0.00"));
         assertThat(r.caja().neto()).isEqualTo($("0.00"));
         assertThat(r.cancelaciones()).isEqualTo(new ResumenResponse.Cancelaciones(0, $("0.00")));
-        assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(0, $("0.00")));
+        assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(0, $("0.00"), $("0.00")));
         assertThat(r.productos()).isEmpty();
     }
 }

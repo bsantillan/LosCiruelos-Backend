@@ -6,6 +6,7 @@ import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
+import com.LosCiruelos.padel_club_api.ventas.entity.VentaDevolucion;
 import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 
 /** Venta suelta → VentaResponse. */
@@ -20,11 +21,22 @@ public class VentaMapper {
                 venta.getItems().stream()
                         .map(i -> new VentaResponse.Item(i.getProducto().getId(), i.getProducto().getNombre(),
                                 i.getCantidad(), Dinero.redondear(i.getPrecioUnitario()),
-                                Dinero.redondear(i.getSubtotal())))
+                                Dinero.redondear(i.getSubtotal()), i.getDevueltas()))
                         .toList(),
                 venta.getMedio() == MedioDePago.CUENTA_DNI ? venta.estaVerificada() : null, venta.getVerificadoAt(),
                 venta.getEstado(), venta.getAnuladaAt(),
-                venta.getAnuladaPor() != null ? nombre(venta.getAnuladaPor()) : null, venta.getMotivoAnulacion());
+                venta.getAnuladaPor() != null ? nombre(venta.getAnuladaPor()) : null, venta.getMotivoAnulacion(),
+                Dinero.redondear(venta.montoDevuelto()),
+                venta.getDevoluciones().stream().map(VentaMapper::devolucion).toList());
+    }
+
+    private static VentaResponse.Devolucion devolucion(VentaDevolucion d) {
+        return new VentaResponse.Devolucion(d.getId(), d.getCreatedAt(), nombre(d.getRegistradaPor()), d.getMotivo(),
+                Dinero.redondear(d.getMonto()),
+                d.getItems().stream()
+                        .map(i -> new VentaResponse.ItemDevuelto(i.getVentaItem().getProducto().getId(),
+                                i.getVentaItem().getProducto().getNombre(), i.getCantidad(), i.getVuelveAlStock()))
+                        .toList());
     }
 
     private static String nombre(Usuario usuario) {

@@ -18,9 +18,11 @@ import com.LosCiruelos.padel_club_api.mapper.VentaMapper;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
+import com.LosCiruelos.padel_club_api.ventas.dto.request.DevolucionVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
+import com.LosCiruelos.padel_club_api.ventas.entity.VentaDevolucion;
 import com.LosCiruelos.padel_club_api.ventas.repository.VentaRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -97,6 +99,29 @@ public class VentaService {
         productoService.reponerVentaSuelta(venta.cantidades());
         log.info("Venta #{} de ${} ({}) anulada por {}: {}", ventaId, venta.getTotal(), venta.getMedio(), email,
                 venta.getMotivoAnulacion());
+        return ventaMapper.aResponse(venta);
+    }
+
+    /**
+     * Solo ADMIN: el cliente devuelve todo o parte de lo que compró. Queda la devolución (fecha, quién,
+     * motivo y monto), que cuenta en la caja de hoy; vuelve al stock lo que sirve. La plata se le
+     * devuelve a mano por el mismo medio.
+     */
+    @Transactional
+    public VentaResponse devolver(Long ventaId, DevolucionVentaRequest req, String email) {
+        Usuario admin = usuarioService.autenticado(email);
+        Roles.exigirAdmin(admin, "Solo el ADMIN puede registrar una devolución.");
+        Venta venta = bloquear(ventaId);
+        VentaDevolucion devolucion = venta.devolver(req.getItems().stream()
+                .map(i -> new VentaDevolucion.Pedido(i.getProductoId(), i.getCantidad(), i.getVuelveAlStock()))
+                .toList(), req.getMotivo().trim(), admin, reloj.ahora());
+        Map<Producto, Integer> aReponer = devolucion.aReponer();
+        if (!aReponer.isEmpty()) {
+            productoService.reponerVentaSuelta(aReponer);
+        }
+        ventaRepository.flush(); // la respuesta lleva el id de la devolución
+        log.info("Venta #{}: devolución #{} de ${} ({}) por {}: {}", ventaId, devolucion.getId(), devolucion.getMonto(),
+                venta.getMedio(), email, devolucion.getMotivo());
         return ventaMapper.aResponse(venta);
     }
 

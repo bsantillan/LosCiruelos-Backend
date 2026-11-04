@@ -105,8 +105,8 @@ class VentaServiceTest {
         assertThat(r.registradaPor()).isEqualTo("Nombre2 Apellido2");
         // el agua repetida queda en un solo ítem
         assertThat(r.items()).containsExactly(
-                new VentaResponse.Item(5L, "Agua", 3, new BigDecimal("1500.00"), new BigDecimal("4500.00")),
-                new VentaResponse.Item(1L, "Pelotas", 1, new BigDecimal("8000.00"), new BigDecimal("8000.00")));
+                new VentaResponse.Item(5L, "Agua", 3, new BigDecimal("1500.00"), new BigDecimal("4500.00"), 0),
+                new VentaResponse.Item(1L, "Pelotas", 1, new BigDecimal("8000.00"), new BigDecimal("8000.00"), 0));
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<Producto, Integer>> cantidades = ArgumentCaptor.forClass(Map.class);
@@ -262,6 +262,51 @@ class VentaServiceTest {
                 .isInstanceOf(ReservaException.class)
                 .hasMessage("El usuario indicado no es un cliente.");
         assertThat(venta.getCliente()).isNull();
+    }
+
+    private static com.LosCiruelos.padel_club_api.ventas.dto.request.DevolucionVentaRequest devolucion(String motivo,
+            Long productoId, int cantidad, boolean vuelveAlStock) {
+        var item = new com.LosCiruelos.padel_club_api.ventas.dto.request.DevolucionVentaRequest.Item();
+        item.setProductoId(productoId);
+        item.setCantidad(cantidad);
+        item.setVuelveAlStock(vuelveAlStock);
+        var req = new com.LosCiruelos.padel_club_api.ventas.dto.request.DevolucionVentaRequest();
+        req.setMotivo(motivo);
+        req.setItems(List.of(item));
+        return req;
+    }
+
+    @Test
+    void elAdminRegistraUnaDevolucionYVuelveAlStockSoloLoQueSirve() {
+        Usuario admin = usuario(1L, Role.ADMIN);
+        when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
+        vendida(7L, AHORA.minusDays(3));
+
+        VentaResponse r = servicio.devolver(7L, devolucion(" Vencida ", 5L, 1, true), admin.getEmail());
+
+        assertThat(r.montoDevuelto()).isEqualTo(new BigDecimal("1500.00"));
+        assertThat(r.items().get(0).devueltas()).isEqualTo(1);
+        assertThat(r.devoluciones()).singleElement().satisfies(d -> {
+            assertThat(d.fecha()).isEqualTo(AHORA);
+            assertThat(d.registradaPor()).isEqualTo("Nombre1 Apellido1");
+            assertThat(d.motivo()).isEqualTo("Vencida");
+            assertThat(d.items()).containsExactly(new VentaResponse.ItemDevuelto(5L, "Agua", 1, true));
+        });
+        verify(productoService).reponerVentaSuelta(Map.of(agua, 1));
+
+        // la otra, abierta: no vuelve al stock
+        servicio.devolver(7L, devolucion("Abierta", 5L, 1, false), admin.getEmail());
+        verify(productoService, org.mockito.Mockito.times(1)).reponerVentaSuelta(anyMap());
+    }
+
+    @Test
+    void soloElAdminRegistraDevoluciones() {
+        vendida(7L, AHORA);
+
+        assertThatThrownBy(() -> servicio.devolver(7L, devolucion("Vencida", 5L, 1, true), empleado.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class)
+                .hasMessage("Solo el ADMIN puede registrar una devolución.");
+        verify(productoService, never()).reponerVentaSuelta(anyMap());
     }
 
     @Test

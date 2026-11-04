@@ -40,7 +40,7 @@
      - una con 2 aguas que el personal sumó después de jugar;
      - una que venció sin pagar.
 
-6. **Carga ventas sueltas** (sin reserva) que registró el empleado: dos de hoy, una de ayer y una de la semana pasada, en efectivo, con Mercado Pago y con Cuenta DNI, con y sin cliente, y una de hoy anulada por el empleado (no cuenta en la caja).
+6. **Carga ventas sueltas** (sin reserva) que registró el empleado: dos de hoy, una de ayer y una de la semana pasada, en efectivo, con Mercado Pago y con Cuenta DNI, con y sin cliente, una de hoy anulada por el empleado (no cuenta en la caja) y una devolución de hoy (un agua vencida) de la venta de la semana pasada.
 
    Alcanzan para ver con datos el panel, el resumen, la caja, los saldos pendientes, las paletas sin devolver y las ventas.
 

@@ -64,6 +64,7 @@ class ReservaConsultaServiceResumenTest {
         when(usuarioService.autenticado(EMPLEADO)).thenReturn(usuario(2L, Role.EMPLEADO));
         ventas = mock(VentaConsultaService.class);
         when(ventas.totales(any(), any())).thenReturn(new TotalesDeVentas(0L, $("0"), $("0"), $("0")));
+        when(ventas.devoluciones(any(), any())).thenReturn($("0"));
         resumen = new ReservaConsultaService(usuarioService, repo, mock(ReservaMapper.class), new ResumenMapper(),
                 ventas, TestData.reloj(AHORA));
         // sin reservas ni pagos: las cantidades vienen en null y los montos en 0
@@ -122,16 +123,17 @@ class ReservaConsultaServiceResumenTest {
                 new ProductoVendido(1L, "Pelotas", TipoProducto.VENTA, 40L, $("200000"))));
         when(ventas.totales(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay()))
                 .thenReturn(new TotalesDeVentas(3L, $("6000"), $("8000"), $("1000")));
+        when(ventas.devoluciones(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay())).thenReturn($("2000"));
         when(ventas.porProducto(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay())).thenReturn(List.of(
                 new VentaPorProducto(1L, "Pelotas", TipoProducto.VENTA, 1L, $("5000")),
                 new VentaPorProducto(7L, "Gatorade", TipoProducto.VENTA, 4L, $("10000"))));
 
         ResumenResponse r = resumen.resumen(DESDE, HASTA);
 
-        assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(3, $("15000.00")));
-        // efectivo 90.000 + 6.000; Mercado Pago 100.000 + 8.000; Cuenta DNI 40.000 + 1.000
+        assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(3, $("15000.00"), $("2000.00")));
+        // efectivo 90.000 + 6.000; Mercado Pago 100.000 + 8.000; Cuenta DNI 40.000 + 1.000; se devolvieron 2.000
         assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("245000.00"), $("96000.00"), $("108000.00"),
-                $("41000.00"), $("0.00"), $("245000.00")));
+                $("41000.00"), $("2000.00"), $("243000.00")));
         assertThat(r.productos()).containsExactly(
                 new ProductoVendido(1L, "Pelotas", TipoProducto.VENTA, 41L, $("205000")),
                 new ProductoVendido(7L, "Gatorade", TipoProducto.VENTA, 4L, $("10000")));

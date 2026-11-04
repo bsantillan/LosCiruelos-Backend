@@ -649,7 +649,7 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
     "neto": 222500.00
   },
   "cancelaciones": { "turnos": 3, "retenido": 7500.00 },
-  "ventas": { "cantidad": 12, "total": 30000.00 },
+  "ventas": { "cantidad": 12, "total": 30000.00, "devoluciones": 1500.00 },
   "productos": [ { "productoId": 1, "nombre": "Pelotas", "tipo": "VENTA", "cantidad": 40, "monto": 200000.00 } ]
 }
 ```
@@ -687,6 +687,7 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 | `cancelaciones.turnos` | Reservas `CANCELADA` del período (las `EXPIRADA` no cuentan) |
 | `cancelaciones.retenido` | De esas reservas, lo pagado que el club no devolvió (sin bonificaciones) |
 | `ventas.cantidad` / `ventas.total` | Ventas sueltas cobradas en el período (por fecha de la venta; las anuladas no cuentan) y lo cobrado |
+| `ventas.devoluciones` | Lo devuelto de ventas sueltas en el período, por fecha de la devolución (sea cual sea la de la venta); ya está sumado en `caja.devoluciones` |
 | `productos` | Por producto y en orden de id, unidades y monto (con el precio congelado en cada reserva o venta) de las reservas `CONFIRMADA`, `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA` y `COMPLETADA` del período, más las ventas sueltas del período; solo los que tienen cantidad > 0. Las paletas cuentan las alquiladas |
 
 - Montos con 2 decimales; fechas `yyyy-MM-dd`.
@@ -697,7 +698,7 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 
 ## Ventas sueltas — `/admin/ventas` (rol: ADMIN, EMPLEADO)
 
-Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelotas). Se cobra en el momento y entra en la caja del día. Lo que se consume en un turno se carga en la reserva (`POST /admin/reservas/{id}/productos`), no acá. Una venta registrada no se edita ni se borra: se **anula** (con motivo; queda quién y cuándo). Lo único que se puede cambiar es el cliente asociado.
+Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelotas). Se cobra en el momento y entra en la caja del día. Lo que se consume en un turno se carga en la reserva (`POST /admin/reservas/{id}/productos`), no acá. Una venta registrada no se edita ni se borra: se **anula** (con motivo; queda quién y cuándo) o, si el cliente devuelve algo, se le registra una **devolución**. Lo único que se puede cambiar es el cliente asociado.
 
 **`VentaResponse`**
 ```json
@@ -705,15 +706,21 @@ Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelot
   "id": 4, "fecha": "2026-10-13T10:00:00.000-03:00", "total": 7500.00, "medio": "EFECTIVO",
   "clienteId": 3, "clienteNombre": "Juan Pérez", "registradaPor": "Carla Méndez",
   "items": [
-    { "productoId": 5, "nombre": "Agua mineral", "cantidad": 3, "precioUnitario": 1500.00, "subtotal": 4500.00 },
-    { "productoId": 9, "nombre": "Gatorade", "cantidad": 1, "precioUnitario": 3000.00, "subtotal": 3000.00 }
+    { "productoId": 5, "nombre": "Agua mineral", "cantidad": 3, "precioUnitario": 1500.00, "subtotal": 4500.00, "devueltas": 1 },
+    { "productoId": 9, "nombre": "Gatorade", "cantidad": 1, "precioUnitario": 3000.00, "subtotal": 3000.00, "devueltas": 0 }
   ],
   "verificada": null, "verificadaAt": null,
-  "estado": "COBRADA", "anuladaAt": null, "anuladaPor": null, "motivoAnulacion": null
+  "estado": "COBRADA", "anuladaAt": null, "anuladaPor": null, "motivoAnulacion": null,
+  "montoDevuelto": 1500.00,
+  "devoluciones": [
+    { "id": 2, "fecha": "2026-10-14T11:00:00.000-03:00", "registradaPor": "Admin Club", "motivo": "Vencida", "monto": 1500.00,
+      "items": [ { "productoId": 5, "nombre": "Agua mineral", "cantidad": 1, "vuelveAlStock": false } ] }
+  ]
 }
 ```
 - `verificada` y `verificadaAt`: en una venta con Cuenta DNI, si el ADMIN comprobó en la cuenta del club que la plata entró, y cuándo (`null` en los otros medios).
 - `estado`: `COBRADA` o `ANULADA`. Una anulada no cuenta en la caja ni en lo vendido del resumen. `anuladaAt`, `anuladaPor` (nombre) y `motivoAnulacion` son `null` mientras no está anulada.
+- `total` es lo que se cobró y no cambia con las devoluciones; `montoDevuelto` es lo que ya se le devolvió al cliente, `devoluciones` cada una (de la más vieja a la más nueva) y `devueltas`, las unidades devueltas de cada ítem.
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
@@ -721,7 +728,8 @@ Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelot
 | `PUT /admin/ventas/{id}/verificacion` → `200 VentaResponse` | **Solo ADMIN.** Marca una venta con Cuenta DNI como verificada o la desmarca. Body `{ "verificada": true }`. | `400 errors.verificada` · `403` EMPLEADO ("Solo el ADMIN puede verificar una venta con Cuenta DNI.") · `404` · `409` "Solo se verifican las ventas con Cuenta DNI." |
 | `GET /admin/ventas?desde=2026-10-01&hasta=2026-10-31` → `200 [VentaResponse]` | Ventas del período (por fecha de la venta), de la más nueva a la más vieja, también las anuladas. Sin fechas, las de hoy. El ADMIN ve cualquier período; el EMPLEADO, solo hoy. | `400` una sola fecha o `desde` posterior a `hasta` · `403` EMPLEADO con otro período ("Solo podés ver las ventas de hoy.") o CLIENTE |
 | `GET /admin/ventas/{id}` → `200 VentaResponse` | Una venta. El EMPLEADO solo ve las de hoy. | `404` no existe o el EMPLEADO pide una de otro día |
-| `POST /admin/ventas/{id}/anulacion` → `200 VentaResponse` | Deja la venta sin efecto (error de carga, el cliente no pagó, se cobró por otro medio): pasa a `ANULADA`, deja de contar en la caja y en lo vendido, y su stock vuelve (en los productos que lo controlan, aunque estén dados de baja). Body `{ "motivo": "Se cargó dos veces" }`. El ADMIN anula ventas de cualquier día (al anular una de un día anterior, cambia la caja de ese día); el EMPLEADO, solo las de hoy y que no estén verificadas. La plata, si se llegó a cobrar, se devuelve a mano por el mismo medio. | `400 errors.motivo` (vacío o de más de 200 caracteres) · `403` EMPLEADO con una venta de otro día ("Solo podés anular ventas de hoy.") o ya verificada ("La venta ya está verificada: solo el ADMIN la puede anular.") · `404` · `409` "La venta ya está anulada." |
+| `POST /admin/ventas/{id}/anulacion` → `200 VentaResponse` | Deja la venta sin efecto (error de carga, el cliente no pagó, se cobró por otro medio): pasa a `ANULADA`, deja de contar en la caja y en lo vendido, y su stock vuelve (en los productos que lo controlan, aunque estén dados de baja). Body `{ "motivo": "Se cargó dos veces" }`. El ADMIN anula ventas de cualquier día (al anular una de un día anterior, cambia la caja de ese día); el EMPLEADO, solo las de hoy y que no estén verificadas. La plata, si se llegó a cobrar, se devuelve a mano por el mismo medio. | `400 errors.motivo` (vacío o de más de 200 caracteres) · `403` EMPLEADO con una venta de otro día ("Solo podés anular ventas de hoy.") o ya verificada ("La venta ya está verificada: solo el ADMIN la puede anular.") · `404` · `409` "La venta ya está anulada." o "La venta tiene devoluciones: no se puede anular. Registrá una devolución por lo que queda." |
+| `POST /admin/ventas/{id}/devoluciones` → `201 VentaResponse` | **Solo ADMIN.** El cliente devuelve todo o parte de lo que compró. Body `{ "motivo": "Vencida", "items": [{ "productoId": 5, "cantidad": 1, "vuelveAlStock": false }] }`: de 1 a 20 productos de la venta (sin repetir), cada uno con `cantidad` de 1 a 99 y si vuelve al stock (`false` si el producto no sirve). El monto es la cantidad por el precio de la venta. La devolución cuenta en la caja **del día en que se hace** (`caja.devoluciones` y `ventas.devoluciones`): la caja del día de la venta no cambia. La plata se devuelve a mano por el mismo medio. Se puede devolver en varias veces, hasta que no quede nada. | `400` validación (`errors.motivo`, `errors.items`…), un producto que no está en la venta ("El producto #9 no está en la venta."), repetido ("Agua mineral está repetido en la devolución.") o más de lo que queda ("De Agua mineral quedan 2 unidades por devolver.", "Agua mineral ya se devolvió entero.") · `403` EMPLEADO o CLIENTE · `404` · `409` "La venta está anulada: no se puede devolver." |
 | `PUT /admin/ventas/{id}/cliente` → `200 VentaResponse` | Cambia el cliente asociado. Body `{ "clienteId": 3 }`; `{ "clienteId": null }` la deja como venta al público. El EMPLEADO, solo en las ventas de hoy. | `400` "El usuario indicado no es un cliente." · `403` EMPLEADO con una venta de otro día ("Solo podés modificar ventas de hoy.") · `404` venta o cliente · `409` "La venta está anulada: no se puede modificar." |
 
 Body de `POST /admin/ventas`:

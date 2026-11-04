@@ -31,8 +31,8 @@ import com.LosCiruelos.padel_club_api.ventas.repository.VentaPorProducto;
 public class ResumenMapper {
 
     public ResumenResponse aResponse(LocalDate desde, LocalDate hasta, TurnosDelPeriodo t, CobrosDelPeriodo c,
-            EntradasDeCaja e, BigDecimal devoluciones, List<ProductoVendido> productos, TotalesDeVentas v,
-            List<VentaPorProducto> vendidosSueltos) {
+            EntradasDeCaja e, BigDecimal devolucionesDeReservas, List<ProductoVendido> productos, TotalesDeVentas v,
+            BigDecimal devolucionesDeVentas, List<VentaPorProducto> vendidosSueltos) {
         Jugados jugados = new Jugados(cantidad(t.jugados()), Dinero.redondear(t.montoJugados()),
                 Dinero.redondear(c.cobradoJugados()), Dinero.redondear(c.bonificadoJugados()),
                 Dinero.redondear(t.montoJugados().subtract(c.cobradoJugados()).subtract(c.bonificadoJugados())));
@@ -44,13 +44,15 @@ public class ResumenMapper {
         BigDecimal mercadoPago = e.mercadoPago().add(v.mercadoPago());
         BigDecimal cuentaDni = e.cuentaDni().add(v.cuentaDni());
         BigDecimal total = efectivo.add(mercadoPago).add(cuentaDni);
+        BigDecimal devoluciones = devolucionesDeReservas.add(devolucionesDeVentas);
         Caja caja = new Caja(Dinero.redondear(total), Dinero.redondear(efectivo), Dinero.redondear(mercadoPago),
                 Dinero.redondear(cuentaDni),
                 Dinero.redondear(devoluciones), Dinero.redondear(total.subtract(devoluciones)));
 
         return new ResumenResponse(desde, hasta, jugados, porJugar, caja,
                 new Cancelaciones(cantidad(t.cancelados()), Dinero.redondear(c.retenidoCancelaciones())),
-                new Ventas(cantidad(v.cantidad()), Dinero.redondear(v.total())), juntar(productos, vendidosSueltos));
+                new Ventas(cantidad(v.cantidad()), Dinero.redondear(v.total()), Dinero.redondear(devolucionesDeVentas)),
+                juntar(productos, vendidosSueltos));
     }
 
     /** Suma lo vendido suelto a lo pedido en las reservas, por producto y en orden de id. */

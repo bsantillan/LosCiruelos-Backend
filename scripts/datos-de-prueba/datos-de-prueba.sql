@@ -296,6 +296,16 @@ UPDATE ventas v SET estado = 'ANULADA', anulada_at = now() - interval '15 minute
 WHERE v.id = (SELECT max(id) FROM ventas);
 UPDATE productos p SET stock = p.stock + i.cantidad
 FROM venta_items i WHERE i.venta_id = (SELECT max(id) FROM ventas) AND i.producto_id = p.id AND p.controla_stock;
+-- la de la semana pasada: hoy el cliente devolvió un agua vencida (no vuelve al stock; cuenta en la caja de hoy)
+WITH v AS (SELECT id FROM ventas WHERE created_at < now() - interval '5 days' ORDER BY id LIMIT 1),
+     i AS (UPDATE venta_items SET devueltas = 1
+           WHERE venta_id = (SELECT id FROM v) AND producto_id = (SELECT id FROM productos WHERE nombre = 'Agua mineral')
+           RETURNING id, precio_unitario),
+     d AS (INSERT INTO venta_devoluciones (venta_id, created_at, registrada_por_id, motivo, monto)
+           SELECT (SELECT id FROM v), now() - interval '10 minutes', pg_temp.admin(), 'Agua vencida', precio_unitario FROM i
+           RETURNING id)
+INSERT INTO venta_devolucion_items (devolucion_id, venta_item_id, cantidad, vuelve_al_stock)
+SELECT d.id, i.id, 1, false FROM d, i;
 
 DROP EXTENSION pgcrypto;
 
@@ -307,5 +317,7 @@ COMMIT;
 SELECT rol, count(*) AS cantidad, string_agg(email, ', ' ORDER BY id) AS cuentas FROM usuarios GROUP BY rol ORDER BY rol;
 \echo 'Reservas por estado:'
 SELECT estado, count(*) AS cantidad FROM reservas GROUP BY estado ORDER BY estado;
+\echo 'Devoluciones de ventas:'
+SELECT created_at::date AS dia, motivo, monto FROM venta_devoluciones ORDER BY id;
 \echo 'Ventas sueltas:'
 SELECT created_at::date AS dia, medio, estado, count(*) AS cantidad, sum(total) AS total FROM ventas GROUP BY 1, 2, 3 ORDER BY 1, 2, 3;
