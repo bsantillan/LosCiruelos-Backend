@@ -1,14 +1,20 @@
 package com.LosCiruelos.padel_club_api.ventas.entity;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.common.Roles;
 import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
+import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
+import com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta;
 import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 
 import jakarta.persistence.CascadeType;
@@ -32,7 +38,8 @@ import lombok.Setter;
 
 /**
  * Venta suelta en el club: productos sin reserva, partido ni turno. Se cobra en el momento y entra
- * en la caja del día; el cliente es opcional.
+ * en la caja del día; el cliente es opcional. Una venta registrada no se edita ni se borra: se
+ * anula (queda quién, cuándo y por qué); solo el cliente asociado se puede cambiar.
  */
 @Entity
 @Table(name = "ventas")
@@ -56,6 +63,22 @@ public class Venta {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private MedioDePago medio;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private EstadoVenta estado = EstadoVenta.COBRADA;
+
+    // Venta anulada: cuándo, quién y por qué (null mientras está vigente)
+    @Column(name = "anulada_at")
+    private LocalDateTime anuladaAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "anulada_por_id")
+    private Usuario anuladaPor;
+
+    @Column(name = "motivo_anulacion", length = 200)
+    private String motivoAnulacion;
 
     // opcional
     @ManyToOne(fetch = FetchType.LAZY)
@@ -88,6 +111,61 @@ public class Venta {
 
     public boolean estaVerificada() {
         return verificadoAt != null;
+    }
+
+    public boolean estaAnulada() {
+        return estado == EstadoVenta.ANULADA;
+    }
+
+    /**
+     * Si {@code quien} puede anularla: el ADMIN, cualquier venta; el EMPLEADO, solo las de hoy y que
+     * el ADMIN todavía no verificó contra la cuenta.
+     *
+     * @throws PermisoDenegadoException (403) si no puede
+     */
+    public void validarQuePuedeAnularla(Usuario quien, LocalDate hoy) {
+        if (Roles.esAdmin(quien)) {
+            return;
+        }
+        if (!esDelDia(hoy)) {
+            throw new PermisoDenegadoException("Solo podés anular ventas de hoy.");
+        }
+        if (estaVerificada()) {
+            throw new PermisoDenegadoException("La venta ya está verificada: solo el ADMIN la puede anular.");
+        }
+    }
+
+    /**
+     * La deja sin efecto: deja de contar en la caja y en lo vendido. El stock lo repone quien la anula
+     * (con {@link #cantidades()}).
+     */
+    public void anular(Usuario quien, String motivo, LocalDateTime ahora) {
+        if (estaAnulada()) {
+            throw new EstadoInvalidoException("La venta ya está anulada.");
+        }
+        estado = EstadoVenta.ANULADA;
+        anuladaAt = ahora;
+        anuladaPor = quien;
+        motivoAnulacion = motivo;
+    }
+
+    /** Asocia la venta a otro cliente (null: venta al público). Es lo único que se edita: no mueve plata ni stock. */
+    public void cambiarCliente(Usuario nuevo) {
+        if (estaAnulada()) {
+            throw new EstadoInvalidoException("La venta está anulada: no se puede modificar.");
+        }
+        cliente = nuevo;
+    }
+
+    public boolean esDelDia(LocalDate dia) {
+        return createdAt.toLocalDate().equals(dia);
+    }
+
+    /** Unidades de cada producto de la venta. */
+    public Map<Producto, Integer> cantidades() {
+        Map<Producto, Integer> cantidades = new LinkedHashMap<>();
+        items.forEach(i -> cantidades.merge(i.getProducto(), i.getCantidad(), Integer::sum));
+        return cantidades;
     }
 
     /** Suma unidades de un producto, al precio de hoy (si ya estaba, se suman a ese ítem). */

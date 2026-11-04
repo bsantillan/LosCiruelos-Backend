@@ -22,7 +22,9 @@ public class VentaMapper {
                                 i.getCantidad(), Dinero.redondear(i.getPrecioUnitario()),
                                 Dinero.redondear(i.getSubtotal())))
                         .toList(),
-                venta.getMedio() == MedioDePago.CUENTA_DNI ? venta.estaVerificada() : null, venta.getVerificadoAt());
+                venta.getMedio() == MedioDePago.CUENTA_DNI ? venta.estaVerificada() : null, venta.getVerificadoAt(),
+                venta.getEstado(), venta.getAnuladaAt(),
+                venta.getAnuladaPor() != null ? nombre(venta.getAnuladaPor()) : null, venta.getMotivoAnulacion());
     }
 
     private static String nombre(Usuario usuario) {

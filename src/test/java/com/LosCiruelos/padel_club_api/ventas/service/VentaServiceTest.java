@@ -187,8 +187,8 @@ class VentaServiceTest {
         Venta efectivo = Venta.builder().id(8L).createdAt(AHORA).medio(MedioDePago.EFECTIVO).registradoPor(empleado)
                 .build();
         efectivo.agregar(agua, 1);
-        when(ventaRepository.findById(7L)).thenReturn(java.util.Optional.of(dni));
-        when(ventaRepository.findById(8L)).thenReturn(java.util.Optional.of(efectivo));
+        when(ventaRepository.findByIdForUpdate(7L)).thenReturn(java.util.Optional.of(dni));
+        when(ventaRepository.findByIdForUpdate(8L)).thenReturn(java.util.Optional.of(efectivo));
 
         VentaResponse r = servicio.verificar(7L, true, admin.getEmail());
         assertThat(r.verificada()).isTrue();
@@ -202,8 +202,74 @@ class VentaServiceTest {
         assertThatThrownBy(() -> servicio.verificar(8L, true, admin.getEmail()))
                 .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException.class)
                 .hasMessage("Solo se verifican las ventas con Cuenta DNI.");
-        when(ventaRepository.findById(99L)).thenReturn(java.util.Optional.empty());
+        when(ventaRepository.findByIdForUpdate(99L)).thenReturn(java.util.Optional.empty());
         assertThatThrownBy(() -> servicio.verificar(99L, true, admin.getEmail()))
                 .isInstanceOf(com.LosCiruelos.padel_club_api.ventas.exception.VentaNoEncontradaException.class);
+    }
+
+    private Venta vendida(Long id, java.time.LocalDateTime cuando) {
+        Venta venta = Venta.builder().id(id).createdAt(cuando).medio(MedioDePago.EFECTIVO).registradoPor(empleado)
+                .build();
+        venta.agregar(agua, 2);
+        when(ventaRepository.findByIdForUpdate(id)).thenReturn(java.util.Optional.of(venta));
+        return venta;
+    }
+
+    @Test
+    void anularDevuelveElStockYGuardaQuienYPorQue() {
+        vendida(7L, AHORA.minusHours(1));
+
+        VentaResponse r = servicio.anular(7L, "  Error de carga ", empleado.getEmail());
+
+        assertThat(r.estado()).isEqualTo(com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.ANULADA);
+        assertThat(r.anuladaPor()).isEqualTo("Nombre2 Apellido2");
+        assertThat(r.anuladaAt()).isEqualTo(AHORA);
+        assertThat(r.motivoAnulacion()).isEqualTo("Error de carga");
+        verify(productoService).reponerVentaSuelta(Map.of(agua, 2));
+    }
+
+    @Test
+    void elEmpleadoNoAnulaUnaVentaDeAyerPeroElAdminSi() {
+        Usuario admin = usuario(1L, Role.ADMIN);
+        when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
+        vendida(7L, AHORA.minusDays(1));
+
+        assertThatThrownBy(() -> servicio.anular(7L, "Error", empleado.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class)
+                .hasMessage("Solo podés anular ventas de hoy.");
+        verify(productoService, never()).reponerVentaSuelta(anyMap());
+
+        assertThat(servicio.anular(7L, "Se cargó dos veces", admin.getEmail()).anuladaPor())
+                .isEqualTo("Nombre1 Apellido1");
+    }
+
+    @Test
+    void unaVentaAnuladaNoDevuelveElStockDosVeces() {
+        vendida(7L, AHORA).anular(empleado, "Error", AHORA);
+
+        assertThatThrownBy(() -> servicio.anular(7L, "Otra vez", empleado.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException.class);
+        verify(productoService, never()).reponerVentaSuelta(anyMap());
+    }
+
+    @Test
+    void cambiaElClienteAsociado() {
+        Venta venta = vendida(7L, AHORA);
+
+        assertThat(servicio.cambiarCliente(7L, 3L, empleado.getEmail()).clienteId()).isEqualTo(3L);
+        assertThat(servicio.cambiarCliente(7L, null, empleado.getEmail()).clienteId()).isNull();
+        assertThatThrownBy(() -> servicio.cambiarCliente(7L, 2L, empleado.getEmail()))
+                .isInstanceOf(ReservaException.class)
+                .hasMessage("El usuario indicado no es un cliente.");
+        assertThat(venta.getCliente()).isNull();
+    }
+
+    @Test
+    void elEmpleadoSoloModificaLasVentasDeHoy() {
+        vendida(7L, AHORA.minusDays(1));
+
+        assertThatThrownBy(() -> servicio.cambiarCliente(7L, 3L, empleado.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class)
+                .hasMessage("Solo podés modificar ventas de hoy.");
     }
 }

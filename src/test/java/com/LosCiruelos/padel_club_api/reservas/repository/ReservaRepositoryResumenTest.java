@@ -245,6 +245,8 @@ class ReservaRepositoryResumenTest {
         venta(HOY.atTime(9, 50), MedioDePago.EFECTIVO, agua, 2);
         venta(HOY.atTime(9, 55), MedioDePago.MERCADO_PAGO, pelotas, 1);
         venta(HOY.minusDays(1).atTime(21, 0), MedioDePago.EFECTIVO, agua, 5); // ayer: no cuenta hoy
+        // anulada: no cuenta ni en la caja ni en lo vendido
+        venta(HOY.atTime(9, 58), MedioDePago.EFECTIVO, agua, 4).anular(cliente, "Error de carga", HOY.atTime(9, 59));
         em.flush();
 
         ResumenResponse r = resumen(HOY, HOY, TestData.AHORA);
@@ -283,10 +285,10 @@ class ReservaRepositoryResumenTest {
         assertThat(totales.montoCobrado()).isEqualTo($("22000.00"));
     }
 
-    private void venta(LocalDateTime cuando, MedioDePago medio, Producto producto, int cantidad) {
+    private Venta venta(LocalDateTime cuando, MedioDePago medio, Producto producto, int cantidad) {
         Venta venta = Venta.builder().createdAt(cuando).medio(medio).registradoPor(cliente).build();
         venta.agregar(producto, cantidad);
-        em.persist(venta);
+        return em.persist(venta);
     }
 
     @Test

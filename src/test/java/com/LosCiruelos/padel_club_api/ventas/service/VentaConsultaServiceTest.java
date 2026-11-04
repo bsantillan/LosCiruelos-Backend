@@ -65,6 +65,23 @@ class VentaConsultaServiceTest {
     }
 
     @Test
+    void elDetalleDeUnaVentaElEmpleadoSoloLoVeHoy() {
+        Venta hoy = Venta.builder().id(3L).createdAt(AHORA).medio(MedioDePago.EFECTIVO).registradoPor(empleado)
+                .total(BigDecimal.ZERO).build();
+        Venta ayer = Venta.builder().id(4L).createdAt(AHORA.minusDays(1)).medio(MedioDePago.EFECTIVO)
+                .registradoPor(empleado).total(BigDecimal.ZERO).build();
+        when(ventaRepository.findConDetalleById(3L)).thenReturn(java.util.Optional.of(hoy));
+        when(ventaRepository.findConDetalleById(4L)).thenReturn(java.util.Optional.of(ayer));
+
+        assertThat(servicio.obtener(3L, empleado.getEmail()).id()).isEqualTo(3L);
+        assertThatThrownBy(() -> servicio.obtener(4L, empleado.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.ventas.exception.VentaNoEncontradaException.class);
+        assertThat(servicio.obtener(4L, admin.getEmail()).id()).isEqualTo(4L);
+        assertThatThrownBy(() -> servicio.obtener(9L, admin.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.ventas.exception.VentaNoEncontradaException.class);
+    }
+
+    @Test
     void elAdminVeCualquierPeriodo() {
         LocalDate desde = LocalDate.of(2026, 10, 1);
         LocalDate hasta = LocalDate.of(2026, 10, 31);

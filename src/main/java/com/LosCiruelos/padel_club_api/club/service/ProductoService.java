@@ -183,6 +183,24 @@ public class ProductoService {
         }
     }
 
+    /**
+     * Devuelve al stock lo de una venta suelta anulada (producto → unidades). Bloquea los productos en
+     * orden de id; los que no controlan stock no cambian. Repone aunque el producto esté inactivo.
+     */
+    @Transactional
+    public void reponerVentaSuelta(Map<Producto, Integer> cantidades) {
+        Map<Long, Producto> porId = new TreeMap<>();
+        cantidades.keySet().forEach(p -> porId.put(p.getId(), p));
+        for (Producto producto : porId.values()) {
+            entityManager.refresh(producto, LockModeType.PESSIMISTIC_WRITE);
+        }
+        for (Producto producto : porId.values()) {
+            if (producto.llevaStock()) {
+                producto.setStock(producto.getStock() + cantidades.get(producto));
+            }
+        }
+    }
+
     /** Productos con esos ids (los que no existen no vienen). */
     public List<Producto> buscarPorIds(Collection<Long> ids) {
         return productoRepository.findAllById(ids);

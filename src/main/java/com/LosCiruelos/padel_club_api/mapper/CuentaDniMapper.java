@@ -14,11 +14,12 @@ public class CuentaDniMapper {
 
     public CobroCuentaDniResponse aResponse(Pago pago) {
         return new CobroCuentaDniResponse(Origen.RESERVA, pago.getId(), pago.getReserva().getId(),
-                Dinero.redondear(pago.getMonto()), pago.getPaidAt(), pago.estaVerificado(), pago.getVerificadoAt());
+                Dinero.redondear(pago.getMonto()), pago.getPaidAt(), pago.estaVerificado(), pago.getVerificadoAt(),
+                false);
     }
 
     public CobroCuentaDniResponse aResponse(Venta venta) {
         return new CobroCuentaDniResponse(Origen.VENTA, venta.getId(), null, Dinero.redondear(venta.getTotal()),
-                venta.getCreatedAt(), venta.estaVerificada(), venta.getVerificadoAt());
+                venta.getCreatedAt(), venta.estaVerificada(), venta.getVerificadoAt(), venta.estaAnulada());
     }
 }

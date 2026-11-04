@@ -423,7 +423,7 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 | `POST /admin/reservas/{reservaId}/cobros/presencial` | ADMIN, EMPLEADO | Igual, con Mercado Pago cargado a mano (`provider = MERCADO_PAGO`; por ejemplo, una transferencia a la cuenta del club). | igual |
 | `POST /admin/reservas/{reservaId}/cobros/cuenta-dni` | ADMIN, EMPLEADO | Igual, con Cuenta DNI (`provider = CUENTA_DNI`). Cuenta DNI no tiene API: el personal cobra desde la app del banco y lo registra acá. Body `{ "monto": 7500 }`. Queda **sin verificar** (`verificado: false`) hasta que el ADMIN lo controle contra la cuenta. Si se cancela con reembolso, se devuelve a mano (`A_REEMBOLSAR`). | los de `cobros/efectivo` |
 | `PUT /admin/reservas/{reservaId}/pagos/{pagoId}/verificacion` | **ADMIN** | Marca un pago con Cuenta DNI como verificado (el ADMIN comprobó en la cuenta del club que la plata entró) o lo desmarca. Body `{ "verificado": true }`. Responde el pago con `verificado` y `verificadoAt`. | `400 errors.verificado` · `403` EMPLEADO ("Solo el ADMIN puede verificar un pago con Cuenta DNI.") · `404` reserva o pago · `409` "Solo se verifican los pagos con Cuenta DNI." |
-| `GET /admin/pagos/cuenta-dni?desde=2026-10-01&hasta=2026-10-31&verificado=false` | **ADMIN** | Todo lo cobrado con Cuenta DNI en el período (pagos de reservas y ventas sueltas, por fecha de cobro), del más viejo al más nuevo, para controlarlo contra la cuenta. `verificado=false` trae lo pendiente de verificar; sin el parámetro, todo. Responde `[{ "origen": "RESERVA" \| "VENTA", "id", "reservaId", "monto", "fecha", "verificado", "verificadoAt" }]`: `id` es el del pago (se verifica con `PUT /admin/reservas/{reservaId}/pagos/{id}/verificacion`) o el de la venta (`PUT /admin/ventas/{id}/verificacion`); `reservaId` es `null` en una venta. | `400` falta una fecha o `desde` posterior a `hasta` · `403` EMPLEADO o CLIENTE |
+| `GET /admin/pagos/cuenta-dni?desde=2026-10-01&hasta=2026-10-31&verificado=false` | **ADMIN** | Todo lo cobrado con Cuenta DNI en el período (pagos de reservas y ventas sueltas, por fecha de cobro), del más viejo al más nuevo, para controlarlo contra la cuenta. `verificado=false` trae lo pendiente de verificar; sin el parámetro, todo. Responde `[{ "origen": "RESERVA" \| "VENTA", "id", "reservaId", "monto", "fecha", "verificado", "verificadoAt", "anulada" }]`: `id` es el del pago (se verifica con `PUT /admin/reservas/{reservaId}/pagos/{id}/verificacion`) o el de la venta (`PUT /admin/ventas/{id}/verificacion`); `reservaId` es `null` en una venta. Las ventas anuladas también vienen (con `anulada: true`), para conciliar la cuenta si la plata entró y se devolvió; en un pago de reserva, `anulada` es siempre `false`. | `400` falta una fecha o `desde` posterior a `hasta` · `403` EMPLEADO o CLIENTE |
 
 ### Cobro con el QR de la caja — `/admin/reservas/{reservaId}/cobros/qr` (rol: ADMIN, EMPLEADO)
 
@@ -686,7 +686,7 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 |---|---|
 | `cancelaciones.turnos` | Reservas `CANCELADA` del período (las `EXPIRADA` no cuentan) |
 | `cancelaciones.retenido` | De esas reservas, lo pagado que el club no devolvió (sin bonificaciones) |
-| `ventas.cantidad` / `ventas.total` | Ventas sueltas registradas en el período (por fecha de la venta) y lo cobrado |
+| `ventas.cantidad` / `ventas.total` | Ventas sueltas cobradas en el período (por fecha de la venta; las anuladas no cuentan) y lo cobrado |
 | `productos` | Por producto y en orden de id, unidades y monto (con el precio congelado en cada reserva o venta) de las reservas `CONFIRMADA`, `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA` y `COMPLETADA` del período, más las ventas sueltas del período; solo los que tienen cantidad > 0. Las paletas cuentan las alquiladas |
 
 - Montos con 2 decimales; fechas `yyyy-MM-dd`.
@@ -697,7 +697,7 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 
 ## Ventas sueltas — `/admin/ventas` (rol: ADMIN, EMPLEADO)
 
-Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelotas). Se cobra en el momento y entra en la caja del día. Lo que se consume en un turno se carga en la reserva (`POST /admin/reservas/{id}/productos`), no acá.
+Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelotas). Se cobra en el momento y entra en la caja del día. Lo que se consume en un turno se carga en la reserva (`POST /admin/reservas/{id}/productos`), no acá. Una venta registrada no se edita ni se borra: se **anula** (con motivo; queda quién y cuándo). Lo único que se puede cambiar es el cliente asociado.
 
 **`VentaResponse`**
 ```json
@@ -708,16 +708,21 @@ Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelot
     { "productoId": 5, "nombre": "Agua mineral", "cantidad": 3, "precioUnitario": 1500.00, "subtotal": 4500.00 },
     { "productoId": 9, "nombre": "Gatorade", "cantidad": 1, "precioUnitario": 3000.00, "subtotal": 3000.00 }
   ],
-  "verificada": null, "verificadaAt": null
+  "verificada": null, "verificadaAt": null,
+  "estado": "COBRADA", "anuladaAt": null, "anuladaPor": null, "motivoAnulacion": null
 }
 ```
-`verificada` y `verificadaAt`: en una venta con Cuenta DNI, si el ADMIN comprobó en la cuenta del club que la plata entró, y cuándo (`null` en los otros medios).
+- `verificada` y `verificadaAt`: en una venta con Cuenta DNI, si el ADMIN comprobó en la cuenta del club que la plata entró, y cuándo (`null` en los otros medios).
+- `estado`: `COBRADA` o `ANULADA`. Una anulada no cuenta en la caja ni en lo vendido del resumen. `anuladaAt`, `anuladaPor` (nombre) y `motivoAnulacion` son `null` mientras no está anulada.
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
 | `POST /admin/ventas` → `201 VentaResponse` | Registra una venta ya cobrada. Body abajo. | ver abajo |
 | `PUT /admin/ventas/{id}/verificacion` → `200 VentaResponse` | **Solo ADMIN.** Marca una venta con Cuenta DNI como verificada o la desmarca. Body `{ "verificada": true }`. | `400 errors.verificada` · `403` EMPLEADO ("Solo el ADMIN puede verificar una venta con Cuenta DNI.") · `404` · `409` "Solo se verifican las ventas con Cuenta DNI." |
-| `GET /admin/ventas?desde=2026-10-01&hasta=2026-10-31` → `200 [VentaResponse]` | Ventas del período (por fecha de la venta), de la más nueva a la más vieja. Sin fechas, las de hoy. El ADMIN ve cualquier período; el EMPLEADO, solo hoy. | `400` una sola fecha o `desde` posterior a `hasta` · `403` EMPLEADO con otro período ("Solo podés ver las ventas de hoy.") o CLIENTE |
+| `GET /admin/ventas?desde=2026-10-01&hasta=2026-10-31` → `200 [VentaResponse]` | Ventas del período (por fecha de la venta), de la más nueva a la más vieja, también las anuladas. Sin fechas, las de hoy. El ADMIN ve cualquier período; el EMPLEADO, solo hoy. | `400` una sola fecha o `desde` posterior a `hasta` · `403` EMPLEADO con otro período ("Solo podés ver las ventas de hoy.") o CLIENTE |
+| `GET /admin/ventas/{id}` → `200 VentaResponse` | Una venta. El EMPLEADO solo ve las de hoy. | `404` no existe o el EMPLEADO pide una de otro día |
+| `POST /admin/ventas/{id}/anulacion` → `200 VentaResponse` | Deja la venta sin efecto (error de carga, el cliente no pagó, se cobró por otro medio): pasa a `ANULADA`, deja de contar en la caja y en lo vendido, y su stock vuelve (en los productos que lo controlan, aunque estén dados de baja). Body `{ "motivo": "Se cargó dos veces" }`. El ADMIN anula ventas de cualquier día (al anular una de un día anterior, cambia la caja de ese día); el EMPLEADO, solo las de hoy y que no estén verificadas. La plata, si se llegó a cobrar, se devuelve a mano por el mismo medio. | `400 errors.motivo` (vacío o de más de 200 caracteres) · `403` EMPLEADO con una venta de otro día ("Solo podés anular ventas de hoy.") o ya verificada ("La venta ya está verificada: solo el ADMIN la puede anular.") · `404` · `409` "La venta ya está anulada." |
+| `PUT /admin/ventas/{id}/cliente` → `200 VentaResponse` | Cambia el cliente asociado. Body `{ "clienteId": 3 }`; `{ "clienteId": null }` la deja como venta al público. El EMPLEADO, solo en las ventas de hoy. | `400` "El usuario indicado no es un cliente." · `403` EMPLEADO con una venta de otro día ("Solo podés modificar ventas de hoy.") · `404` venta o cliente · `409` "La venta está anulada: no se puede modificar." |
 
 Body de `POST /admin/ventas`:
 ```json

@@ -374,14 +374,15 @@ class ControllersTest {
             when(pagoConsultaService.cuentaDni(any(), any(), any())).thenReturn(List.of(
                     new com.LosCiruelos.padel_club_api.pagos.dto.response.CobroCuentaDniResponse(
                             com.LosCiruelos.padel_club_api.pagos.dto.response.CobroCuentaDniResponse.Origen.VENTA, 8L,
-                            null, new BigDecimal("3000.00"), TestData.AHORA, false, null)));
+                            null, new BigDecimal("3000.00"), TestData.AHORA, false, null, true)));
 
             mvc.perform(get("/admin/pagos/cuenta-dni").param("desde", "2026-10-01").param("hasta", "2026-10-31")
                     .param("verificado", "false").principal(AUTH))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(1))
                     .andExpect(jsonPath("$[0].origen").value("VENTA"))
-                    .andExpect(jsonPath("$[0].verificado").value(false));
+                    .andExpect(jsonPath("$[0].verificado").value(false))
+                    .andExpect(jsonPath("$[0].anulada").value(true));
             verify(pagoConsultaService).cuentaDni(java.time.LocalDate.of(2026, 10, 1),
                     java.time.LocalDate.of(2026, 10, 31), false);
             mvc.perform(get("/admin/pagos/cuenta-dni").param("desde", "2026-10-01").principal(AUTH))
@@ -1131,7 +1132,8 @@ class ControllersTest {
         @Test
         void registrarDevuelve201() throws Exception {
             when(ventaService.registrar(any(), eq(EMAIL))).thenReturn(new VentaResponse(4L, TestData.AHORA,
-                    new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of(), null, null));
+                    new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of(), null, null,
+                    com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null, null, null));
 
             mvc.perform(json(post("/admin/ventas"), """
                     {"medio":"EFECTIVO","items":[{"productoId":5,"cantidad":2},{"nombre":"Gatorade","precio":2500,"cantidad":1}]}
@@ -1160,11 +1162,64 @@ class ControllersTest {
                     .andExpect(jsonPath("$.errors.verificada").exists());
             when(ventaService.verificar(8L, true, EMAIL)).thenReturn(new VentaResponse(8L, TestData.AHORA,
                     new java.math.BigDecimal("3000.00"), MedioDePago.CUENTA_DNI, null, null, "Ana Pérez", List.of(),
-                    true, TestData.AHORA));
+                    true, TestData.AHORA, com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null,
+                    null, null));
 
             mvc.perform(json(put("/admin/ventas/8/verificacion"), "{\"verificada\":true}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.verificada").value(true));
+        }
+
+        private VentaResponse anulada() {
+            return new VentaResponse(8L, TestData.AHORA, new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, 3L,
+                    "Juan Gómez", "Ana Pérez", List.of(), null, null,
+                    com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.ANULADA, TestData.AHORA, "Ana Pérez",
+                    "Error de carga");
+        }
+
+        @Test
+        void anularPideElMotivo() throws Exception {
+            mvc.perform(json(post("/admin/ventas/8/anulacion"), "{\"motivo\":\"  \"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.motivo").value("Indicá por qué se anula la venta"));
+            mvc.perform(json(post("/admin/ventas/8/anulacion"), "{\"motivo\":\"" + "x".repeat(201) + "\"}"))
+                    .andExpect(status().isBadRequest());
+            verify(ventaService, never()).anular(any(), anyString(), anyString());
+
+            when(ventaService.anular(8L, "Error de carga", EMAIL)).thenReturn(anulada());
+            mvc.perform(json(post("/admin/ventas/8/anulacion"), "{\"motivo\":\"Error de carga\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.estado").value("ANULADA"))
+                    .andExpect(jsonPath("$.anuladaPor").value("Ana Pérez"))
+                    .andExpect(jsonPath("$.motivoAnulacion").value("Error de carga"));
+
+            when(ventaService.anular(9L, "Error", EMAIL)).thenThrow(
+                    new com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException(
+                            "Solo podés anular ventas de hoy."));
+            mvc.perform(json(post("/admin/ventas/9/anulacion"), "{\"motivo\":\"Error\"}"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error").value("Solo podés anular ventas de hoy."));
+        }
+
+        @Test
+        void cambiarElClienteYVerUnaVenta() throws Exception {
+            when(ventaService.cambiarCliente(8L, null, EMAIL)).thenReturn(anulada());
+            mvc.perform(json(put("/admin/ventas/8/cliente"), "{\"clienteId\":null}"))
+                    .andExpect(status().isOk());
+            verify(ventaService).cambiarCliente(8L, null, EMAIL);
+            when(ventaService.cambiarCliente(8L, 3L, EMAIL)).thenReturn(anulada());
+            mvc.perform(json(put("/admin/ventas/8/cliente"), "{\"clienteId\":3}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.clienteId").value(3));
+
+            when(ventaConsultaService.obtener(8L, EMAIL)).thenReturn(anulada());
+            mvc.perform(get("/admin/ventas/8").principal(AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.estado").value("ANULADA"));
+            when(ventaConsultaService.obtener(9L, EMAIL)).thenThrow(
+                    new com.LosCiruelos.padel_club_api.ventas.exception.VentaNoEncontradaException(9L));
+            mvc.perform(get("/admin/ventas/9").principal(AUTH))
+                    .andExpect(status().isNotFound());
         }
 
         @Test

@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.LosCiruelos.padel_club_api.ventas.dto.request.AnulacionVentaRequest;
+import com.LosCiruelos.padel_club_api.ventas.dto.request.ClienteVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VerificacionVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
@@ -49,6 +51,26 @@ public class VentaAdminController {
     public ResponseEntity<VentaResponse> verificar(@PathVariable Long id,
             @Valid @RequestBody VerificacionVentaRequest body, Authentication authentication) {
         return ResponseEntity.ok(ventaService.verificar(id, body.getVerificada(), authentication.getName()));
+    }
+
+    /** Deja la venta sin efecto, con motivo. El EMPLEADO solo anula las de hoy; el ADMIN, cualquiera. */
+    @PostMapping("/{id}/anulacion")
+    public ResponseEntity<VentaResponse> anular(@PathVariable Long id, @Valid @RequestBody AnulacionVentaRequest body,
+            Authentication authentication) {
+        return ResponseEntity.ok(ventaService.anular(id, body.getMotivo(), authentication.getName()));
+    }
+
+    /** Cambia el cliente asociado ({ "clienteId": null } la deja como venta al público). */
+    @PutMapping("/{id}/cliente")
+    public ResponseEntity<VentaResponse> cambiarCliente(@PathVariable Long id, @RequestBody ClienteVentaRequest body,
+            Authentication authentication) {
+        return ResponseEntity.ok(ventaService.cambiarCliente(id, body.getClienteId(), authentication.getName()));
+    }
+
+    /** Una venta (el EMPLEADO, solo las de hoy). */
+    @GetMapping("/{id}")
+    public ResponseEntity<VentaResponse> obtener(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(ventaConsultaService.obtener(id, authentication.getName()));
     }
 
     /** Ventas del período (sin fechas, las de hoy). El EMPLEADO ve solo las de hoy. */

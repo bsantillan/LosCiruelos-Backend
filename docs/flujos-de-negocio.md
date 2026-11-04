@@ -222,9 +222,13 @@ Se ocultan siempre las **descartadas**: canceladas o vencidas sin ningún pago q
 ### 9 ter. Ventas sueltas — `/admin/ventas`
 - El personal registra lo que vende sin reserva (una bebida, pelotas): se cobra en el momento, en efectivo o con Mercado Pago en el club, y se puede asociar a un cliente.
 - Cada ítem es un producto de venta del catálogo o uno escrito a mano, que queda dado de alta igual que en una reserva. Los alquileres (paletas) no se venden sueltos.
-- El stock baja en el momento (con los productos bloqueados en orden de id) y no vuelve: una venta no se cancela.
+- El stock baja en el momento (con los productos bloqueados en orden de id).
+- **Una venta registrada no se edita ni se borra.** Si se cargó mal, el cliente no pagó o se cobró por otro medio, se **anula** (`POST /admin/ventas/{id}/anulacion`) con un motivo, y queda quién y cuándo: la venta pasa a `ANULADA`, sale de la caja y de lo vendido del resumen, y su stock vuelve. Si había que cobrarla de otra forma, se vuelve a cargar. La plata, si se llegó a cobrar, se devuelve a mano por el mismo medio.
+  - El EMPLEADO anula solo las ventas de hoy que el ADMIN todavía no verificó. El ADMIN anula cualquiera; si es de un día anterior, la caja de ese día cambia.
+  - Lo único que se edita es el cliente asociado (`PUT /admin/ventas/{id}/cliente`), porque no mueve plata ni stock. El EMPLEADO, solo en las de hoy.
+  - Toda operación sobre una venta la bloquea primero (`VentaService.bloquear`), así dos personas no la anulan a la vez ni se repone el stock dos veces.
 - Una venta con Cuenta DNI queda sin verificar hasta que el ADMIN la controla contra la cuenta (`PUT /admin/ventas/{id}/verificacion`), igual que un pago de una reserva.
-- Se cobra en efectivo, con Mercado Pago o con Cuenta DNI, y entra en la caja del día (`efectivo`, `mercadoPago` o `cuentaDni`), en `ventas` y en `productos` del resumen. El EMPLEADO ve solo las de hoy, igual que el resumen.
+- Se cobra en efectivo, con Mercado Pago o con Cuenta DNI, y entra en la caja del día (`efectivo`, `mercadoPago` o `cuentaDni`), en `ventas` y en `productos` del resumen; las anuladas no. El EMPLEADO ve solo las de hoy, igual que el resumen.
 
 ### 10. Consultas
 - `GET /reservas/mias`: reservas del usuario, de la más reciente a la más antigua.

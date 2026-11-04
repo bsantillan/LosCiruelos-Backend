@@ -113,7 +113,13 @@ class PagoRepositoryCuentaDniTest {
                 .containsExactly(org.assertj.core.groups.Tuple.tuple(Origen.VENTA, venta.getId()),
                         org.assertj.core.groups.Tuple.tuple(Origen.RESERVA, sinVerificar.getId()));
         assertThat(cobros.get(0).monto()).isEqualByComparingTo("3000");
+        assertThat(cobros).extracting(CobroCuentaDniResponse::anulada).containsExactly(false, false);
         assertThat(servicio.cuentaDni(HOY.minusDays(2), HOY, null)).hasSize(3);
+
+        // una venta anulada sigue en el listado, marcada, para conciliar la cuenta
+        venta.anular(admin, "El cliente no pagó", HOY.atTime(8, 5));
+        em.flush();
+        assertThat(servicio.cuentaDni(HOY.minusDays(2), HOY, false).get(0).anulada()).isTrue();
     }
 
     @Test
