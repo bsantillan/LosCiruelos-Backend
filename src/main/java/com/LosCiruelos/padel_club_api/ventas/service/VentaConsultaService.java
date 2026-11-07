@@ -14,15 +14,18 @@ import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.mapper.VentaMapper;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
+import com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta;
 import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
+import com.LosCiruelos.padel_club_api.ventas.exception.VentaNoEncontradaException;
 import com.LosCiruelos.padel_club_api.ventas.repository.TotalesDeVentas;
 import com.LosCiruelos.padel_club_api.ventas.repository.VentaPorProducto;
 import com.LosCiruelos.padel_club_api.ventas.repository.VentaRepository;
 
 import lombok.RequiredArgsConstructor;
 
-/** Consultas de las ventas sueltas: el listado del personal y los totales para el resumen. */
+/** Consultas de las ventas sueltas: el listado y el detalle del personal y los totales para el resumen. */
 @Service
 @RequiredArgsConstructor
 public class VentaConsultaService {
@@ -55,10 +58,20 @@ public class VentaConsultaService {
                 .toList();
     }
 
-    /** Cuántas ventas y lo cobrado por medio en [inicio, fin) (la caja del resumen). */
+    /** Una venta, con su estado. El EMPLEADO solo ve las de hoy (las otras, 404). */
+    @Transactional(readOnly = true)
+    public VentaResponse obtener(Long id, String email) {
+        Usuario personal = usuarioService.autenticado(email);
+        return ventaRepository.findConDetalleById(id)
+                .filter(v -> Roles.esAdmin(personal) || v.esDelDia(reloj.hoy()))
+                .map(ventaMapper::aResponse)
+                .orElseThrow(() -> new VentaNoEncontradaException(id));
+    }
+
+    /** Cuántas ventas cobradas y lo cobrado por medio en [inicio, fin) (la caja del resumen); las anuladas no cuentan. */
     public TotalesDeVentas totales(LocalDateTime inicio, LocalDateTime fin) {
-        return ventaRepository.totales(inicio, fin, MedioDePago.EFECTIVO, MedioDePago.MERCADO_PAGO,
-                MedioDePago.CUENTA_DNI);
+        return ventaRepository.totales(inicio, fin, EstadoVenta.COBRADA, MedioDePago.EFECTIVO,
+                MedioDePago.MERCADO_PAGO, MedioDePago.CUENTA_DNI);
     }
 
     /** Ventas con Cuenta DNI en [inicio, fin), para que el ADMIN las controle contra la cuenta. */
@@ -66,8 +79,8 @@ public class VentaConsultaService {
         return ventaRepository.porMedio(MedioDePago.CUENTA_DNI, inicio, fin, verificada);
     }
 
-    /** Lo vendido de cada producto en [inicio, fin). */
+    /** Lo vendido de cada producto en [inicio, fin), sin las ventas anuladas. */
     public List<VentaPorProducto> porProducto(LocalDateTime inicio, LocalDateTime fin) {
-        return ventaRepository.porProducto(inicio, fin);
+        return ventaRepository.porProducto(inicio, fin, EstadoVenta.COBRADA);
     }
 }

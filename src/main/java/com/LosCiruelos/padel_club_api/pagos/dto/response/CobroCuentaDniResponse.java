@@ -9,9 +9,10 @@ import java.time.LocalDateTime;
  *
  * @param id        id del pago (origen RESERVA) o de la venta (origen VENTA): es el que se usa para verificarlo
  * @param reservaId la reserva del pago (null en una venta)
+ * @param anulada   venta anulada: la plata, si entró, se devolvió a mano (siempre false en una reserva)
  */
 public record CobroCuentaDniResponse(Origen origen, Long id, Long reservaId, BigDecimal monto, LocalDateTime fecha,
-        boolean verificado, LocalDateTime verificadoAt) {
+        boolean verificado, LocalDateTime verificadoAt, boolean anulada) {
 
     public enum Origen {
         RESERVA, // se verifica con PUT /admin/reservas/{reservaId}/pagos/{id}/verificacion

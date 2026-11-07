@@ -289,6 +289,13 @@ SELECT pg_temp.venta(interval '1 day', 'CUENTA_DNI', current_setting('datos.mail
 -- el ADMIN ya controló la de ayer en la cuenta; el pago con Cuenta DNI de hoy sigue sin verificar
 UPDATE ventas SET verificado_at = now(), verificado_por_id = pg_temp.admin() WHERE medio = 'CUENTA_DNI';
 SELECT pg_temp.venta(interval '6 days', 'MERCADO_PAGO', NULL, ARRAY['Agua mineral', 'Pelotas'], ARRAY[4, 1]);
+-- una de hoy que el empleado cargó mal y anuló: no cuenta en la caja y su stock volvió
+SELECT pg_temp.venta(interval '20 minutes', 'EFECTIVO', NULL, ARRAY['Gatorade'], ARRAY[3]);
+UPDATE ventas v SET estado = 'ANULADA', anulada_at = now() - interval '15 minutes',
+       anulada_por_id = pg_temp.usuario('empleado@test.com'), motivo_anulacion = 'Se cargó dos veces'
+WHERE v.id = (SELECT max(id) FROM ventas);
+UPDATE productos p SET stock = p.stock + i.cantidad
+FROM venta_items i WHERE i.venta_id = (SELECT max(id) FROM ventas) AND i.producto_id = p.id AND p.controla_stock;
 
 DROP EXTENSION pgcrypto;
 
@@ -301,4 +308,4 @@ SELECT rol, count(*) AS cantidad, string_agg(email, ', ' ORDER BY id) AS cuentas
 \echo 'Reservas por estado:'
 SELECT estado, count(*) AS cantidad FROM reservas GROUP BY estado ORDER BY estado;
 \echo 'Ventas sueltas:'
-SELECT created_at::date AS dia, medio, count(*) AS cantidad, sum(total) AS total FROM ventas GROUP BY 1, 2 ORDER BY 1, 2;
+SELECT created_at::date AS dia, medio, estado, count(*) AS cantidad, sum(total) AS total FROM ventas GROUP BY 1, 2, 3 ORDER BY 1, 2, 3;

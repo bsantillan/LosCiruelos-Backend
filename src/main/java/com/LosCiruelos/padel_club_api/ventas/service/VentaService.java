@@ -12,6 +12,7 @@ import com.LosCiruelos.padel_club_api.club.service.ProductoService;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.common.Roles;
 import com.LosCiruelos.padel_club_api.ventas.exception.VentaNoEncontradaException;
+import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.mapper.VentaMapper;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
@@ -25,7 +26,10 @@ import com.LosCiruelos.padel_club_api.ventas.repository.VentaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/** Ventas sueltas que registra el personal (ADMIN o EMPLEADO). */
+/**
+ * Ventas sueltas que registra el personal (ADMIN o EMPLEADO). Una venta no se edita ni se borra: se
+ * anula, y solo se puede cambiar el cliente asociado. Toda operación sobre una venta la bloquea primero.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -72,10 +76,46 @@ public class VentaService {
     public VentaResponse verificar(Long ventaId, boolean verificada, String email) {
         Usuario admin = usuarioService.autenticado(email);
         Roles.exigirAdmin(admin, "Solo el ADMIN puede verificar una venta con Cuenta DNI.");
-        Venta venta = ventaRepository.findById(ventaId).orElseThrow(() -> new VentaNoEncontradaException(ventaId));
+        Venta venta = bloquear(ventaId);
         venta.verificar(verificada, admin.getId(), reloj.ahora());
         log.info("Venta #{} con Cuenta DNI {} por {}", ventaId, verificada ? "verificada" : "sin verificar", email);
         return ventaMapper.aResponse(venta);
+    }
+
+    /**
+     * Deja la venta sin efecto (error de carga, el cliente no pagó, se cobró por otro medio): deja de
+     * contar en la caja y el stock vuelve. El ADMIN anula cualquier venta; el EMPLEADO, solo las de
+     * hoy sin verificar. Queda quién, cuándo y por qué. La plata, si se llegó a cobrar, se devuelve a
+     * mano por el mismo medio.
+     */
+    @Transactional
+    public VentaResponse anular(Long ventaId, String motivo, String email) {
+        Usuario personal = usuarioService.autenticado(email);
+        Venta venta = bloquear(ventaId);
+        venta.validarQuePuedeAnularla(personal, reloj.hoy());
+        venta.anular(personal, motivo.trim(), reloj.ahora());
+        productoService.reponerVentaSuelta(venta.cantidades());
+        log.info("Venta #{} de ${} ({}) anulada por {}: {}", ventaId, venta.getTotal(), venta.getMedio(), email,
+                venta.getMotivoAnulacion());
+        return ventaMapper.aResponse(venta);
+    }
+
+    /** Cambia el cliente asociado (null: venta al público). El EMPLEADO, solo en las ventas de hoy. */
+    @Transactional
+    public VentaResponse cambiarCliente(Long ventaId, Long clienteId, String email) {
+        Usuario personal = usuarioService.autenticado(email);
+        Venta venta = bloquear(ventaId);
+        if (!Roles.esAdmin(personal) && !venta.esDelDia(reloj.hoy())) {
+            throw new PermisoDenegadoException("Solo podés modificar ventas de hoy.");
+        }
+        venta.cambiarCliente(clienteId != null ? cliente(clienteId) : null);
+        log.info("Venta #{}: cliente {} por {}", ventaId, clienteId, email);
+        return ventaMapper.aResponse(venta);
+    }
+
+    /** La venta con lock (404 si no existe). */
+    public Venta bloquear(Long ventaId) {
+        return ventaRepository.findByIdForUpdate(ventaId).orElseThrow(() -> new VentaNoEncontradaException(ventaId));
     }
 
     private Producto producto(VentaRequest.Item item) {
