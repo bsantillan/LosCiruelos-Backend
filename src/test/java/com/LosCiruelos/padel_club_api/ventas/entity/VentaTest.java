@@ -137,6 +137,72 @@ class VentaTest {
     }
 
     @Nested
+    class CobroConQr {
+
+        private final Usuario admin = usuario(1L, Role.ADMIN);
+
+        private Venta esperando() {
+            Venta venta = Venta.builder().id(7L).createdAt(AHORA).medio(MedioDePago.MERCADO_PAGO).registradoPor(admin)
+                    .orderId("ORD1").build();
+            venta.agregar(agua, 1);
+            venta.esperarPagoConQr(AHORA.plusMinutes(10));
+            return venta;
+        }
+
+        @Test
+        void esperaElPagoHastaQueVence() {
+            Venta venta = esperando();
+
+            assertThat(venta.getEstado()).isEqualTo(EstadoVenta.ESPERANDO_PAGO);
+            assertThat(venta.esQrActivo(AHORA.plusMinutes(9))).isTrue();
+            assertThat(venta.esQrActivo(AHORA.plusMinutes(10))).isFalse();
+            assertThat(venta.seCobroConQr()).isTrue();
+            assertThat(venta.getClaveIdempotencia()).isNotNull();
+        }
+
+        @Test
+        void seCobraOQuedaSinCobrarUnaSolaVez() {
+            Venta cobrada = esperando();
+            cobrada.confirmarCobro();
+            assertThat(cobrada.getEstado()).isEqualTo(EstadoVenta.COBRADA);
+            assertThatThrownBy(cobrada::marcarNoCobrada).isInstanceOf(EstadoInvalidoException.class)
+                    .hasMessage("La venta no está esperando el pago con QR.");
+
+            Venta sinCobrar = esperando();
+            sinCobrar.marcarNoCobrada();
+            assertThat(sinCobrar.getEstado()).isEqualTo(EstadoVenta.NO_COBRADA);
+            assertThatThrownBy(sinCobrar::confirmarCobro).isInstanceOf(EstadoInvalidoException.class);
+        }
+
+        @Test
+        void mientrasEsperaNoSeAnulaNiSeDevuelve() {
+            Venta venta = esperando();
+
+            assertThatThrownBy(() -> venta.anular(admin, "Error", AHORA))
+                    .isInstanceOf(EstadoInvalidoException.class)
+                    .hasMessage("La venta está esperando el pago con QR: cancelá el QR antes.");
+            assertThatThrownBy(() -> venta.devolver(java.util.List.of(new VentaDevolucion.Pedido(5L, 1, true)),
+                    "x", admin, AHORA))
+                    .hasMessage("La venta está esperando el pago con QR: cancelá el QR antes.");
+            venta.cambiarCliente(usuario(3L, Role.CLIENTE)); // el cliente sí
+        }
+
+        @Test
+        void unaNoCobradaNoSeAnulaNiSeDevuelveNiSeModifica() {
+            Venta venta = esperando();
+            venta.marcarNoCobrada();
+
+            assertThatThrownBy(() -> venta.anular(admin, "Error", AHORA))
+                    .hasMessage("La venta no se cobró: no hay nada que anular.");
+            assertThatThrownBy(() -> venta.devolver(java.util.List.of(new VentaDevolucion.Pedido(5L, 1, true)),
+                    "x", admin, AHORA))
+                    .hasMessage("La venta no se cobró: no hay nada que devolver.");
+            assertThatThrownBy(() -> venta.cambiarCliente(null))
+                    .hasMessage("La venta no se cobró: no se puede modificar.");
+        }
+    }
+
+    @Nested
     class Devolver {
 
         private final Usuario admin = usuario(1L, Role.ADMIN);

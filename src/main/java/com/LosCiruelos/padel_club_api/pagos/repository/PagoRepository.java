@@ -35,6 +35,10 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
     @Query("SELECT p.reserva.id FROM Pago p WHERE p.orderId = :orderId")
     Optional<Long> findReservaIdByOrderId(@Param("orderId") String orderId);
 
+    /** Bloquea la caja del QR (una sola fila, común a reservas y ventas) hasta que termine la transacción. */
+    @Query(value = "SELECT 1 FROM caja_qr WHERE id = 1 FOR UPDATE", nativeQuery = true)
+    Integer bloquearCajaQr();
+
     /** Los cobros con el QR de la caja que esperan el pago (como mucho uno: la caja tiene un solo QR). */
     @Query("SELECT p FROM Pago p JOIN FETCH p.reserva WHERE p.venceAt IS NOT NULL AND p.estado = :enProceso")
     List<Pago> findQrEnCurso(@Param("enProceso") EstadoPago enProceso);

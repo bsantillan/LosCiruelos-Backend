@@ -32,6 +32,16 @@ Se usa la **API de Orders** con `type: "qr"` y `config.qr.mode: "static"`.
 
    Si MP no lo acepta en el momento, queda `REEMBOLSO_PENDIENTE` y lo reintenta el job de reembolsos. Un rechazo definitivo queda `A_REEMBOLSAR`, para devolverlo a mano.
 
+### Ventas sueltas
+Una venta con `medio: MERCADO_PAGO` (`POST /admin/ventas`) usa la misma caja:
+- queda `ESPERANDO_PAGO`, con el stock apartado, y la order lleva `external_reference = venta-{id}` y las claves `losciruelos-qr-{uuid de la venta}`;
+- el webhook (`type=order`) busca primero un pago de reserva con esa order y, si no hay, una venta (`VentaQrService.notificacion`); el job de respaldo es `VentaJobs.revisarCobrosQr`;
+- `processed` por el total → `COBRADA`; por otro monto, `expired`, `canceled` o `refunded` → `NO_COBRADA` y el stock vuelve;
+- `DELETE /admin/ventas/{id}/qr` cancela la order;
+- al anularla o devolverla, el reembolso va por `/refund` en el momento (total o parcial, con una clave por operación: `losciruelos-qrrefund-{uuid}-anulacion`, `-devolucion-{n}`). Si MP no lo acepta, responde `502` y no se registra nada: se reintenta.
+
+**Una sola caja.** Una reserva y una venta no pueden esperar el QR a la vez. Los dos cobros bloquean primero la fila de `caja_qr` y después la reserva o la venta (siempre en ese orden), y revisan que la caja no esté esperando otro cobro vigente.
+
 ## Puesta en marcha (una sola vez por cuenta)
 
 1. **Credenciales.** El QR necesita una aplicación de Mercado Pago de **pagos presenciales con Código QR** (Tus integraciones > Crear aplicación > Pagos presenciales > Código QR). El token de una aplicación de pagos online no sirve: Mercado Pago responde `403` "At least one policy returned UNAUTHORIZED." en sucursales, cajas y orders. Su access token va en `MP_QR_ACCESS_TOKEN`; si las dos cosas fueran de la misma aplicación, alcanza con `MP_ACCESS_TOKEN`. En desarrollo se usa el de la cuenta vendedor de prueba de esa aplicación (Credenciales de prueba).

@@ -51,6 +51,12 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
   - Nuevos (ADMIN y EMPLEADO): `POST /admin/ventas/{id}/anulacion` con `{ motivo }` (el EMPLEADO solo anula las de hoy sin verificar), `PUT /admin/ventas/{id}/cliente` con `{ clienteId }` (`null`: venta al público) y `GET /admin/ventas/{id}`.
   - `GET /admin/pagos/cuenta-dni` suma `anulada` en cada cobro.
   - Una venta anulada sale de `caja`, `ventas` y `productos` del resumen.
+- **Ventas sueltas con Mercado Pago por el QR de la caja**:
+  - `POST /admin/ventas` con `medio: "MERCADO_PAGO"` ya no deja la venta cobrada: queda `ESPERANDO_PAGO` y responde `qr: { orderId, venceAt }`. El front tiene que mostrar el modal de espera (como el del QR de una reserva), consultar `GET /admin/ventas/{id}` hasta que quede `COBRADA` o `NO_COBRADA`, y al cerrarlo sin pagar llamar a `DELETE /admin/ventas/{id}/qr`.
+  - Errores nuevos de `POST /admin/ventas` con Mercado Pago: `409` caja ocupada, `502` y `503` (QR sin configurar).
+  - `VentaResponse.estado` suma `ESPERANDO_PAGO` y `NO_COBRADA`, y la respuesta suma `qr`.
+  - El cobro con QR de una reserva también responde `409` si la caja espera el pago de una venta ("… de la venta #N …").
+  - Anular o devolver una venta cobrada con QR devuelve la plata por Mercado Pago; si MP no lo acepta, `502`.
 - **Devoluciones de ventas sueltas**:
   - Nuevo, solo ADMIN: `POST /admin/ventas/{id}/devoluciones` con `{ motivo, items: [{ productoId, cantidad, vuelveAlStock }] }`.
   - `VentaResponse` suma `montoDevuelto` y `devoluciones`, y cada ítem, `devueltas`.

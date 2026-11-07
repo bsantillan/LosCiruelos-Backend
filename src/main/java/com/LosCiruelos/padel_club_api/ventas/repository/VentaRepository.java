@@ -24,6 +24,16 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     @Query("SELECT v FROM Venta v WHERE v.id = :id")
     Optional<Venta> findByIdForUpdate(@Param("id") Long id);
 
+    /** Las ventas en ese estado (las que esperan el pago con QR: como mucho una). */
+    List<Venta> findByEstado(EstadoVenta estado);
+
+    @Query("SELECT v.id FROM Venta v WHERE v.orderId = :orderId")
+    Optional<Long> findIdByOrderId(@Param("orderId") String orderId);
+
+    /** Ventas que siguen esperando el pago con QR y vencieron antes de :limite: las revisa el job. */
+    @Query("SELECT v.id FROM Venta v WHERE v.estado = :esperando AND v.venceAt < :limite ORDER BY v.id")
+    List<Long> findIdsQrVencidas(@Param("esperando") EstadoVenta esperando, @Param("limite") LocalDateTime limite);
+
     /** Una venta con sus ítems y quién la registró y la anuló (el detalle). */
     @EntityGraph(attributePaths = { "items", "items.producto", "cliente", "registradoPor", "anuladaPor" })
     Optional<Venta> findConDetalleById(Long id);

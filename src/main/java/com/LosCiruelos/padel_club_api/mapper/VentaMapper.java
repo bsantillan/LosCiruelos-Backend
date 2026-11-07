@@ -27,7 +27,8 @@ public class VentaMapper {
                 venta.getEstado(), venta.getAnuladaAt(),
                 venta.getAnuladaPor() != null ? nombre(venta.getAnuladaPor()) : null, venta.getMotivoAnulacion(),
                 Dinero.redondear(venta.montoDevuelto()),
-                venta.getDevoluciones().stream().map(VentaMapper::devolucion).toList());
+                venta.getDevoluciones().stream().map(VentaMapper::devolucion).toList(),
+                venta.seCobroConQr() ? new VentaResponse.Qr(venta.getOrderId(), venta.getVenceAt()) : null);
     }
 
     private static VentaResponse.Devolucion devolucion(VentaDevolucion d) {

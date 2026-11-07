@@ -61,6 +61,8 @@ abstract class PagosTestBase {
     protected ApplicationEventPublisher eventos;
     protected ProveedorCobroQr proveedorQr;
     protected CobroQrService cobroQrService;
+    protected CajaQrService cajaQr;
+    protected com.LosCiruelos.padel_club_api.ventas.service.VentaQrService ventaQrService;
 
     protected Usuario cliente;
     protected Usuario empleado;
@@ -105,8 +107,10 @@ abstract class PagosTestBase {
         proveedorQr = mock(ProveedorCobroQr.class);
         when(proveedorQr.estaConfigurado()).thenReturn(true);
         reembolsoService = new ReembolsoService(factory, proveedorQr, reservaService, pagoRepository, estados, reloj);
+        cajaQr = mock(CajaQrService.class);
+        ventaQrService = mock(com.LosCiruelos.padel_club_api.ventas.service.VentaQrService.class);
         cobroQrService = new CobroQrService(reservaService, pagoRepository, usuarioService, estados, proveedorQr,
-                new PagoMapper(), reloj, 10);
+                new PagoMapper(), reloj, cajaQr, ventaQrService, 10);
     }
 
     protected Reserva reservaBloqueada(EstadoReserva estado) {

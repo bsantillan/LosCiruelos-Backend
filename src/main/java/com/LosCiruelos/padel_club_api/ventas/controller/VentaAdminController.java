@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +25,7 @@ import com.LosCiruelos.padel_club_api.ventas.dto.request.VentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VerificacionVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.service.VentaConsultaService;
+import com.LosCiruelos.padel_club_api.ventas.service.VentaQrService;
 import com.LosCiruelos.padel_club_api.ventas.service.VentaService;
 
 import jakarta.validation.Valid;
@@ -38,8 +40,9 @@ public class VentaAdminController {
 
     private final VentaService ventaService;
     private final VentaConsultaService ventaConsultaService;
+    private final VentaQrService ventaQrService;
 
-    /** Registra una venta cobrada en el momento (efectivo o Mercado Pago en el club). */
+    /** Registra una venta: en efectivo o con Cuenta DNI queda cobrada; con Mercado Pago, esperando el QR de la caja. */
     @PostMapping
     public ResponseEntity<VentaResponse> registrar(@Valid @RequestBody VentaRequest request,
             Authentication authentication) {
@@ -76,7 +79,13 @@ public class VentaAdminController {
         return ResponseEntity.ok(ventaService.cambiarCliente(id, body.getClienteId(), authentication.getName()));
     }
 
-    /** Una venta (el EMPLEADO, solo las de hoy). */
+    /** El personal cerró el modal del QR sin que se pagara: la venta queda NO_COBRADA. */
+    @DeleteMapping("/{id}/qr")
+    public ResponseEntity<VentaResponse> cancelarQr(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(ventaQrService.cancelar(id, authentication.getName()));
+    }
+
+    /** Una venta (el EMPLEADO, solo las de hoy); el modal del QR la consulta para ver si se pagó. */
     @GetMapping("/{id}")
     public ResponseEntity<VentaResponse> obtener(@PathVariable Long id, Authentication authentication) {
         return ResponseEntity.ok(ventaConsultaService.obtener(id, authentication.getName()));
