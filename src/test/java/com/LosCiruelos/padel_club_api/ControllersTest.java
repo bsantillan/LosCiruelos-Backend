@@ -887,7 +887,7 @@ class ControllersTest {
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Cancelaciones(3,
                             new BigDecimal("7500.00")),
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Ventas(3,
-                            new BigDecimal("15000.00")),
+                            new BigDecimal("15000.00"), new BigDecimal("1500.00")),
                     List.of(new com.LosCiruelos.padel_club_api.reservas.repository.ProductoVendido(1L, "Pelotas",
                             com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto.VENTA, 40L,
                             new BigDecimal("200000.00")))));
@@ -899,6 +899,7 @@ class ControllersTest {
                     .andExpect(jsonPath("$.jugados.turnos").value(28))
                     .andExpect(jsonPath("$.ventas.cantidad").value(3))
                     .andExpect(jsonPath("$.ventas.total").value(15000.00))
+                    .andExpect(jsonPath("$.ventas.devoluciones").value(1500.00))
                     .andExpect(jsonPath("$.jugados.montoTotal").value(420000.00))
                     .andExpect(jsonPath("$.jugados.montoCobrado").value(380000.00))
                     .andExpect(jsonPath("$.jugados.montoBonificado").value(15000.00))
@@ -1133,7 +1134,8 @@ class ControllersTest {
         void registrarDevuelve201() throws Exception {
             when(ventaService.registrar(any(), eq(EMAIL))).thenReturn(new VentaResponse(4L, TestData.AHORA,
                     new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of(), null, null,
-                    com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null, null, null));
+                    com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null, null, null,
+                    new java.math.BigDecimal("0.00"), List.of()));
 
             mvc.perform(json(post("/admin/ventas"), """
                     {"medio":"EFECTIVO","items":[{"productoId":5,"cantidad":2},{"nombre":"Gatorade","precio":2500,"cantidad":1}]}
@@ -1163,7 +1165,7 @@ class ControllersTest {
             when(ventaService.verificar(8L, true, EMAIL)).thenReturn(new VentaResponse(8L, TestData.AHORA,
                     new java.math.BigDecimal("3000.00"), MedioDePago.CUENTA_DNI, null, null, "Ana Pérez", List.of(),
                     true, TestData.AHORA, com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null,
-                    null, null));
+                    null, null, new java.math.BigDecimal("0.00"), List.of()));
 
             mvc.perform(json(put("/admin/ventas/8/verificacion"), "{\"verificada\":true}"))
                     .andExpect(status().isOk())
@@ -1174,7 +1176,7 @@ class ControllersTest {
             return new VentaResponse(8L, TestData.AHORA, new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, 3L,
                     "Juan Gómez", "Ana Pérez", List.of(), null, null,
                     com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.ANULADA, TestData.AHORA, "Ana Pérez",
-                    "Error de carga");
+                    "Error de carga", new java.math.BigDecimal("0.00"), List.of());
         }
 
         @Test
@@ -1199,6 +1201,35 @@ class ControllersTest {
             mvc.perform(json(post("/admin/ventas/9/anulacion"), "{\"motivo\":\"Error\"}"))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.error").value("Solo podés anular ventas de hoy."));
+        }
+
+        @Test
+        void devolverValidaLoQueSeDevuelve() throws Exception {
+            mvc.perform(json(post("/admin/ventas/8/devoluciones"), "{\"items\":[]}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.motivo").exists())
+                    .andExpect(jsonPath("$.errors.items").exists());
+            mvc.perform(json(post("/admin/ventas/8/devoluciones"),
+                    "{\"motivo\":\"Vencido\",\"items\":[{\"productoId\":5,\"cantidad\":0}]}"))
+                    .andExpect(status().isBadRequest());
+            verify(ventaService, never()).devolver(any(), any(), anyString());
+
+            VentaResponse.Devolucion devolucion = new VentaResponse.Devolucion(30L, TestData.AHORA, "Admin Club",
+                    "Vencido", new java.math.BigDecimal("1500.00"),
+                    List.of(new VentaResponse.ItemDevuelto(5L, "Agua", 1, false)));
+            when(ventaService.devolver(eq(8L), any(), eq(EMAIL))).thenReturn(new VentaResponse(8L, TestData.AHORA,
+                    new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of(), null,
+                    null, com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null, null, null, new java.math.BigDecimal("1500.00"),
+                    List.of(devolucion)));
+            mvc.perform(json(post("/admin/ventas/8/devoluciones"),
+                    "{\"motivo\":\"Vencido\",\"items\":[{\"productoId\":5,\"cantidad\":1,\"vuelveAlStock\":false}]}"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.montoDevuelto").value(1500.00))
+                    .andExpect(jsonPath("$.devoluciones[0].items[0].vuelveAlStock").value(false));
+            org.mockito.ArgumentCaptor<com.LosCiruelos.padel_club_api.ventas.dto.request.DevolucionVentaRequest> req =
+                    org.mockito.ArgumentCaptor.forClass(com.LosCiruelos.padel_club_api.ventas.dto.request.DevolucionVentaRequest.class);
+            verify(ventaService).devolver(eq(8L), req.capture(), eq(EMAIL));
+            org.assertj.core.api.Assertions.assertThat(req.getValue().getItems().get(0).getCantidad()).isEqualTo(1);
         }
 
         @Test

@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.ventas.repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -61,13 +62,18 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
             @Param("mercadoPago") MedioDePago mercadoPago,
             @Param("cuentaDni") MedioDePago cuentaDni);
 
-    /** Lo vendido de cada producto en [inicio, fin), en las ventas cobradas. */
+    /** Lo devuelto de las ventas en [inicio, fin) (por fecha de la devolución, no de la venta). */
+    @Query("SELECT COALESCE(SUM(d.monto), 0) FROM VentaDevolucion d WHERE d.createdAt >= :inicio AND d.createdAt < :fin")
+    BigDecimal devoluciones(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
+
+    /** Lo vendido de cada producto en [inicio, fin), en las ventas cobradas y sin lo que se devolvió. */
     @Query("""
             SELECT new com.LosCiruelos.padel_club_api.ventas.repository.VentaPorProducto(p.id, p.nombre, p.tipo,
-                   SUM(i.cantidad), SUM(i.cantidad * i.precioUnitario))
+                   SUM(i.cantidad - i.devueltas), SUM((i.cantidad - i.devueltas) * i.precioUnitario))
             FROM VentaItem i JOIN i.venta v JOIN i.producto p
             WHERE v.createdAt >= :inicio AND v.createdAt < :fin AND v.estado = :cobrada
             GROUP BY p.id, p.nombre, p.tipo
+            HAVING SUM(i.cantidad - i.devueltas) > 0
             ORDER BY p.id
             """)
     List<VentaPorProducto> porProducto(

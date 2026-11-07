@@ -245,7 +245,7 @@ public class ReservaConsultaService {
                 PaymentProvider.BONIFICACION);
         return resumenMapper.aResponse(desde, hasta, t, c, e, devoluciones,
                 reservaRepository.resumenProductos(desde, hasta, juegan), ventaConsultaService.totales(inicio, fin),
-                ventaConsultaService.porProducto(inicio, fin));
+                ventaConsultaService.devoluciones(inicio, fin), ventaConsultaService.porProducto(inicio, fin));
     }
 
     // ── Números del perfil del jugador ───────────────────────────────────

@@ -48,6 +48,16 @@ public class VentaItem {
     @Column(name = "precio_unitario", nullable = false, precision = 10, scale = 2)
     private BigDecimal precioUnitario;
 
+    // unidades que el cliente ya devolvió (entre 0 y cantidad)
+    @Builder.Default
+    @Column(nullable = false)
+    private Integer devueltas = 0;
+
+    /** Unidades que todavía se pueden devolver. */
+    public int sinDevolver() {
+        return cantidad - devueltas;
+    }
+
     public BigDecimal getSubtotal() {
         return precioUnitario.multiply(BigDecimal.valueOf(cantidad));
     }

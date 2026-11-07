@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.ventas.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -74,12 +75,17 @@ public class VentaConsultaService {
                 MedioDePago.MERCADO_PAGO, MedioDePago.CUENTA_DNI);
     }
 
+    /** Lo devuelto de las ventas en [inicio, fin), por fecha de la devolución (la caja del resumen). */
+    public BigDecimal devoluciones(LocalDateTime inicio, LocalDateTime fin) {
+        return ventaRepository.devoluciones(inicio, fin);
+    }
+
     /** Ventas con Cuenta DNI en [inicio, fin), para que el ADMIN las controle contra la cuenta. */
     public List<Venta> cuentaDni(LocalDateTime inicio, LocalDateTime fin, Boolean verificada) {
         return ventaRepository.porMedio(MedioDePago.CUENTA_DNI, inicio, fin, verificada);
     }
 
-    /** Lo vendido de cada producto en [inicio, fin), sin las ventas anuladas. */
+    /** Lo vendido de cada producto en [inicio, fin), sin las ventas anuladas ni lo devuelto. */
     public List<VentaPorProducto> porProducto(LocalDateTime inicio, LocalDateTime fin) {
         return ventaRepository.porProducto(inicio, fin, EstadoVenta.COBRADA);
     }

@@ -46,6 +46,6 @@ public record ResumenResponse(
     }
 
     /** Ventas sueltas del período (sin reserva): cuántas y cuánto se cobró. Ya están sumadas en la caja. */
-    public record Ventas(long cantidad, BigDecimal total) {
+    public record Ventas(long cantidad, BigDecimal total, BigDecimal devoluciones) {
     }
 }

@@ -51,6 +51,11 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
   - Nuevos (ADMIN y EMPLEADO): `POST /admin/ventas/{id}/anulacion` con `{ motivo }` (el EMPLEADO solo anula las de hoy sin verificar), `PUT /admin/ventas/{id}/cliente` con `{ clienteId }` (`null`: venta al público) y `GET /admin/ventas/{id}`.
   - `GET /admin/pagos/cuenta-dni` suma `anulada` en cada cobro.
   - Una venta anulada sale de `caja`, `ventas` y `productos` del resumen.
+- **Devoluciones de ventas sueltas**:
+  - Nuevo, solo ADMIN: `POST /admin/ventas/{id}/devoluciones` con `{ motivo, items: [{ productoId, cantidad, vuelveAlStock }] }`.
+  - `VentaResponse` suma `montoDevuelto` y `devoluciones`, y cada ítem, `devueltas`.
+  - `GET /admin/reservas/resumen`: `ventas` suma `devoluciones`; `caja.devoluciones` (y por lo tanto `caja.neto`) incluye lo devuelto de ventas en el período; `productos` queda neto de lo devuelto.
+  - Una venta con devoluciones ya no se puede anular (`409`).
 - **Disponibilidad de productos para el personal**: nuevo `GET /admin/configuracion/productos/disponibilidad?fecha&horaInicio&horaFin[&excluirReservaId]` (ADMIN y EMPLEADO), con las unidades libres de todos los productos activos, también los que no se ofrecen al reservar. Al editar una reserva o un partido, pasar `excluirReservaId` para que lo que ya tiene cuente como libre. `GET /productos/disponibilidad` (del cliente) no cambia: sigue trayendo solo los que se ofrecen al reservar, y suma el campo `ofrecerAlReservar` (siempre `true` ahí).
 - **Cobro con el QR impreso de la caja de Mercado Pago** (ADMIN y EMPLEADO): nuevos `POST`, `GET` y `DELETE /admin/reservas/{id}/cobros/qr`, que responden `CobroQrResponse`. No hay QR para mostrar en pantalla: el cliente escanea el QR del mostrador; el front muestra "esperando el pago de $X" y el tiempo que queda. La caja tiene un solo QR: si está esperando el pago de otra reserva, `POST` responde `409`. Mientras el cobro está activo, la reserva tiene un pago `EN_PROCESO`: cobrar en efectivo, sumar productos o cancelar responden `409` hasta que se pague, venza o se cancele. Con el QR sin configurar (`MP_QR_EXTERNAL_POS_ID`), `503`. `PagoResponse` puede traer pagos `MERCADO_PAGO` cobrados por QR (sin `externalPaymentId`).
 - **Medios de pago: efectivo, Mercado Pago y Cuenta DNI**:

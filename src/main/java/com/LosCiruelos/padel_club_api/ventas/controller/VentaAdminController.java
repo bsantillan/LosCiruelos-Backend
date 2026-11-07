@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.LosCiruelos.padel_club_api.ventas.dto.request.AnulacionVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.ClienteVentaRequest;
+import com.LosCiruelos.padel_club_api.ventas.dto.request.DevolucionVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VerificacionVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
@@ -58,6 +59,14 @@ public class VentaAdminController {
     public ResponseEntity<VentaResponse> anular(@PathVariable Long id, @Valid @RequestBody AnulacionVentaRequest body,
             Authentication authentication) {
         return ResponseEntity.ok(ventaService.anular(id, body.getMotivo(), authentication.getName()));
+    }
+
+    /** Solo ADMIN: el cliente devuelve todo o parte de lo que compró (cuenta en la caja de hoy). */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{id}/devoluciones")
+    public ResponseEntity<VentaResponse> devolver(@PathVariable Long id, @Valid @RequestBody DevolucionVentaRequest body,
+            Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ventaService.devolver(id, body, authentication.getName()));
     }
 
     /** Cambia el cliente asociado ({ "clienteId": null } la deja como venta al público). */

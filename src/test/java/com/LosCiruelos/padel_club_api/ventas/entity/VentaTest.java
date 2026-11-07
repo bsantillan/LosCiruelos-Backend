@@ -15,6 +15,7 @@ import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta;
@@ -132,6 +133,90 @@ class VentaTest {
             assertThatThrownBy(() -> venta.cambiarCliente(cliente))
                     .isInstanceOf(EstadoInvalidoException.class)
                     .hasMessage("La venta está anulada: no se puede modificar.");
+        }
+    }
+
+    @Nested
+    class Devolver {
+
+        private final Usuario admin = usuario(1L, Role.ADMIN);
+        private Venta venta;
+
+        @org.junit.jupiter.api.BeforeEach
+        void unaVenta() {
+            venta = Venta.builder().id(7L).createdAt(AHORA.minusDays(2)).medio(MedioDePago.EFECTIVO)
+                    .registradoPor(admin).build();
+            venta.agregar(agua, 3);
+            venta.agregar(pelotas, 1);
+        }
+
+        private VentaDevolucion devolver(Producto producto, int cantidad, boolean vuelve) {
+            return venta.devolver(java.util.List.of(new VentaDevolucion.Pedido(producto.getId(), cantidad, vuelve)),
+                    "Vencido", admin, AHORA);
+        }
+
+        @Test
+        void unaDevolucionParcialAlPrecioDeLaVenta() {
+            agua.setPrecio(new BigDecimal("9999")); // el precio de hoy no importa
+
+            VentaDevolucion d = venta.devolver(java.util.List.of(new VentaDevolucion.Pedido(5L, 2, true),
+                    new VentaDevolucion.Pedido(1L, 1, false)), "Vencido", admin, AHORA);
+
+            assertThat(d.getMonto()).isEqualByComparingTo("11000"); // 2 × 1.500 + 8.000
+            assertThat(d.getCreatedAt()).isEqualTo(AHORA);
+            assertThat(d.getRegistradaPor()).isSameAs(admin);
+            assertThat(d.aReponer()).containsExactly(java.util.Map.entry(agua, 2));
+            assertThat(venta.getItems()).extracting(VentaItem::getDevueltas).containsExactly(2, 1);
+            assertThat(venta.montoDevuelto()).isEqualByComparingTo("11000");
+            assertThat(venta.getTotal()).isEqualByComparingTo("12500"); // el total de la venta no cambia
+        }
+
+        @Test
+        void noSeDevuelveMasDeLoQueQueda() {
+            devolver(agua, 2, true);
+
+            assertThatThrownBy(() -> devolver(agua, 2, true))
+                    .isInstanceOf(ReservaException.class).hasMessage("De Agua queda 1 unidad por devolver.");
+            devolver(agua, 1, true);
+            assertThatThrownBy(() -> devolver(agua, 1, true))
+                    .isInstanceOf(ReservaException.class).hasMessage("Agua ya se devolvió entero.");
+            assertThat(venta.getDevoluciones()).hasSize(2);
+        }
+
+        @Test
+        void siUnItemNoSePuedeNoSeDevuelveNada() {
+            assertThatThrownBy(() -> venta.devolver(java.util.List.of(new VentaDevolucion.Pedido(5L, 1, true),
+                    new VentaDevolucion.Pedido(1L, 2, true)), "Vencido", admin, AHORA))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessage("De Pelotas queda 1 unidad por devolver.");
+            assertThat(venta.getItems()).extracting(VentaItem::getDevueltas).containsExactly(0, 0);
+            assertThat(venta.getDevoluciones()).isEmpty();
+        }
+
+        @Test
+        void soloProductosDeLaVentaYSinRepetir() {
+            assertThatThrownBy(() -> venta.devolver(java.util.List.of(new VentaDevolucion.Pedido(9L, 1, true)),
+                    "Vencido", admin, AHORA))
+                    .isInstanceOf(ReservaException.class).hasMessage("El producto #9 no está en la venta.");
+            assertThatThrownBy(() -> venta.devolver(java.util.List.of(new VentaDevolucion.Pedido(5L, 1, true),
+                    new VentaDevolucion.Pedido(5L, 1, false)), "Vencido", admin, AHORA))
+                    .isInstanceOf(ReservaException.class).hasMessage("Agua está repetido en la devolución.");
+        }
+
+        @Test
+        void unaVentaAnuladaNoSeDevuelveYUnaConDevolucionesNoSeAnula() {
+            devolver(agua, 1, true);
+            assertThatThrownBy(() -> venta.anular(admin, "Error", AHORA))
+                    .isInstanceOf(EstadoInvalidoException.class)
+                    .hasMessage("La venta tiene devoluciones: no se puede anular. Registrá una devolución por lo que queda.");
+
+            Venta otra = Venta.builder().createdAt(AHORA).medio(MedioDePago.EFECTIVO).registradoPor(admin).build();
+            otra.agregar(agua, 1);
+            otra.anular(admin, "Error", AHORA);
+            assertThatThrownBy(() -> otra.devolver(java.util.List.of(new VentaDevolucion.Pedido(5L, 1, true)),
+                    "Vencido", admin, AHORA))
+                    .isInstanceOf(EstadoInvalidoException.class)
+                    .hasMessage("La venta está anulada: no se puede devolver.");
         }
     }
 }
