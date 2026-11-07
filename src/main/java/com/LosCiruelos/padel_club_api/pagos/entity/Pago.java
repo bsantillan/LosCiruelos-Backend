@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
+import com.LosCiruelos.padel_club_api.pagos.payment.OrdenQr;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 
@@ -170,6 +171,12 @@ public class Pago {
     /** Un cobro con el QR de la caja de Mercado Pago (tiene una order). */
     public boolean esCobroQr() {
         return orderId != null;
+    }
+
+    /** Lo que el proveedor del QR necesita de este cobro (la referencia lleva solo ids internos). */
+    public OrdenQr ordenQr() {
+        return new OrdenQr(orderId, "reserva-" + reserva.getId() + "-pago-" + id, claveIdempotencia.toString(),
+                monto);
     }
 
     /** Un QR que todavía se puede pagar: esperando el pago y sin vencer. */
