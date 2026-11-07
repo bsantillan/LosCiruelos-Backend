@@ -42,7 +42,8 @@ public class MercadoPagoQrProvider implements ProveedorCobroQr {
 
     @Autowired
     public MercadoPagoQrProvider(@Value("${mercadopago.api-url:https://api.mercadopago.com}") String apiUrl,
-            @Value("${mercadopago.access-token:}") String accessToken,
+            // el de la aplicación de pagos presenciales; si no hay uno propio, el de los pagos online
+            @Value("${mercadopago.qr.access-token:}") String accessToken,
             @Value("${mercadopago.qr.external-pos-id:}") String externalPosId) {
         this(RestClient.builder().requestFactory(conTiempos()), apiUrl, accessToken, externalPosId);
     }
