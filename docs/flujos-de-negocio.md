@@ -321,4 +321,8 @@ Registro único (id = 1) creado por `DataInitializer`:
 | `duracionMinimaTurno` / `duracionMaximaTurno` | 90 / 180 | minutos |
 | días | L‑V 08–23, Sáb 09–22, Dom 09–20 | horario por día |
 
-Se guarda en caché en memoria; si se cambia directamente en la base hay que reiniciar la app (todavía no hay endpoint para editarla).
+Además: la política de cancelación (`minutosReembolsoTotal` / `minutosReembolsoSenia`, 1440 / 720), el recordatorio del turno (activo, 120 minutos antes) y la anticipación para reservar (30 días).
+
+El ADMIN la consulta y la cambia entera con `GET`/`PUT /admin/configuracion` (ver [api.md](api.md#configuración-del-club--adminconfiguracion-rol-admin)). Las reglas de los cambios están en `Configuracion` (`cambiarDuracionDeTurnos`, `cambiarPoliticaCancelacion`, `cambiarHorarios`). Un cambio rige para lo que se reserve o se cobre desde ahora: las reservas que ya existen conservan su precio y su seña, y las que quedaron fuera del horario nuevo no se cancelan. Un día que no está en los horarios, el club no abre.
+
+Se guarda en caché en memoria y se invalida al guardar; si se cambia directamente en la base hay que reiniciar la app.

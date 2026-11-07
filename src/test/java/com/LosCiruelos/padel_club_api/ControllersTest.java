@@ -178,6 +178,13 @@ class ControllersTest {
         return req.contentType(MediaType.APPLICATION_JSON).content(body).principal(AUTH);
     }
 
+    private static final String CONFIGURACION = """
+            {"montoReserva":0,"montoXMediaHora":5000,"porcentajeSenia":50,"duracionMinimaTurno":90,
+             "duracionMaximaTurno":180,"minutosReembolsoTotal":1440,"minutosReembolsoSenia":720,
+             "recordatorioActivo":true,"minutosRecordatorio":120,"diasAnticipacion":30,
+             "horarios":[{"dia":"Lunes","apertura":"08:00","cierre":"23:00"}]}
+            """;
+
     private static final String RESERVA_VALIDA = """
             {"canchaId":1,"fechaReserva":"2099-01-01","horaInicio":"18:00","horaFin":"19:30","productos":[{"productoId":1,"cantidad":2}]}
             """;
@@ -846,6 +853,35 @@ class ControllersTest {
         void avisosDelAdminYRecordatorio() throws Exception {
             mvc.perform(json(put("/perfil/avisos"), "{\"reservaConfirmada\":true}"))
                     .andExpect(status().isBadRequest());
+            mvc.perform(json(put("/admin/configuracion"), "{\"horarios\":[{\"dia\":\"Lunes\"}]}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.montoXMediaHora").value("Es obligatorio"))
+                    .andExpect(jsonPath("$.errors.diasAnticipacion").exists())
+                    .andExpect(jsonPath("$.errors['horarios[0].apertura']").value("Indicá la hora de apertura"));
+            mvc.perform(json(put("/admin/configuracion"), CONFIGURACION.replace("\"porcentajeSenia\":50", "\"porcentajeSenia\":150")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.porcentajeSenia").value("Entre 0 y 100"));
+            verify(configuracionService, never()).actualizarGeneral(any());
+            com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse respuesta =
+                    new com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse(new BigDecimal("0.00"),
+                            new BigDecimal("5000.00"), new BigDecimal("50.00"), 90, 180, 1440, 720, true, 120, 30,
+                            List.of(new com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse.Horario(
+                                    "Lunes", java.time.LocalTime.of(8, 0), java.time.LocalTime.of(23, 0))));
+            when(configuracionService.actualizarGeneral(any())).thenReturn(respuesta);
+            when(configuracionService.general()).thenReturn(respuesta);
+            mvc.perform(json(put("/admin/configuracion"), CONFIGURACION))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.horarios[0].apertura").value("08:00"));
+            org.mockito.ArgumentCaptor<com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest> req =
+                    org.mockito.ArgumentCaptor.forClass(com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest.class);
+            verify(configuracionService).actualizarGeneral(req.capture());
+            org.assertj.core.api.Assertions.assertThat(req.getValue().getHorarios().get(0).getCierre())
+                    .isEqualTo(java.time.LocalTime.of(23, 0));
+            mvc.perform(get("/admin/configuracion").principal(AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.montoXMediaHora").value(5000.00))
+                    .andExpect(jsonPath("$.horarios[0].dia").value("Lunes"));
+
             mvc.perform(json(put("/admin/configuracion/avisos"), "{\"recordatorioActivo\":true,\"minutosRecordatorio\":5}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.minutosRecordatorio").exists());

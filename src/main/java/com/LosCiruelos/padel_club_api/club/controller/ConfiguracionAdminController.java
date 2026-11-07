@@ -8,8 +8,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest;
 import com.LosCiruelos.padel_club_api.club.dto.request.RecordatorioConfigRequest;
 import com.LosCiruelos.padel_club_api.club.dto.request.ReservasConfigRequest;
+import com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.RecordatorioConfigResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ReservasConfigResponse;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
@@ -17,7 +19,10 @@ import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-/** Configuración del club que edita el ADMIN: el recordatorio del turno y la anticipación para reservar. */
+/**
+ * Configuración del club que edita el ADMIN: toda junta (precios, seña, duración de los turnos,
+ * política de cancelación, recordatorio, anticipación y horarios) o por sección.
+ */
 @RestController
 @RequestMapping("/admin/configuracion")
 @RequiredArgsConstructor
@@ -25,6 +30,16 @@ import lombok.RequiredArgsConstructor;
 public class ConfiguracionAdminController {
 
     private final ConfiguracionService configuracionService;
+
+    @GetMapping
+    public ResponseEntity<ConfiguracionResponse> configuracion() {
+        return ResponseEntity.ok(configuracionService.general());
+    }
+
+    @PutMapping
+    public ResponseEntity<ConfiguracionResponse> actualizar(@Valid @RequestBody ConfiguracionRequest request) {
+        return ResponseEntity.ok(configuracionService.actualizarGeneral(request));
+    }
 
     @GetMapping("/avisos")
     public ResponseEntity<RecordatorioConfigResponse> recordatorio() {
