@@ -57,14 +57,60 @@ public class StockService {
     /** Unidades que se pueden pedir de cada producto que se ofrece al reservar, para un horario. */
     @Transactional(readOnly = true)
     public List<ProductoDisponibleResponse> disponibilidad(LocalDate fecha, LocalTime inicio, LocalTime fin) {
+        validarHorario(inicio, fin);
+        LocalDateTime ahora = reloj.ahora();
+        return productoService.paraReservar().stream()
+                .map(p -> disponibilidadDe(p, fecha, inicio, fin, null, Map.of(), ahora))
+                .toList();
+    }
+
+    /**
+     * Para el personal: unidades libres de todos los productos activos (se ofrezcan o no al reservar),
+     * en orden de id, con el mismo cálculo que valida el stock al guardar. Con {@code excluirReservaId}
+     * (al editar una reserva o un partido) lo que esa reserva ya tiene cuenta como libre: sus alquileres
+     * no se cuentan como en uso y sus unidades de venta vuelven al stock, como hace {@link #moverStock}.
+     * Si la reserva no existe, se ignora.
+     */
+    @Transactional(readOnly = true)
+    public List<ProductoDisponibleResponse> disponibilidadParaPersonal(LocalDate fecha, LocalTime inicio,
+            LocalTime fin, Long excluirReservaId) {
+        validarHorario(inicio, fin);
+        LocalDateTime ahora = reloj.ahora();
+        Map<Long, Integer> deLaReserva = new TreeMap<>();
+        Long excluir = null;
+        Reserva reserva = excluirReservaId != null ? reservaRepository.findById(excluirReservaId).orElse(null) : null;
+        if (reserva != null) {
+            excluir = reserva.getId();
+            // una cancelada o vencida ya devolvió su stock de venta: no se cuenta dos veces
+            if (!reserva.estaInactiva()) {
+                reserva.getProductos().forEach(i -> deLaReserva.merge(i.getProducto().getId(), i.getCantidad(),
+                        Integer::sum));
+            }
+        }
+        Long excluida = excluir;
+        return productoService.activos().stream()
+                .map(p -> disponibilidadDe(p, fecha, inicio, fin, excluida, deLaReserva, ahora))
+                .toList();
+    }
+
+    private static void validarHorario(LocalTime inicio, LocalTime fin) {
         if (!inicio.isBefore(fin)) {
             throw new ReservaException("La hora de inicio debe ser anterior a la hora de fin.");
         }
-        LocalDateTime ahora = reloj.ahora();
-        return productoService.paraReservar().stream()
-                .map(p -> new ProductoDisponibleResponse(p.getId(), p.getCodigo(), p.getNombre(), p.getTipo(),
-                        p.getPrecio(), p.llevaStock() ? disponibles(p, fecha, inicio, fin, null, ahora) : null))
-                .toList();
+    }
+
+    /** @param deLaReserva unidades de cada producto que tiene la reserva que se está editando */
+    private ProductoDisponibleResponse disponibilidadDe(Producto p, LocalDate fecha, LocalTime inicio, LocalTime fin,
+            Long excluirReservaId, Map<Long, Integer> deLaReserva, LocalDateTime ahora) {
+        Integer libres = null;
+        if (p.llevaStock()) {
+            libres = disponibles(p, fecha, inicio, fin, excluirReservaId, ahora);
+            if (p.getTipo() == TipoProducto.VENTA) {
+                libres += deLaReserva.getOrDefault(p.getId(), 0);
+            }
+        }
+        return new ProductoDisponibleResponse(p.getId(), p.getCodigo(), p.getNombre(), p.getTipo(), p.getPrecio(),
+                libres, p.seOfreceAlReservar());
     }
 
     /**

@@ -14,6 +14,8 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -303,6 +305,105 @@ class StockServiceTest {
                     .extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(1, null);
             assertThatThrownBy(() -> servicio.disponibilidad(MANIANA, LocalTime.of(19, 0), LocalTime.of(18, 0)))
                     .isInstanceOf(ReservaException.class);
+        }
+
+        @Test
+        void elClienteVeQueSeOfrecenAlReservar() {
+            pelotas.setOfrecerAlReservar(true);
+            when(productoRepository.findAllByActivoTrueAndOfrecerAlReservarTrueOrderByNombreAsc()).thenReturn(List.of(pelotas));
+
+            assertThat(servicio.disponibilidad(MANIANA, LocalTime.of(18, 0), LocalTime.of(19, 30)))
+                    .extracting(ProductoDisponibleResponse::getOfrecerAlReservar).containsExactly(true);
+        }
+    }
+
+    @Nested
+    class DisponibilidadParaElPersonal {
+
+        private Producto agua;
+        private Producto raquetero;
+
+        @BeforeEach
+        void todosLosActivos() {
+            pelotas.setOfrecerAlReservar(true);
+            paletas.setOfrecerAlReservar(true);
+            // una venta que no controla stock y un alquiler que no se ofrece al reservar
+            agua = Producto.builder().id(5L).nombre("Agua").tipo(TipoProducto.VENTA).precio(new BigDecimal("1500"))
+                    .stock(0).controlaStock(false).ofrecerAlReservar(false).build();
+            raquetero = Producto.builder().id(6L).nombre("Paleta premium").tipo(TipoProducto.ALQUILER)
+                    .precio(new BigDecimal("4000")).stock(3).ofrecerAlReservar(false).build();
+            when(productoRepository.findAllByActivoTrueOrderByIdAsc()).thenReturn(List.of(pelotas, paletas, agua, raquetero));
+            when(reservaRepository.findAlquileresQueSeSuperponen(eq(6L), anyLong(), any(), any(), any(), any(),
+                    anyCollection(), any(), anyCollection())).thenReturn(List.of(uso("17:00", "18:30", 2)));
+        }
+
+        private List<ProductoDisponibleResponse> disponibilidad(Long excluir) {
+            return servicio.disponibilidadParaPersonal(MANIANA, LocalTime.of(18, 0), LocalTime.of(19, 30), excluir);
+        }
+
+        @Test
+        void traeTodosLosActivosEnOrdenDeIdConSuDisponibilidad() {
+            alquileres(List.of(uso("18:00", "19:30", 3), uso("19:00", "20:00", 0)));
+
+            List<ProductoDisponibleResponse> d = disponibilidad(null);
+
+            assertThat(d).extracting(ProductoDisponibleResponse::getId).containsExactly(1L, 2L, 5L, 6L);
+            // VENTA: el stock; ALQUILER: total menos lo que se superpone (en cualquier cancha); sin control: null
+            assertThat(d).extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(10, 1, null, 1);
+            assertThat(d).extracting(ProductoDisponibleResponse::getOfrecerAlReservar)
+                    .containsExactly(true, true, false, false);
+        }
+
+        @Test
+        void loQueYaTieneLaReservaQueSeEditaCuentaComoLibre() {
+            Reserva editada = reserva(50L, usuario(1L, Role.CLIENTE), EstadoReserva.SEÑADA, "15000");
+            editada.getProductos().add(ReservaProducto.builder().reserva(editada).producto(pelotas).cantidad(3)
+                    .precioUnitario(new BigDecimal("1500")).build());
+            when(reservaRepository.findById(50L)).thenReturn(java.util.Optional.of(editada));
+            // la consulta de alquileres ya no cuenta los de la reserva 50
+            when(reservaRepository.findAlquileresQueSeSuperponen(eq(2L), eq(50L), any(), any(), any(), any(),
+                    anyCollection(), any(), anyCollection())).thenReturn(List.of());
+
+            List<ProductoDisponibleResponse> d = disponibilidad(50L);
+
+            // las 3 pelotas de la reserva vuelven al stock, como al guardar (moverStock)
+            assertThat(d).extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(13, 4, null, 1);
+            verify(reservaRepository).findAlquileresQueSeSuperponen(eq(6L), eq(50L), any(), any(), any(), any(),
+                    anyCollection(), any(), anyCollection());
+        }
+
+        @Test
+        void unaReservaCanceladaYaDevolvioSuStockDeVenta() {
+            Reserva cancelada = reserva(51L, usuario(1L, Role.CLIENTE), EstadoReserva.CANCELADA, "15000");
+            cancelada.getProductos().add(ReservaProducto.builder().reserva(cancelada).producto(pelotas).cantidad(3)
+                    .precioUnitario(new BigDecimal("1500")).build());
+            when(reservaRepository.findById(51L)).thenReturn(java.util.Optional.of(cancelada));
+
+            assertThat(disponibilidad(51L).get(0).getDisponibles()).isEqualTo(10);
+        }
+
+        @Test
+        void unaReservaQueNoExisteSeIgnora() {
+            when(reservaRepository.findById(99L)).thenReturn(java.util.Optional.empty());
+
+            assertThat(disponibilidad(99L)).extracting(ProductoDisponibleResponse::getDisponibles)
+                    .containsExactly(10, 4, null, 1);
+            verify(reservaRepository, never()).findAlquileresQueSeSuperponen(anyLong(), eq(99L), any(), any(), any(),
+                    any(), anyCollection(), any(), anyCollection());
+        }
+
+        @Test
+        void elHorarioTieneQueSerValido() {
+            assertThatThrownBy(() -> servicio.disponibilidadParaPersonal(MANIANA, LocalTime.of(19, 0),
+                    LocalTime.of(19, 0), null))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessage("La hora de inicio debe ser anterior a la hora de fin.");
+        }
+
+        @Test
+        void noTieneElTopeDeAnticipacionDelCliente() {
+            assertThat(servicio.disponibilidadParaPersonal(MANIANA.plusDays(200), LocalTime.of(18, 0),
+                    LocalTime.of(19, 30), null)).hasSize(4);
         }
     }
 

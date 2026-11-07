@@ -160,7 +160,7 @@ class ControllersTest {
                 new UsuarioAdminController(usuarioAdminService),
                 new CanchaController(canchaService, disponibilidadService),
                 new ProductoController(productoService, stockService),
-                new ProductoAdminController(productoService),
+                new ProductoAdminController(productoService, stockService),
                 new ConfiguracionAdminController(configuracionService),
                 new NotificacionesController(notificacionesService),
                 new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService),
@@ -599,6 +599,46 @@ class ControllersTest {
                     .andExpect(status().isOk());
             mvc.perform(get("/productos/disponibilidad").param("fecha", "2099-01-01"))
                     .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        void disponibilidadDeTodosLosProductosParaElPersonal() throws Exception {
+            when(stockService.disponibilidadParaPersonal(any(), any(), any(), any())).thenReturn(List.of(
+                    new com.LosCiruelos.padel_club_api.reservas.dto.response.ProductoDisponibleResponse(6L, null, "Paleta premium",
+                            com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto.ALQUILER,
+                            new BigDecimal("4000"), 1, false)));
+
+            mvc.perform(get("/admin/configuracion/productos/disponibilidad").param("fecha", "2099-01-01")
+                    .param("horaInicio", "18:00").param("horaFin", "19:30").param("excluirReservaId", "50"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].disponibles").value(1))
+                    .andExpect(jsonPath("$[0].ofrecerAlReservar").value(false));
+            verify(stockService).disponibilidadParaPersonal(java.time.LocalDate.of(2099, 1, 1), java.time.LocalTime.of(18, 0),
+                    java.time.LocalTime.of(19, 30), 50L);
+            mvc.perform(get("/admin/configuracion/productos/disponibilidad").param("fecha", "2099-01-01")
+                    .param("horaInicio", "18:00").param("horaFin", "19:30"))
+                    .andExpect(status().isOk());
+            verify(stockService).disponibilidadParaPersonal(java.time.LocalDate.of(2099, 1, 1), java.time.LocalTime.of(18, 0),
+                    java.time.LocalTime.of(19, 30), null);
+
+            // los mismos errores que GET /productos/disponibilidad
+            mvc.perform(get("/admin/configuracion/productos/disponibilidad").param("fecha", "2099-01-01"))
+                    .andExpect(status().isBadRequest());
+            mvc.perform(get("/productos/disponibilidad").param("fecha", "2099-01-01"))
+                    .andExpect(status().isBadRequest());
+            mvc.perform(get("/admin/configuracion/productos/disponibilidad").param("fecha", "01/01/2099")
+                    .param("horaInicio", "18:00").param("horaFin", "19:30"))
+                    .andExpect(status().isBadRequest());
+            mvc.perform(get("/admin/configuracion/productos/disponibilidad").param("fecha", "2099-01-01")
+                    .param("horaInicio", "18hs").param("horaFin", "19:30"))
+                    .andExpect(status().isBadRequest());
+            when(stockService.disponibilidadParaPersonal(any(), eq(java.time.LocalTime.of(19, 30)), any(), any()))
+                    .thenThrow(new com.LosCiruelos.padel_club_api.common.exception.ReservaException(
+                            "La hora de inicio debe ser anterior a la hora de fin."));
+            mvc.perform(get("/admin/configuracion/productos/disponibilidad").param("fecha", "2099-01-01")
+                    .param("horaInicio", "19:30").param("horaFin", "18:00"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("La hora de inicio debe ser anterior a la hora de fin."));
         }
 
         @Test
