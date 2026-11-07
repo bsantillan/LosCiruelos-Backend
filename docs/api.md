@@ -369,6 +369,41 @@ Lo que el cliente puede pedir al reservar (los productos activos con `ofrecerAlR
 | `GET /productos` → `200` | Productos que se ofrecen al reservar, con precio por unidad, tipo y stock. |
 | `GET /productos/disponibilidad?fecha=2026-10-20&horaInicio=18:00&horaFin=19:30` → `200` | Unidades que se pueden pedir de cada uno en ese horario: `[{ "id", "codigo", "nombre", "tipo", "precio", "disponibles", "ofrecerAlReservar" }]` (acá `ofrecerAlReservar` es siempre `true`). `disponibles` es `null` en un producto sin control de stock (no tiene tope). Sirve para limitar los selectores de cantidad del front. |
 
+## Configuración del club — `/admin/configuracion` (rol: ADMIN)
+
+Toda la configuración junta. Lo que responde el `GET` es exactamente el body del `PUT`, así que el front puede editar el objeto y mandarlo entero.
+
+```json
+{
+  "montoReserva": 0.00, "montoXMediaHora": 5000.00, "porcentajeSenia": 50.00,
+  "duracionMinimaTurno": 90, "duracionMaximaTurno": 180,
+  "minutosReembolsoTotal": 1440, "minutosReembolsoSenia": 720,
+  "recordatorioActivo": true, "minutosRecordatorio": 120,
+  "diasAnticipacion": 30,
+  "horarios": [
+    { "dia": "Lunes", "apertura": "08:00", "cierre": "23:00" },
+    { "dia": "Sábado", "apertura": "09:00", "cierre": "22:00" }
+  ]
+}
+```
+
+| Campo | Qué es | Validación |
+|---|---|---|
+| `montoReserva`, `montoXMediaHora` | Precio del turno: `montoReserva` + `montoXMediaHora` por cada media hora | ≥ 0 y > 0, hasta 2 decimales |
+| `porcentajeSenia` | Porcentaje del total que es la seña | 0 a 100 |
+| `duracionMinimaTurno`, `duracionMaximaTurno` | Minutos | 30 a 600, múltiplos de 30, la mínima ≤ la máxima |
+| `minutosReembolsoTotal`, `minutosReembolsoSenia` | Política de cancelación del cliente: con al menos esa anticipación se devuelve todo / la seña | 0 a 10080 (7 días); la de todo ≥ la de la seña |
+| `recordatorioActivo`, `minutosRecordatorio` | Recordatorio del turno al cliente | 15 a 1440 minutos |
+| `diasAnticipacion` | Hasta cuántos días adelante reserva el cliente (y hasta dónde se generan los partidos de los turnos fijos) | 1 a 365 |
+| `horarios` | Días que abre el club, de lunes a domingo; un día que no está, el club no abre | 1 a 7 días; `dia` de `Lunes` a `Domingo` (con o sin tilde, sin importar mayúsculas), sin repetir; `apertura` antes de `cierre` (`HH:mm`, el mismo día) y por lo menos el turno mínimo |
+
+| Método y ruta | Descripción | Errores |
+|---|---|---|
+| `GET /admin/configuracion` → `200` | Toda la configuración; `horarios` de lunes a domingo. | `403` EMPLEADO o CLIENTE |
+| `PUT /admin/configuracion` → `200` | Reemplaza toda la configuración (todos los campos son obligatorios) y responde la nueva. Rige para lo que se reserve o se cobre desde ahora: las reservas que ya existen conservan su precio y su seña, y las que quedaron fuera del horario nuevo no se cancelan. La configuración está en caché y se invalida al guardar. | `400` validación (`errors.campo`, `errors['horarios[0].apertura']`…), "La duración de los turnos tiene que ser un múltiplo de 30 minutos.", "La duración mínima del turno no puede superar la máxima.", "La anticipación para devolver todo no puede ser menor que la de devolver la seña.", "Día inválido: Feriado. Usá Lunes a Domingo.", "El lunes está repetido.", "El sábado, la apertura tiene que ser antes del cierre.", "El martes abre menos que el turno mínimo (90 minutos)." · `403` EMPLEADO o CLIENTE |
+
+Las secciones `GET`/`PUT /admin/configuracion/avisos` y `/admin/configuracion/reservas` (más arriba) siguen funcionando y editan los mismos datos.
+
 ## Configuración: stock de productos — `/admin/configuracion/productos` (rol: ADMIN; EMPLEADO puede listar y ajustar stock)
 
 **`ProductoResponse`**

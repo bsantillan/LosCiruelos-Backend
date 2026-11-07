@@ -6,12 +6,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.config.AppConfig.ConfiguracionCache;
+import com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest;
 import com.LosCiruelos.padel_club_api.club.dto.request.RecordatorioConfigRequest;
 import com.LosCiruelos.padel_club_api.club.dto.request.ReservasConfigRequest;
+import com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.RecordatorioConfigResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ReservasConfigResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
+import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -47,6 +50,34 @@ public class ConfiguracionService {
     public Configuracion actualizar(Configuracion nueva) {
         nueva.setId(1L);
         return configuracionRepository.save(nueva);
+    }
+
+    // ── Toda la configuración (ADMIN) ────────────────────────────────────
+
+    public ConfiguracionResponse general() {
+        return configuracionMapper.aResponse(configuracionRepository.obtener());
+    }
+
+    /**
+     * Reemplaza toda la configuración. Vale para lo que se reserve o se cobre desde ahora: las
+     * reservas que ya existen conservan su precio y su seña.
+     */
+    @Transactional
+    @CacheEvict(value = ConfiguracionCache.NOMBRE, allEntries = true)
+    public ConfiguracionResponse actualizarGeneral(ConfiguracionRequest req) {
+        Configuracion config = configuracionRepository.obtener();
+        config.setMontoReserva(Dinero.redondear(req.getMontoReserva()));
+        config.setMontoXMediaHora(Dinero.redondear(req.getMontoXMediaHora()));
+        config.setPorcentajeSenia(Dinero.redondear(req.getPorcentajeSenia()));
+        config.cambiarDuracionDeTurnos(req.getDuracionMinimaTurno(), req.getDuracionMaximaTurno());
+        config.cambiarPoliticaCancelacion(req.getMinutosReembolsoTotal(), req.getMinutosReembolsoSenia());
+        config.setRecordatorioActivo(req.getRecordatorioActivo());
+        config.setMinutosRecordatorio(req.getMinutosRecordatorio());
+        config.setDiasAnticipacionReserva(req.getDiasAnticipacion());
+        config.cambiarHorarios(req.getHorarios().stream()
+                .map(h -> new Configuracion.Horario(h.getDia(), h.getApertura(), h.getCierre()))
+                .toList());
+        return configuracionMapper.aResponse(config); // se guarda al terminar la transacción
     }
 
     // ── Recordatorio del turno (ADMIN) ───────────────────────────────────

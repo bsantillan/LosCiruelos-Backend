@@ -1,14 +1,21 @@
 package com.LosCiruelos.padel_club_api.club.entity;
 
+import com.LosCiruelos.padel_club_api.common.Busquedas;
 import com.LosCiruelos.padel_club_api.common.Fechas;
 import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.common.Turno;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.club.exception.DiaSinAperturaException;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.math.RoundingMode;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -82,6 +89,96 @@ public class Configuracion {
 
     /** Los turnos se arman en bloques de 30 minutos desde la apertura. */
     public static final int MINUTOS_POR_BLOQUE = 30;
+
+    // ── Cambios del ADMIN ────────────────────────────────────────────────
+
+    /** Duración mínima y máxima de los turnos: múltiplos de 30 minutos y la mínima no mayor que la máxima. */
+    public void cambiarDuracionDeTurnos(int minima, int maxima) {
+        if (minima % MINUTOS_POR_BLOQUE != 0 || maxima % MINUTOS_POR_BLOQUE != 0) {
+            throw new ReservaException("La duración de los turnos tiene que ser un múltiplo de 30 minutos.");
+        }
+        if (minima > maxima) {
+            throw new ReservaException("La duración mínima del turno no puede superar la máxima.");
+        }
+        duracionMinimaTurno = minima;
+        duracionMaximaTurno = maxima;
+    }
+
+    /** Con al menos {@code total} minutos se devuelve todo; con al menos {@code senia}, la seña. */
+    public void cambiarPoliticaCancelacion(int total, int senia) {
+        if (total < senia) {
+            throw new ReservaException("La anticipación para devolver todo no puede ser menor que la de devolver la seña.");
+        }
+        minutosReembolsoTotal = total;
+        minutosReembolsoSenia = senia;
+    }
+
+    /** Un día de apertura: el nombre (Lunes a Domingo, con o sin tilde) y su horario. */
+    public record Horario(String dia, LocalTime apertura, LocalTime cierre) {
+    }
+
+    /**
+     * Reemplaza los días y horarios de apertura (un día que no está, el club no abre). Cada día va una
+     * sola vez, abre antes de cerrar y por lo menos el turno mínimo (aplicar antes la duración nueva).
+     */
+    public void cambiarHorarios(List<Horario> horarios) {
+        Set<String> vistos = new HashSet<>();
+        List<DiaApertura> nuevos = new ArrayList<>();
+        for (Horario h : horarios) {
+            String dia = nombreDelDia(h.dia());
+            String enOracion = dia.toLowerCase(Fechas.ES_AR);
+            if (!vistos.add(dia)) {
+                throw new ReservaException("El " + enOracion + " está repetido.");
+            }
+            if (!h.apertura().isBefore(h.cierre())) {
+                throw new ReservaException("El " + enOracion + ", la apertura tiene que ser antes del cierre.");
+            }
+            if (Turno.minutosEntre(h.apertura(), h.cierre()) < duracionMinimaTurno) {
+                throw new ReservaException("El %s abre menos que el turno mínimo (%d minutos)."
+                        .formatted(enOracion, duracionMinimaTurno));
+            }
+            nuevos.add(DiaApertura.builder().dia(dia).horario_inicio(h.apertura()).horario_fin(h.cierre()).build());
+        }
+        // los días que siguen se actualizan; los demás se borran y los nuevos se suman
+        dias_apertura.removeIf(d -> !vistos.contains(d.getDia()));
+        for (DiaApertura nuevo : nuevos) {
+            dias_apertura.stream().filter(d -> d.getDia().equals(nuevo.getDia())).findFirst()
+                    .ifPresentOrElse(d -> {
+                        d.setHorario_inicio(nuevo.getHorario_inicio());
+                        d.setHorario_fin(nuevo.getHorario_fin());
+                    }, () -> dias_apertura.add(nuevo));
+        }
+    }
+
+    /** Los días de apertura de lunes a domingo. */
+    public List<DiaApertura> diasEnOrden() {
+        return dias_apertura.stream()
+                .sorted(Comparator.comparingInt(d -> diaDeLaSemana(d.getDia()).getValue()))
+                .toList();
+    }
+
+    /** "miercoles", "MIÉRCOLES" → "Miércoles" (como se guardan). */
+    private static String nombreDelDia(String texto) {
+        String buscado = Busquedas.normalizar(texto);
+        for (DayOfWeek d : DayOfWeek.values()) {
+            if (Busquedas.normalizar(Fechas.nombreDia(d)).equals(buscado)) {
+                return Fechas.nombreDiaCapitalizado(d);
+            }
+        }
+        throw new ReservaException("Día inválido: " + texto + ". Usá Lunes a Domingo.");
+    }
+
+    private static DayOfWeek diaDeLaSemana(String nombre) {
+        String buscado = Busquedas.normalizar(nombre);
+        for (DayOfWeek d : DayOfWeek.values()) {
+            if (Busquedas.normalizar(Fechas.nombreDia(d)).equals(buscado)) {
+                return d;
+            }
+        }
+        return DayOfWeek.SUNDAY;
+    }
+
+    // ── Reglas ───────────────────────────────────────────────────────────
 
     /** Horario de apertura del día de la semana de {@code fecha}. */
     public DiaApertura diaApertura(LocalDate fecha) {

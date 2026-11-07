@@ -7,8 +7,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 | Tema | Detalle |
 |---|---|
 | Reembolsos | Los pagos online se devuelven solos al cancelar; si MP no acepta el reembolso en el momento, quedan `REEMBOLSO_PENDIENTE` y un job los reintenta durante 24 h. Los pagos en el club, y los que MP no pudo devolver, quedan `A_REEMBOLSAR` con su `montoReembolsado`: falta un endpoint de admin para listarlos y marcarlos como devueltos (hoy se ven en el log). |
-| Configuración | Los tiempos de la política de cancelación (`minutos_reembolso_total`, `minutos_reembolso_senia`) y el resto de la configuración se cambian en la base: falta un endpoint de admin (al cambiarlos, reiniciar la app por la caché). |
-| Funcionalidades | ABM de canchas, edición del resto de la configuración del club (horarios, tarifas, seña), agenda del día para el personal. |
+| Funcionalidades | ABM de canchas, agenda del día para el personal. |
 | Rate limiting | Es en memoria (sirve para una instancia). Con varias instancias hay que moverlo a Redis o al proxy. Detrás de un proxy toma la IP real de `X-Forwarded-For` (`server.forward-headers-strategy=framework`, por defecto). |
 | WhatsApp | **Bloqueante**: como el perfil completo exige el celular verificado por WhatsApp, sin el alta en Meta ningún cliente nuevo puede reservar. Falta dar de alta el número del club, verificar el negocio y cargar las 8 plantillas de [whatsapp.md](whatsapp.md). Hasta entonces los avisos van por mail. Las novedades y promociones solo se guardan como preferencia: falta el envío. Los estados de entrega de Meta (leído, no entregado) no se reciben: haría falta su webhook, que también se va a necesitar para el bot. |
 | Firma del webhook | Se valida solo si se configura `MP_WEBHOOK_SECRET`. Igual, el webhook nunca confía en el contenido: siempre consulta el pago a MP. |
@@ -46,6 +45,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Configuración del club**: nuevos `GET /admin/configuracion` y `PUT /admin/configuracion` (solo ADMIN) con toda la configuración junta: precios, seña, duración de los turnos, política de cancelación, recordatorio, anticipación y días y horarios de apertura. El `GET` devuelve el mismo objeto que recibe el `PUT`. `/admin/configuracion/avisos` y `/admin/configuracion/reservas` no cambian.
 - **Anulación de ventas sueltas**:
   - `VentaResponse` suma `estado` (`COBRADA` o `ANULADA`), `anuladaAt`, `anuladaPor` y `motivoAnulacion`. El listado de ventas trae también las anuladas: mostrarlas marcadas.
   - Nuevos (ADMIN y EMPLEADO): `POST /admin/ventas/{id}/anulacion` con `{ motivo }` (el EMPLEADO solo anula las de hoy sin verificar), `PUT /admin/ventas/{id}/cliente` con `{ clienteId }` (`null`: venta al público) y `GET /admin/ventas/{id}`.
