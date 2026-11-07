@@ -122,6 +122,7 @@ class ControllersTest {
     private ReservaConsultaService reservaConsultaService;
     private VentaService ventaService;
     private VentaConsultaService ventaConsultaService;
+    private com.LosCiruelos.padel_club_api.ventas.service.VentaQrService ventaQrService;
     private MockMvc mvc;
 
     @BeforeEach
@@ -147,6 +148,7 @@ class ControllersTest {
         reservaConsultaService = mock(ReservaConsultaService.class);
         ventaService = mock(VentaService.class);
         ventaConsultaService = mock(VentaConsultaService.class);
+        ventaQrService = mock(com.LosCiruelos.padel_club_api.ventas.service.VentaQrService.class);
 
         mvc = MockMvcBuilders.standaloneSetup(
                 new ReservaController(reservaService, reservaConsultaService, cancelacionService),
@@ -164,7 +166,7 @@ class ControllersTest {
                 new ConfiguracionAdminController(configuracionService),
                 new NotificacionesController(notificacionesService),
                 new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService),
-                new VentaAdminController(ventaService, ventaConsultaService))
+                new VentaAdminController(ventaService, ventaConsultaService, ventaQrService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
                 // mismo formato de fechas que la app
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
@@ -1135,7 +1137,7 @@ class ControllersTest {
             when(ventaService.registrar(any(), eq(EMAIL))).thenReturn(new VentaResponse(4L, TestData.AHORA,
                     new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of(), null, null,
                     com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null, null, null,
-                    new java.math.BigDecimal("0.00"), List.of()));
+                    new java.math.BigDecimal("0.00"), List.of(), null));
 
             mvc.perform(json(post("/admin/ventas"), """
                     {"medio":"EFECTIVO","items":[{"productoId":5,"cantidad":2},{"nombre":"Gatorade","precio":2500,"cantidad":1}]}
@@ -1165,7 +1167,7 @@ class ControllersTest {
             when(ventaService.verificar(8L, true, EMAIL)).thenReturn(new VentaResponse(8L, TestData.AHORA,
                     new java.math.BigDecimal("3000.00"), MedioDePago.CUENTA_DNI, null, null, "Ana Pérez", List.of(),
                     true, TestData.AHORA, com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null,
-                    null, null, new java.math.BigDecimal("0.00"), List.of()));
+                    null, null, new java.math.BigDecimal("0.00"), List.of(), null));
 
             mvc.perform(json(put("/admin/ventas/8/verificacion"), "{\"verificada\":true}"))
                     .andExpect(status().isOk())
@@ -1176,7 +1178,7 @@ class ControllersTest {
             return new VentaResponse(8L, TestData.AHORA, new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, 3L,
                     "Juan Gómez", "Ana Pérez", List.of(), null, null,
                     com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.ANULADA, TestData.AHORA, "Ana Pérez",
-                    "Error de carga", new java.math.BigDecimal("0.00"), List.of());
+                    "Error de carga", new java.math.BigDecimal("0.00"), List.of(), null);
         }
 
         @Test
@@ -1220,7 +1222,7 @@ class ControllersTest {
             when(ventaService.devolver(eq(8L), any(), eq(EMAIL))).thenReturn(new VentaResponse(8L, TestData.AHORA,
                     new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of(), null,
                     null, com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null, null, null, new java.math.BigDecimal("1500.00"),
-                    List.of(devolucion)));
+                    List.of(devolucion), null));
             mvc.perform(json(post("/admin/ventas/8/devoluciones"),
                     "{\"motivo\":\"Vencido\",\"items\":[{\"productoId\":5,\"cantidad\":1,\"vuelveAlStock\":false}]}"))
                     .andExpect(status().isCreated())
@@ -1230,6 +1232,27 @@ class ControllersTest {
                     org.mockito.ArgumentCaptor.forClass(com.LosCiruelos.padel_club_api.ventas.dto.request.DevolucionVentaRequest.class);
             verify(ventaService).devolver(eq(8L), req.capture(), eq(EMAIL));
             org.assertj.core.api.Assertions.assertThat(req.getValue().getItems().get(0).getCantidad()).isEqualTo(1);
+        }
+
+        @Test
+        void cancelarElQrDeUnaVenta() throws Exception {
+            when(ventaQrService.cancelar(8L, EMAIL)).thenReturn(new VentaResponse(8L, TestData.AHORA,
+                    new java.math.BigDecimal("3000.00"), MedioDePago.MERCADO_PAGO, null, null, "Ana Pérez", List.of(),
+                    null, null, com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.NO_COBRADA, null, null,
+                    null, new java.math.BigDecimal("0.00"), List.of(),
+                    new VentaResponse.Qr("ORD1", TestData.AHORA.plusMinutes(10))));
+
+            mvc.perform(delete("/admin/ventas/8/qr").principal(AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.estado").value("NO_COBRADA"))
+                    .andExpect(jsonPath("$.qr.orderId").value("ORD1"))
+                    .andExpect(jsonPath("$.qr.venceAt").value("2026-10-13T10:10:00.000-03:00"));
+
+            when(ventaQrService.cancelar(9L, EMAIL)).thenThrow(
+                    new com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException(
+                            "La venta no está esperando el pago con QR."));
+            mvc.perform(delete("/admin/ventas/9/qr").principal(AUTH))
+                    .andExpect(status().isConflict());
         }
 
         @Test

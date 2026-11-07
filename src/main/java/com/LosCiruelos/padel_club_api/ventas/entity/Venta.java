@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import com.LosCiruelos.padel_club_api.club.entity.Producto;
 import com.LosCiruelos.padel_club_api.common.Dinero;
@@ -85,6 +86,18 @@ public class Venta {
     @Column(name = "motivo_anulacion", length = 200)
     private String motivoAnulacion;
 
+    // Venta con Mercado Pago: la order del QR de la caja y hasta cuándo se puede pagar
+    @Column(name = "order_id", length = 64)
+    private String orderId;
+
+    @Column(name = "vence_at")
+    private LocalDateTime venceAt;
+
+    // Identifica a la venta ante Mercado Pago (claves de idempotencia). Se genera al crearla y no cambia.
+    @Builder.Default
+    @Column(name = "clave_idempotencia", nullable = false, unique = true, updatable = false)
+    private UUID claveIdempotencia = UUID.randomUUID();
+
     // opcional
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_id")
@@ -154,6 +167,7 @@ public class Venta {
         if (estaAnulada()) {
             throw new EstadoInvalidoException("La venta ya está anulada.");
         }
+        exigirCobrada("anular");
         if (!devoluciones.isEmpty()) {
             throw new EstadoInvalidoException(
                     "La venta tiene devoluciones: no se puede anular. Registrá una devolución por lo que queda.");
@@ -169,6 +183,9 @@ public class Venta {
         if (estaAnulada()) {
             throw new EstadoInvalidoException("La venta está anulada: no se puede modificar.");
         }
+        if (estado == EstadoVenta.NO_COBRADA) {
+            throw new EstadoInvalidoException("La venta no se cobró: no se puede modificar.");
+        }
         cliente = nuevo;
     }
 
@@ -182,6 +199,7 @@ public class Venta {
         if (estaAnulada()) {
             throw new EstadoInvalidoException("La venta está anulada: no se puede devolver.");
         }
+        exigirCobrada("devolver");
         // primero se valida todo; recién después se toca algo
         Map<VentaItem, VentaDevolucion.Pedido> porItem = new LinkedHashMap<>();
         Set<Long> vistos = new HashSet<>();
@@ -217,6 +235,55 @@ public class Venta {
         });
         devoluciones.add(devolucion);
         return devolucion;
+    }
+
+    private void exigirCobrada(String accion) {
+        if (estado == EstadoVenta.ESPERANDO_PAGO) {
+            throw new EstadoInvalidoException("La venta está esperando el pago con QR: cancelá el QR antes.");
+        }
+        if (estado == EstadoVenta.NO_COBRADA) {
+            throw new EstadoInvalidoException("La venta no se cobró: no hay nada que " + accion + ".");
+        }
+    }
+
+    // ── Cobro con el QR de la caja ───────────────────────────────────────
+
+    /** Queda esperando el pago con el QR hasta {@code vence}: todavía no cuenta en la caja. */
+    public void esperarPagoConQr(LocalDateTime vence) {
+        estado = EstadoVenta.ESPERANDO_PAGO;
+        venceAt = vence;
+    }
+
+    public boolean esperaElPago() {
+        return estado == EstadoVenta.ESPERANDO_PAGO;
+    }
+
+    /** Espera el pago y el QR no venció. */
+    public boolean esQrActivo(LocalDateTime ahora) {
+        return esperaElPago() && venceAt != null && venceAt.isAfter(ahora);
+    }
+
+    /** Se cobró con el QR de la caja: la plata se devuelve por la API del proveedor. */
+    public boolean seCobroConQr() {
+        return orderId != null;
+    }
+
+    /** El proveedor confirmó el pago: pasa a COBRADA y cuenta en la caja. */
+    public void confirmarCobro() {
+        exigirQueEspera();
+        estado = EstadoVenta.COBRADA;
+    }
+
+    /** El QR venció o se canceló sin pagarse. El stock lo repone quien la marca (con {@link #cantidades()}). */
+    public void marcarNoCobrada() {
+        exigirQueEspera();
+        estado = EstadoVenta.NO_COBRADA;
+    }
+
+    private void exigirQueEspera() {
+        if (!esperaElPago()) {
+            throw new EstadoInvalidoException("La venta no está esperando el pago con QR.");
+        }
     }
 
     /** Lo que ya se le devolvió al cliente. */

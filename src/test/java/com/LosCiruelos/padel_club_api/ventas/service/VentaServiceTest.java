@@ -6,6 +6,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,6 +35,7 @@ import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
+import com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta;
 import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 import com.LosCiruelos.padel_club_api.ventas.repository.VentaRepository;
 
@@ -40,6 +45,7 @@ class VentaServiceTest {
     private ProductoService productoService;
     private UsuarioService usuarioService;
     private VentaService servicio;
+    private CobroQrDeVentas cobroQr;
 
     private Usuario empleado;
     private Usuario cliente;
@@ -52,8 +58,10 @@ class VentaServiceTest {
         ventaRepository = mock(VentaRepository.class);
         productoService = mock(ProductoService.class);
         usuarioService = mock(UsuarioService.class);
+        cobroQr = mock(CobroQrDeVentas.class);
+        when(cobroQr.vencimiento()).thenReturn(AHORA.plusMinutes(10));
         servicio = new VentaService(ventaRepository, productoService, usuarioService, new VentaMapper(),
-                TestData.reloj(AHORA));
+                TestData.reloj(AHORA), cobroQr);
 
         empleado = usuario(2L, Role.EMPLEADO);
         cliente = usuario(3L, Role.CLIENTE);
@@ -116,11 +124,86 @@ class VentaServiceTest {
 
     @Test
     void sinClienteEsUnaVentaAlPublico() {
-        VentaResponse r = servicio.registrar(pedido(MedioDePago.MERCADO_PAGO, null, item(5L, 1)), empleado.getEmail());
+        VentaResponse r = servicio.registrar(pedido(MedioDePago.EFECTIVO, null, item(5L, 1)), empleado.getEmail());
 
         assertThat(r.clienteId()).isNull();
         assertThat(r.clienteNombre()).isNull();
-        assertThat(r.medio()).isEqualTo(MedioDePago.MERCADO_PAGO);
+        assertThat(r.estado()).isEqualTo(EstadoVenta.COBRADA);
+        assertThat(r.qr()).isNull();
+        verify(cobroQr, never()).ocuparCaja();
+    }
+
+    @Test
+    void conMercadoPagoQuedaEsperandoElQrDeLaCaja() {
+        doAnswer(inv -> {
+            inv.<Venta>getArgument(0).setOrderId("ORD1");
+            return null;
+        }).when(cobroQr).asignar(any());
+
+        VentaResponse r = servicio.registrar(pedido(MedioDePago.MERCADO_PAGO, null, item(5L, 1)), empleado.getEmail());
+
+        assertThat(r.estado()).isEqualTo(EstadoVenta.ESPERANDO_PAGO);
+        assertThat(r.qr()).isEqualTo(new VentaResponse.Qr("ORD1", AHORA.plusMinutes(10)));
+        // primero la caja, después el stock, y la order con la venta ya guardada
+        var orden = inOrder(cobroQr, productoService, ventaRepository);
+        orden.verify(cobroQr).exigirConfigurado();
+        orden.verify(cobroQr).ocuparCaja();
+        orden.verify(productoService).descontarVentaSuelta(anyMap());
+        orden.verify(ventaRepository).save(any());
+        orden.verify(cobroQr).asignar(any());
+    }
+
+    @Test
+    void sinElQrConfiguradoNoSeVendeConMercadoPago() {
+        doThrow(new com.LosCiruelos.padel_club_api.pagos.exception.CobroQrNoConfiguradoException()).when(cobroQr)
+                .exigirConfigurado();
+
+        assertThatThrownBy(() -> servicio.registrar(pedido(MedioDePago.MERCADO_PAGO, null, item(5L, 1)),
+                empleado.getEmail()))
+                .hasMessage("El cobro con QR no está configurado.");
+        verify(productoService, never()).descontarVentaSuelta(anyMap());
+    }
+
+    private Venta conQr(Long id) {
+        Venta venta = Venta.builder().id(id).createdAt(AHORA).medio(MedioDePago.MERCADO_PAGO).registradoPor(empleado)
+                .orderId("ORD1").build();
+        venta.agregar(agua, 2);
+        when(ventaRepository.findByIdForUpdate(id)).thenReturn(java.util.Optional.of(venta));
+        return venta;
+    }
+
+    @Test
+    void anularUnaVentaCobradaConQrDevuelveElTotalPorMercadoPago() {
+        Venta venta = conQr(7L);
+
+        servicio.anular(7L, "Error de carga", empleado.getEmail());
+
+        verify(cobroQr).reembolsar(venta, new BigDecimal("3000"), "anulacion");
+        verify(productoService).reponerVentaSuelta(Map.of(agua, 2));
+    }
+
+    @Test
+    void siMercadoPagoNoDevuelveNoSeAnula() {
+        conQr(7L);
+        doThrow(new com.LosCiruelos.padel_club_api.ventas.exception.ReembolsoQrException()).when(cobroQr)
+                .reembolsar(any(), any(), anyString());
+
+        assertThatThrownBy(() -> servicio.anular(7L, "Error", empleado.getEmail()))
+                .hasMessage("Mercado Pago no aceptó el reembolso. Intentá de nuevo.");
+        verify(productoService, never()).reponerVentaSuelta(anyMap());
+    }
+
+    @Test
+    void cadaDevolucionDeUnaVentaConQrSeReembolsaConSuPropiaClave() {
+        Usuario admin = usuario(1L, Role.ADMIN);
+        when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
+        Venta venta = conQr(7L);
+
+        servicio.devolver(7L, devolucion("Vencida", 5L, 1, true), admin.getEmail());
+        servicio.devolver(7L, devolucion("Abierta", 5L, 1, false), admin.getEmail());
+
+        verify(cobroQr).reembolsar(venta, new BigDecimal("1500"), "devolucion-1");
+        verify(cobroQr).reembolsar(venta, new BigDecimal("1500"), "devolucion-2");
     }
 
     @Test

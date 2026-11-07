@@ -171,6 +171,27 @@ class CobroQrServiceTest extends PagosTestBase {
         }
 
         @Test
+        void laCajaSeBloqueaAntesQueLaReserva() {
+            generar(null);
+
+            var orden = org.mockito.Mockito.inOrder(cajaQr, reservaService);
+            orden.verify(cajaQr).bloquear();
+            orden.verify(reservaService).bloquearConAcceso(eq(10L), any());
+        }
+
+        @Test
+        void siLaCajaEsperaElPagoDeUnaVentaHayQueEsperar() {
+            when(ventaQrService.ventaEsperando(AHORA)).thenReturn(Optional.of(
+                    new CajaQrService.CobroEnCaja("la venta #7", new BigDecimal("3000"), AHORA.plusMinutes(6))));
+
+            assertThatThrownBy(() -> generar(null))
+                    .isInstanceOf(EstadoInvalidoException.class)
+                    .hasMessage("El QR de la caja está esperando el pago de $3.000 de la venta #7 hasta las 10:06: "
+                            + "esperá a que se pague o cancelalo.");
+            verify(proveedorQr, never()).crear(any(), anyString(), anyInt());
+        }
+
+        @Test
         void siOtroEmpleadoOcupaLaCajaEnElMismoMomentoEs409() {
             when(pagoRepository.save(any(Pago.class)))
                     .thenThrow(new org.springframework.dao.DataIntegrityViolationException("uk_pagos_qr_en_curso"));
@@ -263,6 +284,8 @@ class CobroQrServiceTest extends PagosTestBase {
             cobroQrService.notificacion("ORD-OTRA");
 
             verify(proveedorQr, never()).consultar(anyString());
+            // puede ser de una venta suelta
+            verify(ventaQrService).notificacion("ORD-OTRA");
         }
     }
 

@@ -27,7 +27,8 @@ class VentaAdminControllerRolesTest {
     static class Config {
         @Bean
         VentaAdminController ventaAdminController() {
-            return new VentaAdminController(mock(VentaService.class), mock(VentaConsultaService.class));
+            return new VentaAdminController(mock(VentaService.class), mock(VentaConsultaService.class),
+                    mock(com.LosCiruelos.padel_club_api.ventas.service.VentaQrService.class));
         }
     }
 

@@ -23,6 +23,7 @@ import com.LosCiruelos.padel_club_api.ventas.dto.request.VentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
 import com.LosCiruelos.padel_club_api.ventas.entity.VentaDevolucion;
+import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 import com.LosCiruelos.padel_club_api.ventas.repository.VentaRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -42,16 +43,23 @@ public class VentaService {
     private final UsuarioService usuarioService;
     private final VentaMapper ventaMapper;
     private final Reloj reloj;
+    private final CobroQrDeVentas cobroQr;
 
     /**
-     * Registra una venta suelta, cobrada en el momento. Cada ítem es un producto de venta del
-     * catálogo o uno escrito a mano (nombre y precio), que queda dado de alta. Descuenta el stock
-     * de los que lo controlan.
+     * Registra una venta suelta. Cada ítem es un producto de venta del catálogo o uno escrito a mano
+     * (nombre y precio), que queda dado de alta. Descuenta el stock de los que lo controlan. En
+     * efectivo o con Cuenta DNI queda cobrada; con Mercado Pago se le asigna a la caja el QR por el
+     * total y queda ESPERANDO_PAGO (con el stock apartado) hasta que MP confirma el pago.
      */
     @Transactional
     public VentaResponse registrar(VentaRequest req, String emailPersonal) {
         Usuario personal = usuarioService.autenticado(emailPersonal);
         Usuario cliente = req.getClienteId() != null ? cliente(req.getClienteId()) : null;
+        boolean conQr = req.getMedio() == MedioDePago.MERCADO_PAGO;
+        if (conQr) {
+            cobroQr.exigirConfigurado();
+            cobroQr.ocuparCaja(); // primero la caja, después el stock
+        }
 
         Venta venta = Venta.builder()
                 .createdAt(reloj.ahora())
@@ -59,6 +67,9 @@ public class VentaService {
                 .cliente(cliente)
                 .registradoPor(personal)
                 .build();
+        if (conQr) {
+            venta.esperarPagoConQr(cobroQr.vencimiento());
+        }
         Map<Producto, Integer> cantidades = new LinkedHashMap<>();
         for (VentaRequest.Item item : req.getItems()) {
             cantidades.merge(producto(item), item.getCantidad(), Integer::sum);
@@ -68,6 +79,10 @@ public class VentaService {
         cantidades.forEach(venta::agregar);
 
         venta = ventaRepository.save(venta);
+        if (conQr) {
+            // si el proveedor falla, la transacción se revierte entera (también el stock)
+            cobroQr.asignar(venta);
+        }
         log.info("Venta #{} de ${} ({}) registrada por {}", venta.getId(), venta.getTotal(), venta.getMedio(),
                 emailPersonal);
         return ventaMapper.aResponse(venta);
@@ -87,8 +102,8 @@ public class VentaService {
     /**
      * Deja la venta sin efecto (error de carga, el cliente no pagó, se cobró por otro medio): deja de
      * contar en la caja y el stock vuelve. El ADMIN anula cualquier venta; el EMPLEADO, solo las de
-     * hoy sin verificar. Queda quién, cuándo y por qué. La plata, si se llegó a cobrar, se devuelve a
-     * mano por el mismo medio.
+     * hoy sin verificar. Queda quién, cuándo y por qué. Si se cobró con el QR, Mercado Pago devuelve
+     * el total (si no lo acepta, 502 y no se anula); si no, la plata se devuelve a mano por el mismo medio.
      */
     @Transactional
     public VentaResponse anular(Long ventaId, String motivo, String email) {
@@ -96,6 +111,9 @@ public class VentaService {
         Venta venta = bloquear(ventaId);
         venta.validarQuePuedeAnularla(personal, reloj.hoy());
         venta.anular(personal, motivo.trim(), reloj.ahora());
+        if (venta.seCobroConQr()) {
+            cobroQr.reembolsar(venta, venta.getTotal(), "anulacion");
+        }
         productoService.reponerVentaSuelta(venta.cantidades());
         log.info("Venta #{} de ${} ({}) anulada por {}: {}", ventaId, venta.getTotal(), venta.getMedio(), email,
                 venta.getMotivoAnulacion());
@@ -104,7 +122,8 @@ public class VentaService {
 
     /**
      * Solo ADMIN: el cliente devuelve todo o parte de lo que compró. Queda la devolución (fecha, quién,
-     * motivo y monto), que cuenta en la caja de hoy; vuelve al stock lo que sirve. La plata se le
+     * motivo y monto), que cuenta en la caja de hoy; vuelve al stock lo que sirve. Si se cobró con el
+     * QR, Mercado Pago devuelve el monto (si no lo acepta, 502 y no se registra); si no, la plata se
      * devuelve a mano por el mismo medio.
      */
     @Transactional
@@ -115,6 +134,9 @@ public class VentaService {
         VentaDevolucion devolucion = venta.devolver(req.getItems().stream()
                 .map(i -> new VentaDevolucion.Pedido(i.getProductoId(), i.getCantidad(), i.getVuelveAlStock()))
                 .toList(), req.getMotivo().trim(), admin, reloj.ahora());
+        if (venta.seCobroConQr()) {
+            cobroQr.reembolsar(venta, devolucion.getMonto(), "devolucion-" + venta.getDevoluciones().size());
+        }
         Map<Producto, Integer> aReponer = devolucion.aReponer();
         if (!aReponer.isEmpty()) {
             productoService.reponerVentaSuelta(aReponer);

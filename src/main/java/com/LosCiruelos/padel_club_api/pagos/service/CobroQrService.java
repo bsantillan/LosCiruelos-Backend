@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Fechas;
 import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.pagos.service.CajaQrService.CobroEnCaja;
 import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
@@ -31,13 +32,18 @@ import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
+import com.LosCiruelos.padel_club_api.ventas.service.VentaQrService;
 
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Cobro en el club con el QR de la caja (impreso en el mostrador): el personal le asigna a la caja
  * el monto exacto, el cliente escanea el QR y paga, y el pago se confirma solo (webhook o, si no
- * llega, el job de respaldo). Como la caja tiene un solo QR, hay un solo cobro esperando a la vez.
+ * llega, el job de respaldo). Como la caja tiene un solo QR (también para las ventas sueltas), hay
+ * un solo cobro esperando a la vez: la caja se bloquea primero ({@link CajaQrService}).
+ *
+ * Las notificaciones de orders que no son de una reserva son de una venta ({@link VentaQrService}).
+
  *
  * Mientras el QR está activo el pago queda EN_PROCESO, así que no se puede cobrar de otra forma,
  * cambiar los productos ni cancelar la reserva hasta que se pague, venza o se cancele: el saldo no
@@ -58,10 +64,13 @@ public class CobroQrService {
     private final ProveedorCobroQr proveedor;
     private final PagoMapper pagoMapper;
     private final Reloj reloj;
+    private final CajaQrService caja;
+    private final VentaQrService ventaQrService;
     private final int minutosVencimiento;
 
     public CobroQrService(ReservaService reservaService, PagoRepository pagoRepository, UsuarioService usuarioService,
             EstadosDePago estados, ProveedorCobroQr proveedor, PagoMapper pagoMapper, Reloj reloj,
+            CajaQrService caja, VentaQrService ventaQrService,
             @Value("${mercadopago.qr.minutos-vencimiento:10}") int minutosVencimiento) {
         this.reservaService = reservaService;
         this.pagoRepository = pagoRepository;
@@ -70,6 +79,8 @@ public class CobroQrService {
         this.proveedor = proveedor;
         this.pagoMapper = pagoMapper;
         this.reloj = reloj;
+        this.caja = caja;
+        this.ventaQrService = ventaQrService;
         this.minutosVencimiento = minutosVencimiento;
     }
 
@@ -86,6 +97,7 @@ public class CobroQrService {
             throw new CobroQrNoConfiguradoException();
         }
         Usuario personal = usuarioService.autenticado(email);
+        caja.bloquear(); // siempre antes que la reserva
         Reserva reserva = reservaService.bloquearConAcceso(reservaId, personal);
         LocalDateTime ahora = reloj.ahora();
 
@@ -152,15 +164,17 @@ public class CobroQrService {
      * bloqueada.
      */
     private void liberarCajaOFallar(Reserva reserva, LocalDateTime ahora) {
+        ventaQrService.ventaEsperando(ahora).ifPresent(v -> {
+            throw new EstadoInvalidoException(CajaQrService.ocupada(v));
+        });
         for (Pago otro : pagoRepository.findQrEnCurso(EstadoPago.EN_PROCESO)) {
             Long otraReservaId = otro.getReserva().getId();
             if (otraReservaId.equals(reserva.getId())) {
                 continue;
             }
             if (otro.getVenceAt().isAfter(ahora)) {
-                throw new EstadoInvalidoException(("El QR de la caja está esperando el pago de %s de la reserva #%d "
-                        + "hasta las %s: esperá a que se pague o cancelalo.").formatted(Dinero.texto(otro.getMonto()),
-                        otraReservaId, Fechas.textoHora(otro.getVenceAt().toLocalTime())));
+                throw new EstadoInvalidoException(CajaQrService.ocupada(
+                        new CobroEnCaja("la reserva #" + otraReservaId, otro.getMonto(), otro.getVenceAt())));
             }
             Reserva otra = reservaService.bloquear(otraReservaId);
             otra.getPagos().stream()
@@ -210,12 +224,17 @@ public class CobroQrService {
 
     // ── Confirmación (webhook y job) ─────────────────────────────────────
 
-    /** Notificación de una order (webhook): se consulta la order y se aplica. Es idempotente. */
+    /**
+     * Notificación de una order (webhook): se consulta la order y se aplica. Es idempotente. Si la
+     * order no es de una reserva, es de una venta suelta.
+     */
     @Transactional
     public void notificacion(String orderId) {
         Optional<Long> reservaId = pagoRepository.findReservaIdByOrderId(orderId);
         if (reservaId.isEmpty()) {
-            log.warn("Notificación de la order {} sin Pago asociado", orderId);
+            if (!ventaQrService.notificacion(orderId)) {
+                log.warn("Notificación de la order {} sin pago ni venta asociados", orderId);
+            }
             return;
         }
         Reserva reserva = reservaService.bloquear(reservaId.get());
