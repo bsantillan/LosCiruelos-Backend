@@ -65,12 +65,14 @@ public class ReservaAdminController {
             @RequestParam(required = false) String cliente,
             @RequestParam(required = false) Long canchaId,
             @RequestParam(required = false) TipoReserva tipo,
+            @RequestParam(required = false) Long turnoFijoId,
+            @RequestParam(required = false) Boolean deTurnoFijo,
             @RequestParam(defaultValue = "false") boolean pendientes,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String orden) {
         return ResponseEntity.ok(reservaConsultaService.listar(desde, hasta, estado, clienteId, cliente, canchaId,
-                tipo, pendientes, page, size, orden));
+                tipo, turnoFijoId, deTurnoFijo, pendientes, page, size, orden));
     }
 
     /** Reserva para un cliente (clienteId obligatorio). Con "bonificacion" (solo ADMIN) se crea y se bonifica junto. */

@@ -56,7 +56,7 @@ Después, con la cancha bloqueada:
 5. **Stock**, en un solo paso: se devuelve el stock de las reservas que se expiraron o cancelaron en los pasos anteriores y se toman los productos pedidos (ver [Productos y stock](#productos-y-stock)). Sin stock → `409`.
 6. Se guarda en `PENDIENTE` con `expiresAt = ahora + 15 min`.
 
-**Monto de la cancha** = `montoReserva + montoXMediaHora × (duración / 30)`. Con la configuración inicial, 90 min = $15 000.
+**Monto de la cancha** = `montoReserva + montoXMediaHora × ((duración − duracionMinimaTurno) / 30)`: `montoReserva` es el precio del turno mínimo y se suma `montoXMediaHora` por cada media hora de más. Con la configuración inicial (mínimo 90 minutos, $15 000 y $5 000), 90 min = $15 000, 120 = $20 000 y 180 = $30 000. Vale igual para reservas, partidos, partidos de turnos fijos y el `montoCancha` de la disponibilidad (todos usan `Configuracion.montoTurno`). Un turno más corto que el mínimo (uno viejo, si el ADMIN subió el mínimo) cuesta `montoReserva`. Las reservas creadas guardan su monto: un cambio de precio no las toca.
 **Monto de productos** = `Σ cantidad × precio de cada producto pedido` (precios del momento, congelados en la reserva). El cliente pide solo los que se ofrecen al reservar; el personal, cualquiera activo.
 **Total** = cancha + productos. **Seña** = `total × porcentajeSenia / 100`. Ej.: 90 min + 2 pelotas a $1 500 + 3 paletas a $2 000 → total $24 000, seña $12 000.
 
@@ -315,14 +315,16 @@ Registro único (id = 1) creado por `DataInitializer`:
 
 | Campo | Inicial | Uso |
 |---|---|---|
-| `montoReserva` | 0 | monto fijo por reserva |
-| `montoXMediaHora` | 5000 | precio por bloque de 30 min |
+| `montoReserva` | 15000 | precio del turno mínimo (`duracionMinimaTurno`); hasta V33 era un monto fijo que se sumaba a las medias horas |
+| `montoXMediaHora` | 5000 | lo que se suma por cada media hora por encima del mínimo |
 | `porcentajeSenia` | 50 | % del total que es seña |
 | `duracionMinimaTurno` / `duracionMaximaTurno` | 90 / 180 | minutos |
 | días | L‑V 08–23, Sáb 09–22, Dom 09–20 | horario por día |
 
 Además: la política de cancelación (`minutosReembolsoTotal` / `minutosReembolsoSenia`, 1440 / 720), el recordatorio del turno (activo, 120 minutos antes) y la anticipación para reservar (30 días).
 
-El ADMIN la consulta y la cambia entera con `GET`/`PUT /admin/configuracion` (ver [api.md](api.md#configuración-del-club--adminconfiguracion-rol-admin)). Las reglas de los cambios están en `Configuracion` (`cambiarDuracionDeTurnos`, `cambiarPoliticaCancelacion`, `cambiarHorarios`). Un cambio rige para lo que se reserve o se cobre desde ahora: las reservas que ya existen conservan su precio y su seña, y las que quedaron fuera del horario nuevo no se cancelan. Un día que no está en los horarios, el club no abre.
+El ADMIN la consulta y la cambia entera con `GET`/`PUT /admin/configuracion` (ver [api.md](api.md#configuración-del-club--adminconfiguracion-rol-admin)). Las reglas de los cambios están en `Configuracion` (`cambiarDuracionDeTurnos`, `cambiarPoliticaCancelacion`, `cambiarHorarios`). Un cambio rige para lo que se reserve o se cobre desde ahora: las reservas que ya existen conservan su precio y su seña. Un día que no está en los horarios, el club no abre. Los horarios (y la duración de los turnos) son públicos en `GET /club/horarios`.
+
+**Cambio de horario con reservas afuera.** Antes de guardar, `ConfiguracionGeneralService` pide a reservas (`HorariosOcupados`, que implementa `HorariosOcupadosService`) las reservas futuras que siguen en pie y los turnos fijos activos que no entran en el horario nuevo (la regla es `Configuracion.motivoFueraDeHorario`). Solo cuenta lo que el cambio deja afuera nuevo. Si hay algo y no vino `"confirmar": true`, responde 409 con la lista y no guarda nada. Con `confirmar`, guarda: las reservas no se cancelan ni se modifican (el ADMIN las reprograma o cancela a mano) y los turnos fijos que quedaron afuera no generan partidos nuevos (sus fechas salen en `fechasOmitidas` con el motivo); los partidos ya creados siguen.
 
 Se guarda en caché en memoria y se invalida al guardar; si se cambia directamente en la base hay que reiniciar la app.

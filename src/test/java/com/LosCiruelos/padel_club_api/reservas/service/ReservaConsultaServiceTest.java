@@ -224,7 +224,7 @@ class ReservaConsultaServiceTest {
 
         @Test
         void devuelveLaPaginaConLosTotalesDelFiltroCompleto() {
-            ListadoReservasResponse r = consultas.listar(null, null, null, null, null, null, null, false, 2, 10, null);
+            ListadoReservasResponse r = consultas.listar(null, null, null, null, null, null, null, null, null, false, 2, 10, null);
 
             assertThat(r.contenido()).extracting(ReservaResponse::getId).containsExactly(10L);
             assertThat(r.pagina()).isEqualTo(2);
@@ -236,24 +236,40 @@ class ReservaConsultaServiceTest {
 
         @Test
         void sinFiltrosNoFiltraNadaYElTamanioPorDefectoEs20() {
-            consultas.listar(null, null, null, null, null, null, null, false, 0, null, null);
+            consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, null);
 
-            assertThat(filtro()).isEqualTo(new FiltroReservas(null, null, null, null, null, null, null));
+            assertThat(filtro()).isEqualTo(new FiltroReservas(null, null, null, null, null, null, null, null, null));
             assertThat(pedido().getPageSize()).isEqualTo(20);
         }
 
         @Test
         void pasaTodosLosFiltros() {
             consultas.listar(HOY, HOY.plusDays(30), List.of(EstadoReserva.PAGADA, EstadoReserva.CANCELADA), 7L,
-                    "  Pérez ", 2L, null, false, 0, 50, null);
+                    "  Pérez ", 2L, null, null, null, false, 0, 50, null);
 
             assertThat(filtro()).isEqualTo(new FiltroReservas(HOY, HOY.plusDays(30),
-                    Set.of(EstadoReserva.PAGADA, EstadoReserva.CANCELADA), 7L, "perez", 2L, null));
+                    Set.of(EstadoReserva.PAGADA, EstadoReserva.CANCELADA), 7L, "perez", 2L, null, null, null));
+        }
+
+        @Test
+        void filtraPorTurnoFijo() {
+            consultas.listar(null, null, null, null, null, null, null, 8L, true, false, 0, null, null);
+            assertThat(filtro().turnoFijoId()).isEqualTo(8L);
+            assertThat(filtro().deTurnoFijo()).isTrue();
+        }
+
+        @Test
+        void unTurnoFijoYLasQueNoSonDeTurnosFijosNoSePidenJuntos() {
+            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, 8L, false, false, 0,
+                    null, null))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessage("No se puede pedir un turno fijo (turnoFijoId) y las que no son de turnos fijos "
+                            + "(deTurnoFijo=false) a la vez.");
         }
 
         @Test
         void pendientesSonLasQueDebenPlataHayanJugadoONo() {
-            consultas.listar(null, null, null, null, null, null, null, true, 0, null, null);
+            consultas.listar(null, null, null, null, null, null, null, null, null, true, 0, null, null);
 
             // CONFIRMADA: partido del ADMIN sin nada pagado
             assertThat(filtro().estados()).containsExactlyInAnyOrder(EstadoReserva.CONFIRMADA, EstadoReserva.SEÑADA,
@@ -271,40 +287,40 @@ class ReservaConsultaServiceTest {
 
         @Test
         void elOrdenPorDefectoEsAscendenteParaLasProximasYDescendenteParaElHistorial() {
-            consultas.listar(HOY, null, null, null, null, null, null, false, 0, null, null);
+            consultas.listar(HOY, null, null, null, null, null, null, null, null, false, 0, null, null);
             assertThat(pedido().getSort()).isEqualTo(Sort.by(Sort.Direction.ASC, "fechaReserva", "horaInicio")
                     .and(Sort.by(Sort.Direction.ASC, "id")));
         }
 
         @Test
         void historialSinDesdeODesdeElPasadoEsDescendente() {
-            consultas.listar(HOY.minusDays(1), HOY.plusDays(1), null, null, null, null, null, false, 0, null, null);
+            consultas.listar(HOY.minusDays(1), HOY.plusDays(1), null, null, null, null, null, null, null, false, 0, null, null);
             assertThat(pedido().getSort().getOrderFor("fechaReserva").getDirection()).isEqualTo(Sort.Direction.DESC);
         }
 
         @Test
         void sinFechasTambienEsDescendente() {
-            consultas.listar(null, null, null, null, null, null, null, false, 0, null, null);
+            consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, null);
             assertThat(pedido().getSort().getOrderFor("fechaReserva").getDirection()).isEqualTo(Sort.Direction.DESC);
         }
 
         @Test
         void elOrdenSePuedeElegir() {
-            consultas.listar(null, null, null, null, null, null, null, false, 0, null, "ASC");
+            consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, "ASC");
             assertThat(pedido().getSort().getOrderFor("horaInicio").getDirection()).isEqualTo(Sort.Direction.ASC);
         }
 
         @Test
         void validaLosParametros() {
-            assertThatThrownBy(() -> consultas.listar(HOY, HOY.minusDays(1), null, null, null, null, null, false, 0, null, null))
+            assertThatThrownBy(() -> consultas.listar(HOY, HOY.minusDays(1), null, null, null, null, null, null, null, false, 0, null, null))
                     .isInstanceOf(ReservaException.class).hasMessage("La fecha desde no puede ser posterior a hasta.");
-            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, false, 0, 101, null))
+            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, 101, null))
                     .isInstanceOf(ReservaException.class).hasMessageContaining("entre 1 y 100");
-            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, false, 0, 0, null))
+            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, 0, null))
                     .isInstanceOf(ReservaException.class);
-            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, false, -1, null, null))
+            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, -1, null, null))
                     .isInstanceOf(ReservaException.class);
-            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, false, 0, null, "fecha"))
+            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, "fecha"))
                     .isInstanceOf(ReservaException.class).hasMessageContaining("'asc' o 'desc'");
             verifyNoInteractions(reservaRepository);
         }

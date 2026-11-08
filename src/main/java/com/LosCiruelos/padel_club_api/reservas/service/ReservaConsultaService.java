@@ -148,16 +148,20 @@ public class ReservaConsultaService {
      */
     @Transactional(readOnly = true)
     public ListadoReservasResponse listar(LocalDate desde, LocalDate hasta, List<EstadoReserva> estados,
-            Long clienteId, String cliente, Long canchaId, TipoReserva tipo, boolean pendientes, int pagina,
-            Integer tamanio, String orden) {
+            Long clienteId, String cliente, Long canchaId, TipoReserva tipo, Long turnoFijoId, Boolean deTurnoFijo,
+            boolean pendientes, int pagina, Integer tamanio, String orden) {
         int size = tamanio != null ? tamanio : TAMANIO_POR_DEFECTO_LISTADO;
         Paginacion.validar(pagina, size, TAMANIO_MAXIMO_LISTADO);
         if (desde != null && hasta != null && desde.isAfter(hasta)) {
             throw new ReservaException("La fecha desde no puede ser posterior a hasta.");
         }
+        if (turnoFijoId != null && Boolean.FALSE.equals(deTurnoFijo)) {
+            throw new ReservaException("No se puede pedir un turno fijo (turnoFijoId) y las que no son de turnos fijos "
+                    + "(deTurnoFijo=false) a la vez.");
+        }
 
         FiltroReservas filtro = new FiltroReservas(desde, hasta, estadosEfectivos(estados, pendientes),
-                clienteId, Busquedas.normalizar(cliente), canchaId, tipo);
+                clienteId, Busquedas.normalizar(cliente), canchaId, tipo, turnoFijoId, deTurnoFijo);
         Sort.Direction direccion = direccion(orden, desde);
         PageRequest pageable = PageRequest.of(pagina, size,
                 Sort.by(direccion, "fechaReserva", "horaInicio").and(Sort.by(direccion, "id")));

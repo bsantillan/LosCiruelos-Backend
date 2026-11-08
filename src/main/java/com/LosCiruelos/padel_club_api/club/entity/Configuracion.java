@@ -42,6 +42,7 @@ public class Configuracion {
     @Id
     private Long id;
 
+    // precio del turno mínimo (duracionMinimaTurno)
     @Column(nullable = false, name = "monto_reserva", precision = 10, scale = 2)
     private BigDecimal montoReserva;
 
@@ -54,6 +55,7 @@ public class Configuracion {
     @Column(nullable = false, name = "duracion_maxima_turno")
     private Integer duracionMaximaTurno;
 
+    // lo que se suma por cada media hora por encima del turno mínimo
     @Column(nullable = false, name = "monto_x_media_hora", precision = 10, scale = 2)
     private BigDecimal montoXMediaHora;
 
@@ -150,6 +152,36 @@ public class Configuracion {
         }
     }
 
+    /**
+     * Por qué un turno de ese día de la semana y ese horario no entra en el horario del club: el día
+     * no abre, empieza antes de la apertura o termina después del cierre, o no empieza en un bloque de
+     * 30 minutos desde la apertura. null si entra.
+     */
+    public String motivoFueraDeHorario(DayOfWeek diaSemana, LocalTime inicio, LocalTime fin) {
+        String nombre = Fechas.nombreDiaCapitalizado(diaSemana);
+        String plural = enPlural(diaSemana);
+        DiaApertura dia = dias_apertura.stream().filter(d -> d.getDia().equalsIgnoreCase(nombre)).findFirst()
+                .orElse(null);
+        if (dia == null) {
+            return "El club ya no abre los " + plural + ".";
+        }
+        if (inicio.isBefore(dia.getHorario_inicio()) || fin.isAfter(dia.getHorario_fin())) {
+            return "Fuera del horario del club: los %s abre de %s a %s.".formatted(plural,
+                    Fechas.textoHora(dia.getHorario_inicio()), Fechas.textoHora(dia.getHorario_fin()));
+        }
+        if (Turno.minutosEntre(dia.getHorario_inicio(), inicio) % MINUTOS_POR_BLOQUE != 0) {
+            return "No coincide con los turnos del club: los %s son cada 30 minutos desde las %s.".formatted(plural,
+                    Fechas.textoHora(dia.getHorario_inicio()));
+        }
+        return null;
+    }
+
+    /** "lunes", "sábados", "domingos". */
+    private static String enPlural(DayOfWeek dia) {
+        String nombre = Fechas.nombreDia(dia);
+        return nombre.endsWith("s") ? nombre : nombre + "s";
+    }
+
     /** Los días de apertura de lunes a domingo. */
     public List<DiaApertura> diasEnOrden() {
         return dias_apertura.stream()
@@ -218,10 +250,14 @@ public class Configuracion {
         }
     }
 
-    /** montoReserva + montoXMediaHora × cantidad de bloques de 30 minutos. */
+    /**
+     * Precio de la cancha: montoReserva es el del turno mínimo y se suma montoXMediaHora por cada
+     * media hora por encima: montoReserva + montoXMediaHora × ((duración − duracionMinimaTurno) / 30).
+     * Un turno más corto que el mínimo (uno viejo, si el ADMIN subió el mínimo) cuesta montoReserva.
+     */
     public BigDecimal montoTurno(long duracionMinutos) {
-        long bloques = duracionMinutos / MINUTOS_POR_BLOQUE;
-        return Dinero.redondear(montoReserva.add(montoXMediaHora.multiply(BigDecimal.valueOf(bloques))));
+        long bloquesExtra = Math.max(0, duracionMinutos - duracionMinimaTurno) / MINUTOS_POR_BLOQUE;
+        return Dinero.redondear(montoReserva.add(montoXMediaHora.multiply(BigDecimal.valueOf(bloquesExtra))));
     }
 
     /** Seña = total × porcentajeSenia / 100, redondeada a centavos. */

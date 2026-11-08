@@ -34,6 +34,20 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
         ReservaConsultas {
 
     /**
+     * Reservas que todavía no empezaron y siguen en pie (no están en {@code excluidos}), con su cancha
+     * y su cliente: las que se revisan al cambiar el horario del club.
+     */
+    @Query("""
+            SELECT r FROM Reserva r JOIN FETCH r.cancha LEFT JOIN FETCH r.cliente
+            WHERE r.estado NOT IN :excluidos
+              AND NOT\s""" + ConsultasDeTurno.EMPEZO + """
+            ORDER BY r.fechaReserva, r.horaInicio, r.id
+            """)
+    List<Reserva> findFuturasQueSiguen(@Param("hoy") LocalDate hoy, @Param("hora") LocalTime hora,
+            @Param("excluidos") Collection<EstadoReserva> excluidos);
+
+
+    /**
      * Carga la reserva con un lock de escritura (SELECT ... FOR UPDATE).
      * Toda operación que cambie una reserva o sus pagos la toma primero, así
      * pagos, webhook, expiración y cancelación no se pisan entre sí.

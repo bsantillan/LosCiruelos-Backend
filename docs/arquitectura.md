@@ -55,7 +55,7 @@ Email y pagos se resuelven por nombre de bean:
 | `/auth/**` | público |
 | `POST /pagos/notificacion` | público (webhook de Mercado Pago) |
 | `/v3/api-docs/**`, `/swagger-ui/**`, `/actuator/health` | público |
-| `GET /canchas`, `GET /canchas/*/disponibilidad`, `GET /productos`, `GET /productos/disponibilidad` | público (un visitante ve horarios libres y precios; reservar requiere sesión) |
+| `GET /canchas`, `GET /canchas/*/disponibilidad`, `GET /productos`, `GET /productos/disponibilidad`, `GET /club/horarios` | público (un visitante ve horarios libres y precios; reservar requiere sesión) |
 | `POST /admin/reservas/*/bonificacion` | `ADMIN` |
 | `/admin/reservas/**` (reservas y cobros del personal), `GET /admin/usuarios/clientes`, `/admin/ventas/**` | `ADMIN`, `EMPLEADO` |
 | `/reservas/**`, `/pagos/**` (salvo el webhook) | `CLIENTE` |
