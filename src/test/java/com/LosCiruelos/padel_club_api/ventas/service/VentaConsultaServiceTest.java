@@ -33,6 +33,7 @@ class VentaConsultaServiceTest {
 
     private VentaRepository ventaRepository;
     private VentaConsultaService servicio;
+    private CobroQrDeVentas cobroQr;
     private Usuario admin;
     private Usuario empleado;
 
@@ -40,7 +41,8 @@ class VentaConsultaServiceTest {
     void setUp() {
         ventaRepository = mock(VentaRepository.class);
         UsuarioService usuarioService = mock(UsuarioService.class);
-        servicio = new VentaConsultaService(ventaRepository, usuarioService, new VentaMapper(), TestData.reloj(AHORA));
+        cobroQr = mock(CobroQrDeVentas.class);
+        servicio = new VentaConsultaService(ventaRepository, usuarioService, new VentaMapper(), TestData.reloj(AHORA), cobroQr);
         admin = usuario(1L, Role.ADMIN);
         empleado = usuario(2L, Role.EMPLEADO);
         when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
@@ -79,6 +81,25 @@ class VentaConsultaServiceTest {
         assertThat(servicio.obtener(4L, admin.getEmail()).id()).isEqualTo(4L);
         assertThatThrownBy(() -> servicio.obtener(9L, admin.getEmail()))
                 .isInstanceOf(com.LosCiruelos.padel_club_api.ventas.exception.VentaNoEncontradaException.class);
+    }
+
+    @Test
+    void losMediosDeCobroEnOrdenYMercadoPagoSoloConElQrConfigurado() {
+        when(cobroQr.estaConfigurado()).thenReturn(true);
+        assertThat(servicio.medios()).containsExactly(
+                new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.EFECTIVO,
+                        "Efectivo", true, false, null),
+                new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.MERCADO_PAGO,
+                        "Mercado Pago (QR de la caja)", true, true, null),
+                new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.CUENTA_DNI,
+                        "Cuenta DNI", true, false, null));
+
+        when(cobroQr.estaConfigurado()).thenReturn(false);
+        assertThat(servicio.medios().get(1)).satisfies(m -> {
+            assertThat(m.disponible()).isFalse();
+            assertThat(m.detalle()).isEqualTo("El QR de la caja de Mercado Pago no está configurado.");
+        });
+        assertThat(servicio.medios()).filteredOn(m -> !m.conQr()).allMatch(m -> m.disponible() && m.detalle() == null);
     }
 
     @Test

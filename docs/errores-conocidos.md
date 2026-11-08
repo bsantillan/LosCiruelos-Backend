@@ -45,6 +45,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Medios de cobro de las ventas**: nuevo `GET /admin/ventas/medios` (ADMIN y EMPLEADO) con los medios en orden, su etiqueta, si se cobra con QR y si están disponibles (Mercado Pago, solo con el QR de la caja configurado). Antes esa ruta caía en `GET /admin/ventas/{id}` y respondía `400`.
 - **Configuración del club**: nuevos `GET /admin/configuracion` y `PUT /admin/configuracion` (solo ADMIN) con toda la configuración junta: precios, seña, duración de los turnos, política de cancelación, recordatorio, anticipación y días y horarios de apertura. El `GET` devuelve el mismo objeto que recibe el `PUT`. `/admin/configuracion/avisos` y `/admin/configuracion/reservas` no cambian.
 - **Anulación de ventas sueltas**:
   - `VentaResponse` suma `estado` (`COBRADA` o `ANULADA`), `anuladaAt`, `anuladaPor` y `motivoAnulacion`. El listado de ventas trae también las anuladas: mostrarlas marcadas.
