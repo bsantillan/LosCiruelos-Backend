@@ -267,9 +267,10 @@ public class TurnoFijoService {
         String fueraDeHorario = config.motivoFueraDeHorario(tf.getDiaSemana(), tf.getHoraInicio(), tf.getHoraFin());
         for (LocalDate fecha = proximaFecha(tf.getDesde(), tf.getHoraInicio(), ahora);
                 !fecha.isAfter(hasta); fecha = fecha.plusWeeks(1)) {
-            if (fueraDeHorario != null) {
+            String motivo = fueraDeHorario != null ? fueraDeHorario : config.motivoCierre(fecha);
+            if (motivo != null) {
                 if (!reservaRepository.existsByTurnoFijoAndFechaReserva(tf, fecha)) {
-                    omitidas.add(new FechaOmitida(fecha, fueraDeHorario));
+                    omitidas.add(new FechaOmitida(fecha, motivo));
                 }
                 continue;
             }
@@ -410,20 +411,20 @@ public class TurnoFijoService {
     }
 
     private List<FechaOmitida> fueraDeHorario(TurnoFijo tf, List<Reserva> proximos, LocalDateTime ahora) {
-        Configuracion config = configuracionService.obtener();
-        String motivo = Boolean.TRUE.equals(tf.getActivo())
-                ? config.motivoFueraDeHorario(tf.getDiaSemana(), tf.getHoraInicio(), tf.getHoraFin())
-                : null;
-        if (motivo == null) {
+        if (!Boolean.TRUE.equals(tf.getActivo())) {
             return List.of();
         }
+        Configuracion config = configuracionService.obtener();
+        String fueraDeHorario = config.motivoFueraDeHorario(tf.getDiaSemana(), tf.getHoraInicio(), tf.getHoraFin());
         java.util.Set<LocalDate> conPartido = proximos.stream().map(Reserva::getFechaReserva)
                 .collect(java.util.stream.Collectors.toSet());
         List<FechaOmitida> omitidas = new ArrayList<>();
         LocalDate hasta = config.reservableHasta(ahora.toLocalDate());
         for (LocalDate fecha = proximaFecha(tf.getDesde(), tf.getHoraInicio(), ahora); !fecha.isAfter(hasta);
                 fecha = fecha.plusWeeks(1)) {
-            if (!conPartido.contains(fecha)) {
+            // fuera del horario semanal, o ese día el club está cerrado
+            String motivo = fueraDeHorario != null ? fueraDeHorario : config.motivoCierre(fecha);
+            if (motivo != null && !conPartido.contains(fecha)) {
                 omitidas.add(new FechaOmitida(fecha, motivo));
             }
         }

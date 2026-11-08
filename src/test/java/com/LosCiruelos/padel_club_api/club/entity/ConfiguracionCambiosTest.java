@@ -80,6 +80,35 @@ class ConfiguracionCambiosTest {
     }
 
     @Test
+    void unDiaCerradoNoAbreYSePuedeReabrir() {
+        java.time.LocalDate navidad = java.time.LocalDate.of(2026, 12, 25);
+        config.cerrar(navidad, "Navidad", 1L, TestData.AHORA);
+
+        assertThat(config.cierreDel(navidad)).isPresent();
+        assertThat(config.motivoCierre(navidad)).isEqualTo("El club está cerrado el viernes 25/12: Navidad.");
+        assertThatThrownBy(() -> config.diaApertura(navidad))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.club.exception.DiaSinAperturaException.class)
+                .hasMessage("El club está cerrado el viernes 25/12: Navidad.");
+        // el viernes siguiente abre normal
+        assertThat(config.diaApertura(navidad.plusWeeks(1)).getDia()).isEqualTo("Viernes");
+        assertThat(config.cierresDesde(TestData.HOY)).extracting(DiaCerrado::getFecha).containsExactly(navidad);
+        assertThat(config.cierresDesde(navidad.plusDays(1))).isEmpty();
+
+        assertThatThrownBy(() -> config.cerrar(navidad, "Otra vez", 1L, TestData.AHORA))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException.class)
+                .hasMessage("El club ya está cerrado el viernes 25/12.");
+        assertThatThrownBy(() -> config.cerrar(TestData.HOY.minusDays(1), "Tarde", 1L, TestData.AHORA))
+                .isInstanceOf(ReservaException.class)
+                .hasMessage("No se puede cerrar un día que ya pasó.");
+
+        config.reabrir(navidad);
+        assertThat(config.motivoCierre(navidad)).isNull();
+        assertThatThrownBy(() -> config.reabrir(navidad))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.club.exception.DiaCerradoNoEncontradoException.class)
+                .hasMessage("El club no está cerrado el viernes 25/12.");
+    }
+
+    @Test
     void unTurnoQueNoEntraEnElHorarioDiceElMotivo() {
         java.time.DayOfWeek lunes = java.time.DayOfWeek.MONDAY;
         // lunes de 08:00 a 23:00

@@ -57,6 +57,7 @@ class HorariosOcupadosRepositoryTest {
         cliente = em.persist(TestData.usuario(null, Role.CLIENTE));
         cancha = em.persist(Cancha.builder().numero(2).descripcion("Cancha 2").build());
         servicio = new HorariosOcupadosService(reservaRepository, turnoFijoRepository, new FueraDeHorarioMapper(),
+                org.mockito.Mockito.mock(com.LosCiruelos.padel_club_api.reservas.service.CancelacionService.class),
                 TestData.reloj(TestData.AHORA));
         horarioNuevo = TestData.configuracion();
         horarioNuevo.cambiarHorarios(List.of("Lunes", "Martes", "Miércoles", "Jueves", "Viernes").stream()
@@ -105,6 +106,12 @@ class HorariosOcupadosRepositoryTest {
         });
         assertThat(fuera.turnosFijosFueraDeHorario()).extracting(FueraDeHorarioResponse.TurnoFijo::id)
                 .containsExactly(lunesFijo.getId(), domingo.getId());
+
+        // lo del lunes 19 (para cerrar ese día): las dos reservas que siguen y el turno fijo de los lunes
+        FueraDeHorarioResponse delLunes = servicio.delDia(LUNES);
+        assertThat(delLunes.reservasFueraDeHorario()).hasSize(2);
+        assertThat(delLunes.turnosFijosFueraDeHorario()).extracting(FueraDeHorarioResponse.TurnoFijo::id)
+                .containsExactly(lunesFijo.getId());
 
         // con el horario de siempre no queda nada afuera
         FueraDeHorarioResponse actual = servicio.fueraDeHorario(TestData.configuracion());

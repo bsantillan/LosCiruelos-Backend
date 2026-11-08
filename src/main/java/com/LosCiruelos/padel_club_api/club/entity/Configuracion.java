@@ -4,10 +4,13 @@ import com.LosCiruelos.padel_club_api.common.Busquedas;
 import com.LosCiruelos.padel_club_api.common.Fechas;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Turno;
+import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
+import com.LosCiruelos.padel_club_api.club.exception.DiaCerradoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.club.exception.DiaSinAperturaException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.math.RoundingMode;
 import java.math.BigDecimal;
@@ -15,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -88,6 +92,12 @@ public class Configuracion {
     @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(nullable = false, name = "configuracion_general_id")
     private List<DiaApertura> dias_apertura = new ArrayList<>();
+
+    // días puntuales en que el club no abre (feriados, obras), además del horario semanal
+    @Builder.Default
+    @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(nullable = false, name = "configuracion_id")
+    private Set<DiaCerrado> cierres = new HashSet<>();
 
     /** Los turnos se arman en bloques de 30 minutos desde la apertura. */
     public static final int MINUTOS_POR_BLOQUE = 30;
@@ -210,10 +220,55 @@ public class Configuracion {
         return DayOfWeek.SUNDAY;
     }
 
+    // ── Días cerrados ────────────────────────────────────────────────────
+
+    /** Cierra el club el día {@code fecha} (hoy o en adelante; una sola vez por fecha). */
+    public DiaCerrado cerrar(LocalDate fecha, String motivo, Long adminId, LocalDateTime ahora) {
+        if (fecha.isBefore(ahora.toLocalDate())) {
+            throw new ReservaException("No se puede cerrar un día que ya pasó.");
+        }
+        if (cierreDel(fecha).isPresent()) {
+            throw new EstadoInvalidoException("El club ya está cerrado el " + Fechas.textoFecha(fecha) + ".");
+        }
+        DiaCerrado cierre = DiaCerrado.builder().fecha(fecha).motivo(motivo).createdAt(ahora).createdById(adminId)
+                .build();
+        cierres.add(cierre);
+        return cierre;
+    }
+
+    /** Vuelve a abrir un día cerrado. */
+    public void reabrir(LocalDate fecha) {
+        DiaCerrado cierre = cierreDel(fecha).orElseThrow(() -> new DiaCerradoNoEncontradoException(
+                "El club no está cerrado el " + Fechas.textoFecha(fecha) + "."));
+        cierres.remove(cierre);
+    }
+
+    public Optional<DiaCerrado> cierreDel(LocalDate fecha) {
+        return cierres.stream().filter(c -> c.getFecha().equals(fecha)).findFirst();
+    }
+
+    /** Por qué el club no abre ese día puntual (null si no está cerrado). */
+    public String motivoCierre(LocalDate fecha) {
+        return cierreDel(fecha)
+                .map(c -> "El club está cerrado el %s: %s.".formatted(Fechas.textoFecha(fecha), c.getMotivo()))
+                .orElse(null);
+    }
+
+    /** Los días cerrados de {@code hoy} en adelante, en orden. */
+    public List<DiaCerrado> cierresDesde(LocalDate hoy) {
+        return cierres.stream().filter(c -> !c.getFecha().isBefore(hoy))
+                .sorted(Comparator.comparing(DiaCerrado::getFecha))
+                .toList();
+    }
+
     // ── Reglas ───────────────────────────────────────────────────────────
 
-    /** Horario de apertura del día de la semana de {@code fecha}. */
+    /** Horario de apertura de {@code fecha}: el de su día de la semana, salvo que ese día esté cerrado. */
     public DiaApertura diaApertura(LocalDate fecha) {
+        String cerrado = motivoCierre(fecha);
+        if (cerrado != null) {
+            throw new DiaSinAperturaException(cerrado);
+        }
         String nombreDia = Fechas.nombreDiaCapitalizado(fecha.getDayOfWeek());
         return dias_apertura.stream()
                 .filter(d -> d.getDia().equalsIgnoreCase(nombreDia))
