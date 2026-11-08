@@ -218,6 +218,24 @@ Cada usuario elige si recibe los avisos por mail o por WhatsApp. Detalle de qué
 
 ---
 
+## Horarios del club — `/club/horarios` (público)
+
+### `GET /club/horarios` → `200`
+Sin sesión. Los días que abre el club, de lunes a domingo, con su horario, y la duración mínima y máxima de los turnos. Un día que no está, el club no abre. Lo usan la grilla del panel (ADMIN y EMPLEADO, también para días pasados) y el sitio del cliente.
+```json
+{
+  "horarios": [
+    { "dia": "Lunes", "apertura": "08:00", "cierre": "23:00" },
+    { "dia": "Sábado", "apertura": "09:00", "cierre": "22:00" }
+  ],
+  "duracionMinimaTurno": 90,
+  "duracionMaximaTurno": 180
+}
+```
+Es el horario **actual**: para un día pasado puede no coincidir con el que había entonces (y una reserva vieja puede quedar fuera de la grilla).
+
+---
+
 ## Canchas — `/canchas` (público)
 
 Se pueden consultar sin iniciar sesión (un visitante ve los horarios libres y los precios); para reservar sí hace falta una cuenta con el perfil completo. Si se manda un token vencido o inválido, se responde igual, como visitante.
@@ -396,11 +414,35 @@ Toda la configuración junta. Lo que responde el `GET` es exactamente el body de
 | `recordatorioActivo`, `minutosRecordatorio` | Recordatorio del turno al cliente | 15 a 1440 minutos |
 | `diasAnticipacion` | Hasta cuántos días adelante reserva el cliente (y hasta dónde se generan los partidos de los turnos fijos) | 1 a 365 |
 | `horarios` | Días que abre el club, de lunes a domingo; un día que no está, el club no abre | 1 a 7 días; `dia` de `Lunes` a `Domingo` (con o sin tilde, sin importar mayúsculas), sin repetir; `apertura` antes de `cierre` (`HH:mm`, el mismo día) y por lo menos el turno mínimo |
+| `confirmar` | Opcional (por defecto `false`): `true` guarda aunque el horario nuevo deje afuera reservas o turnos fijos | |
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
 | `GET /admin/configuracion` → `200` | Toda la configuración; `horarios` de lunes a domingo. | `403` EMPLEADO o CLIENTE |
-| `PUT /admin/configuracion` → `200` | Reemplaza toda la configuración (todos los campos son obligatorios) y responde la nueva. Rige para lo que se reserve o se cobre desde ahora: las reservas que ya existen conservan su precio y su seña, y las que quedaron fuera del horario nuevo no se cancelan. La configuración está en caché y se invalida al guardar. | `400` validación (`errors.campo`, `errors['horarios[0].apertura']`…), "La duración de los turnos tiene que ser un múltiplo de 30 minutos.", "La duración mínima del turno no puede superar la máxima.", "La anticipación para devolver todo no puede ser menor que la de devolver la seña.", "Día inválido: Feriado. Usá Lunes a Domingo.", "El lunes está repetido.", "El sábado, la apertura tiene que ser antes del cierre.", "El martes abre menos que el turno mínimo (90 minutos)." · `403` EMPLEADO o CLIENTE |
+| `PUT /admin/configuracion` → `200` | Reemplaza toda la configuración (todos los campos son obligatorios, salvo `confirmar`) y responde la nueva. Rige para lo que se reserve o se cobre desde ahora: las reservas que ya existen conservan su precio y su seña. La configuración está en caché y se invalida al guardar. **Antes de guardar se revisa qué queda afuera del horario nuevo** (ver abajo). | `400` validación (`errors.campo`, `errors['horarios[0].apertura']`…), "La duración de los turnos tiene que ser un múltiplo de 30 minutos.", "La duración mínima del turno no puede superar la máxima.", "La anticipación para devolver todo no puede ser menor que la de devolver la seña.", "Día inválido: Feriado. Usá Lunes a Domingo.", "El lunes está repetido.", "El sábado, la apertura tiene que ser antes del cierre.", "El martes abre menos que el turno mínimo (90 minutos)." · `403` EMPLEADO o CLIENTE · `409` el horario nuevo deja afuera reservas o turnos fijos y no vino `"confirmar": true` |
+
+**Reservas y turnos fijos fuera del horario nuevo.** Antes de guardar, se buscan:
+- reservas que todavía no empezaron y no están `CANCELADA` ni `EXPIRADA` (también partidos y partidos de turnos fijos) cuyo turno no entra en el horario nuevo de su día, o cuyo día deja de abrir;
+- turnos fijos activos cuyo día y horario dejan de entrar.
+
+"No entra" es: el día no abre, empieza antes de la apertura o termina después del cierre, o no empieza en un bloque de 30 minutos desde la apertura (por ejemplo, si la apertura pasa de 08:00 a 08:15, un turno a las 09:00 queda afuera). Solo se avisa lo que el cambio deja afuera **nuevo**: lo que ya estaba afuera del horario actual (porque se confirmó antes) no vuelve a dar 409, así que después se pueden cambiar otros datos sin confirmar de nuevo.
+
+Si hay algo y el body no trae `"confirmar": true`, responde `409` sin guardar nada:
+```json
+{
+  "timestamp": "2026-10-13T10:00:00.000-03:00",
+  "error": "El horario nuevo deja afuera 1 reserva y 1 turno fijo. Para guardarlo igual, mandá \"confirmar\": true: no se cancela ni se modifica nada (se reprograman o cancelan a mano).",
+  "reservasFueraDeHorario": [
+    { "id": 31, "fecha": "2026-10-19", "horaInicio": "08:00", "horaFin": "09:30", "canchaNumero": 2, "clienteNombre": "Juan Gómez", "tipo": "NORMAL" }
+  ],
+  "turnosFijosFueraDeHorario": [
+    { "id": 4, "diaSemana": "MONDAY", "horaInicio": "08:00", "horaFin": "09:30", "canchaNumero": 1 }
+  ]
+}
+```
+`reservasFueraDeHorario` va por fecha y hora; `tipo` es `NORMAL` o `PARTIDO`; `clienteNombre` es el titular (en un partido, el responsable).
+
+Con `"confirmar": true` se guarda igual: **las reservas existentes siguen valiendo**, no se cancelan ni se modifican (el ADMIN las reprograma o cancela a mano). Un turno fijo que quedó afuera no crea partidos nuevos en un horario que ya no existe: esas fechas salen en `fechasOmitidas` del turno fijo con el motivo (por ejemplo, "Fuera del horario del club: los lunes abre de 08:30 a 23:00." o "El club ya no abre los domingos."); los partidos que ya estaban creados siguen.
 
 Las secciones `GET`/`PUT /admin/configuracion/avisos` y `/admin/configuracion/reservas` (más arriba) siguen funcionando y editan los mismos datos.
 
@@ -534,7 +576,7 @@ Mismo body, completo. Cambia jugadores, cancha, fecha, horario o productos de un
 Un **turno fijo** es el mismo partido (cancha, día de la semana, horario y jugadores) todas las semanas desde `desde`, hasta que se da de baja.
 - **Bloqueo del horario.** El horario queda bloqueado todas las semanas: un cliente no lo puede reservar (`409` "Ese horario es un turno fijo del club en esa cancha.") y la disponibilidad lo muestra ocupado, aunque falten meses.
 - **Partidos semanales.** Los crea un job cada hora **hasta el tope para reservar** de la configuración (hoy + 30 días por defecto, `GET/PUT /admin/configuracion/reservas`), con los jugadores y productos del turno fijo y el precio vigente. Cada semana se paga aparte. Al crear o modificar el turno fijo se crean en el momento. A medida que pasan los días se suman las fechas nuevas; si el ADMIN achica el tope, los partidos ya creados se mantienen.
-- **Fechas omitidas.** Si una fecha no se puede crear (otra reserva ya ocupa ese horario, el club no abre, falta stock), se informa en `fechasOmitidas` y el job lo vuelve a intentar.
+- **Fechas omitidas.** Si una fecha no se puede crear (otra reserva ya ocupa ese horario, el club no abre, falta stock), se informa en `fechasOmitidas` y el job lo vuelve a intentar. Si el turno fijo ya no entra en el horario del club (el ADMIN lo cambió con `PUT /admin/configuracion`), no se crean partidos nuevos: las fechas sin partido salen en `fechasOmitidas` con el motivo, también en `GET /admin/turnos-fijos` y `GET /admin/turnos-fijos/{id}`.
 
 **`TurnoFijoResponse`**
 ```json
@@ -552,7 +594,7 @@ Un **turno fijo** es el mismo partido (cancha, día de la semana, horario y juga
   "partidosSinCambiar": null
 }
 ```
-`proximosPartidos` son los partidos creados cuyo turno todavía no empezó, incluidas las fechas dadas de baja (`CANCELADA`). `fechasOmitidas` viene solo al crear o modificar; `partidosSinCambiar`, solo al modificar.
+`proximosPartidos` son los partidos creados cuyo turno todavía no empezó, incluidas las fechas dadas de baja (`CANCELADA`). `fechasOmitidas`: al crear o modificar, las fechas que no se pudieron crear; en las consultas, las fechas dentro de la anticipación que no se van a crear porque el turno ya no entra en el horario del club (lista vacía si entra). `partidosSinCambiar` viene solo al modificar.
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
@@ -578,6 +620,8 @@ Reservas pasadas y futuras de cualquier cliente, para consultarlas y cobrar en e
 | `cliente` | texto | — | Busca en nombre, apellido, email o "nombre apellido" del cliente; contiene, sin distinguir mayúsculas ni tildes (`jose` encuentra a "José Pérez") |
 | `canchaId` | id | — | Una cancha |
 | `tipo` | `NORMAL` \| `PARTIDO` | los dos | Solo reservas normales o solo partidos |
+| `turnoFijoId` | id | — | Los partidos de ese turno fijo, también las fechas dadas de baja (`CANCELADA`). Un id que no existe no trae nada |
+| `deTurnoFijo` | `true` \| `false` | todas | `true`: solo las que salen de un turno fijo; `false`: solo las que no (reservas y partidos sueltos). Con `turnoFijoId`, `deTurnoFijo=false` es `400` ("No se puede pedir un turno fijo (turnoFijoId) y las que no son de turnos fijos (deTurnoFijo=false) a la vez.") |
 | `pendientes` | `true` \| `false` | `false` | Solo las que deben plata: `CONFIRMADA`, `SEÑADA` y `PARCIALMENTE_PAGADA`, hayan jugado o no (las `PENDIENTE` sin pago no entran). Combinado con `estado`, quedan las que cumplen los dos |
 | `orden` | `asc` \| `desc` | `asc` si `desde` es hoy o posterior; `desc` en el resto | Por fecha y hora del turno |
 | `page` | ≥ 0 | `0` | Página, desde 0 |

@@ -152,6 +152,36 @@ public class Configuracion {
         }
     }
 
+    /**
+     * Por qué un turno de ese día de la semana y ese horario no entra en el horario del club: el día
+     * no abre, empieza antes de la apertura o termina después del cierre, o no empieza en un bloque de
+     * 30 minutos desde la apertura. null si entra.
+     */
+    public String motivoFueraDeHorario(DayOfWeek diaSemana, LocalTime inicio, LocalTime fin) {
+        String nombre = Fechas.nombreDiaCapitalizado(diaSemana);
+        String plural = enPlural(diaSemana);
+        DiaApertura dia = dias_apertura.stream().filter(d -> d.getDia().equalsIgnoreCase(nombre)).findFirst()
+                .orElse(null);
+        if (dia == null) {
+            return "El club ya no abre los " + plural + ".";
+        }
+        if (inicio.isBefore(dia.getHorario_inicio()) || fin.isAfter(dia.getHorario_fin())) {
+            return "Fuera del horario del club: los %s abre de %s a %s.".formatted(plural,
+                    Fechas.textoHora(dia.getHorario_inicio()), Fechas.textoHora(dia.getHorario_fin()));
+        }
+        if (Turno.minutosEntre(dia.getHorario_inicio(), inicio) % MINUTOS_POR_BLOQUE != 0) {
+            return "No coincide con los turnos del club: los %s son cada 30 minutos desde las %s.".formatted(plural,
+                    Fechas.textoHora(dia.getHorario_inicio()));
+        }
+        return null;
+    }
+
+    /** "lunes", "sábados", "domingos". */
+    private static String enPlural(DayOfWeek dia) {
+        String nombre = Fechas.nombreDia(dia);
+        return nombre.endsWith("s") ? nombre : nombre + "s";
+    }
+
     /** Los días de apertura de lunes a domingo. */
     public List<DiaApertura> diasEnOrden() {
         return dias_apertura.stream()

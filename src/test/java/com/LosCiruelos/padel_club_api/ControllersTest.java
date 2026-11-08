@@ -119,6 +119,7 @@ class ControllersTest {
     private StockService stockService;
     private NotificacionesService notificacionesService;
     private ConfiguracionService configuracionService;
+    private com.LosCiruelos.padel_club_api.club.service.ConfiguracionGeneralService configuracionGeneralService;
     private ReservaConsultaService reservaConsultaService;
     private VentaService ventaService;
     private VentaConsultaService ventaConsultaService;
@@ -145,6 +146,7 @@ class ControllersTest {
         stockService = mock(StockService.class);
         notificacionesService = mock(NotificacionesService.class);
         configuracionService = mock(ConfiguracionService.class);
+        configuracionGeneralService = mock(com.LosCiruelos.padel_club_api.club.service.ConfiguracionGeneralService.class);
         reservaConsultaService = mock(ReservaConsultaService.class);
         ventaService = mock(VentaService.class);
         ventaConsultaService = mock(VentaConsultaService.class);
@@ -163,7 +165,8 @@ class ControllersTest {
                 new CanchaController(canchaService, disponibilidadService),
                 new ProductoController(productoService, stockService),
                 new ProductoAdminController(productoService, stockService),
-                new ConfiguracionAdminController(configuracionService),
+                new ConfiguracionAdminController(configuracionService, configuracionGeneralService),
+                new com.LosCiruelos.padel_club_api.club.controller.ClubController(configuracionGeneralService),
                 new NotificacionesController(notificacionesService),
                 new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService),
                 new VentaAdminController(ventaService, ventaConsultaService, ventaQrService))
@@ -652,6 +655,58 @@ class ControllersTest {
         }
 
         @Test
+        void unHorarioQueDejaReservasAfueraEs409ConLaLista() throws Exception {
+            var fuera = new com.LosCiruelos.padel_club_api.club.dto.response.FueraDeHorarioResponse(
+                    List.of(new com.LosCiruelos.padel_club_api.club.dto.response.FueraDeHorarioResponse.Reserva(31L,
+                            java.time.LocalDate.of(2026, 10, 19), java.time.LocalTime.of(8, 0),
+                            java.time.LocalTime.of(9, 30), 2, "Juan Gómez", "NORMAL")),
+                    List.of(new com.LosCiruelos.padel_club_api.club.dto.response.FueraDeHorarioResponse.TurnoFijo(4L,
+                            java.time.DayOfWeek.MONDAY, java.time.LocalTime.of(8, 0), java.time.LocalTime.of(9, 30), 1)));
+            when(configuracionGeneralService.actualizar(any())).thenThrow(
+                    new com.LosCiruelos.padel_club_api.club.exception.HorariosConReservasException(fuera));
+
+            mvc.perform(json(put("/admin/configuracion"), CONFIGURACION))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.error").value("El horario nuevo deja afuera 1 reserva y 1 turno fijo. "
+                            + "Para guardarlo igual, mandá \"confirmar\": true: no se cancela ni se modifica nada (se "
+                            + "reprograman o cancelan a mano)."))
+                    .andExpect(jsonPath("$.reservasFueraDeHorario[0].id").value(31))
+                    .andExpect(jsonPath("$.reservasFueraDeHorario[0].fecha").value("2026-10-19"))
+                    .andExpect(jsonPath("$.reservasFueraDeHorario[0].horaInicio").value("08:00"))
+                    .andExpect(jsonPath("$.reservasFueraDeHorario[0].canchaNumero").value(2))
+                    .andExpect(jsonPath("$.reservasFueraDeHorario[0].clienteNombre").value("Juan Gómez"))
+                    .andExpect(jsonPath("$.reservasFueraDeHorario[0].tipo").value("NORMAL"))
+                    .andExpect(jsonPath("$.turnosFijosFueraDeHorario[0].diaSemana").value("MONDAY"))
+                    .andExpect(jsonPath("$.turnosFijosFueraDeHorario[0].horaFin").value("09:30"));
+
+            // confirmar llega al service
+            mvc.perform(json(put("/admin/configuracion"), CONFIGURACION.replace("\"diasAnticipacion\":30",
+                    "\"diasAnticipacion\":30,\"confirmar\":true")));
+            org.mockito.ArgumentCaptor<com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest> req =
+                    org.mockito.ArgumentCaptor.forClass(com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest.class);
+            verify(configuracionGeneralService, org.mockito.Mockito.times(2)).actualizar(req.capture());
+            org.assertj.core.api.Assertions.assertThat(req.getAllValues())
+                    .extracting(com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest::getConfirmar)
+                    .containsExactly(null, true);
+        }
+
+        @Test
+        void losHorariosDelClub() throws Exception {
+            when(configuracionGeneralService.horarios()).thenReturn(
+                    new com.LosCiruelos.padel_club_api.club.dto.response.HorariosClubResponse(List.of(
+                            new com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse.Horario("Lunes",
+                                    java.time.LocalTime.of(8, 0), java.time.LocalTime.of(23, 0))), 90, 180));
+
+            mvc.perform(get("/club/horarios"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.horarios[0].dia").value("Lunes"))
+                    .andExpect(jsonPath("$.horarios[0].apertura").value("08:00"))
+                    .andExpect(jsonPath("$.horarios[0].cierre").value("23:00"))
+                    .andExpect(jsonPath("$.duracionMinimaTurno").value(90))
+                    .andExpect(jsonPath("$.duracionMaximaTurno").value(180));
+        }
+
+        @Test
         void seccionStockDeLaConfiguracion() throws Exception {
             when(productoService.listarTodos()).thenReturn(List.of());
             when(productoService.crear(any())).thenReturn(new ProductoResponse());
@@ -861,20 +916,20 @@ class ControllersTest {
             mvc.perform(json(put("/admin/configuracion"), CONFIGURACION.replace("\"porcentajeSenia\":50", "\"porcentajeSenia\":150")))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.porcentajeSenia").value("Entre 0 y 100"));
-            verify(configuracionService, never()).actualizarGeneral(any());
+            verify(configuracionGeneralService, never()).actualizar(any());
             com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse respuesta =
                     new com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse(new BigDecimal("0.00"),
                             new BigDecimal("5000.00"), new BigDecimal("50.00"), 90, 180, 1440, 720, true, 120, 30,
                             List.of(new com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse.Horario(
                                     "Lunes", java.time.LocalTime.of(8, 0), java.time.LocalTime.of(23, 0))));
-            when(configuracionService.actualizarGeneral(any())).thenReturn(respuesta);
-            when(configuracionService.general()).thenReturn(respuesta);
+            when(configuracionGeneralService.actualizar(any())).thenReturn(respuesta);
+            when(configuracionGeneralService.general()).thenReturn(respuesta);
             mvc.perform(json(put("/admin/configuracion"), CONFIGURACION))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.horarios[0].apertura").value("08:00"));
             org.mockito.ArgumentCaptor<com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest> req =
                     org.mockito.ArgumentCaptor.forClass(com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest.class);
-            verify(configuracionService).actualizarGeneral(req.capture());
+            verify(configuracionGeneralService).actualizar(req.capture());
             org.assertj.core.api.Assertions.assertThat(req.getValue().getHorarios().get(0).getCierre())
                     .isEqualTo(java.time.LocalTime.of(23, 0));
             mvc.perform(get("/admin/configuracion").principal(AUTH))
@@ -1018,7 +1073,7 @@ class ControllersTest {
 
         @Test
         void listaConTodosLosFiltrosYLosTotales() throws Exception {
-            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenReturn(pagina());
 
             mvc.perform(get("/admin/reservas").principal(AUTH)
@@ -1037,18 +1092,31 @@ class ControllersTest {
                     .andExpect(jsonPath("$.totales.montoPendiente").value(165000.00));
 
             verify(reservaConsultaService).listar(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31),
-                    List.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA), 7L, "pérez", 2L, null, true, 1, 50,
+                    List.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA), 7L, "pérez", 2L, null, null, null, true, 1, 50,
                     "desc");
         }
 
         @Test
+        void filtraPorTurnoFijo() throws Exception {
+            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(),
+                    anyInt(), any(), any())).thenReturn(pagina());
+
+            mvc.perform(get("/admin/reservas").principal(AUTH).param("turnoFijoId", "8").param("deTurnoFijo", "true"))
+                    .andExpect(status().isOk());
+            verify(reservaConsultaService).listar(null, null, null, null, null, null, null, 8L, true, false, 0, null, null);
+
+            mvc.perform(get("/admin/reservas").principal(AUTH).param("deTurnoFijo", "talvez"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
         void sinParametrosUsaLosValoresPorDefecto() throws Exception {
-            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenReturn(pagina());
 
             mvc.perform(get("/admin/reservas").principal(AUTH)).andExpect(status().isOk());
 
-            verify(reservaConsultaService).listar(null, null, null, null, null, null, null, false, 0, null, null);
+            verify(reservaConsultaService).listar(null, null, null, null, null, null, null, null, null, false, 0, null, null);
         }
 
         @Test
@@ -1063,7 +1131,7 @@ class ControllersTest {
 
         @Test
         void losErroresDelServicioSeRespetan() throws Exception {
-            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenThrow(new com.LosCiruelos.padel_club_api.common.exception.ReservaException(
                             "El tamaño de página tiene que estar entre 1 y 100."));
 

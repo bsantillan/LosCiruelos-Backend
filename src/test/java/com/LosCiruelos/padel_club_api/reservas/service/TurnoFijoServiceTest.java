@@ -334,4 +334,37 @@ class TurnoFijoServiceTest {
         tf.setActivo(false);
         assertThat(turnos.generar(8L).creados()).isEmpty();
     }
+
+    @Test
+    void unTurnoFijoQueYaNoEntraEnElHorarioNoCreaPartidosYLoInforma() {
+        TurnoFijo tf = turnoFijo(); // miércoles de 20:00 a 21:30
+        ReservaService reservaService = mock(ReservaService.class);
+        Configuracion config = TestData.configuracion();
+        // el miércoles ahora cierra a las 21:00
+        config.cambiarHorarios(List.of(new Configuracion.Horario("Miércoles", LocalTime.of(8, 0), LocalTime.of(21, 0))));
+        ConfiguracionService configuracion = mock(ConfiguracionService.class);
+        when(configuracion.obtener()).thenReturn(config);
+        // el del 21/10 ya estaba creado: sigue valiendo
+        Reserva yaCreado = partidoDe(tf, 70L, MANIANA.plusWeeks(1));
+        when(reservaRepository.existsByTurnoFijoAndFechaReserva(tf, MANIANA.plusWeeks(1))).thenReturn(true);
+        when(reservaRepository.findIdsFuturosDelTurnoFijo(eq(8L), any(), any())).thenReturn(List.of(70L));
+        when(reservaRepository.findById(70L)).thenReturn(Optional.of(yaCreado));
+        turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, mock(CanchaService.class),
+                reservaService, mock(DisponibilidadService.class), mock(ReservaMapper.class),
+                new TurnoFijoMapper(), mock(JugadoresService.class), cancelacionService, stockService,
+                configuracion, mock(UsuarioService.class), TestData.reloj(AHORA));
+
+        TurnoFijoService.Generacion r = turnos.generar(8L);
+
+        assertThat(r.creados()).isEmpty();
+        verify(reservaService, never()).crearPartidoDeTurnoFijo(anyLong(), any());
+        String motivo = "Fuera del horario del club: los miércoles abre de 08:00 a 21:00.";
+        assertThat(r.omitidas()).extracting(TurnoFijoResponse.FechaOmitida::fecha)
+                .containsExactly(MANIANA, MANIANA.plusWeeks(2), MANIANA.plusWeeks(3), MANIANA.plusWeeks(4));
+        assertThat(r.omitidas()).extracting(TurnoFijoResponse.FechaOmitida::motivo).containsOnly(motivo);
+        // la consulta del turno fijo también las muestra
+        TurnoFijoResponse consulta = turnos.obtener(8L);
+        assertThat(consulta.getFechasOmitidas()).hasSize(4).allSatisfy(f -> assertThat(f.motivo()).isEqualTo(motivo));
+        assertThat(consulta.getProximosPartidos()).extracting(TurnoFijoResponse.Partido::reservaId).containsExactly(70L);
+    }
 }

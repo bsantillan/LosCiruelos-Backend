@@ -161,9 +161,41 @@ class PartidosRepositoryTest {
         partido(MIERCOLES.plusWeeks(2), EstadoReserva.CONFIRMADA, null, otro);
         em.flush();
 
-        FiltroReservas porCliente = new FiltroReservas(null, null, null, jugador.getId(), null, null, null);
+        FiltroReservas porCliente = new FiltroReservas(null, null, null, jugador.getId(), null, null, null, null, null);
 
         assertThat(reservaRepository.findAll(ReservaSpecification.paraPersonal(porCliente), Pageable.unpaged())
                 .getContent()).containsExactlyInAnyOrder(responsable, comoJugador2);
+    }
+
+    @Test
+    void elPersonalFiltraPorTurnoFijo() {
+        TurnoFijo otroTf = em.persist(TurnoFijo.builder().cancha(cancha).diaSemana(DayOfWeek.THURSDAY)
+                .horaInicio(LocalTime.of(20, 0)).horaFin(LocalTime.of(21, 30)).desde(MIERCOLES.plusDays(1))
+                .activo(true).createdBy(admin).createdAt(TestData.AHORA).build());
+        Reserva delTurno = partido(MIERCOLES, EstadoReserva.CONFIRMADA, tf, jugador);
+        Reserva dadaDeBaja = partido(MIERCOLES.plusWeeks(1), EstadoReserva.CANCELADA, tf, jugador);
+        Reserva delOtro = partido(MIERCOLES.plusDays(1), EstadoReserva.CONFIRMADA, otroTf, jugador);
+        Reserva suelto = partido(MIERCOLES.plusWeeks(2), EstadoReserva.CONFIRMADA, null, jugador);
+        em.flush();
+
+        // los partidos de ese turno fijo, también la fecha dada de baja
+        assertThat(listar(new FiltroReservas(null, null, null, null, null, null, null, tf.getId(), null)))
+                .containsExactlyInAnyOrder(delTurno, dadaDeBaja);
+        // los de cualquier turno fijo / los que no son de un turno fijo
+        assertThat(listar(new FiltroReservas(null, null, null, null, null, null, null, null, true)))
+                .containsExactlyInAnyOrder(delTurno, dadaDeBaja, delOtro);
+        assertThat(listar(new FiltroReservas(null, null, null, null, null, null, null, null, false)))
+                .containsExactly(suelto);
+        // se combina con los demás filtros
+        assertThat(listar(new FiltroReservas(null, null, java.util.Set.of(EstadoReserva.CONFIRMADA), null, null, null,
+                null, tf.getId(), true))).containsExactly(delTurno);
+        assertThat(listar(new FiltroReservas(null, null, null, null, null, null, null, 999L, null))).isEmpty();
+        // los totales usan el mismo filtro
+        assertThat(reservaRepository.totalesParaPersonal(
+                new FiltroReservas(null, null, null, null, null, null, null, tf.getId(), null)).reservas()).isEqualTo(2);
+    }
+
+    private List<Reserva> listar(FiltroReservas filtro) {
+        return reservaRepository.findAll(ReservaSpecification.paraPersonal(filtro), Pageable.unpaged()).getContent();
     }
 }

@@ -14,6 +14,8 @@ import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
  *                       quedar vacío: no hay resultados)
  * @param textoCliente   texto a buscar en nombre, apellido o email del cliente, ya normalizado
  *                       (minúsculas y sin tildes)
+ * @param turnoFijoId    solo los partidos de ese turno fijo (también las fechas dadas de baja)
+ * @param deTurnoFijo    true: solo las que salen de un turno fijo; false: solo las que no
  */
 public record FiltroReservas(
         LocalDate desde,
@@ -22,5 +24,7 @@ public record FiltroReservas(
         Long clienteId,
         String textoCliente,
         Long canchaId,
-        TipoReserva tipo) {
+        TipoReserva tipo,
+        Long turnoFijoId,
+        Boolean deTurnoFijo) {
 }
