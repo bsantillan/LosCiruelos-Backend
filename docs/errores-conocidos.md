@@ -45,6 +45,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Listado de reservas del personal por turno fijo**: `GET /admin/reservas` acepta `turnoFijoId` (los partidos de ese turno fijo) y `deTurnoFijo=true|false` (solo los que salen de un turno fijo, o solo los que no). Se combinan con los demás filtros y con los totales.
 - **Horarios del club y reservas afuera**:
   - `PUT /admin/configuracion` puede responder `409` con `reservasFueraDeHorario` y `turnosFijosFueraDeHorario` si el horario nuevo deja reservas o turnos fijos afuera. El front muestra la lista y, si el ADMIN acepta, vuelve a mandar el mismo body con `"confirmar": true` (las reservas no se cancelan).
   - Nuevo `GET /club/horarios` (público): días y horarios de apertura de lunes a domingo, `duracionMinimaTurno` y `duracionMaximaTurno`, para la grilla del panel y el sitio.

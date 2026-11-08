@@ -620,6 +620,8 @@ Reservas pasadas y futuras de cualquier cliente, para consultarlas y cobrar en e
 | `cliente` | texto | — | Busca en nombre, apellido, email o "nombre apellido" del cliente; contiene, sin distinguir mayúsculas ni tildes (`jose` encuentra a "José Pérez") |
 | `canchaId` | id | — | Una cancha |
 | `tipo` | `NORMAL` \| `PARTIDO` | los dos | Solo reservas normales o solo partidos |
+| `turnoFijoId` | id | — | Los partidos de ese turno fijo, también las fechas dadas de baja (`CANCELADA`). Un id que no existe no trae nada |
+| `deTurnoFijo` | `true` \| `false` | todas | `true`: solo las que salen de un turno fijo; `false`: solo las que no (reservas y partidos sueltos). Con `turnoFijoId`, `deTurnoFijo=false` es `400` ("No se puede pedir un turno fijo (turnoFijoId) y las que no son de turnos fijos (deTurnoFijo=false) a la vez.") |
 | `pendientes` | `true` \| `false` | `false` | Solo las que deben plata: `CONFIRMADA`, `SEÑADA` y `PARCIALMENTE_PAGADA`, hayan jugado o no (las `PENDIENTE` sin pago no entran). Combinado con `estado`, quedan las que cumplen los dos |
 | `orden` | `asc` \| `desc` | `asc` si `desde` es hoy o posterior; `desc` en el resto | Por fecha y hora del turno |
 | `page` | ≥ 0 | `0` | Página, desde 0 |
