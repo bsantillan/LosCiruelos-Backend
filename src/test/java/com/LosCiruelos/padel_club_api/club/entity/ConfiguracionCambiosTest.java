@@ -78,4 +78,25 @@ class ConfiguracionCambiosTest {
         // si algo falla, los días no cambian
         assertThat(config.getDias_apertura()).hasSize(7);
     }
+
+    @Test
+    void unTurnoQueNoEntraEnElHorarioDiceElMotivo() {
+        java.time.DayOfWeek lunes = java.time.DayOfWeek.MONDAY;
+        // lunes de 08:00 a 23:00
+        assertThat(config.motivoFueraDeHorario(lunes, LocalTime.of(8, 0), LocalTime.of(9, 30))).isNull();
+        assertThat(config.motivoFueraDeHorario(lunes, LocalTime.of(21, 30), LocalTime.of(23, 0))).isNull();
+
+        config.cambiarHorarios(List.of(horario("Lunes", "08:30", "22:00"), horario("Martes", "08:15", "23:00")));
+
+        assertThat(config.motivoFueraDeHorario(lunes, LocalTime.of(8, 0), LocalTime.of(9, 30)))
+                .isEqualTo("Fuera del horario del club: los lunes abre de 08:30 a 22:00.");
+        assertThat(config.motivoFueraDeHorario(lunes, LocalTime.of(21, 0), LocalTime.of(22, 30)))
+                .isEqualTo("Fuera del horario del club: los lunes abre de 08:30 a 22:00.");
+        assertThat(config.motivoFueraDeHorario(java.time.DayOfWeek.TUESDAY, LocalTime.of(10, 0), LocalTime.of(11, 30)))
+                .isEqualTo("No coincide con los turnos del club: los martes son cada 30 minutos desde las 08:15.");
+        assertThat(config.motivoFueraDeHorario(java.time.DayOfWeek.SUNDAY, LocalTime.of(10, 0), LocalTime.of(11, 30)))
+                .isEqualTo("El club ya no abre los domingos.");
+        assertThat(config.motivoFueraDeHorario(java.time.DayOfWeek.SATURDAY, LocalTime.of(10, 0), LocalTime.of(11, 30)))
+                .isEqualTo("El club ya no abre los sábados.");
+    }
 }

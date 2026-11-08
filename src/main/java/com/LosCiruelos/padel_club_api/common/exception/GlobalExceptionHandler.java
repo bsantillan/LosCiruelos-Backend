@@ -132,6 +132,18 @@ public class GlobalExceptionHandler {
         }
 
         /** 400 datos inválidos · 404 no encontrada · 409 estado o turno en conflicto · 502 falla de MP. */
+        /** El horario nuevo deja afuera reservas o turnos fijos: 409 con la lista para que el ADMIN decida. */
+        @ExceptionHandler(com.LosCiruelos.padel_club_api.club.exception.HorariosConReservasException.class)
+        public ResponseEntity<Map<String, Object>> handleHorariosConReservas(
+                        com.LosCiruelos.padel_club_api.club.exception.HorariosConReservasException ex) {
+                Map<String, Object> body = new LinkedHashMap<>();
+                body.put("timestamp", timestamp());
+                body.put("error", ex.getMessage());
+                body.put("reservasFueraDeHorario", ex.getFuera().reservasFueraDeHorario());
+                body.put("turnosFijosFueraDeHorario", ex.getFuera().turnosFijosFueraDeHorario());
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+        }
+
         @ExceptionHandler(ReservaException.class)
         public ResponseEntity<Map<String, Object>> handleReserva(ReservaException ex) {
                 return error(ex.getStatus(), ex.getMessage());
