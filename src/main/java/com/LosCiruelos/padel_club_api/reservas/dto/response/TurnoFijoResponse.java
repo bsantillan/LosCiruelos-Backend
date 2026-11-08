@@ -29,8 +29,9 @@ public class TurnoFijoResponse {
     List<Jugador> jugadores;
     // partidos ya creados cuyo turno todavía no empezó (también las fechas dadas de baja, CANCELADA)
     List<Partido> proximosPartidos;
-    // solo al crear o modificar: fechas dentro de la anticipación en las que no se pudo crear el
-    // partido (horario ocupado, el club no abre, falta stock); el job lo vuelve a intentar
+    // al crear o modificar: fechas dentro de la anticipación en las que no se pudo crear el partido
+    // (horario ocupado, el club no abre, falta stock; el job lo vuelve a intentar). En las consultas:
+    // las fechas que no se van a crear porque el turno ya no entra en el horario del club
     List<FechaOmitida> fechasOmitidas;
     // solo al modificar: partidos futuros con pagos, que quedaron como estaban (se editan uno por uno)
     List<Long> partidosSinCambiar;

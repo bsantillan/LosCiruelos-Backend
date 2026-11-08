@@ -79,6 +79,9 @@ public class ConfiguracionRequest {
     @Size(max = 7, message = "Son 7 días como máximo")
     private List<@Valid @NotNull(message = "Indicá el día") Horario> horarios;
 
+    // opcional: true guarda aunque el horario nuevo deje afuera reservas o turnos fijos (no se tocan)
+    private Boolean confirmar;
+
     @Data
     public static class Horario {
         @NotBlank(message = "Indicá el día (Lunes a Domingo)")

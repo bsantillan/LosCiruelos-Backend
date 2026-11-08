@@ -45,6 +45,10 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Horarios del club y reservas afuera**:
+  - `PUT /admin/configuracion` puede responder `409` con `reservasFueraDeHorario` y `turnosFijosFueraDeHorario` si el horario nuevo deja reservas o turnos fijos afuera. El front muestra la lista y, si el ADMIN acepta, vuelve a mandar el mismo body con `"confirmar": true` (las reservas no se cancelan).
+  - Nuevo `GET /club/horarios` (público): días y horarios de apertura de lunes a domingo, `duracionMinimaTurno` y `duracionMaximaTurno`, para la grilla del panel y el sitio.
+  - En `GET /admin/turnos-fijos` y `GET /admin/turnos-fijos/{id}`, `fechasOmitidas` ya no es `null`: trae las fechas que no se van a crear porque el turno quedó fuera del horario (lista vacía si entra).
 - **Configuración del club**: nuevos `GET /admin/configuracion` y `PUT /admin/configuracion` (solo ADMIN) con toda la configuración junta: precios, seña, duración de los turnos, política de cancelación, recordatorio, anticipación y días y horarios de apertura. El `GET` devuelve el mismo objeto que recibe el `PUT`. `/admin/configuracion/avisos` y `/admin/configuracion/reservas` no cambian.
 - **Anulación de ventas sueltas**:
   - `VentaResponse` suma `estado` (`COBRADA` o `ANULADA`), `anuladaAt`, `anuladaPor` y `motivoAnulacion`. El listado de ventas trae también las anuladas: mostrarlas marcadas.
