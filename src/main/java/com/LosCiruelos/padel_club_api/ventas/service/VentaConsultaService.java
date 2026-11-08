@@ -2,6 +2,7 @@ package com.LosCiruelos.padel_club_api.ventas.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -14,6 +15,7 @@ import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.mapper.VentaMapper;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
+import com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
@@ -35,6 +37,13 @@ public class VentaConsultaService {
     private final UsuarioService usuarioService;
     private final VentaMapper ventaMapper;
     private final Reloj reloj;
+    private final CobroQrDeVentas cobroQr;
+
+    /** Los medios con que se puede cobrar una venta, en el orden en que se muestran, y si están disponibles. */
+    public List<MedioDeVentaResponse> medios() {
+        boolean qr = cobroQr.estaConfigurado();
+        return Arrays.stream(MedioDePago.values()).map(m -> ventaMapper.aMedio(m, qr)).toList();
+    }
 
     /** Ventas entre desde y hasta (sin fechas, las de hoy). El ADMIN ve cualquier período; el EMPLEADO, solo hoy. */
     @Transactional(readOnly = true)

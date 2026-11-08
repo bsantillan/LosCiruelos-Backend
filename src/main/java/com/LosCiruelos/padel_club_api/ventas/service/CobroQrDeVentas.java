@@ -53,8 +53,13 @@ class CobroQrDeVentas {
         this.minutosVencimiento = minutosVencimiento;
     }
 
+    /** Si el QR de la caja está configurado (token y caja de Mercado Pago). */
+    boolean estaConfigurado() {
+        return proveedor.estaConfigurado();
+    }
+
     void exigirConfigurado() {
-        if (!proveedor.estaConfigurado()) {
+        if (!estaConfigurado()) {
             throw new CobroQrNoConfiguradoException();
         }
     }

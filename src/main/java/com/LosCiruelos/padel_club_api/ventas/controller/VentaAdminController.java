@@ -23,6 +23,7 @@ import com.LosCiruelos.padel_club_api.ventas.dto.request.ClienteVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.DevolucionVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VerificacionVentaRequest;
+import com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.service.VentaConsultaService;
 import com.LosCiruelos.padel_club_api.ventas.service.VentaQrService;
@@ -83,6 +84,12 @@ public class VentaAdminController {
     @DeleteMapping("/{id}/qr")
     public ResponseEntity<VentaResponse> cancelarQr(@PathVariable Long id, Authentication authentication) {
         return ResponseEntity.ok(ventaQrService.cancelar(id, authentication.getName()));
+    }
+
+    /** Los medios con que se puede cobrar una venta (Mercado Pago, solo si el QR de la caja está configurado). */
+    @GetMapping("/medios")
+    public ResponseEntity<List<MedioDeVentaResponse>> medios() {
+        return ResponseEntity.ok(ventaConsultaService.medios());
     }
 
     /** Una venta (el EMPLEADO, solo las de hoy); el modal del QR la consulta para ver si se pagó. */

@@ -103,7 +103,7 @@ class PagoRepositoryCuentaDniTest {
         em.persist(enEfectivo);
         em.flush();
         PagoConsultaService servicio = new PagoConsultaService(repo,
-                new VentaConsultaService(ventaRepo, null, new VentaMapper(), TestData.reloj(TestData.AHORA)),
+                new VentaConsultaService(ventaRepo, null, new VentaMapper(), TestData.reloj(TestData.AHORA), null),
                 new CuentaDniMapper());
 
         var cobros = servicio.cuentaDni(HOY.minusDays(2), HOY, false);

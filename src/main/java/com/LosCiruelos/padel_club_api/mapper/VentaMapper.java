@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
+import com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
 import com.LosCiruelos.padel_club_api.ventas.entity.VentaDevolucion;
@@ -29,6 +30,13 @@ public class VentaMapper {
                 Dinero.redondear(venta.montoDevuelto()),
                 venta.getDevoluciones().stream().map(VentaMapper::devolucion).toList(),
                 venta.seCobroConQr() ? new VentaResponse.Qr(venta.getOrderId(), venta.getVenceAt()) : null);
+    }
+
+    /** @param qrConfigurado si el QR de la caja está configurado (los medios con QR dependen de eso) */
+    public MedioDeVentaResponse aMedio(MedioDePago medio, boolean qrConfigurado) {
+        boolean disponible = !medio.conQr() || qrConfigurado;
+        return new MedioDeVentaResponse(medio, medio.etiqueta(), disponible, medio.conQr(),
+                disponible ? null : "El QR de la caja de Mercado Pago no está configurado.");
     }
 
     private static VentaResponse.Devolucion devolucion(VentaDevolucion d) {

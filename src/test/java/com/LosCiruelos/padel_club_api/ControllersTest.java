@@ -1339,6 +1339,27 @@ class ControllersTest {
         }
 
         @Test
+        void losMediosDeCobroNoSeConfundenConUnaVenta() throws Exception {
+            when(ventaConsultaService.medios()).thenReturn(List.of(
+                    new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.EFECTIVO,
+                            "Efectivo", true, false, null),
+                    new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.MERCADO_PAGO,
+                            "Mercado Pago (QR de la caja)", false, true,
+                            "El QR de la caja de Mercado Pago no está configurado.")));
+
+            // antes caía en GET /admin/ventas/{id} y respondía 400
+            mvc.perform(get("/admin/ventas/medios").principal(AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].medio").value("EFECTIVO"))
+                    .andExpect(jsonPath("$[0].detalle").doesNotExist())
+                    .andExpect(jsonPath("$[1].etiqueta").value("Mercado Pago (QR de la caja)"))
+                    .andExpect(jsonPath("$[1].disponible").value(false))
+                    .andExpect(jsonPath("$[1].conQr").value(true))
+                    .andExpect(jsonPath("$[1].detalle").value("El QR de la caja de Mercado Pago no está configurado."));
+            verify(ventaConsultaService, never()).obtener(any(), anyString());
+        }
+
+        @Test
         void cancelarElQrDeUnaVenta() throws Exception {
             when(ventaQrService.cancelar(8L, EMAIL)).thenReturn(new VentaResponse(8L, TestData.AHORA,
                     new java.math.BigDecimal("3000.00"), MedioDePago.MERCADO_PAGO, null, null, "Ana Pérez", List.of(),

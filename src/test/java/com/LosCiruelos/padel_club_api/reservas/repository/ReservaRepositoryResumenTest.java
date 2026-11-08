@@ -134,7 +134,7 @@ class ReservaRepositoryResumenTest {
     private ResumenResponse resumen(LocalDate desde, LocalDate hasta, LocalDateTime ahora) {
         Reloj reloj = TestData.reloj(ahora);
         VentaConsultaService ventas = new VentaConsultaService(ventaRepo, mock(UsuarioService.class), new VentaMapper(),
-                reloj);
+                reloj, null);
         return new ReservaConsultaService(mock(UsuarioService.class), repo, mock(ReservaMapper.class), new ResumenMapper(),
                 ventas, reloj).resumen(desde, hasta);
     }
