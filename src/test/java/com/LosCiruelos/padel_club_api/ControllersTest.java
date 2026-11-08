@@ -1018,7 +1018,7 @@ class ControllersTest {
 
         @Test
         void listaConTodosLosFiltrosYLosTotales() throws Exception {
-            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenReturn(pagina());
 
             mvc.perform(get("/admin/reservas").principal(AUTH)
@@ -1037,18 +1037,31 @@ class ControllersTest {
                     .andExpect(jsonPath("$.totales.montoPendiente").value(165000.00));
 
             verify(reservaConsultaService).listar(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31),
-                    List.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA), 7L, "pérez", 2L, null, true, 1, 50,
+                    List.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA), 7L, "pérez", 2L, null, null, null, true, 1, 50,
                     "desc");
         }
 
         @Test
+        void filtraPorTurnoFijo() throws Exception {
+            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(),
+                    anyInt(), any(), any())).thenReturn(pagina());
+
+            mvc.perform(get("/admin/reservas").principal(AUTH).param("turnoFijoId", "8").param("deTurnoFijo", "true"))
+                    .andExpect(status().isOk());
+            verify(reservaConsultaService).listar(null, null, null, null, null, null, null, 8L, true, false, 0, null, null);
+
+            mvc.perform(get("/admin/reservas").principal(AUTH).param("deTurnoFijo", "talvez"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
         void sinParametrosUsaLosValoresPorDefecto() throws Exception {
-            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenReturn(pagina());
 
             mvc.perform(get("/admin/reservas").principal(AUTH)).andExpect(status().isOk());
 
-            verify(reservaConsultaService).listar(null, null, null, null, null, null, null, false, 0, null, null);
+            verify(reservaConsultaService).listar(null, null, null, null, null, null, null, null, null, false, 0, null, null);
         }
 
         @Test
@@ -1063,7 +1076,7 @@ class ControllersTest {
 
         @Test
         void losErroresDelServicioSeRespetan() throws Exception {
-            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
+            when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
                     any())).thenThrow(new com.LosCiruelos.padel_club_api.common.exception.ReservaException(
                             "El tamaño de página tiene que estar entre 1 y 100."));
 

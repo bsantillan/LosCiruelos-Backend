@@ -315,7 +315,7 @@ class ReservaRepositoryResumenTest {
         assertThat(r.caja()).isEqualTo(new ResumenResponse.Caja($("32500.00"), $("0.00"), $("25500.00"),
                 $("7000.00"), $("0.00"), $("32500.00")));
 
-        var totales = repo.totalesParaPersonal(new FiltroReservas(HOY, HOY, null, null, null, null, null));
+        var totales = repo.totalesParaPersonal(new FiltroReservas(HOY, HOY, null, null, null, null, null, null, null));
         // las dos de hoy: 12.000 por MP en el club + 6.000 de seña online + 4.000 con Cuenta DNI
         assertThat(totales.cobradoEfectivo()).isEqualTo($("0.00"));
         assertThat(totales.cobradoMercadoPago()).isEqualTo($("18000.00"));

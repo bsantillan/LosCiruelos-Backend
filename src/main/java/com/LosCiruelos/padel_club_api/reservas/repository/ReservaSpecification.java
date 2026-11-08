@@ -111,6 +111,13 @@ public final class ReservaSpecification {
             if (filtro.tipo() != null) {
                 condiciones.add(cb.equal(root.get("tipo"), filtro.tipo()));
             }
+            if (filtro.turnoFijoId() != null) {
+                condiciones.add(cb.equal(root.get("turnoFijo").get("id"), filtro.turnoFijoId()));
+            }
+            if (filtro.deTurnoFijo() != null) {
+                condiciones.add(filtro.deTurnoFijo() ? cb.isNotNull(root.get("turnoFijo"))
+                        : cb.isNull(root.get("turnoFijo")));
+            }
             if (filtro.textoCliente() != null) {
                 condiciones.add(Busquedas.nombreApellidoOEmail(cb, root.join("cliente"), filtro.textoCliente()));
             }
