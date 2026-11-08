@@ -261,9 +261,18 @@ public class TurnoFijoService {
         }
 
         LocalDateTime ahora = reloj.ahora();
-        LocalDate hasta = configuracionService.obtener().reservableHasta(ahora.toLocalDate());
+        Configuracion config = configuracionService.obtener();
+        LocalDate hasta = config.reservableHasta(ahora.toLocalDate());
+        // si el ADMIN cambió el horario del club y el turno ya no entra, no se crean partidos nuevos
+        String fueraDeHorario = config.motivoFueraDeHorario(tf.getDiaSemana(), tf.getHoraInicio(), tf.getHoraFin());
         for (LocalDate fecha = proximaFecha(tf.getDesde(), tf.getHoraInicio(), ahora);
                 !fecha.isAfter(hasta); fecha = fecha.plusWeeks(1)) {
+            if (fueraDeHorario != null) {
+                if (!reservaRepository.existsByTurnoFijoAndFechaReserva(tf, fecha)) {
+                    omitidas.add(new FechaOmitida(fecha, fueraDeHorario));
+                }
+                continue;
+            }
             try {
                 reservaService.crearPartidoDeTurnoFijo(turnoFijoId, fecha).ifPresent(creados::add);
             } catch (RuntimeException e) {
@@ -383,7 +392,11 @@ public class TurnoFijoService {
         return Fechas.nombreDia(dia);
     }
 
-    /** La respuesta con los partidos del turno fijo que todavía no empezaron. */
+    /**
+     * La respuesta con los partidos del turno fijo que todavía no empezaron y, si el turno ya no
+     * entra en el horario del club, las fechas (dentro de la anticipación) en que no se va a crear el
+     * partido, con el motivo.
+     */
     TurnoFijoResponse aResponse(TurnoFijo tf) {
         LocalDateTime ahora = reloj.ahora();
         List<Reserva> proximos = reservaRepository.findIdsFuturosDelTurnoFijo(tf.getId(), ahora.toLocalDate(),
@@ -391,6 +404,29 @@ public class TurnoFijoService {
                 .map(reservaRepository::findById)
                 .flatMap(java.util.Optional::stream)
                 .toList();
-        return turnoFijoMapper.aResponse(tf, proximos);
+        TurnoFijoResponse response = turnoFijoMapper.aResponse(tf, proximos);
+        response.setFechasOmitidas(fueraDeHorario(tf, proximos, ahora));
+        return response;
+    }
+
+    private List<FechaOmitida> fueraDeHorario(TurnoFijo tf, List<Reserva> proximos, LocalDateTime ahora) {
+        Configuracion config = configuracionService.obtener();
+        String motivo = Boolean.TRUE.equals(tf.getActivo())
+                ? config.motivoFueraDeHorario(tf.getDiaSemana(), tf.getHoraInicio(), tf.getHoraFin())
+                : null;
+        if (motivo == null) {
+            return List.of();
+        }
+        java.util.Set<LocalDate> conPartido = proximos.stream().map(Reserva::getFechaReserva)
+                .collect(java.util.stream.Collectors.toSet());
+        List<FechaOmitida> omitidas = new ArrayList<>();
+        LocalDate hasta = config.reservableHasta(ahora.toLocalDate());
+        for (LocalDate fecha = proximaFecha(tf.getDesde(), tf.getHoraInicio(), ahora); !fecha.isAfter(hasta);
+                fecha = fecha.plusWeeks(1)) {
+            if (!conPartido.contains(fecha)) {
+                omitidas.add(new FechaOmitida(fecha, motivo));
+            }
+        }
+        return omitidas;
     }
 }

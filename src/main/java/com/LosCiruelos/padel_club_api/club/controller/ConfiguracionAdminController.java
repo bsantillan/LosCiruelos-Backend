@@ -14,6 +14,7 @@ import com.LosCiruelos.padel_club_api.club.dto.request.ReservasConfigRequest;
 import com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.RecordatorioConfigResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ReservasConfigResponse;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionGeneralService;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 
 import jakarta.validation.Valid;
@@ -30,15 +31,17 @@ import lombok.RequiredArgsConstructor;
 public class ConfiguracionAdminController {
 
     private final ConfiguracionService configuracionService;
+    private final ConfiguracionGeneralService configuracionGeneralService;
 
     @GetMapping
     public ResponseEntity<ConfiguracionResponse> configuracion() {
-        return ResponseEntity.ok(configuracionService.general());
+        return ResponseEntity.ok(configuracionGeneralService.general());
     }
 
+    /** Si el horario nuevo deja afuera reservas o turnos fijos, 409 con la lista salvo { "confirmar": true }. */
     @PutMapping
     public ResponseEntity<ConfiguracionResponse> actualizar(@Valid @RequestBody ConfiguracionRequest request) {
-        return ResponseEntity.ok(configuracionService.actualizarGeneral(request));
+        return ResponseEntity.ok(configuracionGeneralService.actualizar(request));
     }
 
     @GetMapping("/avisos")
