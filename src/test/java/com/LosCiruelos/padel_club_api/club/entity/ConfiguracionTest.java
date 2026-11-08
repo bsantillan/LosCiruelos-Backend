@@ -35,10 +35,23 @@ class ConfiguracionTest {
     }
 
     @Test
-    void montoDelTurnoEsBaseMasBloquesDe30Minutos() {
+    void elMontoBaseEsElTurnoMinimoYSeSumaCadaMediaHoraDeMas() {
+        // mínimo 90 minutos: $15.000; cada media hora de más, $5.000
         assertThat(config.montoTurno(90)).isEqualByComparingTo("15000");
-        config.setMontoReserva(new BigDecimal("1000"));
-        assertThat(config.montoTurno(120)).isEqualByComparingTo("21000");
+        assertThat(config.montoTurno(120)).isEqualByComparingTo("20000");
+        assertThat(config.montoTurno(180)).isEqualByComparingTo("30000");
+        config.setMontoReserva(new BigDecimal("16000"));
+        assertThat(config.montoTurno(90)).isEqualByComparingTo("16000");
+        assertThat(config.montoTurno(150)).isEqualByComparingTo("26000");
+    }
+
+    @Test
+    void siSubeElMinimoElMontoBaseEsElDelMinimoNuevo() {
+        config.cambiarDuracionDeTurnos(120, 180);
+        assertThat(config.montoTurno(120)).isEqualByComparingTo("15000");
+        assertThat(config.montoTurno(180)).isEqualByComparingTo("25000");
+        // un turno viejo más corto que el mínimo nuevo cuesta el monto base
+        assertThat(config.montoTurno(90)).isEqualByComparingTo("15000");
     }
 
     @Test

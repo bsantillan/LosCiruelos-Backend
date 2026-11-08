@@ -45,6 +45,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Precio del turno**: `montoReserva` de la configuración (`GET`/`PUT /admin/configuracion`) ahora es el precio del turno mínimo, y `montoXMediaHora` se suma solo por cada media hora por encima del mínimo. La migración V33 ajustó el valor guardado (de $0 a $15.000 con la configuración inicial), así que los precios no cambian. Si el front calcula un precio a mano, usar `montoReserva + montoXMediaHora × (duración − duracionMinimaTurno) / 30`, o mejor el `montoCancha` de la disponibilidad.
 - **Listado de reservas del personal por turno fijo**: `GET /admin/reservas` acepta `turnoFijoId` (los partidos de ese turno fijo) y `deTurnoFijo=true|false` (solo los que salen de un turno fijo, o solo los que no). Se combinan con los demás filtros y con los totales.
 - **Horarios del club y reservas afuera**:
   - `PUT /admin/configuracion` puede responder `409` con `reservasFueraDeHorario` y `turnosFijosFueraDeHorario` si el horario nuevo deja reservas o turnos fijos afuera. El front muestra la lista y, si el ADMIN acepta, vuelve a mandar el mismo body con `"confirmar": true` (las reservas no se cancelan).
