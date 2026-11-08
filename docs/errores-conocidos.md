@@ -45,6 +45,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Precio del turno**: `montoReserva` de la configuración (`GET`/`PUT /admin/configuracion`) ahora es el precio del turno mínimo, y `montoXMediaHora` se suma solo por cada media hora por encima del mínimo. La migración V33 ajustó el valor guardado (de $0 a $15.000 con la configuración inicial), así que los precios no cambian. Si el front calcula un precio a mano, usar `montoReserva + montoXMediaHora × (duración − duracionMinimaTurno) / 30`, o mejor el `montoCancha` de la disponibilidad.
 - **Configuración del club**: nuevos `GET /admin/configuracion` y `PUT /admin/configuracion` (solo ADMIN) con toda la configuración junta: precios, seña, duración de los turnos, política de cancelación, recordatorio, anticipación y días y horarios de apertura. El `GET` devuelve el mismo objeto que recibe el `PUT`. `/admin/configuracion/avisos` y `/admin/configuracion/reservas` no cambian.
 - **Anulación de ventas sueltas**:
   - `VentaResponse` suma `estado` (`COBRADA` o `ANULADA`), `anuladaAt`, `anuladaPor` y `motivoAnulacion`. El listado de ventas trae también las anuladas: mostrarlas marcadas.

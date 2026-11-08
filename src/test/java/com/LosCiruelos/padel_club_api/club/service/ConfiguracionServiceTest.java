@@ -124,8 +124,9 @@ class ConfiguracionServiceTest {
         assertThat(config.getMinutosRecordatorio()).isEqualTo(60);
         assertThat(config.getDiasAnticipacionReserva()).isEqualTo(15);
         assertThat(r.horarios()).extracting(h -> h.dia()).containsExactly("Lunes", "Sábado");
-        // el precio de un turno de 90 minutos con la configuración nueva
-        assertThat(config.montoTurno(90)).isEqualTo(new java.math.BigDecimal("19001.50"));
+        // el turno mínimo (60 minutos) es $1.000 y cada media hora de más, $6.000,50
+        assertThat(config.montoTurno(60)).isEqualTo(new java.math.BigDecimal("1000.00"));
+        assertThat(config.montoTurno(90)).isEqualTo(new java.math.BigDecimal("7000.50"));
     }
 
     @Test

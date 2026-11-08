@@ -53,7 +53,7 @@ TRUNCATE admins, canchas, clientes, configuracion, dias, empleados, envios_codig
 INSERT INTO configuracion (id, monto_reserva, monto_x_media_hora, porcentaje_senia, duracion_minima_turno,
                            duracion_maxima_turno, minutos_reembolso_total, minutos_reembolso_senia,
                            recordatorio_activo, minutos_recordatorio, dias_anticipacion_reserva)
-VALUES (1, 0, 5000, 50, 90, 180, 1440, 720, true, 120, 30);
+VALUES (1, 15000, 5000, 50, 90, 180, 1440, 720, true, 120, 30);
 
 INSERT INTO dias (dia, horario_inicio, horario_fin, configuracion_general_id) VALUES
     ('Lunes', '08:00', '23:00', 1), ('Martes', '08:00', '23:00', 1), ('Miércoles', '08:00', '23:00', 1),
@@ -119,7 +119,9 @@ CREATE FUNCTION pg_temp.reserva(p_cliente text, p_creada_por text, p_cancha int,
 RETURNS bigint LANGUAGE plpgsql AS $$
 DECLARE v_id bigint; v_total numeric;
 BEGIN
-    SELECT monto_reserva + monto_x_media_hora * (extract(epoch FROM p_fin - p_inicio)::int / 60 / 30)
+    -- monto_reserva es el turno mínimo; se suma monto_x_media_hora por cada media hora de más
+    SELECT monto_reserva + monto_x_media_hora
+           * (greatest(extract(epoch FROM p_fin - p_inicio)::int / 60 - duracion_minima_turno, 0) / 30)
     INTO v_total FROM configuracion WHERE id = 1;
     INSERT INTO reservas (cancha_id, cliente_id, created_by_id, fecha_reserva, hora_inicio, hora_fin, monto_total,
                           estado, created_at, expires_at, tipo)

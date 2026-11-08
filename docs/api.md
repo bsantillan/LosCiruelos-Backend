@@ -241,7 +241,7 @@ Se pueden consultar sin iniciar sesión (un visitante ve los horarios libres y l
 }
 ```
 - `turnosDisponibles`: turnos de la duración pedida que se pueden reservar, cada 30 min desde la apertura, sin solaparse con ninguno ocupado. Usa las mismas reglas que `POST /reservas`.
-- `montoCancha`: precio de la cancha para esa duración (sin pelotas ni paletas). Se calcula con el mismo método que usa la reserva (`montoReserva + montoXMediaHora × duración / 30`), así que coincide con el `montoCancha` que se cobra.
+- `montoCancha`: precio de la cancha para esa duración (sin pelotas ni paletas). Se calcula con el mismo método que usa la reserva (`montoReserva + montoXMediaHora × (duración − duracionMinimaTurno) / 30`), así que coincide con el `montoCancha` que se cobra.
 - `duracion` es opcional (por defecto, la mínima); tiene que ser múltiplo de 30 y estar entre el mínimo y el máximo.
 - Si la fecha es hoy, `horarioMinimoInicio` es el próximo bloque disponible (`null` si ya no quedan turnos ese día).
 - `reservableHasta`: el último día que el **cliente** puede reservar (hoy + los días de anticipación de la configuración, 30 por defecto). Sirve para limitar el calendario. La disponibilidad responde también fechas posteriores, porque el personal puede reservar más lejos.
@@ -375,7 +375,7 @@ Toda la configuración junta. Lo que responde el `GET` es exactamente el body de
 
 ```json
 {
-  "montoReserva": 0.00, "montoXMediaHora": 5000.00, "porcentajeSenia": 50.00,
+  "montoReserva": 15000.00, "montoXMediaHora": 5000.00, "porcentajeSenia": 50.00,
   "duracionMinimaTurno": 90, "duracionMaximaTurno": 180,
   "minutosReembolsoTotal": 1440, "minutosReembolsoSenia": 720,
   "recordatorioActivo": true, "minutosRecordatorio": 120,
@@ -389,7 +389,7 @@ Toda la configuración junta. Lo que responde el `GET` es exactamente el body de
 
 | Campo | Qué es | Validación |
 |---|---|---|
-| `montoReserva`, `montoXMediaHora` | Precio del turno: `montoReserva` + `montoXMediaHora` por cada media hora | ≥ 0 y > 0, hasta 2 decimales |
+| `montoReserva`, `montoXMediaHora` | Precio de la cancha: `montoReserva` es el precio del **turno mínimo** (`duracionMinimaTurno`) y `montoXMediaHora` se suma por cada media hora **por encima** del mínimo: `montoReserva + montoXMediaHora × (duración − duracionMinimaTurno) / 30`. Con mínimo de 90 minutos, $15.000 y $5.000: 90 min = $15.000, 120 = $20.000, 180 = $30.000. Si se cambia `duracionMinimaTurno`, `montoReserva` pasa a ser el precio del mínimo nuevo: revisarlo en el mismo `PUT` (por ejemplo, de 90 a 60 minutos con $15.000, el turno de 60 cuesta $15.000 y el de 90, $25.000) | ≥ 0 y > 0, hasta 2 decimales |
 | `porcentajeSenia` | Porcentaje del total que es la seña | 0 a 100 |
 | `duracionMinimaTurno`, `duracionMaximaTurno` | Minutos | 30 a 600, múltiplos de 30, la mínima ≤ la máxima |
 | `minutosReembolsoTotal`, `minutosReembolsoSenia` | Política de cancelación del cliente: con al menos esa anticipación se devuelve todo / la seña | 0 a 10080 (7 días); la de todo ≥ la de la seña |

@@ -103,7 +103,7 @@ public class DataInitializer implements ApplicationRunner {
 
                 Configuracion configuracion = Configuracion.builder()
                                 .id(1L)
-                                .montoReserva(BigDecimal.ZERO)
+                                .montoReserva(new BigDecimal("15000")) // el turno mínimo (90 minutos)
                                 .porcentajeSenia(new BigDecimal("50"))
                                 .duracionMinimaTurno(90)
                                 .duracionMaximaTurno(180)

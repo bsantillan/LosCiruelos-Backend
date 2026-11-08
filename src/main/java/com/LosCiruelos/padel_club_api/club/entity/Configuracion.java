@@ -42,6 +42,7 @@ public class Configuracion {
     @Id
     private Long id;
 
+    // precio del turno mínimo (duracionMinimaTurno)
     @Column(nullable = false, name = "monto_reserva", precision = 10, scale = 2)
     private BigDecimal montoReserva;
 
@@ -54,6 +55,7 @@ public class Configuracion {
     @Column(nullable = false, name = "duracion_maxima_turno")
     private Integer duracionMaximaTurno;
 
+    // lo que se suma por cada media hora por encima del turno mínimo
     @Column(nullable = false, name = "monto_x_media_hora", precision = 10, scale = 2)
     private BigDecimal montoXMediaHora;
 
@@ -218,10 +220,14 @@ public class Configuracion {
         }
     }
 
-    /** montoReserva + montoXMediaHora × cantidad de bloques de 30 minutos. */
+    /**
+     * Precio de la cancha: montoReserva es el del turno mínimo y se suma montoXMediaHora por cada
+     * media hora por encima: montoReserva + montoXMediaHora × ((duración − duracionMinimaTurno) / 30).
+     * Un turno más corto que el mínimo (uno viejo, si el ADMIN subió el mínimo) cuesta montoReserva.
+     */
     public BigDecimal montoTurno(long duracionMinutos) {
-        long bloques = duracionMinutos / MINUTOS_POR_BLOQUE;
-        return Dinero.redondear(montoReserva.add(montoXMediaHora.multiply(BigDecimal.valueOf(bloques))));
+        long bloquesExtra = Math.max(0, duracionMinutos - duracionMinimaTurno) / MINUTOS_POR_BLOQUE;
+        return Dinero.redondear(montoReserva.add(montoXMediaHora.multiply(BigDecimal.valueOf(bloquesExtra))));
     }
 
     /** Seña = total × porcentajeSenia / 100, redondeada a centavos. */
