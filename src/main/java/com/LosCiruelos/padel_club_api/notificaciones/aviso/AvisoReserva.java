@@ -18,7 +18,9 @@ import com.LosCiruelos.padel_club_api.common.Fechas;
  * @param monto  lo que corresponde al aviso: lo pagado (confirmada), el total (saldo), lo que
  *               hay que devolver (reembolso manual) o el saldo pendiente (recordatorio)
  * @param detalle texto libre del aviso (quién canceló y el reembolso, el motivo, hasta cuándo pagar…)
- * @param link    link para el cliente (pagar la seña); lo completa el envío con la URL del front
+ * @param link    link para el cliente (pagar la seña); lo completa el envío con la URL del front. Por
+ *               WhatsApp va en el botón de la plantilla ({@link #parametroBoton()}); por mail, al final
+ *               del texto ({@link #textoMail()})
  */
 public record AvisoReserva(
         TipoAviso tipo,
@@ -78,12 +80,26 @@ public record AvisoReserva(
                     detalle != null ? detalle : "");
             case REEMBOLSO_REALIZADO -> List.of(Dinero.texto(monto), String.valueOf(reservaId), nombreCompleto);
             case SENIA_PENDIENTE -> List.of(nombreCompleto, canchaTexto, fechaTexto, horario, Dinero.texto(monto),
-                    detalle != null ? detalle : "", link != null ? link : "");
+                    detalle != null ? detalle : "");
         };
     }
 
     public String texto() {
         return tipo.texto(parametros());
+    }
+
+    /**
+     * Lo que se agrega a la URL del botón de la plantilla de WhatsApp, o null si no tiene botón con
+     * variable. El de la seña pendiente se carga en Meta como {@code <front>/reservas/{{1}}}: el
+     * sufijo completa la pantalla de pago de la reserva.
+     */
+    public String parametroBoton() {
+        return tipo == TipoAviso.SENIA_PENDIENTE ? reservaId + "/pago" : null;
+    }
+
+    /** El texto del mail: el de la plantilla y, si hay, el link (en WhatsApp es el botón). */
+    public String textoMail() {
+        return link != null ? texto() + "\n\nPagá la seña desde este link: " + link : texto();
     }
 
 }

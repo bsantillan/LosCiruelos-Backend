@@ -53,6 +53,20 @@ class MetaWhatsAppServiceTest {
     }
 
     @Test
+    void elBotonConUrlDinamicaLlevaSuParametro() {
+        meta.expect(requestTo(URL))
+                .andExpect(content().json("""
+                        {"template":{"name":"reserva_pagar_senia_v1","components":[
+                          {"type":"body","parameters":[{"type":"text","text":"Ana"}]},
+                          {"type":"button","sub_type":"url","index":"0","parameters":[{"type":"text","text":"10/pago"}]}]}}
+                        """))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        assertThat(cliente.enviarPlantilla("5491122334455", "reserva_pagar_senia_v1", List.of("Ana"), "10/pago")).isTrue();
+        meta.verify();
+    }
+
+    @Test
     void elCodigoVaEnElCuerpoYEnElBoton() {
         meta.expect(requestTo(URL))
                 .andExpect(content().json("""

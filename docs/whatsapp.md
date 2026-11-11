@@ -57,10 +57,10 @@ Se crean en *WhatsApp Manager > Plantillas de mensajes*, idioma **Español (ARG)
 | `aviso_reembolso_realizado_v2` | Utilidad | Reembolso hecho: Mercado Pago devolvió {{1}} de la reserva cancelada #{{2}} de {{3}}, que había quedado pendiente. No hace falta hacer nada más. |
 | `recordatorio_turno_v2` | Utilidad | Hola {{1}}, te recordamos tu turno en Los Ciruelos: cancha {{2}}, el {{3}}, de {{4}}. {{5}} Si no podés venir, cancelá la reserva desde la página. ¡Te esperamos! |
 | `reserva_cancelada_por_club_v2` | Utilidad | Hola {{1}}, el club canceló tu reserva de la cancha {{2}} del {{3}}, de {{4}}. {{5}} Disculpá las molestias. |
-| `reserva_pagar_senia_v1` | Utilidad | Hola {{1}}, el club te reservó la cancha {{2}} para el {{3}}, de {{4}}. Para confirmarla, pagá la seña de {{5}} {{6}} desde este link: {{7}} Si no se paga a tiempo, el turno se libera. (`{{6}}` es "antes de las 20:30 del lunes 16/11"; `{{7}}`, el link a la pantalla de pago.) **Nueva: hay que darla de alta en Meta**; mientras no esté aprobada, el aviso sale por mail. |
+| `reserva_pagar_senia_v1` | Utilidad | Hola {{1}}, el club te reservó la cancha {{2}} para el {{3}}, de {{4}}. Para confirmarla, pagá la seña de {{5}} {{6}} desde el link de pago. Si no se paga a tiempo, el turno se libera. (`{{6}}` es "antes de las 20:30 del lunes 16/11". El link va en el **botón**, con URL dinámica: ver la tabla de abajo. Por mail, el link va al final del texto.) **Nueva: hay que darla de alta en Meta**; mientras no esté aprobada, el aviso sale por mail. |
 | `codigo_verificacion_v2` | Autenticación | Plantilla de autenticación de Meta con botón **Copiar código** (Meta arma el texto: "{{1}} es tu código de verificación"). Vencimiento sugerido: 10 minutos |
 
-Título, pie y botón de cada plantilla (texto fijo, sin variables: el backend solo manda los parámetros del cuerpo y, en la de autenticación, el código del botón):
+Título, pie y botón de cada plantilla (texto fijo, sin variables: el backend solo manda los parámetros del cuerpo y, en la de autenticación y la de la seña, el parámetro del botón):
 
 | Plantilla | Título | Pie de página | Botón (Visitar sitio web) | URL |
 |---|---|---|---|---|
@@ -71,7 +71,7 @@ Título, pie y botón de cada plantilla (texto fijo, sin variables: el backend s
 | `aviso_reembolso_realizado_v2` | Reembolso realizado | Los Ciruelos Pádel · Aviso para el club | Abrir panel | `https://los-ciruelos.tail83f639.ts.net/admin/reservas` |
 | `recordatorio_turno_v2` | Recordatorio de tu turno | Los Ciruelos Pádel · Gestioná tus avisos en tu perfil | Ver mis reservas | `https://los-ciruelos.tail83f639.ts.net/mis-reservas` |
 | `reserva_cancelada_por_club_v2` | Tu reserva fue cancelada | Los Ciruelos Pádel · Gestioná tus avisos en tu perfil | Ver mis reservas | `https://los-ciruelos.tail83f639.ts.net/mis-reservas` |
-| `reserva_pagar_senia_v1` | Pagá la seña de tu reserva | Los Ciruelos Pádel · Gestioná tus avisos en tu perfil | Ver mis reservas | `https://los-ciruelos.tail83f639.ts.net/mis-reservas` |
+| `reserva_pagar_senia_v1` | Pagá la seña de tu reserva | Los Ciruelos Pádel · Gestioná tus avisos en tu perfil | Pagar la seña (URL **dinámica**) | `https://los-ciruelos.tail83f639.ts.net/reservas/{{1}}`; el backend manda `{{1}}` = `<id>/pago` (ejemplo para Meta: `123/pago`) |
 | `codigo_verificacion_v2` | — | Lo arma Meta (vencimiento: 10 minutos, igual que el backend) | Copiar código (lo agrega Meta) | — |
 
 Si se cambia el nombre de una plantilla en Meta (por ejemplo a `_v3`), hay que cambiarlo en `TipoAviso.java` y, para el código, en `whatsapp.plantilla-codigo`.

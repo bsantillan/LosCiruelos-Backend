@@ -171,9 +171,30 @@ class AvisosServiceTest {
 
         org.mockito.ArgumentCaptor<String> texto = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(email).sendAviso(eq(cliente.getEmail()), eq("Pagá la seña de tu reserva"), texto.capture());
-        assertThat(texto.getValue()).contains("pagá la seña de $7.500 antes de las 12:00 del martes 13/10")
-                .contains("https://club.test/reservas/10/pago")
-                .endsWith("Si no se paga a tiempo, el turno se libera.");
+        assertThat(texto.getValue()).contains("pagá la seña de $7.500 antes de las 12:00 del martes 13/10 desde "
+                + "el link de pago. Si no se paga a tiempo, el turno se libera.\n\n"
+                + "Pagá la seña desde este link: https://club.test/reservas/10/pago");
         verify(usuarioService, never()).adminsActivos();
+    }
+
+    @Test
+    void porWhatsAppElLinkDePagoVaEnElBoton() {
+        Usuario cliente = usuario(3L, Role.CLIENTE);
+        cliente.setCanalNotificaciones(CanalNotificacion.WHATSAPP);
+        cliente.setTelefono("5491122334455");
+        cliente.setTelefonoVerificado(true);
+        when(whatsApp.enviarPlantilla(anyString(), anyString(), anyList(), anyString())).thenReturn(true);
+        AvisoReserva aviso = AvisoReserva.de(TipoAviso.SENIA_PENDIENTE,
+                reserva(10L, cliente, EstadoReserva.PENDIENTE, "15000"), new BigDecimal("7500"),
+                "antes de las 12:00 del martes 13/10");
+
+        avisos.enviar(aviso);
+
+        // el cuerpo no lleva el link: el botón se carga en Meta como <front>/reservas/{{1}}
+        org.mockito.ArgumentCaptor<List<String>> parametros = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(whatsApp).enviarPlantilla(eq("5491122334455"), eq("reserva_pagar_senia_v1"), parametros.capture(),
+                eq("10/pago"));
+        assertThat(parametros.getValue()).hasSize(6).endsWith("$7.500", "antes de las 12:00 del martes 13/10");
+        verify(email, never()).sendAviso(anyString(), anyString(), anyString());
     }
 }

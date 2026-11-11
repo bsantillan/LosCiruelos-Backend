@@ -61,18 +61,25 @@ public class MetaWhatsAppService implements WhatsAppService {
     }
 
     @Override
-    public boolean enviarPlantilla(String telefono, String plantilla, List<String> parametros) {
-        Map<String, Object> cuerpo = Map.of("type", "body", "parameters", textos(parametros));
-        return enviar(telefono, plantilla, List.of(cuerpo));
+    public boolean enviarPlantilla(String telefono, String plantilla, List<String> parametros, String parametroBoton) {
+        List<Map<String, Object>> componentes = new ArrayList<>();
+        componentes.add(Map.of("type", "body", "parameters", textos(parametros)));
+        if (parametroBoton != null) {
+            componentes.add(boton(parametroBoton));
+        }
+        return enviar(telefono, plantilla, componentes);
+    }
+
+    /** El primer botón de la plantilla, con URL dinámica: Meta le agrega el valor al final. */
+    private static Map<String, Object> boton(String valor) {
+        return Map.of("type", "button", "sub_type", "url", "index", "0", "parameters", textos(List.of(valor)));
     }
 
     /** El código va en el cuerpo y en el botón "Copiar código" (Meta exige mandarlo en los dos). */
     @Override
     public boolean enviarCodigo(String telefono, String plantilla, String codigo) {
         Map<String, Object> cuerpo = Map.of("type", "body", "parameters", textos(List.of(codigo)));
-        Map<String, Object> boton = Map.of("type", "button", "sub_type", "url", "index", "0",
-                "parameters", textos(List.of(codigo)));
-        return enviar(telefono, plantilla, List.of(cuerpo, boton));
+        return enviar(telefono, plantilla, List.of(cuerpo, boton(codigo)));
     }
 
     private boolean enviar(String telefono, String plantilla, List<Map<String, Object>> componentes) {

@@ -26,7 +26,7 @@ public enum TipoAviso {
     CANCELADA_POR_CLUB(false, "reserva_cancelada_por_club_v2", "Tu reserva fue cancelada",
             "Hola {{1}}, el club canceló tu reserva de la cancha {{2}} del {{3}}, de {{4}}. {{5}} Disculpá las molestias."),
     SENIA_PENDIENTE(false, "reserva_pagar_senia_v1", "Pagá la seña de tu reserva",
-            "Hola {{1}}, el club te reservó la cancha {{2}} para el {{3}}, de {{4}}. Para confirmarla, pagá la seña de {{5}} {{6}} desde este link: {{7}} Si no se paga a tiempo, el turno se libera.");
+            "Hola {{1}}, el club te reservó la cancha {{2}} para el {{3}}, de {{4}}. Para confirmarla, pagá la seña de {{5}} {{6}} desde el link de pago. Si no se paga a tiempo, el turno se libera.");
 
     private final boolean paraAdmin;
     private final String plantilla;

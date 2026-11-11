@@ -15,7 +15,15 @@ public interface WhatsAppService {
     boolean estaConfigurado();
 
     /** Plantilla con parámetros de texto en el cuerpo ({{1}}, {{2}}, …). */
-    boolean enviarPlantilla(String telefono, String plantilla, List<String> parametros);
+    default boolean enviarPlantilla(String telefono, String plantilla, List<String> parametros) {
+        return enviarPlantilla(telefono, plantilla, parametros, null);
+    }
+
+    /**
+     * Plantilla con parámetros en el cuerpo y, si {@code parametroBoton} no es null, el final de la
+     * URL de su primer botón (un botón "Visitar sitio web" con URL dinámica).
+     */
+    boolean enviarPlantilla(String telefono, String plantilla, List<String> parametros, String parametroBoton);
 
     /** Plantilla de autenticación con el código de verificación. */
     boolean enviarCodigo(String telefono, String plantilla, String codigo);
