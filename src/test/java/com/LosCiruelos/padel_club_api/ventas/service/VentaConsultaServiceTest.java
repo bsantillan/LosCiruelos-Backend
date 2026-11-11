@@ -106,6 +106,8 @@ class VentaConsultaServiceTest {
                         "Efectivo", true, false, null),
                 new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.MERCADO_PAGO,
                         "Mercado Pago (QR de la caja)", true, true, null),
+                new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.TRANSFERENCIA_MP,
+                        "Mercado Pago (transferencia)", true, false, null),
                 new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.CUENTA_DNI,
                         "Cuenta DNI", true, false, null));
 

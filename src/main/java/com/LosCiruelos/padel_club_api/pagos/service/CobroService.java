@@ -95,16 +95,16 @@ public class CobroService {
      * cuando comprueba en la cuenta del club que la plata entró (o lo desmarca si se equivocó).
      */
     @Transactional
-    public PagoResponse verificarCuentaDni(Long reservaId, Long pagoId, boolean verificado, String email) {
+    public PagoResponse verificarPago(Long reservaId, Long pagoId, boolean verificado, String email) {
         Usuario admin = usuarioService.autenticado(email);
-        Roles.exigirAdmin(admin, "Solo el ADMIN puede verificar un pago con Cuenta DNI.");
+        Roles.exigirAdmin(admin, "Solo el ADMIN puede verificar un pago.");
         Reserva reserva = reservaService.bloquearConAcceso(reservaId, admin);
         Pago pago = reserva.getPagos().stream()
                 .filter(p -> p.getId().equals(pagoId))
                 .findFirst()
                 .orElseThrow(() -> new PagoNoEncontradoException("Pago no encontrado: " + pagoId));
         pago.verificar(verificado, admin.getId(), reloj.ahora());
-        log.info("Pago #{} con Cuenta DNI (reserva #{}) {} por {}", pagoId, reservaId,
+        log.info("Pago #{} con {} (reserva #{}) {} por {}", pagoId, pago.getProvider(), reservaId,
                 verificado ? "verificado" : "sin verificar", email);
         return pagoMapper.aResponse(pago);
     }

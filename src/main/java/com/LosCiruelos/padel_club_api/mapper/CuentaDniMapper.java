@@ -14,12 +14,16 @@ public class CuentaDniMapper {
 
     public CobroCuentaDniResponse aResponse(Pago pago) {
         return new CobroCuentaDniResponse(Origen.RESERVA, pago.getId(), pago.getReserva().getId(),
+                pago.getProvider() == com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider.TRANSFERENCIA_MP
+                        ? com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago.TRANSFERENCIA_MP
+                        : com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago.CUENTA_DNI,
                 Dinero.redondear(pago.getMonto()), pago.getPaidAt(), pago.estaVerificado(), pago.getVerificadoAt(),
                 false);
     }
 
     public CobroCuentaDniResponse aResponse(Venta venta) {
-        return new CobroCuentaDniResponse(Origen.VENTA, venta.getId(), null, Dinero.redondear(venta.getTotal()),
+        return new CobroCuentaDniResponse(Origen.VENTA, venta.getId(), null, venta.getMedio(),
+                Dinero.redondear(venta.getTotal()),
                 venta.getCreatedAt(), venta.estaVerificada(), venta.getVerificadoAt(), venta.estaAnulada());
     }
 }

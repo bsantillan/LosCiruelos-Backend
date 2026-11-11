@@ -116,7 +116,7 @@ public class VentaConsultaService {
     /** Cuántas ventas cobradas y lo cobrado por medio en [inicio, fin) (la caja del resumen); las anuladas no cuentan. */
     public TotalesDeVentas totales(LocalDateTime inicio, LocalDateTime fin) {
         return ventaRepository.totales(inicio, fin, EstadoVenta.COBRADA, MedioDePago.EFECTIVO,
-                MedioDePago.MERCADO_PAGO, MedioDePago.CUENTA_DNI);
+                MedioDePago.MERCADO_PAGO, MedioDePago.TRANSFERENCIA_MP, MedioDePago.CUENTA_DNI);
     }
 
     /** Lo devuelto de las ventas en [inicio, fin), por fecha de la devolución (la caja del resumen). */
@@ -124,9 +124,13 @@ public class VentaConsultaService {
         return ventaRepository.devoluciones(inicio, fin);
     }
 
-    /** Ventas con Cuenta DNI en [inicio, fin), para que el ADMIN las controle contra la cuenta. */
-    public List<Venta> cuentaDni(LocalDateTime inicio, LocalDateTime fin, Boolean verificada) {
-        return ventaRepository.porMedio(MedioDePago.CUENTA_DNI, inicio, fin, verificada);
+    /**
+     * Ventas cobradas a mano que el ADMIN controla contra la cuenta (Cuenta DNI o transferencia) en
+     * [inicio, fin); verificada null: todas.
+     */
+    public List<Venta> verificables(LocalDateTime inicio, LocalDateTime fin, Boolean verificada,
+            java.util.Collection<MedioDePago> medios) {
+        return ventaRepository.porMedios(medios, inicio, fin, verificada);
     }
 
     /** Lo vendido de cada producto en [inicio, fin), sin las ventas anuladas ni lo devuelto. */

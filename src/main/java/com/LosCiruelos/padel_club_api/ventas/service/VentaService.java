@@ -96,7 +96,7 @@ public class VentaService {
     @Transactional
     public VentaResponse verificar(Long ventaId, boolean verificada, String email) {
         Usuario admin = usuarioService.autenticado(email);
-        Roles.exigirAdmin(admin, "Solo el ADMIN puede verificar una venta con Cuenta DNI.");
+        Roles.exigirAdmin(admin, "Solo el ADMIN puede verificar una venta.");
         Venta venta = bloquear(ventaId);
         venta.verificar(verificada, admin.getId(), reloj.ahora());
         log.info("Venta #{} con Cuenta DNI {} por {}", ventaId, verificada ? "verificada" : "sin verificar", email);

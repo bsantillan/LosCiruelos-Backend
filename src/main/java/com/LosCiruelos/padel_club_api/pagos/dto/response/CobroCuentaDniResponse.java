@@ -4,14 +4,16 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Un cobro con Cuenta DNI para controlar contra la cuenta del club: el pago de una reserva o una
- * venta suelta.
+ * Un cobro a mano para controlar contra la cuenta del club (Cuenta DNI o transferencia de Mercado
+ * Pago): el pago de una reserva o una venta suelta.
  *
+ * @param medio     CUENTA_DNI o TRANSFERENCIA_MP
  * @param id        id del pago (origen RESERVA) o de la venta (origen VENTA): es el que se usa para verificarlo
  * @param reservaId la reserva del pago (null en una venta)
  * @param anulada   venta anulada: la plata, si entró, se devolvió a mano (siempre false en una reserva)
  */
-public record CobroCuentaDniResponse(Origen origen, Long id, Long reservaId, BigDecimal monto, LocalDateTime fecha,
+public record CobroCuentaDniResponse(Origen origen, Long id, Long reservaId,
+        com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago medio, BigDecimal monto, LocalDateTime fecha,
         boolean verificado, LocalDateTime verificadoAt, boolean anulada) {
 
     public enum Origen {

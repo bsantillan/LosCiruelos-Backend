@@ -80,7 +80,7 @@ class PagoRepositoryCuentaDniTest {
     }
 
     private java.util.List<Pago> cuentaDni(Boolean verificadoFiltro) {
-        return repo.cuentaDni(PaymentProvider.CUENTA_DNI, HOY.minusDays(2).atStartOfDay(),
+        return repo.verificables(java.util.List.of(PaymentProvider.CUENTA_DNI), HOY.minusDays(2).atStartOfDay(),
                 HOY.plusDays(1).atStartOfDay(), verificadoFiltro);
     }
 
@@ -104,7 +104,8 @@ class PagoRepositoryCuentaDniTest {
         em.flush();
         PagoConsultaService servicio = new PagoConsultaService(repo,
                 new VentaConsultaService(ventaRepo, null, new VentaMapper(), TestData.reloj(TestData.AHORA), null),
-                new CuentaDniMapper());
+                new CuentaDniMapper(), org.mockito.Mockito.mock(com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr.class),
+                new com.LosCiruelos.padel_club_api.mapper.PagoMapper());
 
         var cobros = servicio.cuentaDni(HOY.minusDays(2), HOY, false);
 

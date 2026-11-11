@@ -283,11 +283,11 @@ class CobroServiceTest extends PagosTestBase {
             reservaBloqueada(EstadoReserva.PENDIENTE);
             Long pagoId = cobrar("7500").getId();
 
-            PagoResponse verificado = cobroService.verificarCuentaDni(10L, pagoId, true, admin.getEmail());
+            PagoResponse verificado = cobroService.verificarPago(10L, pagoId, true, admin.getEmail());
             assertThat(verificado.getVerificado()).isTrue();
             assertThat(verificado.getVerificadoAt()).isEqualTo(AHORA);
 
-            PagoResponse desmarcado = cobroService.verificarCuentaDni(10L, pagoId, false, admin.getEmail());
+            PagoResponse desmarcado = cobroService.verificarPago(10L, pagoId, false, admin.getEmail());
             assertThat(desmarcado.getVerificado()).isFalse();
             assertThat(desmarcado.getVerificadoAt()).isNull();
         }
@@ -297,9 +297,9 @@ class CobroServiceTest extends PagosTestBase {
             reservaBloqueada(EstadoReserva.PENDIENTE);
             Long pagoId = cobrar("7500").getId();
 
-            assertThatThrownBy(() -> cobroService.verificarCuentaDni(10L, pagoId, true, empleado.getEmail()))
+            assertThatThrownBy(() -> cobroService.verificarPago(10L, pagoId, true, empleado.getEmail()))
                     .isInstanceOf(PermisoDenegadoException.class)
-                    .hasMessage("Solo el ADMIN puede verificar un pago con Cuenta DNI.");
+                    .hasMessage("Solo el ADMIN puede verificar un pago.");
         }
 
         @Test
@@ -308,10 +308,10 @@ class CobroServiceTest extends PagosTestBase {
             Long pagoId = cobroService.registrarPagoManual(10L, new BigDecimal("7500"), PaymentProvider.MANUAL,
                     empleado.getEmail()).getId();
 
-            assertThatThrownBy(() -> cobroService.verificarCuentaDni(10L, pagoId, true, admin.getEmail()))
+            assertThatThrownBy(() -> cobroService.verificarPago(10L, pagoId, true, admin.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class)
-                    .hasMessage("Solo se verifican los pagos con Cuenta DNI.");
-            assertThatThrownBy(() -> cobroService.verificarCuentaDni(10L, 999L, true, admin.getEmail()))
+                    .hasMessage("Solo se verifican los pagos con Cuenta DNI o por transferencia.");
+            assertThatThrownBy(() -> cobroService.verificarPago(10L, 999L, true, admin.getEmail()))
                     .isInstanceOf(com.LosCiruelos.padel_club_api.pagos.exception.PagoNoEncontradoException.class);
         }
 

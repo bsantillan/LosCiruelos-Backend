@@ -9,6 +9,7 @@ import java.util.TreeMap;
 import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Caja;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Cancelaciones;
@@ -42,12 +43,15 @@ public class ResumenMapper {
 
         BigDecimal efectivo = e.efectivo().add(v.efectivo());
         BigDecimal mercadoPago = e.mercadoPago().add(v.mercadoPago());
+        DetalleMercadoPago detalle = new DetalleMercadoPago(Dinero.redondear(mercadoPago),
+                Dinero.redondear(e.mercadoPagoQr().add(v.mercadoPagoQr())), Dinero.redondear(e.mercadoPagoOnline()),
+                Dinero.redondear(e.transferencia().add(v.transferencia())));
         BigDecimal cuentaDni = e.cuentaDni().add(v.cuentaDni());
         BigDecimal total = efectivo.add(mercadoPago).add(cuentaDni);
         BigDecimal devoluciones = devolucionesDeReservas.add(devolucionesDeVentas);
         Caja caja = new Caja(Dinero.redondear(total), Dinero.redondear(efectivo), Dinero.redondear(mercadoPago),
                 Dinero.redondear(cuentaDni),
-                Dinero.redondear(devoluciones), Dinero.redondear(total.subtract(devoluciones)));
+                Dinero.redondear(devoluciones), Dinero.redondear(total.subtract(devoluciones)), detalle);
 
         return new ResumenResponse(desde, hasta, jugados, porJugar, caja,
                 new Cancelaciones(cantidad(t.cancelados()), Dinero.redondear(c.retenidoCancelaciones())),

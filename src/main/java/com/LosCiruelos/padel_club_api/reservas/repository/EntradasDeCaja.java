@@ -2,6 +2,15 @@ package com.LosCiruelos.padel_club_api.reservas.repository;
 
 import java.math.BigDecimal;
 
-/** Plata cobrada en el período (por fecha de pago), por medio: efectivo, Mercado Pago y Cuenta DNI. */
-public record EntradasDeCaja(BigDecimal efectivo, BigDecimal mercadoPago, BigDecimal cuentaDni) {
+/**
+ * Plata cobrada en el período (por fecha de pago), por medio: efectivo, Mercado Pago (online, con el
+ * QR de la caja y por transferencia) y Cuenta DNI.
+ */
+public record EntradasDeCaja(BigDecimal efectivo, BigDecimal mercadoPagoOnline, BigDecimal mercadoPagoQr,
+        BigDecimal transferencia, BigDecimal cuentaDni) {
+
+    /** Todo lo de Mercado Pago: online, QR y transferencia. */
+    public BigDecimal mercadoPago() {
+        return mercadoPagoOnline.add(mercadoPagoQr).add(transferencia);
+    }
 }

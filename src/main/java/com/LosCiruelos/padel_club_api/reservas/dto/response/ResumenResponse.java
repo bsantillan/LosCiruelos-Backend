@@ -37,8 +37,10 @@ public record ResumenResponse(
      * que entra a una cuenta (Mercado Pago, sea online o en el club, y Cuenta DNI).
      * total = efectivo + mercadoPago + cuentaDni; neto = total - devoluciones.
      */
+    /** @param detalleMercadoPago {@code mercadoPago} abierto en QR, online y transferencia */
     public record Caja(BigDecimal total, BigDecimal efectivo, BigDecimal mercadoPago, BigDecimal cuentaDni,
-            BigDecimal devoluciones, BigDecimal neto) {
+            BigDecimal devoluciones, BigDecimal neto,
+            com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago detalleMercadoPago) {
     }
 
     /** Reservas canceladas del período y lo pagado que el club no devolvió. */

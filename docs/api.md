@@ -499,7 +499,7 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 ```json
 {
   "id": 5, "reservaId": 10, "monto": 7500.00, "estado": "APROBADO",
-  "provider": "MERCADO_PAGO",
+  "provider": "MERCADO_PAGO", "canal": "MERCADO_PAGO_ONLINE",
   "paymentToken": "<preference_id>",
   "externalPaymentId": "1234567890",
   "createdAt": "2026-10-12T17:01:00.000-03:00", "paidAt": "2026-10-12T17:02:10.000-03:00",
@@ -511,6 +511,8 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 ```
 `paymentToken` es el id de la preferencia (para inicializar el Brick o el botón de MP); `externalPaymentId`, el id del pago en MP; `verificado` y `verificadoAt`, si el ADMIN comprobó en la cuenta del club que entró un pago con Cuenta DNI, y cuándo (`null` en los otros medios); `estadoReserva`, el estado de la reserva después de la operación; `detalle`, el `status_detail` de MP (solo al cobrar).
 
+**Medios de pago** (los mismos 4 en reservas y ventas): efectivo, Mercado Pago con el QR de la caja, Mercado Pago por transferencia (alias o CVU del club) y Cuenta DNI. En un pago, `provider` es `MANUAL` (efectivo), `MERCADO_PAGO` (online o QR), `TRANSFERENCIA_MP`, `CUENTA_DNI` o `BONIFICACION`; `canal` lo abre: `EFECTIVO`, `MERCADO_PAGO_ONLINE`, `MERCADO_PAGO_QR`, `TRANSFERENCIA_MP`, `CUENTA_DNI` o `BONIFICACION`. `verificado` y `verificadoAt` vienen en los pagos con Cuenta DNI **y por transferencia** (`null` en los demás).
+
 | Método y ruta | Rol | Descripción | Errores |
 |---|---|---|---|
 | `POST /pagos/{reservaId}/iniciar?pagarTotal=false` | CLIENTE (dueño) | Un partido no se paga online (`409`). Crea el pago `PENDIENTE` y la preferencia de MP (sirve para el Payment Brick y para el Wallet Brick; vuelve a `FRONTEND_URL/pago/resultado` y vence con la reserva). `pagarTotal=true` cobra todo el saldo; `false` (por defecto) lo que falta para la seña. Si ya hay uno iniciado por el mismo monto, lo devuelve. | `404` · `409` vencida, estado inválido, seña ya paga o pago en proceso · `502` MP |
@@ -518,10 +520,13 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 | `POST /pagos/notificacion` | público (Mercado Pago) | Webhook. Acepta `?type=payment&data.id=…`, body `{"type":"payment","data":{"id":…}}` o `?topic=payment&id=…`. Valida `x-signature` si está configurado `MP_WEBHOOK_SECRET`. También recibe las orders de los cobros con QR (`?type=order&data.id=ORD…` o body `{"type":"order","data":{"id":…}}`): consulta la order a MP y no valida la firma (ver [mercado-pago-qr.md](mercado-pago-qr.md)). | `200` también si el pago no existe en MP (se ignora) · `401` firma inválida · `502` error al consultar MP (MP reintenta) |
 | `POST /admin/reservas/{reservaId}/bonificacion` | **ADMIN** | Bonifica la reserva cuando no se le cobra al cliente (socio, torneo, cortesía): todo o una parte. Body opcional `{ "monto": 7500, "motivo": "socio" }`; sin `monto` bonifica todo lo que falta. Queda un pago `provider = BONIFICACION` que cubre el monto (la reserva se confirma o queda paga) pero **no es plata**: no cuenta como cobrado, no se devuelve si se cancela y no manda aviso. Se acepta en las mismas reservas que un pago en el club. | `400` monto inválido o mayor al pendiente · `403` EMPLEADO o CLIENTE · `409` reserva paga, vencida o con pago online en proceso |
 | `POST /admin/reservas/{reservaId}/cobros/efectivo` | ADMIN, EMPLEADO | Pago en efectivo ya aprobado (`provider = MANUAL`). Body `{ "monto": 5000 }`, también en un **partido** (se cobra el monto general, sin indicar el jugador). Si deja la reserva paga y el turno ya terminó, la reserva pasa a `COMPLETADA`. | `400` monto inválido o mayor al pendiente · `409` estado o pago online en proceso |
-| `POST /admin/reservas/{reservaId}/cobros/presencial` | ADMIN, EMPLEADO | Igual, con Mercado Pago cargado a mano (`provider = MERCADO_PAGO`; por ejemplo, una transferencia a la cuenta del club). | igual |
+| `POST /admin/reservas/{reservaId}/cobros/transferencia` | ADMIN, EMPLEADO | Igual, con una transferencia a la cuenta de Mercado Pago del club (alias o CVU): `provider = TRANSFERENCIA_MP`. Queda **sin verificar** hasta que el ADMIN la controle, como Cuenta DNI. Si se cancela con reembolso, se devuelve a mano (`A_REEMBOLSAR`). | igual |
+| `POST /admin/reservas/{reservaId}/cobros/presencial` | ADMIN, EMPLEADO | **Deprecado**: alias de `cobros/transferencia` (registra lo mismo). Antes registraba "Mercado Pago cargado a mano" con `provider = MERCADO_PAGO`; esos pagos viejos pasaron a `TRANSFERENCIA_MP` con la migración V37. | igual |
+| `GET /admin/reservas/medios-de-cobro` | ADMIN, EMPLEADO | Los medios con que se cobra una reserva, en el orden en que se muestran, con el endpoint de cada uno: `[{ "medio": "EFECTIVO", "etiqueta": "Efectivo", "disponible": true, "conQr": false, "detalle": null, "metodo": "POST", "ruta": "/admin/reservas/{id}/cobros/efectivo" }, { "medio": "MERCADO_PAGO", "etiqueta": "Mercado Pago (QR de la caja)", "conQr": true, "ruta": "/admin/reservas/{id}/cobros/qr", … }, { "medio": "TRANSFERENCIA_MP", "etiqueta": "Mercado Pago (transferencia)", "ruta": "/admin/reservas/{id}/cobros/transferencia", … }, { "medio": "CUENTA_DNI", "etiqueta": "Cuenta DNI", "ruta": "/admin/reservas/{id}/cobros/cuenta-dni", … }]`. El QR está disponible solo si la caja está configurada (si no, `disponible: false` y `detalle` dice por qué). | `403` CLIENTE |
 | `POST /admin/reservas/{reservaId}/cobros/cuenta-dni` | ADMIN, EMPLEADO | Igual, con Cuenta DNI (`provider = CUENTA_DNI`). Cuenta DNI no tiene API: el personal cobra desde la app del banco y lo registra acá. Body `{ "monto": 7500 }`. Queda **sin verificar** (`verificado: false`) hasta que el ADMIN lo controle contra la cuenta. Si se cancela con reembolso, se devuelve a mano (`A_REEMBOLSAR`). | los de `cobros/efectivo` |
-| `PUT /admin/reservas/{reservaId}/pagos/{pagoId}/verificacion` | **ADMIN** | Marca un pago con Cuenta DNI como verificado (el ADMIN comprobó en la cuenta del club que la plata entró) o lo desmarca. Body `{ "verificado": true }`. Responde el pago con `verificado` y `verificadoAt`. | `400 errors.verificado` · `403` EMPLEADO ("Solo el ADMIN puede verificar un pago con Cuenta DNI.") · `404` reserva o pago · `409` "Solo se verifican los pagos con Cuenta DNI." |
-| `GET /admin/pagos/cuenta-dni?desde=2026-10-01&hasta=2026-10-31&verificado=false` | **ADMIN** | Todo lo cobrado con Cuenta DNI en el período (pagos de reservas y ventas sueltas, por fecha de cobro), del más viejo al más nuevo, para controlarlo contra la cuenta. `verificado=false` trae lo pendiente de verificar; sin el parámetro, todo. Responde `[{ "origen": "RESERVA" \| "VENTA", "id", "reservaId", "monto", "fecha", "verificado", "verificadoAt", "anulada" }]`: `id` es el del pago (se verifica con `PUT /admin/reservas/{reservaId}/pagos/{id}/verificacion`) o el de la venta (`PUT /admin/ventas/{id}/verificacion`); `reservaId` es `null` en una venta. Las ventas anuladas también vienen (con `anulada: true`), para conciliar la cuenta si la plata entró y se devolvió; en un pago de reserva, `anulada` es siempre `false`. | `400` falta una fecha o `desde` posterior a `hasta` · `403` EMPLEADO o CLIENTE |
+| `PUT /admin/reservas/{reservaId}/pagos/{pagoId}/verificacion` | **ADMIN** | Marca un pago con Cuenta DNI **o por transferencia** como verificado (el ADMIN comprobó en la cuenta del club que la plata entró) o lo desmarca. Body `{ "verificado": true }`. Responde el pago con `verificado` y `verificadoAt`. | `400 errors.verificado` · `403` EMPLEADO ("Solo el ADMIN puede verificar un pago con Cuenta DNI.") · `404` reserva o pago · `409` "Solo se verifican los pagos con Cuenta DNI." |
+| `GET /admin/pagos/cuenta-dni?desde=2026-10-01&hasta=2026-10-31&verificado=false` | **ADMIN** | Todo lo cobrado con Cuenta DNI en el período (pagos de reservas y ventas sueltas, por fecha de cobro), del más viejo al más nuevo, para controlarlo contra la cuenta. `verificado=false` trae lo pendiente de verificar; sin el parámetro, todo. Responde `[{ "origen": "RESERVA" \| "VENTA", "id", "reservaId", "medio", "monto", "fecha", "verificado", "verificadoAt", "anulada" }]`: `id` es el del pago (se verifica con `PUT /admin/reservas/{reservaId}/pagos/{id}/verificacion`) o el de la venta (`PUT /admin/ventas/{id}/verificacion`); `reservaId` es `null` en una venta. Las ventas anuladas también vienen (con `anulada: true`), para conciliar la cuenta si la plata entró y se devolvió; en un pago de reserva, `anulada` es siempre `false`. | `400` falta una fecha o `desde` posterior a `hasta` · `403` EMPLEADO o CLIENTE |
+| `GET /admin/pagos/verificables?desde=2026-10-01&hasta=2026-10-31&verificado=false&medio=TRANSFERENCIA_MP` | **ADMIN** | Como `cuenta-dni`, con **todo lo que se verifica contra la cuenta**: Cuenta DNI y transferencias de Mercado Pago, de reservas y ventas. `medio` (repetible: `CUENTA_DNI`, `TRANSFERENCIA_MP`) filtra; sin indicar, los dos. Cada cobro trae `medio`. `GET /admin/pagos/cuenta-dni` sigue y equivale a `medio=CUENTA_DNI`. | `400` fechas o un `medio` que no se verifica · `403` |
 
 ### Cobro con el QR de la caja — `/admin/reservas/{reservaId}/cobros/qr` (rol: ADMIN, EMPLEADO)
 
@@ -654,6 +659,7 @@ Reservas pasadas y futuras de cualquier cliente, para consultarlas y cobrar en e
   "pagina": 0, "tamanio": 20, "totalElementos": 57, "totalPaginas": 3,
   "totales": { "reservas": 57, "montoTotal": 855000.00, "montoCobrado": 690000.00,
                "cobradoEfectivo": 410000.00, "cobradoMercadoPago": 250000.00, "cobradoCuentaDni": 30000.00,
+               "detalleMercadoPago": { "total": 250000.00, "qr": 40000.00, "online": 180000.00, "transferencia": 30000.00 },
                "montoBonificado": 15000.00,
                "montoPendiente": 165000.00 }
 }
@@ -664,7 +670,8 @@ Reservas pasadas y futuras de cualquier cliente, para consultarlas y cobrar en e
 - `montoTotal`: suma de `montoTotal`.
 - `montoCobrado`: lo que el club se quedó de los pagos (aprobado menos lo devuelto o por devolver; de una cancelada sin reembolso, lo pagado).
 - `montoBonificado`: lo que el ADMIN bonificó (no es plata y no está en `montoCobrado`).
-- `cobradoEfectivo`, `cobradoMercadoPago` y `cobradoCuentaDni`: `montoCobrado` por medio de pago. Efectivo son los `cobros/efectivo`; Mercado Pago, los cobros online (Brick o Wallet) y los del club (`cobros/presencial`); Cuenta DNI, los `cobros/cuenta-dni`. Siempre suman `montoCobrado`.
+- `cobradoEfectivo`, `cobradoMercadoPago` y `cobradoCuentaDni`: `montoCobrado` por medio de pago. Efectivo son los `cobros/efectivo`; Mercado Pago, **todo**: los cobros online (Brick o Wallet), los del QR de la caja y las transferencias (`cobros/transferencia`); Cuenta DNI, los `cobros/cuenta-dni`. Siempre suman `montoCobrado`.
+- `detalleMercadoPago`: `cobradoMercadoPago` abierto: `{ "total", "qr", "online", "transferencia" }`.
 - `montoPendiente`: lo que deben las `SEÑADA` y `PARCIALMENTE_PAGADA` (las canceladas, vencidas o pendientes no deben).
 
 Errores: `400` si `desde` es posterior a `hasta`, un estado no existe (`errors.estado`), una fecha no tiene el formato, `size` está fuera de 1 a 100, `page` es negativa u `orden` no es `asc`/`desc` · `403` CLIENTE o PROFESOR.
@@ -712,7 +719,7 @@ Errores: `400 errors.buscar` si falta · `400` si tiene menos de 2 caracteres ·
 | `SIN_SENIA` | **Solo ADMIN** (EMPLEADO: `403` "Solo el ADMIN puede cargar una reserva sin seña."). Se cobra en el club | `CONFIRMADA` sin pagos y sin vencimiento (`expiresAt: null`), como un partido: aunque no tenga nada pagado no vence ni se cancela sola |
 
 
-Cobrar en el club la seña, el saldo o el total: `POST /admin/reservas/{reservaId}/cobros/efectivo` y `/cobros/presencial`, body `{ "monto": 7500 }`. Aceptan reservas `SEÑADA` y `PARCIALMENTE_PAGADA` aunque el turno no se haya jugado, y `PENDIENTE` mientras esté en plazo (15 min).
+Cobrar en el club la seña, el saldo o el total: `POST /admin/reservas/{reservaId}/cobros/efectivo`, `/cobros/transferencia`, `/cobros/cuenta-dni` o `/cobros/qr` (ver `GET /admin/reservas/medios-de-cobro`), body `{ "monto": 7500 }`. Aceptan reservas `SEÑADA` y `PARCIALMENTE_PAGADA` aunque el turno no se haya jugado, y `PENDIENTE` mientras esté en plazo (15 min).
 
 ---
 
@@ -755,7 +762,8 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
     "mercadoPago": 100000.00,
     "cuentaDni": 40000.00,
     "devoluciones": 7500.00,
-    "neto": 222500.00
+    "neto": 222500.00,
+    "detalleMercadoPago": { "total": 100000.00, "qr": 20000.00, "online": 70000.00, "transferencia": 10000.00 }
   },
   "cancelaciones": { "turnos": 3, "retenido": 7500.00 },
   "ventas": { "cantidad": 12, "total": 30000.00, "devoluciones": 1500.00 },
@@ -779,7 +787,8 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 | Campo | Cómo se calcula |
 |---|---|
 | `efectivo` | Monto completo de los pagos `MANUAL` (`cobros/efectivo`) cobrados en el período, más las ventas sueltas en `EFECTIVO` |
-| `mercadoPago` | Pagos `MERCADO_PAGO` cobrados en el período, online o en el club, más las ventas sueltas con `MERCADO_PAGO` |
+| `mercadoPago` | Todo lo de Mercado Pago cobrado en el período: pagos online, con el QR de la caja y por transferencia (`TRANSFERENCIA_MP`), más las ventas sueltas con `MERCADO_PAGO` (QR) y `TRANSFERENCIA_MP` |
+| `detalleMercadoPago` | `mercadoPago` abierto: `qr` (reservas y ventas), `online` (solo reservas) y `transferencia` (reservas y ventas) |
 | `cuentaDni` | Pagos `CUENTA_DNI` (`cobros/cuenta-dni`) cobrados en el período, más las ventas sueltas con `CUENTA_DNI` |
 | `total` | `efectivo + mercadoPago + cuentaDni` |
 | `devoluciones` | Lo devuelto (`montoReembolsado`) de los pagos `DEVUELTO` cuyo reembolso se hizo en el período |
@@ -836,9 +845,9 @@ Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelot
 |---|---|---|
 | `POST /admin/ventas` → `201 VentaResponse` | Registra una venta. En efectivo o con Cuenta DNI queda `COBRADA`. Con Mercado Pago se le asigna al **QR de la caja** una order por el total y queda `ESPERANDO_PAGO` (con el stock apartado) hasta que Mercado Pago confirma el pago: el front muestra "esperando el pago de $X" hasta `qr.venceAt` y consulta `GET /admin/ventas/{id}` cada pocos segundos. Ver [mercado-pago-qr.md](mercado-pago-qr.md). Body abajo. | ver abajo |
 | `DELETE /admin/ventas/{id}/qr` → `200 VentaResponse` | El personal cerró el modal del QR sin que se pagara: cancela la order, la venta queda `NO_COBRADA` y el stock vuelve. Si Mercado Pago dice que ya se pagó, queda `COBRADA`. | `404` · `409` "La venta no está esperando el pago con QR." · `502` Mercado Pago no responde |
-| `PUT /admin/ventas/{id}/verificacion` → `200 VentaResponse` | **Solo ADMIN.** Marca una venta con Cuenta DNI como verificada o la desmarca. Body `{ "verificada": true }`. | `400 errors.verificada` · `403` EMPLEADO ("Solo el ADMIN puede verificar una venta con Cuenta DNI.") · `404` · `409` "Solo se verifican las ventas con Cuenta DNI." |
+| `PUT /admin/ventas/{id}/verificacion` → `200 VentaResponse` | **Solo ADMIN.** Marca una venta con Cuenta DNI o por transferencia como verificada o la desmarca. Body `{ "verificada": true }`. | `400 errors.verificada` · `403` EMPLEADO ("Solo el ADMIN puede verificar una venta con Cuenta DNI.") · `404` · `409` "Solo se verifican las ventas con Cuenta DNI." |
 | `GET /admin/ventas` → `200 ListadoVentasResponse` | Ventas paginadas, con filtros opcionales que se combinan (ver abajo) y los totales de todo el filtro. Sin `desde` ni `hasta`, las de hoy. El ADMIN ve cualquier período; el EMPLEADO, solo hoy. **Cambio de contrato**: antes devolvía una lista. | `400` `desde` posterior a `hasta`, `cliente` con menos de 3 letras, página o tamaño inválidos, `orden` que no es `asc`/`desc` o un `medio`/`estado` que no existe · `403` EMPLEADO con otro período ("Solo podés ver las ventas de hoy.") o CLIENTE |
-| `GET /admin/ventas/medios` → `200` | Los medios con que se puede cobrar una venta, en el orden en que se muestran: `[{ "medio": "EFECTIVO", "etiqueta": "Efectivo", "disponible": true, "conQr": false, "detalle": null }, { "medio": "MERCADO_PAGO", "etiqueta": "Mercado Pago (QR de la caja)", "disponible": true, "conQr": true, "detalle": null }, { "medio": "CUENTA_DNI", "etiqueta": "Cuenta DNI", "disponible": true, "conQr": false, "detalle": null }]`. `MERCADO_PAGO` está disponible solo si el QR de la caja está configurado (`MP_QR_ACCESS_TOKEN` o `MP_ACCESS_TOKEN`, y `MP_QR_EXTERNAL_POS_ID`); si no, `disponible: false` y `detalle: "El QR de la caja de Mercado Pago no está configurado."` (registrar con ese medio daría `503`). No dice si la caja está ocupada en este momento: eso lo responde el `409` al registrar. | `403` CLIENTE |
+| `GET /admin/ventas/medios` → `200` | Los medios con que se puede cobrar una venta, en el orden en que se muestran: `[{ "medio": "EFECTIVO", "etiqueta": "Efectivo", "disponible": true, "conQr": false, "detalle": null }, { "medio": "MERCADO_PAGO", "etiqueta": "Mercado Pago (QR de la caja)", "disponible": true, "conQr": true, "detalle": null }, { "medio": "TRANSFERENCIA_MP", "etiqueta": "Mercado Pago (transferencia)", "disponible": true, "conQr": false, "detalle": null }, { "medio": "CUENTA_DNI", "etiqueta": "Cuenta DNI", "disponible": true, "conQr": false, "detalle": null }]`. `MERCADO_PAGO` está disponible solo si el QR de la caja está configurado (`MP_QR_ACCESS_TOKEN` o `MP_ACCESS_TOKEN`, y `MP_QR_EXTERNAL_POS_ID`); si no, `disponible: false` y `detalle: "El QR de la caja de Mercado Pago no está configurado."` (registrar con ese medio daría `503`). No dice si la caja está ocupada en este momento: eso lo responde el `409` al registrar. | `403` CLIENTE |
 | `GET /admin/ventas/{id}` → `200 VentaResponse` | Una venta. El EMPLEADO solo ve las de hoy. Es lo que consulta el modal del QR para ver si se pagó (solo lee la base: el cobro lo confirman el webhook o el job). | `404` no existe o el EMPLEADO pide una de otro día |
 | `POST /admin/ventas/{id}/anulacion` → `200 VentaResponse` | Deja la venta sin efecto (error de carga, el cliente no pagó, se cobró por otro medio): pasa a `ANULADA`, deja de contar en la caja y en lo vendido, y su stock vuelve (en los productos que lo controlan, aunque estén dados de baja). Body `{ "motivo": "Se cargó dos veces" }`. El ADMIN anula ventas de cualquier día (al anular una de un día anterior, cambia la caja de ese día); el EMPLEADO, solo las de hoy y que no estén verificadas. Si se cobró con el QR, Mercado Pago devuelve el total solo; si no, la plata, si se llegó a cobrar, se devuelve a mano por el mismo medio. | `400 errors.motivo` (vacío o de más de 200 caracteres) · `403` EMPLEADO con una venta de otro día ("Solo podés anular ventas de hoy.") o ya verificada ("La venta ya está verificada: solo el ADMIN la puede anular.") · `404` · `409` "La venta ya está anulada.", "La venta tiene devoluciones: no se puede anular. Registrá una devolución por lo que queda.", "La venta está esperando el pago con QR: cancelá el QR antes." o "La venta no se cobró: no hay nada que anular." · `502` "Mercado Pago no aceptó el reembolso. Intentá de nuevo." (cobrada con QR: no se anula) |
 | `POST /admin/ventas/{id}/devoluciones` → `201 VentaResponse` | **Solo ADMIN.** El cliente devuelve todo o parte de lo que compró. Body `{ "motivo": "Vencida", "items": [{ "productoId": 5, "cantidad": 1, "vuelveAlStock": false }] }`: de 1 a 20 productos de la venta (sin repetir), cada uno con `cantidad` de 1 a 99 y si vuelve al stock (`false` si el producto no sirve). El monto es la cantidad por el precio de la venta. La devolución cuenta en la caja **del día en que se hace** (`caja.devoluciones` y `ventas.devoluciones`): la caja del día de la venta no cambia. Si se cobró con el QR, Mercado Pago devuelve el monto solo (reembolso parcial de la order); si no, la plata se devuelve a mano por el mismo medio. Se puede devolver en varias veces, hasta que no quede nada. | `400` validación (`errors.motivo`, `errors.items`…), un producto que no está en la venta ("El producto #9 no está en la venta."), repetido ("Agua mineral está repetido en la devolución.") o más de lo que queda ("De Agua mineral quedan 2 unidades por devolver.", "Agua mineral ya se devolvió entero.") · `403` EMPLEADO o CLIENTE · `404` · `409` "La venta está anulada: no se puede devolver.", "La venta está esperando el pago con QR: cancelá el QR antes." o "La venta no se cobró: no hay nada que devolver." · `502` "Mercado Pago no aceptó el reembolso. Intentá de nuevo." (cobrada con QR: no se registra) |
@@ -852,7 +861,7 @@ Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelot
 | `productoId` | id | Las ventas que tienen ese producto |
 | `cliente` | texto | Nombre, apellido, email o "nombre apellido" del cliente; contiene, sin tildes ni mayúsculas, **mínimo 3 letras** |
 | `clienteId` | id | Las de ese cliente |
-| `medio` | `EFECTIVO`, `MERCADO_PAGO`, `CUENTA_DNI` (repetible o separados por coma) | Por medio de cobro |
+| `medio` | `EFECTIVO`, `MERCADO_PAGO`, `TRANSFERENCIA_MP`, `CUENTA_DNI` (repetible o separados por coma) | Por medio de cobro |
 | `estado` | `COBRADA`, `ANULADA`, `ESPERANDO_PAGO`, `NO_COBRADA` (repetible) | Por estado |
 | `page` | ≥ 0 (`0`) | Página |
 | `size` | 1 a 100 (`20`) | Tamaño de página |
@@ -866,7 +875,7 @@ Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelot
                "porMedio": { "EFECTIVO": 18000.00, "MERCADO_PAGO": 15500.00, "CUENTA_DNI": 10000.00 } }
 }
 ```
-`totales` es de **todo el filtro**: `ventas`, las `COBRADA`; `anuladas`, las `ANULADA`; `devuelto`, lo devuelto de esas ventas cobradas (sea cual sea la fecha de la devolución); `total`, lo cobrado neto (cobradas menos devuelto); `porMedio`, el neto de cada medio (todos los medios, con `0` si no hay). Las que esperan el QR o no se cobraron no suman.
+`totales` es de **todo el filtro**: `ventas`, las `COBRADA`; `anuladas`, las `ANULADA`; `devuelto`, lo devuelto de esas ventas cobradas (sea cual sea la fecha de la devolución); `total`, lo cobrado neto (cobradas menos devuelto); `porMedio`, el neto de cada medio (todos los medios, con `0` si no hay); `mercadoPago`, el neto de Mercado Pago abierto en `qr` y `transferencia` (`online` es siempre 0 en las ventas). Las que esperan el QR o no se cobraron no suman.
 
 Body de `POST /admin/ventas`:
 ```json
@@ -879,7 +888,7 @@ Body de `POST /admin/ventas`:
   ]
 }
 ```
-- `medio`: `EFECTIVO`, `MERCADO_PAGO` o `CUENTA_DNI`. Obligatorio. `MERCADO_PAGO` es siempre con el QR de la caja: ya no se carga a mano como cobrada.
+- `medio`: `EFECTIVO`, `MERCADO_PAGO`, `TRANSFERENCIA_MP` o `CUENTA_DNI`. Obligatorio. `TRANSFERENCIA_MP` (transferencia al alias o CVU del club) queda cobrada en el momento y sin verificar, como Cuenta DNI. `MERCADO_PAGO` es siempre con el QR de la caja: ya no se carga a mano como cobrada.
 - `clienteId`: opcional; si viene, tiene que ser un CLIENTE (`400` "El usuario indicado no es un cliente.").
 - `items`: de 1 a 20; cada uno con `cantidad` de 1 a 99 y un producto del catálogo (`productoId`) o uno escrito a mano (`nombre` de 2 a 100 caracteres y `precio`). A mano: si ya hay un producto con ese nombre (sin importar mayúsculas) se usa ese, con su precio; si no, queda dado de alta como producto de venta, sin ofrecerse al reservar y **con stock igual a lo que se vende ahora** (así queda en 0; el ADMIN lo repone o lo edita después). Un producto repetido (también escrito a mano dos veces con el mismo nombre) suma sus cantidades.
 - Se cobra el precio de hoy de cada producto. El stock baja en los que lo controlan.

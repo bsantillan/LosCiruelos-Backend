@@ -16,8 +16,10 @@ public record ListadoVentasResponse(List<VentaResponse> contenido, int pagina, i
      * @param total    lo cobrado neto: las cobradas menos lo devuelto
      * @param devuelto lo devuelto de esas ventas
      * @param porMedio lo cobrado neto de cada medio (todos los medios, con 0 si no hay)
+     * @param mercadoPago lo cobrado neto con Mercado Pago (QR y transferencia), abierto por canal
      */
     public record Totales(long ventas, long anuladas, BigDecimal total, BigDecimal devuelto,
-            Map<MedioDePago, BigDecimal> porMedio) {
+            Map<MedioDePago, BigDecimal> porMedio,
+            com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago mercadoPago) {
     }
 }
