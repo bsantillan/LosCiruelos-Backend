@@ -24,7 +24,10 @@ import com.LosCiruelos.padel_club_api.ventas.dto.request.DevolucionVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.request.VerificacionVentaRequest;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse;
+import com.LosCiruelos.padel_club_api.ventas.dto.response.ListadoVentasResponse;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
+import com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta;
+import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 import com.LosCiruelos.padel_club_api.ventas.service.VentaConsultaService;
 import com.LosCiruelos.padel_club_api.ventas.service.VentaQrService;
 import com.LosCiruelos.padel_club_api.ventas.service.VentaService;
@@ -98,12 +101,24 @@ public class VentaAdminController {
         return ResponseEntity.ok(ventaConsultaService.obtener(id, authentication.getName()));
     }
 
-    /** Ventas del período (sin fechas, las de hoy). El EMPLEADO ve solo las de hoy. */
+    /**
+     * Ventas paginadas, con filtros opcionales que se combinan y los totales de todo el filtro. Sin
+     * fechas, las de hoy; el EMPLEADO ve solo las de hoy.
+     */
     @GetMapping
-    public ResponseEntity<List<VentaResponse>> listar(
+    public ResponseEntity<ListadoVentasResponse> listar(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) Long productoId,
+            @RequestParam(required = false) String cliente,
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) List<MedioDePago> medio,
+            @RequestParam(required = false) List<EstadoVenta> estado,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String orden,
             Authentication authentication) {
-        return ResponseEntity.ok(ventaConsultaService.listar(desde, hasta, authentication.getName()));
+        return ResponseEntity.ok(ventaConsultaService.listar(desde, hasta, productoId, cliente, clienteId, medio, estado,
+                page, size, orden, authentication.getName()));
     }
 }

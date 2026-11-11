@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,7 +18,7 @@ import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 
 import jakarta.persistence.LockModeType;
 
-public interface VentaRepository extends JpaRepository<Venta, Long> {
+public interface VentaRepository extends JpaRepository<Venta, Long>, JpaSpecificationExecutor<Venta>, VentaConsultas {
 
     /** La venta con lock, para anularla o modificarla. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -37,11 +38,6 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     /** Una venta con sus ítems y quién la registró y la anuló (el detalle). */
     @EntityGraph(attributePaths = { "items", "items.producto", "cliente", "registradoPor", "anuladaPor" })
     Optional<Venta> findConDetalleById(Long id);
-
-    /** Las ventas de [inicio, fin), de la más nueva a la más vieja, con sus ítems y quién las registró. */
-    @EntityGraph(attributePaths = { "items", "items.producto", "cliente", "registradoPor", "anuladaPor" })
-    List<Venta> findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(LocalDateTime inicio,
-            LocalDateTime fin);
 
     /** Ventas de un medio en [inicio, fin) (también las anuladas), de la más vieja a la más nueva; verificada null: todas. */
     @Query("""

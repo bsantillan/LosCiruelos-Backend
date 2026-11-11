@@ -49,21 +49,36 @@ class VentaConsultaServiceTest {
         when(usuarioService.autenticado(empleado.getEmail())).thenReturn(empleado);
     }
 
-    @Test
-    void sinFechasListaLasDeHoy() {
-        Venta venta = Venta.builder().id(3L).createdAt(AHORA).medio(MedioDePago.EFECTIVO).registradoPor(empleado)
-                .build();
-        venta.agregar(Producto.builder().id(5L).nombre("Agua").tipo(TipoProducto.VENTA)
-                .precio(new BigDecimal("1500")).build(), 2);
-        when(ventaRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
-                HOY.atStartOfDay(), HOY.plusDays(1).atStartOfDay())).thenReturn(List.of(venta));
+    private static final com.LosCiruelos.padel_club_api.ventas.repository.TotalesDelListado SIN_TOTALES =
+            new com.LosCiruelos.padel_club_api.ventas.repository.TotalesDelListado(0, 0, java.util.Map.of(),
+                    java.util.Map.of());
 
-        assertThat(servicio.listar(null, null, empleado.getEmail()))
-                .singleElement()
-                .satisfies(v -> {
-                    assertThat(v.total()).isEqualTo(new BigDecimal("3000.00"));
-                    assertThat(v.registradaPor()).isEqualTo("Nombre2 Apellido2");
-                });
+    /** Lista con el repository mockeado y devuelve el filtro que se usó. */
+    private com.LosCiruelos.padel_club_api.ventas.repository.FiltroVentas listar(LocalDate desde, LocalDate hasta,
+            String cliente, List<MedioDePago> medios, String email) {
+        when(ventaRepository.findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Venta>>any(),
+                org.mockito.ArgumentMatchers.any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+        when(ventaRepository.totalesDelListado(org.mockito.ArgumentMatchers.any())).thenReturn(SIN_TOTALES);
+        servicio.listar(desde, hasta, null, cliente, null, medios, null, 0, null, null, email);
+        org.mockito.ArgumentCaptor<com.LosCiruelos.padel_club_api.ventas.repository.FiltroVentas> filtro =
+                org.mockito.ArgumentCaptor.forClass(com.LosCiruelos.padel_club_api.ventas.repository.FiltroVentas.class);
+        verify(ventaRepository, org.mockito.Mockito.atLeastOnce()).totalesDelListado(filtro.capture());
+        return filtro.getValue();
+    }
+
+    @Test
+    void sinFechasListaLasDeHoyDeLaMasNuevaALaMasVieja() {
+        var filtro = listar(null, null, null, null, empleado.getEmail());
+
+        assertThat(filtro.desde()).isEqualTo(HOY);
+        assertThat(filtro.hasta()).isEqualTo(HOY);
+        org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> pagina =
+                org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
+        verify(ventaRepository).findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Venta>>any(),
+                pagina.capture());
+        assertThat(pagina.getValue().getPageSize()).isEqualTo(20);
+        assertThat(pagina.getValue().getSort().getOrderFor("createdAt").isDescending()).isTrue();
     }
 
     @Test
@@ -103,31 +118,42 @@ class VentaConsultaServiceTest {
     }
 
     @Test
-    void elAdminVeCualquierPeriodo() {
-        LocalDate desde = LocalDate.of(2026, 10, 1);
-        LocalDate hasta = LocalDate.of(2026, 10, 31);
+    void elAdminVeCualquierPeriodoYCombinaLosFiltros() {
+        var filtro = listar(LocalDate.of(2026, 10, 1), null, "  Pérez ", List.of(MedioDePago.CUENTA_DNI),
+                admin.getEmail());
 
-        servicio.listar(desde, hasta, admin.getEmail());
-
-        verify(ventaRepository).findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
-                desde.atStartOfDay(), LocalDate.of(2026, 11, 1).atStartOfDay());
+        assertThat(filtro.desde()).isEqualTo(LocalDate.of(2026, 10, 1));
+        assertThat(filtro.hasta()).isNull();
+        assertThat(filtro.textoCliente()).isEqualTo("perez");
+        assertThat(filtro.medios()).containsExactly(MedioDePago.CUENTA_DNI);
     }
 
     @Test
     void elEmpleadoSoloVeLasDeHoy() {
-        assertThat(servicio.listar(HOY, HOY, empleado.getEmail())).isEmpty();
-        assertThatThrownBy(() -> servicio.listar(HOY.minusDays(1), HOY, empleado.getEmail()))
+        listar(HOY, HOY, null, null, empleado.getEmail());
+        assertThatThrownBy(() -> servicio.listar(HOY.minusDays(1), HOY, null, null, null, null, null, 0, null, null,
+                empleado.getEmail()))
                 .isInstanceOf(PermisoDenegadoException.class)
                 .hasMessage("Solo podés ver las ventas de hoy.");
+        assertThatThrownBy(() -> servicio.listar(HOY, null, null, null, null, null, null, 0, null, null,
+                empleado.getEmail()))
+                .isInstanceOf(PermisoDenegadoException.class);
     }
 
     @Test
-    void validaElPeriodo() {
-        assertThatThrownBy(() -> servicio.listar(HOY, null, admin.getEmail()))
-                .isInstanceOf(ReservaException.class)
-                .hasMessageContaining("las dos fechas");
-        assertThatThrownBy(() -> servicio.listar(HOY, HOY.minusDays(1), admin.getEmail()))
+    void validaElPeriodoElClienteLaPaginaYElOrden() {
+        assertThatThrownBy(() -> servicio.listar(HOY, HOY.minusDays(1), null, null, null, null, null, 0, null, null,
+                admin.getEmail()))
                 .isInstanceOf(ReservaException.class)
                 .hasMessage("La fecha desde no puede ser posterior a hasta.");
+        assertThatThrownBy(() -> servicio.listar(HOY, HOY, null, "pé", null, null, null, 0, null, null, admin.getEmail()))
+                .isInstanceOf(ReservaException.class)
+                .hasMessage("Escribí al menos 3 letras para buscar un cliente.");
+        assertThatThrownBy(() -> servicio.listar(HOY, HOY, null, null, null, null, null, 0, 101, null, admin.getEmail()))
+                .isInstanceOf(ReservaException.class)
+                .hasMessage("El tamaño de página tiene que estar entre 1 y 100.");
+        assertThatThrownBy(() -> servicio.listar(HOY, HOY, null, null, null, null, null, 0, null, "x", admin.getEmail()))
+                .isInstanceOf(ReservaException.class)
+                .hasMessage("El orden tiene que ser 'asc' o 'desc'.");
     }
 }

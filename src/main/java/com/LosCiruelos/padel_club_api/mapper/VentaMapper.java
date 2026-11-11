@@ -4,7 +4,11 @@ import org.springframework.stereotype.Component;
 
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
+import java.math.BigDecimal;
+
+import com.LosCiruelos.padel_club_api.ventas.dto.response.ListadoVentasResponse;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse;
+import com.LosCiruelos.padel_club_api.ventas.repository.TotalesDelListado;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
 import com.LosCiruelos.padel_club_api.ventas.entity.VentaDevolucion;
@@ -30,6 +34,24 @@ public class VentaMapper {
                 Dinero.redondear(venta.montoDevuelto()),
                 venta.getDevoluciones().stream().map(VentaMapper::devolucion).toList(),
                 venta.seCobroConQr() ? new VentaResponse.Qr(venta.getOrderId(), venta.getVenceAt()) : null);
+    }
+
+    /** Una página del listado con los totales del filtro: el neto de cada medio es lo cobrado menos lo devuelto. */
+    public ListadoVentasResponse aListado(org.springframework.data.domain.Page<Venta> pagina, TotalesDelListado t) {
+        java.util.Map<MedioDePago, BigDecimal> porMedio = new java.util.EnumMap<>(MedioDePago.class);
+        BigDecimal cobrado = BigDecimal.ZERO;
+        BigDecimal devuelto = BigDecimal.ZERO;
+        for (MedioDePago medio : MedioDePago.values()) {
+            BigDecimal c = t.cobradoPorMedio().getOrDefault(medio, BigDecimal.ZERO);
+            BigDecimal d = t.devueltoPorMedio().getOrDefault(medio, BigDecimal.ZERO);
+            cobrado = cobrado.add(c);
+            devuelto = devuelto.add(d);
+            porMedio.put(medio, Dinero.redondear(c.subtract(d)));
+        }
+        return new ListadoVentasResponse(pagina.getContent().stream().map(this::aResponse).toList(),
+                pagina.getNumber(), pagina.getSize(), pagina.getTotalElements(), pagina.getTotalPages(),
+                new ListadoVentasResponse.Totales(t.cobradas(), t.anuladas(), Dinero.redondear(cobrado.subtract(devuelto)),
+                        Dinero.redondear(devuelto), porMedio));
     }
 
     /** @param qrConfigurado si el QR de la caja está configurado (los medios con QR dependen de eso) */
