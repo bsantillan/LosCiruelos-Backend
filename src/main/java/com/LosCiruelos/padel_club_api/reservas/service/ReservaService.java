@@ -108,13 +108,16 @@ public class ReservaService {
         return crear(req, cliente, cliente);
     }
 
-    /** El personal (ADMIN o EMPLEADO) carga la reserva de un cliente. */
+    /**
+     * El personal (ADMIN o EMPLEADO) carga la reserva de un cliente. No exige el perfil completo (un
+     * cliente que el ADMIN acaba de dar de alta todavía no tiene el celular verificado ni la
+     * categoría): alcanza con que sea un CLIENTE activo. Los avisos van por el canal que pueda usar
+     * (mail si el WhatsApp no está verificado).
+     */
     @Transactional
     public ReservaResponse crearParaCliente(CrearReservaAdminRequest req, String emailPersonal) {
         Usuario personal = usuarioService.autenticado(emailPersonal);
         Usuario cliente = clienteDeLaReserva(req.getClienteId());
-        validarPerfilCompleto(cliente, "El cliente %s %s debe completar su perfil antes de reservar."
-                .formatted(cliente.getNombre(), cliente.getApellido()));
         return crear(req, cliente, personal);
     }
 

@@ -330,6 +330,18 @@ class ReservaServiceTest {
         }
 
         @Test
+        void elPersonalLeReservaAUnClienteConElPerfilIncompleto() {
+            // recién dado de alta por el ADMIN: sin celular verificado, categoría ni posición
+            when(clienteProfileService.perfilCompleto(any())).thenReturn(false);
+            sinOtrasReservas();
+
+            ReservaResponse r = reservaService.crearParaCliente(pedidoParaCliente(1L), admin.getEmail());
+
+            assertThat(r.getClienteId()).isEqualTo(1L);
+            assertThat(r.getEstado()).isEqualTo(EstadoReserva.PENDIENTE);
+        }
+
+        @Test
         void elClienteReservaHastaLosDiasDeAnticipacion() {
             sinOtrasReservas(); // por defecto, 30 días: hasta el 12/11
 

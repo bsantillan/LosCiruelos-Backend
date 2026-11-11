@@ -44,7 +44,7 @@
 
 Validaciones, en orden:
 1. **Quién**: un CLIENTE reserva para sí mismo en `/reservas` (el cliente sale del token). ADMIN y EMPLEADO reservan en `/admin/reservas` e indican `clienteId`, que tiene que ser un CLIENTE habilitado. PROFESOR no reserva.
-2. El cliente tiene el **perfil completo** (nombre, apellido, teléfono, categoría, posición).
+2. Si reserva el cliente, tiene el **perfil completo** (nombre, apellido, teléfono, categoría, posición). Si la carga el personal no hace falta: alcanza con que sea un CLIENTE activo (por ejemplo, uno que el ADMIN acaba de dar de alta). Sus avisos van por el canal que pueda usar (mail si no verificó el WhatsApp) y nunca cortan la creación.
 3. **Anticipación** (solo el cliente): la fecha no puede pasar de hoy + los días de anticipación de la configuración (30 por defecto; el ADMIN los cambia en `PUT /admin/configuracion/reservas`). Si no, `400` "Podés reservar hasta el … (n días de anticipación).". El personal no tiene tope: puede cargar reservas y partidos más lejanos.
 4. **Horario**: fecha hoy o futura; si es hoy, el inicio no pasó; inicio < fin; duración múltiplo de 30 y entre el mínimo y el máximo configurados (90–180); dentro del horario del día; inicio alineado a bloques de 30 min desde la apertura.
 
