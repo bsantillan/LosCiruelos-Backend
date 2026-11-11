@@ -198,7 +198,7 @@ class ReservaConsultaServiceTest {
 
         private static final Totales TOTALES = new Totales(57, new BigDecimal("855000.00"),
                 new BigDecimal("690000.00"), new BigDecimal("410000.00"), new BigDecimal("280000.00"),
-                new BigDecimal("0.00"), new BigDecimal("0.00"), new BigDecimal("165000.00"));
+                new BigDecimal("0.00"), new BigDecimal("0.00"), new BigDecimal("165000.00"), null);
 
         @BeforeEach
         void unaPagina() {

@@ -28,7 +28,7 @@ public class VentaMapper {
                                 i.getCantidad(), Dinero.redondear(i.getPrecioUnitario()),
                                 Dinero.redondear(i.getSubtotal()), i.getDevueltas()))
                         .toList(),
-                venta.getMedio() == MedioDePago.CUENTA_DNI ? venta.estaVerificada() : null, venta.getVerificadoAt(),
+                venta.getMedio().seVerifica() ? venta.estaVerificada() : null, venta.getVerificadoAt(),
                 venta.getEstado(), venta.getAnuladaAt(),
                 venta.getAnuladaPor() != null ? nombre(venta.getAnuladaPor()) : null, venta.getMotivoAnulacion(),
                 Dinero.redondear(venta.montoDevuelto()),
@@ -51,7 +51,11 @@ public class VentaMapper {
         return new ListadoVentasResponse(pagina.getContent().stream().map(this::aResponse).toList(),
                 pagina.getNumber(), pagina.getSize(), pagina.getTotalElements(), pagina.getTotalPages(),
                 new ListadoVentasResponse.Totales(t.cobradas(), t.anuladas(), Dinero.redondear(cobrado.subtract(devuelto)),
-                        Dinero.redondear(devuelto), porMedio));
+                        Dinero.redondear(devuelto), porMedio, new com.LosCiruelos.padel_club_api.pagos.dto.response
+                                .DetalleMercadoPago(porMedio.get(MedioDePago.MERCADO_PAGO)
+                                        .add(porMedio.get(MedioDePago.TRANSFERENCIA_MP)),
+                                        porMedio.get(MedioDePago.MERCADO_PAGO), Dinero.redondear(BigDecimal.ZERO),
+                                        porMedio.get(MedioDePago.TRANSFERENCIA_MP))));
     }
 
     /** @param qrConfigurado si el QR de la caja está configurado (los medios con QR dependen de eso) */

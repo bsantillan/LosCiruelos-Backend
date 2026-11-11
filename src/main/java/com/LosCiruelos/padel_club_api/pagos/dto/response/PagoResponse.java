@@ -7,6 +7,8 @@ import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.CanalDePago;
+
 import lombok.Data;
 
 @Data
@@ -16,6 +18,8 @@ public class PagoResponse {
     BigDecimal monto;
     EstadoPago estado;
     PaymentProvider provider;
+    // por dónde entró: EFECTIVO, MERCADO_PAGO_ONLINE, MERCADO_PAGO_QR, TRANSFERENCIA_MP, CUENTA_DNI o BONIFICACION
+    CanalDePago canal;
     // id de la preferencia de Mercado Pago (para inicializar el Brick / Wallet)
     String paymentToken;
     // id del pago en Mercado Pago
@@ -26,7 +30,7 @@ public class PagoResponse {
     BigDecimal montoReembolsado;
     // motivo de una bonificación (provider BONIFICACION)
     String motivo;
-    // pago con Cuenta DNI: si el ADMIN comprobó que entró a la cuenta (null en los otros medios) y cuándo
+    // pago con Cuenta DNI o por transferencia: si el ADMIN comprobó que entró a la cuenta (null en los otros) y cuándo
     Boolean verificado;
     LocalDateTime verificadoAt;
     // estado de la reserva después de la operación

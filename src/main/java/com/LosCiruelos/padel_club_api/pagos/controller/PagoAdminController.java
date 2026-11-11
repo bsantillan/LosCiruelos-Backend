@@ -36,4 +36,17 @@ public class PagoAdminController {
             @RequestParam(required = false) Boolean verificado) {
         return ResponseEntity.ok(pagoConsultaService.cuentaDni(desde, hasta, verificado));
     }
+
+    /**
+     * Todo lo cobrado a mano que se controla contra la cuenta: Cuenta DNI y transferencias de Mercado
+     * Pago (reservas y ventas sueltas). {@code medio} (repetible) filtra uno; sin indicar, los dos.
+     */
+    @GetMapping("/verificables")
+    public ResponseEntity<List<CobroCuentaDniResponse>> verificables(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) Boolean verificado,
+            @RequestParam(required = false) List<com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago> medio) {
+        return ResponseEntity.ok(pagoConsultaService.verificables(desde, hasta, verificado, medio));
+    }
 }

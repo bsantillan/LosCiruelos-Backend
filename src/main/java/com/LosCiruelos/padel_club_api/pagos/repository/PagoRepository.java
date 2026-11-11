@@ -19,17 +19,18 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
     Optional<Pago> findByExternalPaymentId(String externalPaymentId);
 
     /**
-     * Pagos con Cuenta DNI cobrados en [inicio, fin), del más viejo al más nuevo, para que el ADMIN
-     * los controle contra la cuenta. verificado null: todos.
+     * Pagos cobrados a mano que el ADMIN controla contra la cuenta (Cuenta DNI o transferencia) en
+     * [inicio, fin), del más viejo al más nuevo. verificado null: todos.
      */
     @Query("""
             SELECT p FROM Pago p JOIN FETCH p.reserva
-            WHERE p.provider = :cuentaDni AND p.paidAt >= :inicio AND p.paidAt < :fin
+            WHERE p.provider IN :providers AND p.paidAt >= :inicio AND p.paidAt < :fin
               AND (:verificado IS NULL OR (:verificado = TRUE AND p.verificadoAt IS NOT NULL)
                    OR (:verificado = FALSE AND p.verificadoAt IS NULL))
             ORDER BY p.paidAt, p.id
             """)
-    List<Pago> cuentaDni(@Param("cuentaDni") PaymentProvider cuentaDni, @Param("inicio") LocalDateTime inicio,
+    List<Pago> verificables(@Param("providers") java.util.Collection<PaymentProvider> providers,
+            @Param("inicio") LocalDateTime inicio,
             @Param("fin") LocalDateTime fin, @Param("verificado") Boolean verificado);
 
     @Query("SELECT p.reserva.id FROM Pago p WHERE p.orderId = :orderId")

@@ -22,7 +22,8 @@ public record ListadoReservasResponse(List<ReservaResponse> contenido, int pagin
      */
     public record Totales(long reservas, BigDecimal montoTotal, BigDecimal montoCobrado, BigDecimal cobradoEfectivo,
             BigDecimal cobradoMercadoPago, BigDecimal cobradoCuentaDni, BigDecimal montoBonificado,
-            BigDecimal montoPendiente) {
+            BigDecimal montoPendiente, com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago
+                    detalleMercadoPago) {
     }
 
     public static ListadoReservasResponse de(Page<ReservaResponse> page, Totales totales) {

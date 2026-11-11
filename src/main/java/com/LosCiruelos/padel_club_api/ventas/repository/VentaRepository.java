@@ -39,15 +39,15 @@ public interface VentaRepository extends JpaRepository<Venta, Long>, JpaSpecific
     @EntityGraph(attributePaths = { "items", "items.producto", "cliente", "registradoPor", "anuladaPor" })
     Optional<Venta> findConDetalleById(Long id);
 
-    /** Ventas de un medio en [inicio, fin) (también las anuladas), de la más vieja a la más nueva; verificada null: todas. */
+    /** Ventas de esos medios en [inicio, fin) (también las anuladas), de la más vieja a la más nueva; verificada null: todas. */
     @Query("""
             SELECT v FROM Venta v
-            WHERE v.medio = :medio AND v.createdAt >= :inicio AND v.createdAt < :fin
+            WHERE v.medio IN :medios AND v.createdAt >= :inicio AND v.createdAt < :fin
               AND (:verificada IS NULL OR (:verificada = TRUE AND v.verificadoAt IS NOT NULL)
                    OR (:verificada = FALSE AND v.verificadoAt IS NULL))
             ORDER BY v.createdAt, v.id
             """)
-    List<Venta> porMedio(@Param("medio") MedioDePago medio, @Param("inicio") LocalDateTime inicio,
+    List<Venta> porMedios(@Param("medios") java.util.Collection<MedioDePago> medios, @Param("inicio") LocalDateTime inicio,
             @Param("fin") LocalDateTime fin, @Param("verificada") Boolean verificada);
 
     /** Cantidad de ventas cobradas y lo cobrado por medio en [inicio, fin), para la caja del resumen. */
@@ -56,6 +56,7 @@ public interface VentaRepository extends JpaRepository<Venta, Long>, JpaSpecific
                    COUNT(v),
                    COALESCE(SUM(CASE WHEN v.medio = :efectivo THEN v.total ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN v.medio = :mercadoPago THEN v.total ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN v.medio = :transferencia THEN v.total ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN v.medio = :cuentaDni THEN v.total ELSE 0 END), 0))
             FROM Venta v
             WHERE v.createdAt >= :inicio AND v.createdAt < :fin AND v.estado = :cobrada
@@ -66,6 +67,7 @@ public interface VentaRepository extends JpaRepository<Venta, Long>, JpaSpecific
             @Param("cobrada") EstadoVenta cobrada,
             @Param("efectivo") MedioDePago efectivo,
             @Param("mercadoPago") MedioDePago mercadoPago,
+            @Param("transferencia") MedioDePago transferencia,
             @Param("cuentaDni") MedioDePago cuentaDni);
 
     /** Lo devuelto de las ventas en [inicio, fin) (por fecha de la devolución, no de la venta). */

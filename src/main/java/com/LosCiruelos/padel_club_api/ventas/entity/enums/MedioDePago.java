@@ -5,6 +5,8 @@ public enum MedioDePago {
     EFECTIVO("Efectivo", false),
     // con el QR de la caja de Mercado Pago (se confirma solo)
     MERCADO_PAGO("Mercado Pago (QR de la caja)", true),
+    // transferencia a la cuenta de Mercado Pago del club (alias o CVU): cobrada al momento y la verifica el ADMIN
+    TRANSFERENCIA_MP("Mercado Pago (transferencia)", false),
     // Cuenta DNI (Banco Provincia): se cobra a mano y el ADMIN lo verifica
     CUENTA_DNI("Cuenta DNI", false);
 
@@ -19,6 +21,11 @@ public enum MedioDePago {
     /** Cómo se muestra en el panel. */
     public String etiqueta() {
         return etiqueta;
+    }
+
+    /** Se cobra a mano y el ADMIN lo verifica contra la cuenta del club. */
+    public boolean seVerifica() {
+        return this == CUENTA_DNI || this == TRANSFERENCIA_MP;
     }
 
     /** Se cobra con el QR de la caja: solo se puede si está configurado. */

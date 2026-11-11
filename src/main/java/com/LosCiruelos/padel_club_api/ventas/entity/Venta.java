@@ -126,8 +126,8 @@ public class Venta {
 
     /** Marca (o desmarca) una venta con Cuenta DNI como verificada. Los otros medios no se verifican. */
     public void verificar(boolean verificado, Long adminId, LocalDateTime ahora) {
-        if (medio != MedioDePago.CUENTA_DNI) {
-            throw new EstadoInvalidoException("Solo se verifican las ventas con Cuenta DNI.");
+        if (!medio.seVerifica()) {
+            throw new EstadoInvalidoException("Solo se verifican las ventas con Cuenta DNI o por transferencia.");
         }
         verificadoAt = verificado ? ahora : null;
         verificadoPorId = verificado ? adminId : null;

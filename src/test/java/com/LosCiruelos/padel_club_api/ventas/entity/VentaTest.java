@@ -136,6 +136,19 @@ class VentaTest {
         }
     }
 
+    @Test
+    void unaTransferenciaSeVerificaComoCuentaDni() {
+        Venta transferencia = Venta.builder().id(9L).createdAt(AHORA).medio(MedioDePago.TRANSFERENCIA_MP).build();
+
+        transferencia.verificar(true, 1L, AHORA);
+
+        assertThat(transferencia.estaVerificada()).isTrue();
+        assertThat(MedioDePago.TRANSFERENCIA_MP.seVerifica()).isTrue();
+        assertThat(MedioDePago.MERCADO_PAGO.seVerifica()).isFalse();
+        assertThat(MedioDePago.values()).containsExactly(MedioDePago.EFECTIVO, MedioDePago.MERCADO_PAGO,
+                MedioDePago.TRANSFERENCIA_MP, MedioDePago.CUENTA_DNI);
+    }
+
     @Nested
     class CobroConQr {
 

@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.CanalDePago;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.OrdenQr;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
@@ -148,12 +149,12 @@ public class Pago {
 
     /** Una bonificación cubre parte del turno sin que el cliente pague: no es plata. */
     /**
-     * Marca (o desmarca) un pago con Cuenta DNI como verificado: el ADMIN comprobó en la cuenta del
-     * club que la plata entró. Los otros medios no se verifican.
+     * Marca (o desmarca) un pago con Cuenta DNI o por transferencia como verificado: el ADMIN comprobó
+     * en la cuenta del club que la plata entró. Los otros medios no se verifican.
      */
     public void verificar(boolean verificado, Long adminId, LocalDateTime ahora) {
-        if (provider != PaymentProvider.CUENTA_DNI) {
-            throw new EstadoInvalidoException("Solo se verifican los pagos con Cuenta DNI.");
+        if (!provider.seVerifica()) {
+            throw new EstadoInvalidoException("Solo se verifican los pagos con Cuenta DNI o por transferencia.");
         }
         verificadoAt = verificado ? ahora : null;
         verificadoPorId = verificado ? adminId : null;
@@ -161,6 +162,17 @@ public class Pago {
 
     public boolean estaVerificado() {
         return verificadoAt != null;
+    }
+
+    /** Por dónde entró: los de Mercado Pago se separan en online, QR de la caja y transferencia. */
+    public CanalDePago canal() {
+        return switch (provider) {
+            case MANUAL -> CanalDePago.EFECTIVO;
+            case MERCADO_PAGO -> esCobroQr() ? CanalDePago.MERCADO_PAGO_QR : CanalDePago.MERCADO_PAGO_ONLINE;
+            case TRANSFERENCIA_MP -> CanalDePago.TRANSFERENCIA_MP;
+            case CUENTA_DNI -> CanalDePago.CUENTA_DNI;
+            case BONIFICACION -> CanalDePago.BONIFICACION;
+        };
     }
 
     public boolean esBonificacion() {

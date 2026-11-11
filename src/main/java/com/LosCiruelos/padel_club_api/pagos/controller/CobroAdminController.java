@@ -45,21 +45,32 @@ public class CobroAdminController {
                 PaymentProvider.CUENTA_DNI, authentication.getName()));
     }
 
-    /** Solo ADMIN: marca (o desmarca) un pago con Cuenta DNI como verificado en la cuenta del club. */
+    /** Solo ADMIN: marca (o desmarca) un pago con Cuenta DNI o por transferencia como verificado en la cuenta. */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/pagos/{pagoId}/verificacion")
-    public ResponseEntity<PagoResponse> verificarCuentaDni(@PathVariable Long reservaId, @PathVariable Long pagoId,
+    public ResponseEntity<PagoResponse> verificar(@PathVariable Long reservaId, @PathVariable Long pagoId,
             @Valid @RequestBody VerificacionRequest body, Authentication authentication) {
-        return ResponseEntity.ok(cobroService.verificarCuentaDni(reservaId, pagoId, body.getVerificado(),
+        return ResponseEntity.ok(cobroService.verificarPago(reservaId, pagoId, body.getVerificado(),
                 authentication.getName()));
     }
 
-    /** Pago con Mercado Pago cargado a mano (por ejemplo, una transferencia al alias del club). */
+    /**
+     * Transferencia a la cuenta de Mercado Pago del club (alias o CVU). Queda sin verificar hasta que
+     * el ADMIN la controle.
+     */
+    @PostMapping("/cobros/transferencia")
+    public ResponseEntity<PagoResponse> cobrarTransferencia(@PathVariable Long reservaId,
+            @Valid @RequestBody PagoManualRequest body, Authentication authentication) {
+        return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
+                PaymentProvider.TRANSFERENCIA_MP, authentication.getName()));
+    }
+
+    /** @deprecated usar {@code POST …/cobros/transferencia}: registra lo mismo (una transferencia). */
+    @Deprecated
     @PostMapping("/cobros/presencial")
     public ResponseEntity<PagoResponse> cobrarPresencial(@PathVariable Long reservaId,
             @Valid @RequestBody PagoManualRequest body, Authentication authentication) {
-        return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
-                PaymentProvider.MERCADO_PAGO, authentication.getName()));
+        return cobrarTransferencia(reservaId, body, authentication);
     }
 
     /**

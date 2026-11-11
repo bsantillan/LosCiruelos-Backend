@@ -144,7 +144,7 @@ class PartidosControllersTest {
 
         mvc.perform(json(post("/admin/reservas/60/cobros/presencial"), "{\"monto\":3750}"))
                 .andExpect(status().isOk());
-        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.MERCADO_PAGO,
+        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.TRANSFERENCIA_MP,
                 EMAIL);
 
         mvc.perform(json(post("/admin/reservas/60/bonificacion"), "{\"motivo\":\"socio\"}"))

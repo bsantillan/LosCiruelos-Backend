@@ -70,11 +70,25 @@ public class ReservaConsultasImpl implements ReservaConsultas {
         Expression<BigDecimal> retenidoCuentaDni = cb.<BigDecimal>selectCase()
                 .when(cb.equal(p.get("provider"), PaymentProvider.CUENTA_DNI), retenido)
                 .otherwise(BigDecimal.ZERO);
+        Expression<BigDecimal> retenidoQr = cb.<BigDecimal>selectCase()
+                .when(cb.and(cb.equal(p.get("provider"), PaymentProvider.MERCADO_PAGO), cb.isNotNull(p.get("orderId"))),
+                        retenido)
+                .otherwise(BigDecimal.ZERO);
+        Expression<BigDecimal> retenidoOnline = cb.<BigDecimal>selectCase()
+                .when(cb.and(cb.equal(p.get("provider"), PaymentProvider.MERCADO_PAGO), cb.isNull(p.get("orderId"))),
+                        retenido)
+                .otherwise(BigDecimal.ZERO);
+        Expression<BigDecimal> retenidoTransferencia = cb.<BigDecimal>selectCase()
+                .when(cb.equal(p.get("provider"), PaymentProvider.TRANSFERENCIA_MP), retenido)
+                .otherwise(BigDecimal.ZERO);
         qp.multiselect(cb.coalesce(cb.sum(cobrado), BigDecimal.ZERO),
                 cb.coalesce(cb.sum(retenidoQueDebe), BigDecimal.ZERO),
                 cb.coalesce(cb.sum(retenidoEfectivo), BigDecimal.ZERO),
                 cb.coalesce(cb.sum(bonificado), BigDecimal.ZERO),
-                cb.coalesce(cb.sum(retenidoCuentaDni), BigDecimal.ZERO))
+                cb.coalesce(cb.sum(retenidoCuentaDni), BigDecimal.ZERO),
+                cb.coalesce(cb.sum(retenidoQr), BigDecimal.ZERO),
+                cb.coalesce(cb.sum(retenidoOnline), BigDecimal.ZERO),
+                cb.coalesce(cb.sum(retenidoTransferencia), BigDecimal.ZERO))
                 .where(p.get("reserva").get("id").in(ids));
         Tuple cobros = em.createQuery(qp).getSingleResult();
 
@@ -83,9 +97,13 @@ public class ReservaConsultasImpl implements ReservaConsultas {
         BigDecimal cuentaDni = monto(cobros, 4);
         // lo que falta: el total de las que deben menos lo cubierto (pagado + bonificado) de ellas
         BigDecimal pendiente = monto(reservas, 2).subtract(monto(cobros, 1));
+        BigDecimal mercadoPago = montoCobrado.subtract(efectivo).subtract(cuentaDni);
         return new Totales(reservas.get(0, Long.class), Dinero.redondear(monto(reservas, 1)), Dinero.redondear(montoCobrado),
-                Dinero.redondear(efectivo), Dinero.redondear(montoCobrado.subtract(efectivo).subtract(cuentaDni)),
-                Dinero.redondear(cuentaDni), Dinero.redondear(monto(cobros, 3)), Dinero.redondear(pendiente));
+                Dinero.redondear(efectivo), Dinero.redondear(mercadoPago),
+                Dinero.redondear(cuentaDni), Dinero.redondear(monto(cobros, 3)), Dinero.redondear(pendiente),
+                new com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago(Dinero.redondear(mercadoPago),
+                        Dinero.redondear(monto(cobros, 5)), Dinero.redondear(monto(cobros, 6)),
+                        Dinero.redondear(monto(cobros, 7))));
     }
 
     /** Lo que el club se queda de un pago, igual que Pago.getMontoRetenido. */

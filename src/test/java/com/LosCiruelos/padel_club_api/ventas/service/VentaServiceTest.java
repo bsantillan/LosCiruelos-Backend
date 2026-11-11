@@ -290,10 +290,10 @@ class VentaServiceTest {
 
         assertThatThrownBy(() -> servicio.verificar(7L, true, empleado.getEmail()))
                 .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class)
-                .hasMessage("Solo el ADMIN puede verificar una venta con Cuenta DNI.");
+                .hasMessage("Solo el ADMIN puede verificar una venta.");
         assertThatThrownBy(() -> servicio.verificar(8L, true, admin.getEmail()))
                 .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException.class)
-                .hasMessage("Solo se verifican las ventas con Cuenta DNI.");
+                .hasMessage("Solo se verifican las ventas con Cuenta DNI o por transferencia.");
         when(ventaRepository.findByIdForUpdate(99L)).thenReturn(java.util.Optional.empty());
         assertThatThrownBy(() -> servicio.verificar(99L, true, admin.getEmail()))
                 .isInstanceOf(com.LosCiruelos.padel_club_api.ventas.exception.VentaNoEncontradaException.class);
