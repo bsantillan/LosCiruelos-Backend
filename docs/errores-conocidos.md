@@ -45,6 +45,12 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Permisos del EMPLEADO en la API** (antes solo los aplicaba el front):
+  - `GET /admin/reservas`: sin `desde` toma hoy; `desde` o `hasta` anteriores a hoy → `403` "Solo podés ver las reservas de hoy en adelante." (también con `pendientes=true`; los totales cambian en consecuencia).
+  - `GET /admin/reservas/{id}`: una reserva de un día anterior → `404`.
+  - Cobros (efectivo, transferencia, `presencial`, Cuenta DNI, QR), cancelación, productos y devolución de paletas sobre una reserva de un día anterior → `403` "Solo el ADMIN puede operar reservas de días anteriores.".
+  - `GET /admin/reservas/devoluciones-pendientes` y `/saldos-pendientes`: solo las de hoy.
+  - `GET /admin/usuarios` y `GET /admin/usuarios/{id}` ahora también para el EMPLEADO (el detalle de un ADMIN → `404`); crear, editar, desactivar y reactivar siguen siendo del ADMIN.
 - **Transferencia de Mercado Pago como medio propio**:
   - Reservas: nuevo `POST /admin/reservas/{id}/cobros/transferencia` (`provider = TRANSFERENCIA_MP`); `cobros/presencial` queda como alias deprecado (ahora registra una transferencia). `PagoResponse` suma `canal` (`EFECTIVO`, `MERCADO_PAGO_ONLINE`, `MERCADO_PAGO_QR`, `TRANSFERENCIA_MP`, `CUENTA_DNI`, `BONIFICACION`). Los pagos viejos "Mercado Pago cargado a mano" pasan a `TRANSFERENCIA_MP`.
   - Ventas: nuevo medio `TRANSFERENCIA_MP` (las ventas viejas con Mercado Pago sin QR pasan a ese medio). `GET /admin/ventas/medios` lo suma.

@@ -114,7 +114,7 @@ Si cualquier paso falla, la transacción se revierte entera: no quedan reservas 
 - Otros errores de MP al consultar → `502`, para que MP reintente la notificación.
 
 ### 4. Pagar en el club — `POST /admin/reservas/{reservaId}/cobros/efectivo`, `/cobros/presencial` y `/cobros/cuenta-dni`
-- Solo ADMIN y EMPLEADO (controlado por URL y por `@PreAuthorize`).
+- Solo ADMIN y EMPLEADO (controlado por URL y por `@PreAuthorize`). El EMPLEADO solo cobra reservas de hoy en adelante (`Reserva.exigirQueLaPuedaOperar`, desde `ReservaService.bloquearComoPersonal`); una de un día anterior es del ADMIN (`403`).
 - Body `{ "monto": 7500 }`: mayor a 0, como máximo lo pendiente, hasta 2 decimales.
 - `cobros/efectivo` registra `provider = MANUAL`; `cobros/presencial` registra `MERCADO_PAGO` cargado a mano; `cobros/cuenta-dni` registra `CUENTA_DNI`.
 - **Medios de pago**: para la caja solo hay tres, efectivo, Mercado Pago y Cuenta DNI. Lo que no es efectivo es plata que entra a una cuenta, sin importar si fue online o en el club.
@@ -169,7 +169,7 @@ Se recalcula siempre a partir de los pagos `APROBADO` (plata más bonificaciones
 `CANCELADA`, `EXPIRADA` y `COMPLETADA` no cambian por pagos. Una reserva `COMPLETADA` siempre está totalmente paga.
 
 ### 6. Cancelar — `DELETE /reservas/{id}/cancelar` (cliente) o `DELETE /admin/reservas/{id}/cancelar` (personal)
-- **Quién**: el dueño de la reserva, o ADMIN/EMPLEADO (un partido, solo el ADMIN). Se pueden cancelar reservas `PENDIENTE`, `CONFIRMADA`, `SEÑADA`, `PARCIALMENTE_PAGADA` y `PAGADA`, sin pagos en proceso.
+- **Quién**: el dueño de la reserva, o ADMIN/EMPLEADO (un partido, solo el ADMIN; el EMPLEADO, solo reservas de hoy en adelante). Se pueden cancelar reservas `PENDIENTE`, `CONFIRMADA`, `SEÑADA`, `PARCIALMENTE_PAGADA` y `PAGADA`, sin pagos en proceso.
 - **Cliente**: puede cancelar hasta que empieza el turno y el reembolso lo define la política (configurable en `configuracion`):
 
 | Anticipación | Reembolso |

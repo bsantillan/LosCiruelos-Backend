@@ -177,6 +177,7 @@ class CobroServiceTest extends PagosTestBase {
             admin = usuario(3L, Role.ADMIN);
             when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
             partido = TestData.partido(10L, admin, cliente, "15000");
+            when(reservaService.bloquearComoPersonal(eq(10L), any())).thenReturn(partido);
             when(reservaService.bloquearConAcceso(eq(10L), any())).thenReturn(partido);
         }
 

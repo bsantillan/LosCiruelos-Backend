@@ -13,6 +13,7 @@ import java.util.Set;
 import com.LosCiruelos.padel_club_api.club.entity.Cancha;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.common.Roles;
+import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.common.Dinero;
@@ -160,6 +161,21 @@ public class Reserva {
      */
     public boolean puedeOperarla(Usuario usuario) {
         return Roles.esPersonal(usuario) || cliente.getId().equals(usuario.getId());
+    }
+
+    /**
+     * El EMPLEADO solo ve y opera las reservas de hoy en adelante (fecha del turno, hora del club);
+     * las de días anteriores son del ADMIN.
+     */
+    public boolean quedaFueraDelEmpleado(Usuario usuario, LocalDate hoy) {
+        return Roles.esEmpleado(usuario) && fechaReserva.isBefore(hoy);
+    }
+
+    /** @throws PermisoDenegadoException (403) si es un EMPLEADO y la reserva es de un día anterior */
+    public void exigirQueLaPuedaOperar(Usuario personal, LocalDate hoy) {
+        if (quedaFueraDelEmpleado(personal, hoy)) {
+            throw new PermisoDenegadoException("Solo el ADMIN puede operar reservas de días anteriores.");
+        }
     }
 
     /** La puede ver: quien la puede operar, o un jugador del partido. */

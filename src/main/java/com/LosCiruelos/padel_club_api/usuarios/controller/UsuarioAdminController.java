@@ -1,6 +1,7 @@
 package com.LosCiruelos.padel_club_api.usuarios.controller;
 
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.ClienteBusquedaResponse;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import java.util.List;
@@ -51,7 +52,9 @@ public class UsuarioAdminController {
         return ResponseEntity.ok(usuarioAdminService.editarUsuario(id, request));
     }
 
+    /** El EMPLEADO también los ve (sin los ADMIN); crear, editar, desactivar y reactivar son del ADMIN. */
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
     public ResponseEntity<List<UsuarioAdminResponse>> listarUsuarios(
             @ModelAttribute FiltroUsuarioRequest filtros) {
         return ResponseEntity.ok(usuarioAdminService.listarUsuarios(filtros));
@@ -66,9 +69,11 @@ public class UsuarioAdminController {
         return ResponseEntity.ok(usuarioAdminService.buscarClientes(buscar, soloActivos));
     }
 
+    /** Al EMPLEADO, un ADMIN responde 404 (no aparece en el listado). */
     @GetMapping("/{id}")
-    public ResponseEntity<UsuarioAdminResponse> getUsuario(@PathVariable Long id) {
-        return ResponseEntity.ok(usuarioAdminService.getUsuario(id));
+    @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
+    public ResponseEntity<UsuarioAdminResponse> getUsuario(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(usuarioAdminService.getUsuario(id, authentication.getName()));
     }
 
     @PutMapping("/{id}/reactivar")

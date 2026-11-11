@@ -116,6 +116,7 @@ abstract class PagosTestBase {
     protected Reserva reservaBloqueada(EstadoReserva estado) {
         Reserva reserva = reserva(10L, cliente, estado, "15000");
         when(reservaService.bloquearConAcceso(eq(10L), any())).thenReturn(reserva);
+        when(reservaService.bloquearComoPersonal(eq(10L), any())).thenReturn(reserva);
         when(reservaService.bloquear(10L)).thenReturn(reserva);
         return reserva;
     }

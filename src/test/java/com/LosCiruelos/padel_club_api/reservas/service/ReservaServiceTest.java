@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
 import static org.mockito.ArgumentMatchers.anyInt;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.AgregarProductoRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ReservaProductoResponse;
@@ -701,6 +702,56 @@ class ReservaServiceTest {
             assertThatThrownBy(() -> reservaService.quitarProducto(30L, 9L, null, admin.getEmail()))
                     .isInstanceOf(EstadoInvalidoException.class)
                     .hasMessage("El total nuevo ($15000) es menor que lo ya pagado ($19000).");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** El EMPLEADO no opera reservas de días anteriores (403); el ADMIN sí. */
+    @Nested
+    class ReservasPasadasDelEmpleado {
+
+        private Reserva deAyer;
+
+        @BeforeEach
+        void unaReservaDeAyerConPaletas() {
+            deAyer = reserva(30L, cliente, EstadoReserva.SEÑADA, "21000");
+            deAyer.setFechaReserva(HOY.minusDays(1));
+            agregarProducto(deAyer, Producto.CODIGO_PALETAS, TipoProducto.ALQUILER, 3, "2000");
+            when(reservaRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(deAyer));
+        }
+
+        @Test
+        void elBloqueoDelPersonalRechazaAlEmpleadoConUnaReservaDeAyer() {
+            assertThatThrownBy(() -> reservaService.bloquearComoPersonal(30L, empleado))
+                    .isInstanceOf(PermisoDenegadoException.class)
+                    .hasMessage("Solo el ADMIN puede operar reservas de días anteriores.");
+            assertThat(reservaService.bloquearComoPersonal(30L, admin)).isSameAs(deAyer);
+
+            deAyer.setFechaReserva(HOY);
+            assertThat(reservaService.bloquearComoPersonal(30L, empleado)).isSameAs(deAyer);
+        }
+
+        @Test
+        void elEmpleadoNoSumaNiSacaProductosNiRegistraPaletas() {
+            AgregarProductoRequest agua = new AgregarProductoRequest();
+            agua.setProductoId(5L);
+            agua.setCantidad(1);
+
+            assertThatThrownBy(() -> reservaService.agregarProducto(30L, agua, empleado.getEmail()))
+                    .isInstanceOf(PermisoDenegadoException.class);
+            assertThatThrownBy(() -> reservaService.quitarProducto(30L, 5L, null, empleado.getEmail()))
+                    .isInstanceOf(PermisoDenegadoException.class);
+            assertThatThrownBy(() -> reservaService.registrarDevolucion(30L, 3, empleado.getEmail()))
+                    .isInstanceOf(PermisoDenegadoException.class);
+            org.mockito.Mockito.verifyNoInteractions(stockService);
+        }
+
+        @Test
+        void elAdminRegistraLasPaletasDeAyer() {
+            reservaService.registrarDevolucion(30L, 3, admin.getEmail());
+
+            verify(stockService).registrarDevolucion(deAyer.getProductos().getFirst(), 3, AHORA);
         }
     }
 }

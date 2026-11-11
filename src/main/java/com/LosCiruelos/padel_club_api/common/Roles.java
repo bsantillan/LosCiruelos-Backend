@@ -19,6 +19,10 @@ public final class Roles {
         return usuario.getRol() == Role.ADMIN;
     }
 
+    public static boolean esEmpleado(Usuario usuario) {
+        return usuario.getRol() == Role.EMPLEADO;
+    }
+
     /** @throws PermisoDenegadoException (403) con {@code mensaje} si no es ADMIN */
     public static void exigirAdmin(Usuario usuario, String mensaje) {
         if (!esAdmin(usuario)) {

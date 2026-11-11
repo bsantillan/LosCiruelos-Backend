@@ -195,7 +195,29 @@ Cada usuario elige si recibe los avisos por mail o por WhatsApp. Detalle de qué
 
 ---
 
-## Administración de usuarios — `/admin/usuarios` (rol: ADMIN)
+## Qué puede cada rol del personal
+
+El ADMIN puede todo. El EMPLEADO atiende el club en el día: **ve y opera las reservas de hoy en adelante** (por la fecha del turno, en hora del club). Las reglas se aplican en la API (rutas de `SecurityConfig`, `@PreAuthorize` y los services), no solo en el front.
+
+| Tema | ADMIN | EMPLEADO |
+|---|---|---|
+| `GET /admin/reservas` | Todas, con cualquier período | De hoy en adelante: sin `desde`, desde hoy; `desde` o `hasta` anteriores a hoy → `403` "Solo podés ver las reservas de hoy en adelante.". Vale también con `pendientes=true`, y los totales respetan el límite |
+| `GET /admin/reservas/{id}` | Cualquiera | Una de un día anterior → `404` (como las ventas de otros días) |
+| Cobrar (efectivo, transferencia, `presencial`, Cuenta DNI, QR), cancelar, sumar o sacar productos y registrar paletas devueltas | Cualquier reserva | Solo de hoy en adelante: una de un día anterior → `403` "Solo el ADMIN puede operar reservas de días anteriores." |
+| `GET /admin/reservas/saldos-pendientes` y `/devoluciones-pendientes` | Todas | Solo las de hoy |
+| `GET /admin/reservas/resumen` | Cualquier período | Solo hoy |
+| Reservas sin seña, bonificaciones, verificar pagos | Sí | `403` |
+| Partidos y turnos fijos | Sí | `403` |
+| Ventas sueltas | Todas; anula cualquiera, devuelve y verifica | Las de hoy; anula las de hoy no verificadas; no devuelve ni verifica |
+| Productos | Crea, edita, da de baja y reactiva | Ve el catálogo y suma o resta stock (`PATCH …/stock`) |
+| `GET /admin/usuarios`, `GET /admin/usuarios/{id}` | Sí (nunca aparecen los ADMIN) | Sí, los mismos datos; el detalle de un ADMIN → `404` |
+| Crear, editar, desactivar y reactivar usuarios | Sí | `403` |
+| `GET /admin/usuarios/clientes` (buscar para reservar) | Sí | Sí |
+| Configuración del club y días cerrados | Sí | `403` |
+
+---
+
+## Administración de usuarios — `/admin/usuarios` (rol: ADMIN; el EMPLEADO puede ver)
 
 **`UsuarioAdminResponse`**
 ```json
@@ -211,8 +233,8 @@ Cada usuario elige si recibe los avisos por mail o por WhatsApp. Detalle de qué
 |---|---|
 | `POST /admin/usuarios` → `201` | Crea un usuario con contraseña temporal aleatoria (12 caracteres) y le manda un email de bienvenida con la contraseña y un código de verificación. Body: `email`, `nombre`, `apellido`, `telefono`, `rol` (obligatorios); `categoria` y `posicion` opcionales para un CLIENTE (sin ellas queda con el perfil incompleto y las carga él; sirve para dar de alta en el momento al responsable de un partido). El usuario queda habilitado y con el email sin verificar. |
 | `PUT /admin/usuarios/{id}` → `200` | Edita `nombre`, `apellido`, `telefono`, `rol` (obligatorios) y `categoria`/`posicion` (solo CLIENTE, obligatorias en ese caso). Si deja de ser CLIENTE se borra su perfil de jugador; si pasa a CLIENTE se le crea. No se puede editar a un ADMIN ni convertir a alguien en ADMIN. Todo se valida antes de guardar. |
-| `GET /admin/usuarios` → `200 [ ... ]` | Lista usuarios (nunca incluye ADMIN). Filtros opcionales por query string: `rol`, `enabled`, `nombre` (busca en nombre o apellido, *contiene*), `email` (*contiene*), `categoria`, `posicion` (estos dos solo junto con `rol=CLIENTE`). |
-| `GET /admin/usuarios/{id}` → `200` | Detalle de un usuario. |
+| `GET /admin/usuarios` → `200 [ ... ]` | **ADMIN, EMPLEADO.** Lista usuarios (nunca incluye ADMIN). Filtros opcionales por query string: `rol`, `enabled`, `nombre` (busca en nombre o apellido, *contiene*), `email` (*contiene*), `categoria`, `posicion` (estos dos solo junto con `rol=CLIENTE`). |
+| `GET /admin/usuarios/{id}` → `200` | **ADMIN, EMPLEADO.** Detalle de un usuario. Al EMPLEADO, un ADMIN responde `404`. |
 | `PUT /admin/usuarios/{id}/reactivar` → `200` | `enabled = true`. |
 | `DELETE /admin/usuarios/{id}/desactivar` → `200` | `enabled = false` y borra sus refresh tokens. No aplica a un ADMIN. |
 
@@ -636,7 +658,7 @@ Un **turno fijo** es el mismo partido (cancha, día de la semana, horario y juga
 ## Panel del personal — `/admin/reservas` y `/admin/usuarios/clientes` (rol: ADMIN, EMPLEADO)
 
 ### `GET /admin/reservas` → `200 ListadoReservasResponse`
-Reservas pasadas y futuras de cualquier cliente, para consultarlas y cobrar en el club. Todos los parámetros son opcionales y se combinan (se cumplen todos a la vez).
+Reservas pasadas y futuras de cualquier cliente, para consultarlas y cobrar en el club. Todos los parámetros son opcionales y se combinan (se cumplen todos a la vez). **El EMPLEADO solo ve de hoy en adelante**: sin `desde`, toma hoy; con `desde` o `hasta` anteriores a hoy responde `403` "Solo podés ver las reservas de hoy en adelante." (también con `pendientes=true`; los totales respetan el límite).
 
 | Parámetro | Valores | Por defecto | Qué hace |
 |---|---|---|---|
@@ -699,13 +721,15 @@ Errores: `400 errors.buscar` si falta · `400` si tiene menos de 2 caracteres ·
 
 ### El resto de `/admin/reservas`
 
+El EMPLEADO solo opera reservas de hoy en adelante: cobrar, cancelar, sumar o sacar productos y registrar paletas en una de un día anterior responde `403` "Solo el ADMIN puede operar reservas de días anteriores." (ver [Qué puede cada rol del personal](#qué-puede-cada-rol-del-personal)).
+
 | Método y ruta | Descripción | Errores |
 |---|---|---|
 | `POST /admin/reservas` → `201` | Reserva a nombre de un cliente. Mismo body que `POST /reservas` más `clienteId` y `modalidadPago` (opcional, cómo se paga; ver abajo). `clienteId` es obligatorio: un CLIENTE habilitado; **no hace falta que tenga el perfil completo**, por ejemplo uno que el ADMIN acaba de dar de alta sin celular verificado ni categoría. Los avisos le llegan por el canal que pueda usar: mail si su WhatsApp no está verificado) y `bonificacion` (opcional, **solo ADMIN**: se crea y se bonifica en la misma operación, igual que `POST /admin/reservas/{id}/bonificacion`; `monto` null bonifica el total). | Los de `POST /reservas` · `400` "ADMIN y EMPLEADO deben indicar el clienteId de la reserva.", "El usuario indicado no es un cliente." o cuenta desactivada · `403` bonificación de un EMPLEADO (no se crea nada) |
-| `GET /admin/reservas/{id}` → `200` | Detalle de cualquier reserva, con los pagos. | `404` |
+| `GET /admin/reservas/{id}` → `200` | Detalle de cualquier reserva, con los pagos. Al EMPLEADO, una de un día anterior responde `404`. | `404` |
 | `DELETE /admin/reservas/{id}/cancelar?reembolso=TOTAL\|SENIA\|NADA` → `200 ReservaResponse` | Cancela cualquier reserva hasta que termina el turno. `reembolso` es obligatorio si tiene dinero cobrado. Un partido lo cancela solo el ADMIN. | `400` reembolso faltante · `403` EMPLEADO con un partido · `404` · `409` como en `/reservas` |
-| `GET /admin/reservas/saldos-pendientes` → `200` | Turnos ya jugados que deben saldo (`SEÑADA` o `PARCIALMENTE_PAGADA` con el turno terminado), del más viejo al más nuevo. El listado con `?pendientes=true` también los muestra. | |
-| `GET /admin/reservas/devoluciones-pendientes` → `200` | Reservas cuyo turno ya empezó y tienen paletas sin devolver. | |
+| `GET /admin/reservas/saldos-pendientes` → `200` | Turnos ya jugados que deben saldo (`SEÑADA` o `PARCIALMENTE_PAGADA` con el turno terminado), del más viejo al más nuevo. El listado con `?pendientes=true` también los muestra. Al EMPLEADO, solo los de hoy. | |
+| `GET /admin/reservas/devoluciones-pendientes` → `200` | Reservas cuyo turno ya empezó y tienen paletas sin devolver. Al EMPLEADO, solo las de hoy. | |
 | `POST /admin/reservas/{id}/devolucion` → `200` | Body `{ "paletasDevueltas": 3 }`. Registra la devolución; las faltantes se descuentan del stock. Devuelve la reserva. | `400` cantidad fuera de rango · `404` · `409` turno sin empezar, reserva sin paletas, no confirmada o devolución ya registrada |
 | `POST /admin/reservas/{id}/productos` → `200 ReservaResponse` | Suma un producto a una reserva o partido: lo que el cliente pide en el club antes, durante o después del turno. Body `{ "productoId": 1, "cantidad": 2 }` o, para algo que no está en el catálogo, `{ "nombre": "Gatorade", "precio": 3000, "cantidad": 1 }`: si ya hay un producto con ese nombre (sin importar mayúsculas) se usa ese, con su precio; si no, queda dado de alta como producto de venta, sin control de stock y sin ofrecerse al reservar. Si la reserva ya lo tenía, suma unidades al mismo precio que ya tenía; uno nuevo toma el precio de hoy. El total sube y el estado se recalcula: una reserva paga (o completada) vuelve a quedar con saldo. | `400` sin producto ni nombre y precio, o producto dado de baja · `404` reserva o producto · `409` reserva pendiente, cancelada o expirada, pago online en proceso o sin stock |
 | `DELETE /admin/reservas/{id}/productos/{productoId}?cantidad=1` → `200 ReservaResponse` | Saca unidades de un producto (sin `cantidad`, todas). El stock de venta vuelve y el total baja; no puede quedar por debajo de lo ya pagado. | `400` la reserva no tiene ese producto o cantidad fuera de rango · `404` · `409` como al sumar, total menor a lo pagado o un alquiler con la devolución ya registrada |

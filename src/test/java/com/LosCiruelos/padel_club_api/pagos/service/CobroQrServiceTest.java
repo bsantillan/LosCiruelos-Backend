@@ -176,7 +176,7 @@ class CobroQrServiceTest extends PagosTestBase {
 
             var orden = org.mockito.Mockito.inOrder(cajaQr, reservaService);
             orden.verify(cajaQr).bloquear();
-            orden.verify(reservaService).bloquearConAcceso(eq(10L), any());
+            orden.verify(reservaService).bloquearComoPersonal(eq(10L), any());
         }
 
         @Test

@@ -98,7 +98,7 @@ public class CobroQrService {
         }
         Usuario personal = usuarioService.autenticado(email);
         caja.bloquear(); // siempre antes que la reserva
-        Reserva reserva = reservaService.bloquearConAcceso(reservaId, personal);
+        Reserva reserva = reservaService.bloquearComoPersonal(reservaId, personal);
         LocalDateTime ahora = reloj.ahora();
 
         // un QR vencido que todavía no se resolvió (el job pasa cada minuto) se resuelve ahora
@@ -206,7 +206,7 @@ public class CobroQrService {
     @Transactional
     public CobroQrResponse cancelar(Long reservaId, String email) {
         Usuario personal = usuarioService.autenticado(email);
-        Reserva reserva = reservaService.bloquearConAcceso(reservaId, personal);
+        Reserva reserva = reservaService.bloquearComoPersonal(reservaId, personal);
         Pago pago = reserva.getPagos().stream()
                 .filter(p -> p.esCobroQr() && p.getEstado() == EstadoPago.EN_PROCESO)
                 .findFirst()
