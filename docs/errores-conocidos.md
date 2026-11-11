@@ -45,6 +45,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Reserva del personal para un cliente con el perfil incompleto**: `POST /admin/reservas` ya no responde `403` "El cliente … debe completar su perfil antes de reservar." (alcanza con que sea un CLIENTE activo). `POST /reservas` (el propio cliente) sigue exigiéndolo.
 - **Cambio de horario confirmado y días cerrados**:
   - `PUT /admin/configuracion` con `"confirmar": true` ahora **cancela** las reservas que quedan fuera del horario nuevo (reembolso total y aviso al cliente) y la respuesta suma `cancelaciones: { canceladas, sinCancelar }`. Mostrar las que no se pudieron cancelar para hacerlo a mano. El mensaje del `409` cambió.
   - Nuevos `GET`/`POST /admin/configuracion/cierres` y `DELETE /admin/configuracion/cierres/{fecha}` (ADMIN): días puntuales en que el club no abre, con el mismo `409` y `confirmar` (cancela las reservas de ese día).
