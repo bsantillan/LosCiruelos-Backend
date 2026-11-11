@@ -205,14 +205,14 @@ public class StockService {
      * El producto que suma el personal: uno del catálogo o, si no hay {@code productoId}, uno escrito
      * a mano (nombre y precio), que queda dado de alta.
      */
-    public Producto productoParaAgregar(Long productoId, String nombre, BigDecimal precio) {
+    public Producto productoParaAgregar(Long productoId, String nombre, BigDecimal precio, int cantidad) {
         if (productoId != null) {
             return productoService.obtener(productoId);
         }
         if (nombre == null || nombre.isBlank() || precio == null) {
             throw new ReservaException("Indicá el producto (productoId) o su nombre y precio.");
         }
-        return productoService.productoManual(nombre, precio);
+        return productoService.productoManual(nombre, precio, cantidad);
     }
 
     /**

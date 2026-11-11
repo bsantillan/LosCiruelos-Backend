@@ -217,7 +217,7 @@ Se ocultan siempre las **descartadas**: canceladas o vencidas sin ningún pago q
 
 ### 9 bis. Productos que suma el personal — `POST/DELETE /admin/reservas/{id}/productos`
 - Lo que el cliente pide en el club (una bebida, otro tubo de pelotas) se carga en su reserva o partido **antes, durante o después del turno**, mientras esté confirmado (también `COMPLETADA`) y sin un pago online en proceso.
-- Un producto del catálogo o uno escrito a mano (nombre y precio): si no existe con ese nombre, se da de alta como producto de venta, sin control de stock y sin ofrecerse al reservar.
+- Un producto del catálogo o uno escrito a mano (nombre y precio): si no existe con ese nombre, se da de alta como producto de venta, sin ofrecerse al reservar y con stock igual a la cantidad que se agrega o se vende (queda en 0).
 - El total cambia y el estado se recalcula con lo pagado: una reserva `PAGADA` o `COMPLETADA` que suma algo vuelve a quedar con saldo (`SEÑADA` o `PARCIALMENTE_PAGADA`; un partido, `PARCIALMENTE_PAGADA`) y, si ya se jugó, aparece como deuda hasta que se cobra.
 - Sacar unidades devuelve el stock de venta; el total no puede quedar por debajo de lo ya pagado.
 
@@ -245,7 +245,9 @@ Se ocultan siempre las **descartadas**: canceladas o vencidas sin ningún pago q
 
 Pelotas, paletas y lo que el ADMIN sume (por ejemplo, agua) son productos del catálogo (`/admin/configuracion/productos`), con precio por unidad y stock. Cada producto dice:
 - **si se ofrece al reservar** (`ofrecerAlReservar`): el cliente lo ve y lo pide al reservar. Los demás los carga solo el personal, en una reserva, un partido o una venta suelta;
-- **si controla stock** (`controlaStock`): si no, no tiene tope y el stock no se mueve.
+- **el stock**: todos los productos lo controlan (desde V36 ya no hay productos "ilimitados"); se repone con `PATCH …/stock`.
+
+Los productos **nunca se borran** (ni por la API ni por cascada): se dan de baja (`PUT …/{id}/baja`) y se reactivan (`PUT …/{id}/reactivacion`). Las reservas, ventas y devoluciones viejas los conservan.
 
 **Quién maneja el stock**: el ADMIN crea y edita productos (nombre, precio, tipo, stock). El EMPLEADO puede ver el catálogo y ajustar el stock (`PATCH …/stock`, por ejemplo +12 al reponer o −1 por una rotura) y registra las devoluciones de paletas.
 

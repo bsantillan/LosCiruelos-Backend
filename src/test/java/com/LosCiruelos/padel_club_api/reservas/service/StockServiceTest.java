@@ -156,15 +156,11 @@ class StockServiceTest {
         }
 
         @Test
-        void unProductoSinControlDeStockSePideSinLimiteYNoMueveElStock() {
-            pelotas.setControlaStock(false);
+        void todosLosProductosLimitanLasUnidades() {
             Reserva reserva = nuevaReserva();
 
-            servicio.moverStock(List.of(), reserva, Map.of(1L, 50), AHORA);
-
-            assertThat(reserva.cantidadDe(Producto.CODIGO_PELOTAS)).isEqualTo(50);
-            assertThat(pelotas.getStock()).isEqualTo(10);
-            servicio.liberar(reserva);
+            assertThatThrownBy(() -> servicio.moverStock(List.of(), reserva, Map.of(1L, 50), AHORA))
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.club.exception.StockInsuficienteException.class);
             assertThat(pelotas.getStock()).isEqualTo(10);
         }
 
@@ -299,10 +295,10 @@ class StockServiceTest {
 
             assertThat(d).extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(1, 10);
 
-            // sin control de stock: sin límite
-            pelotas.setControlaStock(false);
+            // todos controlan stock: disponibles nunca es null
+            pelotas.setStock(0);
             assertThat(servicio.disponibilidad(MANIANA, LocalTime.of(18, 0), LocalTime.of(19, 30)))
-                    .extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(1, null);
+                    .extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(1, 0);
             assertThatThrownBy(() -> servicio.disponibilidad(MANIANA, LocalTime.of(19, 0), LocalTime.of(18, 0)))
                     .isInstanceOf(ReservaException.class);
         }
@@ -327,9 +323,9 @@ class StockServiceTest {
         void todosLosActivos() {
             pelotas.setOfrecerAlReservar(true);
             paletas.setOfrecerAlReservar(true);
-            // una venta que no controla stock y un alquiler que no se ofrece al reservar
+            // una venta sin stock y un alquiler que no se ofrece al reservar
             agua = Producto.builder().id(5L).nombre("Agua").tipo(TipoProducto.VENTA).precio(new BigDecimal("1500"))
-                    .stock(0).controlaStock(false).ofrecerAlReservar(false).build();
+                    .stock(0).ofrecerAlReservar(false).build();
             raquetero = Producto.builder().id(6L).nombre("Paleta premium").tipo(TipoProducto.ALQUILER)
                     .precio(new BigDecimal("4000")).stock(3).ofrecerAlReservar(false).build();
             when(productoRepository.findAllByActivoTrueOrderByIdAsc()).thenReturn(List.of(pelotas, paletas, agua, raquetero));
@@ -348,8 +344,8 @@ class StockServiceTest {
             List<ProductoDisponibleResponse> d = disponibilidad(null);
 
             assertThat(d).extracting(ProductoDisponibleResponse::getId).containsExactly(1L, 2L, 5L, 6L);
-            // VENTA: el stock; ALQUILER: total menos lo que se superpone (en cualquier cancha); sin control: null
-            assertThat(d).extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(10, 1, null, 1);
+            // VENTA: el stock; ALQUILER: total menos lo que se superpone (en cualquier cancha); sin stock: 0
+            assertThat(d).extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(10, 1, 0, 1);
             assertThat(d).extracting(ProductoDisponibleResponse::getOfrecerAlReservar)
                     .containsExactly(true, true, false, false);
         }
@@ -367,7 +363,7 @@ class StockServiceTest {
             List<ProductoDisponibleResponse> d = disponibilidad(50L);
 
             // las 3 pelotas de la reserva vuelven al stock, como al guardar (moverStock)
-            assertThat(d).extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(13, 4, null, 1);
+            assertThat(d).extracting(ProductoDisponibleResponse::getDisponibles).containsExactly(13, 4, 0, 1);
             verify(reservaRepository).findAlquileresQueSeSuperponen(eq(6L), eq(50L), any(), any(), any(), any(),
                     anyCollection(), any(), anyCollection());
         }
@@ -387,7 +383,7 @@ class StockServiceTest {
             when(reservaRepository.findById(99L)).thenReturn(java.util.Optional.empty());
 
             assertThat(disponibilidad(99L)).extracting(ProductoDisponibleResponse::getDisponibles)
-                    .containsExactly(10, 4, null, 1);
+                    .containsExactly(10, 4, 0, 1);
             verify(reservaRepository, never()).findAlquileresQueSeSuperponen(anyLong(), eq(99L), any(), any(), any(),
                     any(), anyCollection(), any(), anyCollection());
         }
@@ -465,13 +461,14 @@ class StockServiceTest {
             when(productoRepository.findFirstByNombreIgnoreCase("Gatorade")).thenReturn(Optional.empty());
             when(productoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            Producto nuevo = servicio.productoParaAgregar(null, "  Gatorade ", new BigDecimal("3000"));
+            Producto nuevo = servicio.productoParaAgregar(null, "  Gatorade ", new BigDecimal("3000"), 2);
 
             assertThat(nuevo.getNombre()).isEqualTo("Gatorade");
             assertThat(nuevo.getTipo()).isEqualTo(TipoProducto.VENTA);
-            assertThat(nuevo.getControlaStock()).isFalse();
+            assertThat(nuevo.getControlaStock()).isTrue();
+            assertThat(nuevo.getStock()).isEqualTo(2); // lo que se agrega ahora: queda en 0
             assertThat(nuevo.getOfrecerAlReservar()).isFalse();
-            assertThatThrownBy(() -> servicio.productoParaAgregar(null, "Gatorade", null))
+            assertThatThrownBy(() -> servicio.productoParaAgregar(null, "Gatorade", null, 1))
                     .isInstanceOf(ReservaException.class)
                     .hasMessage("Indicá el producto (productoId) o su nombre y precio.");
         }

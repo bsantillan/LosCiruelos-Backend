@@ -8,7 +8,6 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -79,9 +78,15 @@ public class ProductoAdminController {
         return ResponseEntity.ok(productoService.ajustarStock(id, request.getAjuste()));
     }
 
-    /** Baja lógica: deja de ofrecerse en nuevas reservas. */
-    @DeleteMapping("/{id}")
+    /** Baja: deja de ofrecerse y de poder pedirse o venderse (un producto nunca se borra). */
+    @PutMapping("/{id}/baja")
     public ResponseEntity<ProductoResponse> desactivar(@PathVariable Long id) {
         return ResponseEntity.ok(productoService.desactivar(id));
+    }
+
+    /** Vuelve a dar de alta un producto dado de baja. */
+    @PutMapping("/{id}/reactivacion")
+    public ResponseEntity<ProductoResponse> reactivar(@PathVariable Long id) {
+        return ResponseEntity.ok(productoService.reactivar(id));
     }
 }
