@@ -593,7 +593,7 @@ class ControllersTest {
             when(usuarioAdminService.crearUsuario(any())).thenReturn(new UsuarioAdminResponse());
             when(usuarioAdminService.editarUsuario(eq(2L), any())).thenReturn(new UsuarioAdminResponse());
             when(usuarioAdminService.listarUsuarios(any())).thenReturn(List.of());
-            when(usuarioAdminService.getUsuario(2L)).thenReturn(new UsuarioAdminResponse());
+            when(usuarioAdminService.getUsuario(2L, EMAIL)).thenReturn(new UsuarioAdminResponse());
             when(usuarioAdminService.reactivarUsuario(2L)).thenReturn(new UsuarioAdminResponse());
             when(usuarioAdminService.desactivarUsuario(2L)).thenReturn(new UsuarioAdminResponse());
             String body = "{\"email\":\"e@b.com\",\"nombre\":\"Emp\",\"apellido\":\"Leado\",\"telefono\":\"1122334455\",\"rol\":\"EMPLEADO\"}";
@@ -601,7 +601,7 @@ class ControllersTest {
             mvc.perform(json(post("/admin/usuarios"), body)).andExpect(status().isCreated());
             mvc.perform(json(put("/admin/usuarios/2"), body)).andExpect(status().isOk());
             mvc.perform(get("/admin/usuarios").param("rol", "CLIENTE")).andExpect(status().isOk());
-            mvc.perform(get("/admin/usuarios/2")).andExpect(status().isOk());
+            mvc.perform(get("/admin/usuarios/2").principal(AUTH)).andExpect(status().isOk());
             mvc.perform(put("/admin/usuarios/2/reactivar")).andExpect(status().isOk());
             mvc.perform(delete("/admin/usuarios/2/desactivar")).andExpect(status().isOk());
         }
@@ -814,7 +814,7 @@ class ControllersTest {
 
         @Test
         void devolucionDePaletas() throws Exception {
-            when(reservaConsultaService.devolucionesPendientes()).thenReturn(List.of(new ReservaResponse()));
+            when(reservaConsultaService.devolucionesPendientes(EMAIL)).thenReturn(List.of(new ReservaResponse()));
             when(reservaService.registrarDevolucion(5L, 2, EMAIL)).thenReturn(new ReservaResponse());
 
             mvc.perform(get("/admin/reservas/devoluciones-pendientes").principal(AUTH))
@@ -829,7 +829,7 @@ class ControllersTest {
 
         @Test
         void saldosPendientes() throws Exception {
-            when(reservaConsultaService.saldosPendientes()).thenReturn(List.of(new ReservaResponse(), new ReservaResponse()));
+            when(reservaConsultaService.saldosPendientes(EMAIL)).thenReturn(List.of(new ReservaResponse(), new ReservaResponse()));
 
             mvc.perform(get("/admin/reservas/saldos-pendientes").principal(AUTH))
                     .andExpect(status().isOk())
@@ -1151,7 +1151,7 @@ class ControllersTest {
         @Test
         void listaConTodosLosFiltrosYLosTotales() throws Exception {
             when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
-                    any())).thenReturn(pagina());
+                    any(), any())).thenReturn(pagina());
 
             mvc.perform(get("/admin/reservas").principal(AUTH)
                     .param("desde", "2026-10-01").param("hasta", "2026-10-31")
@@ -1170,17 +1170,17 @@ class ControllersTest {
 
             verify(reservaConsultaService).listar(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31),
                     List.of(EstadoReserva.SEÑADA, EstadoReserva.PARCIALMENTE_PAGADA), 7L, "pérez", 2L, null, null, null, true, 1, 50,
-                    "desc");
+                    "desc", EMAIL);
         }
 
         @Test
         void filtraPorTurnoFijo() throws Exception {
             when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(),
-                    anyInt(), any(), any())).thenReturn(pagina());
+                    anyInt(), any(), any(), any())).thenReturn(pagina());
 
             mvc.perform(get("/admin/reservas").principal(AUTH).param("turnoFijoId", "8").param("deTurnoFijo", "true"))
                     .andExpect(status().isOk());
-            verify(reservaConsultaService).listar(null, null, null, null, null, null, null, 8L, true, false, 0, null, null);
+            verify(reservaConsultaService).listar(null, null, null, null, null, null, null, 8L, true, false, 0, null, null, EMAIL);
 
             mvc.perform(get("/admin/reservas").principal(AUTH).param("deTurnoFijo", "talvez"))
                     .andExpect(status().isBadRequest());
@@ -1189,11 +1189,11 @@ class ControllersTest {
         @Test
         void sinParametrosUsaLosValoresPorDefecto() throws Exception {
             when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
-                    any())).thenReturn(pagina());
+                    any(), any())).thenReturn(pagina());
 
             mvc.perform(get("/admin/reservas").principal(AUTH)).andExpect(status().isOk());
 
-            verify(reservaConsultaService).listar(null, null, null, null, null, null, null, null, null, false, 0, null, null);
+            verify(reservaConsultaService).listar(null, null, null, null, null, null, null, null, null, false, 0, null, null, EMAIL);
         }
 
         @Test
@@ -1209,7 +1209,7 @@ class ControllersTest {
         @Test
         void losErroresDelServicioSeRespetan() throws Exception {
             when(reservaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any(),
-                    any())).thenThrow(new com.LosCiruelos.padel_club_api.common.exception.ReservaException(
+                    any(), any())).thenThrow(new com.LosCiruelos.padel_club_api.common.exception.ReservaException(
                             "El tamaño de página tiene que estar entre 1 y 100."));
 
             mvc.perform(get("/admin/reservas").principal(AUTH).param("size", "500"))

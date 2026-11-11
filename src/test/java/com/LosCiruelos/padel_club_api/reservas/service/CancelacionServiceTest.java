@@ -77,6 +77,7 @@ class CancelacionServiceTest {
         }
         reserva = reserva(10L, cliente, EstadoReserva.PAGADA, "15000");
         when(reservaService.bloquearConAcceso(eq(10L), any())).thenReturn(reserva);
+        when(reservaService.bloquearComoPersonal(eq(10L), any())).thenReturn(reserva);
     }
 
     /** Ubica el inicio del turno a {@code horas} de AHORA. */
@@ -343,6 +344,7 @@ class CancelacionServiceTest {
             partido = TestData.partido(20L, admin, cliente, "15000");
             partido.setFechaReserva(AHORA.toLocalDate().plusDays(2));
             when(reservaService.bloquearConAcceso(eq(20L), any())).thenReturn(partido);
+            when(reservaService.bloquearComoPersonal(eq(20L), any())).thenReturn(partido);
         }
 
         @Test

@@ -101,6 +101,16 @@ public class ReservaService {
         return reserva;
     }
 
+    /**
+     * Para lo que opera el personal sobre una reserva (cobrar, cancelar, productos, paletas): el
+     * EMPLEADO no opera las de días anteriores (403); el ADMIN, todas.
+     */
+    public Reserva bloquearComoPersonal(Long id, Usuario personal) {
+        Reserva reserva = bloquearConAcceso(id, personal);
+        reserva.exigirQueLaPuedaOperar(personal, reloj.hoy());
+        return reserva;
+    }
+
     // ── Creación ─────────────────────────────────────────────────────────
 
     /** El cliente reserva para sí. */
@@ -469,7 +479,7 @@ public class ReservaService {
 
     @Transactional
     public ReservaResponse agregarProducto(Long id, AgregarProductoRequest req, String emailPersonal) {
-        Reserva reserva = bloquear(id);
+        Reserva reserva = bloquearComoPersonal(id, usuarioService.autenticado(emailPersonal));
         validarQueAdmiteProductos(reserva);
         Producto producto = stockService.productoParaAgregar(req.getProductoId(), req.getNombre(), req.getPrecio(),
                 req.getCantidad());
@@ -485,7 +495,7 @@ public class ReservaService {
     /** Saca unidades de un producto (por ejemplo, cargado de más); {@code cantidad} null saca todas. */
     @Transactional
     public ReservaResponse quitarProducto(Long id, Long productoId, Integer cantidad, String emailPersonal) {
-        Reserva reserva = bloquear(id);
+        Reserva reserva = bloquearComoPersonal(id, usuarioService.autenticado(emailPersonal));
         validarQueAdmiteProductos(reserva);
         LocalDateTime ahora = reloj.ahora();
         BigDecimal montoCancha = reserva.getMontoCancha();
@@ -585,7 +595,7 @@ public class ReservaService {
      */
     @Transactional
     public ReservaResponse registrarDevolucion(Long id, int paletasDevueltas, String emailPersonal) {
-        Reserva reserva = bloquear(id);
+        Reserva reserva = bloquearComoPersonal(id, usuarioService.autenticado(emailPersonal));
         LocalDateTime ahora = reloj.ahora();
 
         if (!Reserva.ESTADOS_QUE_SE_JUEGAN.contains(reserva.getEstado())) {

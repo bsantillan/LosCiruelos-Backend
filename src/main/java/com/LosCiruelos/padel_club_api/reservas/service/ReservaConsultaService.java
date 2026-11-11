@@ -128,7 +128,8 @@ public class ReservaConsultaService {
     public ReservaResponse obtener(Long id, String email) {
         Usuario usuario = usuarioService.autenticado(email);
         Reserva reserva = reservaRepository.findById(id).orElseThrow(() -> new ReservaNoEncontradaException(id));
-        if (!reserva.puedeVerla(usuario)) {
+        // al EMPLEADO, una de un día anterior no le existe (como las ventas de otros días)
+        if (!reserva.puedeVerla(usuario) || reserva.quedaFueraDelEmpleado(usuario, reloj.hoy())) {
             throw new ReservaNoEncontradaException(id);
         }
         return mapper.aResponsePara(reserva, usuario);
@@ -145,11 +146,22 @@ public class ReservaConsultaService {
      *                   Se combina con {@code estados}: quedan las que cumplen los dos
      * @param orden      "asc" o "desc" por fecha y hora del turno; null: "asc" si desde es hoy o
      *                   posterior (próximas) y "desc" en el resto (historial)
+     * @param email      quien consulta: el EMPLEADO solo ve de hoy en adelante (sin desde, desde hoy;
+     *                   con fechas anteriores, 403); los totales respetan ese límite
      */
     @Transactional(readOnly = true)
     public ListadoReservasResponse listar(LocalDate desde, LocalDate hasta, List<EstadoReserva> estados,
             Long clienteId, String cliente, Long canchaId, TipoReserva tipo, Long turnoFijoId, Boolean deTurnoFijo,
-            boolean pendientes, int pagina, Integer tamanio, String orden) {
+            boolean pendientes, int pagina, Integer tamanio, String orden, String email) {
+        if (Roles.esEmpleado(usuarioService.autenticado(email))) {
+            LocalDate hoy = reloj.hoy();
+            if ((desde != null && desde.isBefore(hoy)) || (hasta != null && hasta.isBefore(hoy))) {
+                throw new PermisoDenegadoException("Solo podés ver las reservas de hoy en adelante.");
+            }
+            if (desde == null) {
+                desde = hoy;
+            }
+        }
         int size = tamanio != null ? tamanio : TAMANIO_POR_DEFECTO_LISTADO;
         Paginacion.validar(pagina, size, TAMANIO_MAXIMO_LISTADO);
         if (desde != null && hasta != null && desde.isAfter(hasta)) {
@@ -173,23 +185,27 @@ public class ReservaConsultaService {
 
     /**
      * Turnos ya jugados que deben saldo (con el turno terminado), del más viejo al más nuevo. Al
-     * registrar el pago del saldo pasan a COMPLETADA.
+     * registrar el pago del saldo pasan a COMPLETADA. Al EMPLEADO, solo los de hoy.
      */
     @Transactional(readOnly = true)
-    public List<ReservaResponse> saldosPendientes() {
+    public List<ReservaResponse> saldosPendientes(String email) {
+        Usuario personal = usuarioService.autenticado(email);
         LocalDateTime ahora = reloj.ahora();
         return reservaRepository.findTerminadasConSaldo(Reserva.ESTADOS_CON_SALDO, ahora.toLocalDate(),
                 ahora.toLocalTime()).stream()
+                .filter(r -> !r.quedaFueraDelEmpleado(personal, ahora.toLocalDate()))
                 .map(mapper::aResponse)
                 .toList();
     }
 
-    /** Reservas cuyo turno ya empezó y todavía tienen paletas sin devolver. */
+    /** Reservas cuyo turno ya empezó y todavía tienen paletas sin devolver. Al EMPLEADO, solo las de hoy. */
     @Transactional(readOnly = true)
-    public List<ReservaResponse> devolucionesPendientes() {
+    public List<ReservaResponse> devolucionesPendientes(String email) {
+        Usuario personal = usuarioService.autenticado(email);
         LocalDateTime ahora = reloj.ahora();
         return reservaRepository.findConAlquileresSinDevolver(TipoProducto.ALQUILER, Reserva.ESTADOS_QUE_SE_JUEGAN,
                 ahora.toLocalDate(), ahora.toLocalTime()).stream()
+                .filter(r -> !r.quedaFueraDelEmpleado(personal, ahora.toLocalDate()))
                 .map(mapper::aResponse)
                 .toList();
     }

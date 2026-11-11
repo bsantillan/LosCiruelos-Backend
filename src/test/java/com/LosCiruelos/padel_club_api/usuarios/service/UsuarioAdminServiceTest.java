@@ -206,7 +206,20 @@ class UsuarioAdminServiceTest {
     void listarYObtener() {
         when(usuarioRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class))).thenReturn(List.of(cliente));
         assertThat(adminService.listarUsuarios(new FiltroUsuarioRequest())).hasSize(1);
-        assertThat(adminService.getUsuario(1L).getEmail()).isEqualTo(cliente.getEmail());
+        assertThat(adminService.getUsuario(1L, "admin@test.com").getEmail()).isEqualTo(cliente.getEmail());
+
+        // el EMPLEADO ve los usuarios, pero un ADMIN no le aparece
+        com.LosCiruelos.padel_club_api.usuarios.entity.Usuario otroAdmin = com.LosCiruelos.padel_club_api.TestData
+                .usuario(7L, com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role.ADMIN);
+        com.LosCiruelos.padel_club_api.usuarios.entity.Usuario empleado = com.LosCiruelos.padel_club_api.TestData
+                .usuario(8L, com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role.EMPLEADO);
+        when(usuarioService.findByIdOrThrow(7L)).thenReturn(otroAdmin);
+        when(usuarioService.autenticado(empleado.getEmail())).thenReturn(empleado);
+        when(usuarioService.autenticado("admin@test.com")).thenReturn(otroAdmin);
+        assertThat(adminService.getUsuario(1L, empleado.getEmail()).getEmail()).isEqualTo(cliente.getEmail());
+        assertThatThrownBy(() -> adminService.getUsuario(7L, empleado.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.usuarios.exception.UsuarioNotFoundException.class);
+        assertThat(adminService.getUsuario(7L, "admin@test.com").getEmail()).isEqualTo(otroAdmin.getEmail());
 
         FiltroUsuarioRequest invalido = new FiltroUsuarioRequest();
         invalido.setCategoria(Categoria.Cuarta);

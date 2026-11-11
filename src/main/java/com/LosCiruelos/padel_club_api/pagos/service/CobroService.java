@@ -56,7 +56,7 @@ public class CobroService {
         }
 
         Usuario personal = usuarioService.autenticado(email);
-        Reserva reserva = reservaService.bloquearConAcceso(reservaId, personal);
+        Reserva reserva = reservaService.bloquearComoPersonal(reservaId, personal);
         estados.validarQueAdmitePagos(reserva);
         if (reserva.tienePagoEnProceso()) {
             throw new EstadoInvalidoException(

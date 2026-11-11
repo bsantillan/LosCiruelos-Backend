@@ -65,7 +65,7 @@ public class CancelacionService {
     @Transactional
     public ReservaResponse cancelarComoPersonal(Long id, OpcionReembolso reembolso, String email) {
         Usuario personal = usuarioService.autenticado(email);
-        Reserva reserva = reservaService.bloquearConAcceso(id, personal);
+        Reserva reserva = reservaService.bloquearComoPersonal(id, personal);
         exigirAdminSiEsPartido(reserva, personal);
         return cancelarBloqueada(reserva, personal, true, reembolso);
     }

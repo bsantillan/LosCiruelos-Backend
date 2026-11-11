@@ -1,6 +1,8 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
 import jakarta.persistence.criteria.Predicate;
+import com.LosCiruelos.padel_club_api.common.Roles;
+import com.LosCiruelos.padel_club_api.usuarios.exception.UsuarioNotFoundException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.UsuarioRepository;
 import com.LosCiruelos.padel_club_api.usuarios.dto.response.ClienteBusquedaResponse;
 import com.LosCiruelos.padel_club_api.common.Busquedas;
@@ -127,8 +129,11 @@ public class UsuarioAdminService {
                 .collect(Collectors.toList());
     }
 
-    public UsuarioAdminResponse getUsuario(Long id) {
+    public UsuarioAdminResponse getUsuario(Long id, String email) {
         Usuario usuario = usuarioService.findByIdOrThrow(id);
+        if (Roles.esAdmin(usuario) && !Roles.esAdmin(usuarioService.autenticado(email))) {
+            throw new UsuarioNotFoundException("Usuario no encontrado: " + id);
+        }
         return buildUsuarioAdminResponse(usuario);
     }
 

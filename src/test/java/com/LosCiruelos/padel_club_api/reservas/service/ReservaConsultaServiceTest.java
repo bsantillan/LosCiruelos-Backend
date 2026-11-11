@@ -36,6 +36,7 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
+import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.reservas.exception.ReservaNoEncontradaException;
 import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
@@ -58,6 +59,11 @@ class ReservaConsultaServiceTest {
 
     private Usuario cliente;
     private Usuario otroCliente;
+    private Usuario admin;
+    private Usuario empleado;
+
+    private static final String ADMIN_EMAIL = "admin@test.com";
+    private static final String EMPLEADO_EMAIL = "empleado@test.com";
 
     @BeforeEach
     void setUp() {
@@ -73,7 +79,11 @@ class ReservaConsultaServiceTest {
 
         cliente = usuario(1L, Role.CLIENTE);
         otroCliente = usuario(2L, Role.CLIENTE);
-        for (Usuario u : List.of(cliente, otroCliente)) {
+        admin = usuario(9L, Role.ADMIN);
+        admin.setEmail(ADMIN_EMAIL);
+        empleado = usuario(8L, Role.EMPLEADO);
+        empleado.setEmail(EMPLEADO_EMAIL);
+        for (Usuario u : List.of(cliente, otroCliente, admin, empleado)) {
             when(usuarioService.autenticado(u.getEmail())).thenReturn(u);
         }
     }
@@ -95,7 +105,7 @@ class ReservaConsultaServiceTest {
         when(reservaRepository.findConAlquileresSinDevolver(eq(TipoProducto.ALQUILER),
                 eq(Reserva.ESTADOS_QUE_SE_JUEGAN), eq(HOY), eq(AHORA.toLocalTime()))).thenReturn(List.of(jugada));
 
-        assertThat(consultas.devolucionesPendientes()).extracting(ReservaResponse::getId).containsExactly(20L);
+        assertThat(consultas.devolucionesPendientes(ADMIN_EMAIL)).extracting(ReservaResponse::getId).containsExactly(20L);
     }
 
     @Test
@@ -105,7 +115,7 @@ class ReservaConsultaServiceTest {
         when(reservaRepository.findTerminadasConSaldo(Reserva.ESTADOS_CON_SALDO, HOY, AHORA.toLocalTime()))
                 .thenReturn(List.of(jugada));
 
-        assertThat(consultas.saldosPendientes()).extracting(ReservaResponse::getId).containsExactly(30L);
+        assertThat(consultas.saldosPendientes(ADMIN_EMAIL)).extracting(ReservaResponse::getId).containsExactly(30L);
     }
 
     @Test
@@ -224,7 +234,7 @@ class ReservaConsultaServiceTest {
 
         @Test
         void devuelveLaPaginaConLosTotalesDelFiltroCompleto() {
-            ListadoReservasResponse r = consultas.listar(null, null, null, null, null, null, null, null, null, false, 2, 10, null);
+            ListadoReservasResponse r = consultas.listar(null, null, null, null, null, null, null, null, null, false, 2, 10, null, ADMIN_EMAIL);
 
             assertThat(r.contenido()).extracting(ReservaResponse::getId).containsExactly(10L);
             assertThat(r.pagina()).isEqualTo(2);
@@ -236,7 +246,7 @@ class ReservaConsultaServiceTest {
 
         @Test
         void sinFiltrosNoFiltraNadaYElTamanioPorDefectoEs20() {
-            consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, null);
+            consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, null, ADMIN_EMAIL);
 
             assertThat(filtro()).isEqualTo(new FiltroReservas(null, null, null, null, null, null, null, null, null));
             assertThat(pedido().getPageSize()).isEqualTo(20);
@@ -245,7 +255,7 @@ class ReservaConsultaServiceTest {
         @Test
         void pasaTodosLosFiltros() {
             consultas.listar(HOY, HOY.plusDays(30), List.of(EstadoReserva.PAGADA, EstadoReserva.CANCELADA), 7L,
-                    "  Pérez ", 2L, null, null, null, false, 0, 50, null);
+                    "  Pérez ", 2L, null, null, null, false, 0, 50, null, ADMIN_EMAIL);
 
             assertThat(filtro()).isEqualTo(new FiltroReservas(HOY, HOY.plusDays(30),
                     Set.of(EstadoReserva.PAGADA, EstadoReserva.CANCELADA), 7L, "perez", 2L, null, null, null));
@@ -253,7 +263,7 @@ class ReservaConsultaServiceTest {
 
         @Test
         void filtraPorTurnoFijo() {
-            consultas.listar(null, null, null, null, null, null, null, 8L, true, false, 0, null, null);
+            consultas.listar(null, null, null, null, null, null, null, 8L, true, false, 0, null, null, ADMIN_EMAIL);
             assertThat(filtro().turnoFijoId()).isEqualTo(8L);
             assertThat(filtro().deTurnoFijo()).isTrue();
         }
@@ -261,7 +271,7 @@ class ReservaConsultaServiceTest {
         @Test
         void unTurnoFijoYLasQueNoSonDeTurnosFijosNoSePidenJuntos() {
             assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, 8L, false, false, 0,
-                    null, null))
+                    null, null, ADMIN_EMAIL))
                     .isInstanceOf(ReservaException.class)
                     .hasMessage("No se puede pedir un turno fijo (turnoFijoId) y las que no son de turnos fijos "
                             + "(deTurnoFijo=false) a la vez.");
@@ -269,7 +279,7 @@ class ReservaConsultaServiceTest {
 
         @Test
         void pendientesSonLasQueDebenPlataHayanJugadoONo() {
-            consultas.listar(null, null, null, null, null, null, null, null, null, true, 0, null, null);
+            consultas.listar(null, null, null, null, null, null, null, null, null, true, 0, null, null, ADMIN_EMAIL);
 
             // CONFIRMADA: partido del ADMIN sin nada pagado
             assertThat(filtro().estados()).containsExactlyInAnyOrder(EstadoReserva.CONFIRMADA, EstadoReserva.SEÑADA,
@@ -287,42 +297,133 @@ class ReservaConsultaServiceTest {
 
         @Test
         void elOrdenPorDefectoEsAscendenteParaLasProximasYDescendenteParaElHistorial() {
-            consultas.listar(HOY, null, null, null, null, null, null, null, null, false, 0, null, null);
+            consultas.listar(HOY, null, null, null, null, null, null, null, null, false, 0, null, null, ADMIN_EMAIL);
             assertThat(pedido().getSort()).isEqualTo(Sort.by(Sort.Direction.ASC, "fechaReserva", "horaInicio")
                     .and(Sort.by(Sort.Direction.ASC, "id")));
         }
 
         @Test
         void historialSinDesdeODesdeElPasadoEsDescendente() {
-            consultas.listar(HOY.minusDays(1), HOY.plusDays(1), null, null, null, null, null, null, null, false, 0, null, null);
+            consultas.listar(HOY.minusDays(1), HOY.plusDays(1), null, null, null, null, null, null, null, false, 0, null, null, ADMIN_EMAIL);
             assertThat(pedido().getSort().getOrderFor("fechaReserva").getDirection()).isEqualTo(Sort.Direction.DESC);
         }
 
         @Test
         void sinFechasTambienEsDescendente() {
-            consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, null);
+            consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, null, ADMIN_EMAIL);
             assertThat(pedido().getSort().getOrderFor("fechaReserva").getDirection()).isEqualTo(Sort.Direction.DESC);
         }
 
         @Test
         void elOrdenSePuedeElegir() {
-            consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, "ASC");
+            consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, "ASC", ADMIN_EMAIL);
             assertThat(pedido().getSort().getOrderFor("horaInicio").getDirection()).isEqualTo(Sort.Direction.ASC);
         }
 
         @Test
         void validaLosParametros() {
-            assertThatThrownBy(() -> consultas.listar(HOY, HOY.minusDays(1), null, null, null, null, null, null, null, false, 0, null, null))
+            assertThatThrownBy(() -> consultas.listar(HOY, HOY.minusDays(1), null, null, null, null, null, null, null, false, 0, null, null, ADMIN_EMAIL))
                     .isInstanceOf(ReservaException.class).hasMessage("La fecha desde no puede ser posterior a hasta.");
-            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, 101, null))
+            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, 101, null, ADMIN_EMAIL))
                     .isInstanceOf(ReservaException.class).hasMessageContaining("entre 1 y 100");
-            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, 0, null))
+            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, 0, null, ADMIN_EMAIL))
                     .isInstanceOf(ReservaException.class);
-            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, -1, null, null))
+            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, -1, null, null, ADMIN_EMAIL))
                     .isInstanceOf(ReservaException.class);
-            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, "fecha"))
+            assertThatThrownBy(() -> consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, "fecha", ADMIN_EMAIL))
                     .isInstanceOf(ReservaException.class).hasMessageContaining("'asc' o 'desc'");
             verifyNoInteractions(reservaRepository);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** El EMPLEADO solo ve las reservas de hoy en adelante; el ADMIN, todas. */
+    @Nested
+    class PermisosDelEmpleado {
+
+        @BeforeEach
+        void unaPagina() {
+            when(reservaRepository.findAll(org.mockito.ArgumentMatchers.<Specification<Reserva>>any(),
+                    any(Pageable.class))).thenAnswer(inv -> new PageImpl<>(List.of(), inv.<Pageable>getArgument(1), 0));
+        }
+
+        private FiltroReservas filtro() {
+            ArgumentCaptor<FiltroReservas> captor = ArgumentCaptor.forClass(FiltroReservas.class);
+            verify(reservaRepository).totalesParaPersonal(captor.capture());
+            return captor.getValue();
+        }
+
+        @Test
+        void sinDesdeElEmpleadoVeDesdeHoyYLosTotalesTambien() {
+            consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, null, EMPLEADO_EMAIL);
+
+            assertThat(filtro().desde()).isEqualTo(HOY);
+        }
+
+        @Test
+        void conLasPendientesTampocoVeLasDeudasDeTurnosPasados() {
+            consultas.listar(null, null, null, null, null, null, null, null, null, true, 0, null, null, EMPLEADO_EMAIL);
+
+            assertThat(filtro().desde()).isEqualTo(HOY);
+        }
+
+        @Test
+        void elEmpleadoNoPideFechasAnterioresAHoy() {
+            assertThatThrownBy(() -> consultas.listar(HOY.minusDays(1), null, null, null, null, null, null, null, null,
+                    false, 0, null, null, EMPLEADO_EMAIL))
+                    .isInstanceOf(PermisoDenegadoException.class)
+                    .hasMessage("Solo podés ver las reservas de hoy en adelante.");
+            assertThatThrownBy(() -> consultas.listar(null, HOY.minusDays(1), null, null, null, null, null, null, null,
+                    false, 0, null, null, EMPLEADO_EMAIL))
+                    .isInstanceOf(PermisoDenegadoException.class);
+            verifyNoInteractions(reservaRepository);
+        }
+
+        @Test
+        void elAdminVeElHistorial() {
+            consultas.listar(HOY.minusDays(30), HOY, null, null, null, null, null, null, null, false, 0, null, null,
+                    ADMIN_EMAIL);
+            assertThat(filtro().desde()).isEqualTo(HOY.minusDays(30));
+
+            org.mockito.Mockito.clearInvocations(reservaRepository);
+            consultas.listar(null, null, null, null, null, null, null, null, null, false, 0, null, null, ADMIN_EMAIL);
+            assertThat(filtro().desde()).isNull();
+        }
+
+        @Test
+        void alEmpleadoUnaReservaDeAyerNoLeExiste() {
+            Reserva deAyer = reserva(11L, cliente, EstadoReserva.COMPLETADA, "15000");
+            deAyer.setFechaReserva(HOY.minusDays(1));
+            Reserva deHoy = reserva(12L, cliente, EstadoReserva.SEÑADA, "15000");
+            deHoy.setFechaReserva(HOY);
+            when(reservaRepository.findById(11L)).thenReturn(Optional.of(deAyer));
+            when(reservaRepository.findById(12L)).thenReturn(Optional.of(deHoy));
+
+            assertThatThrownBy(() -> consultas.obtener(11L, EMPLEADO_EMAIL))
+                    .isInstanceOf(ReservaNoEncontradaException.class);
+            assertThat(consultas.obtener(12L, EMPLEADO_EMAIL).getId()).isEqualTo(12L);
+            assertThat(consultas.obtener(11L, ADMIN_EMAIL).getId()).isEqualTo(11L);
+        }
+
+        @Test
+        void lasPaletasYLosSaldosPendientesDelEmpleadoSonSoloLosDeHoy() {
+            Reserva deAyer = reserva(21L, cliente, EstadoReserva.SEÑADA, "21000");
+            deAyer.setFechaReserva(HOY.minusDays(1));
+            Reserva deHoy = reserva(22L, cliente, EstadoReserva.SEÑADA, "21000");
+            deHoy.setFechaReserva(HOY);
+            when(reservaRepository.findConAlquileresSinDevolver(any(), any(), any(), any()))
+                    .thenReturn(List.of(deAyer, deHoy));
+            when(reservaRepository.findTerminadasConSaldo(any(), any(), any())).thenReturn(List.of(deAyer, deHoy));
+
+            assertThat(consultas.devolucionesPendientes(EMPLEADO_EMAIL)).extracting(ReservaResponse::getId)
+                    .containsExactly(22L);
+            assertThat(consultas.saldosPendientes(EMPLEADO_EMAIL)).extracting(ReservaResponse::getId)
+                    .containsExactly(22L);
+            assertThat(consultas.devolucionesPendientes(ADMIN_EMAIL)).extracting(ReservaResponse::getId)
+                    .containsExactly(21L, 22L);
+            assertThat(consultas.saldosPendientes(ADMIN_EMAIL)).extracting(ReservaResponse::getId)
+                    .containsExactly(21L, 22L);
         }
     }
 }

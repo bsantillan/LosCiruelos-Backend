@@ -54,7 +54,7 @@ public class ReservaAdminController {
 
     /**
      * Reservas pasadas y futuras de cualquier cliente, paginadas, con los totales del filtro.
-     * Todos los filtros son opcionales y se combinan.
+     * Todos los filtros son opcionales y se combinan. El EMPLEADO solo ve de hoy en adelante.
      */
     @GetMapping
     public ResponseEntity<ListadoReservasResponse> listar(
@@ -70,9 +70,10 @@ public class ReservaAdminController {
             @RequestParam(defaultValue = "false") boolean pendientes,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(required = false) Integer size,
-            @RequestParam(required = false) String orden) {
+            @RequestParam(required = false) String orden,
+            Authentication authentication) {
         return ResponseEntity.ok(reservaConsultaService.listar(desde, hasta, estado, clienteId, cliente, canchaId,
-                tipo, turnoFijoId, deTurnoFijo, pendientes, page, size, orden));
+                tipo, turnoFijoId, deTurnoFijo, pendientes, page, size, orden, authentication.getName()));
     }
 
     /** Reserva para un cliente (clienteId obligatorio). Con "bonificacion" (solo ADMIN) se crea y se bonifica junto. */
@@ -135,14 +136,14 @@ public class ReservaAdminController {
 
     /** Turnos ya jugados que deben saldo (señados o parciales), del más viejo al más nuevo. */
     @GetMapping("/saldos-pendientes")
-    public ResponseEntity<List<ReservaResponse>> saldosPendientes() {
-        return ResponseEntity.ok(reservaConsultaService.saldosPendientes());
+    public ResponseEntity<List<ReservaResponse>> saldosPendientes(Authentication authentication) {
+        return ResponseEntity.ok(reservaConsultaService.saldosPendientes(authentication.getName()));
     }
 
     /** Reservas cuyo turno empezó y tienen paletas sin devolver. */
     @GetMapping("/devoluciones-pendientes")
-    public ResponseEntity<List<ReservaResponse>> devolucionesPendientes() {
-        return ResponseEntity.ok(reservaConsultaService.devolucionesPendientes());
+    public ResponseEntity<List<ReservaResponse>> devolucionesPendientes(Authentication authentication) {
+        return ResponseEntity.ok(reservaConsultaService.devolucionesPendientes(authentication.getName()));
     }
 
     /**
