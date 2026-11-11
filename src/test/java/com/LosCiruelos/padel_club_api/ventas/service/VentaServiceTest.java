@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -209,17 +210,25 @@ class VentaServiceTest {
     @Test
     void unProductoQueNoEstaCargadoSeDaDeAltaConSuNombreYPrecio() {
         Producto gatorade = Producto.builder().id(9L).nombre("Gatorade").tipo(TipoProducto.VENTA)
-                .precio(new BigDecimal("2500")).stock(0).controlaStock(false).build();
-        when(productoService.productoManual("Gatorade", new BigDecimal("2500"))).thenReturn(gatorade);
+                .precio(new BigDecimal("2500")).stock(3).build();
+        when(productoService.productoManual(org.mockito.ArgumentMatchers.anyString(), eq(new BigDecimal("2500")),
+                eq(3))).thenReturn(gatorade);
         VentaRequest.Item manual = new VentaRequest.Item();
         manual.setNombre("Gatorade");
         manual.setPrecio(new BigDecimal("2500"));
         manual.setCantidad(2);
+        // el mismo, escrito de nuevo: se da de alta con stock para las 3 unidades
+        VentaRequest.Item otraVez = new VentaRequest.Item();
+        otraVez.setNombre(" gatorade ");
+        otraVez.setPrecio(new BigDecimal("2500"));
+        otraVez.setCantidad(1);
 
-        VentaResponse r = servicio.registrar(pedido(MedioDePago.EFECTIVO, null, manual), empleado.getEmail());
+        VentaResponse r = servicio.registrar(pedido(MedioDePago.EFECTIVO, null, manual, otraVez), empleado.getEmail());
 
-        assertThat(r.total()).isEqualTo(new BigDecimal("5000.00"));
+        assertThat(r.total()).isEqualTo(new BigDecimal("7500.00"));
         assertThat(r.items()).extracting(VentaResponse.Item::productoId).containsExactly(9L);
+        verify(productoService, org.mockito.Mockito.times(2)).productoManual(org.mockito.ArgumentMatchers.anyString(),
+                eq(new BigDecimal("2500")), eq(3));
     }
 
     @Test

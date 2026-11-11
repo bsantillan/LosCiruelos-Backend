@@ -35,10 +35,10 @@ public class ProductoRequest {
     @Min(value = 0, message = "El stock no puede ser negativo")
     private Integer stock;
 
-    // por defecto true
+    // solo al crear (por defecto true); al modificar se ignora: se usan baja y reactivación
     private Boolean activo;
     // el cliente lo ve y lo pide al reservar (por defecto false: solo lo agrega el personal)
     private Boolean ofrecerAlReservar;
-    // por defecto true; false: no se limitan las unidades ni se mueve el stock
+    // todos los productos controlan stock: false es 400 (se puede omitir)
     private Boolean controlaStock;
 }

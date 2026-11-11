@@ -471,7 +471,8 @@ public class ReservaService {
     public ReservaResponse agregarProducto(Long id, AgregarProductoRequest req, String emailPersonal) {
         Reserva reserva = bloquear(id);
         validarQueAdmiteProductos(reserva);
-        Producto producto = stockService.productoParaAgregar(req.getProductoId(), req.getNombre(), req.getPrecio());
+        Producto producto = stockService.productoParaAgregar(req.getProductoId(), req.getNombre(), req.getPrecio(),
+                req.getCantidad());
         LocalDateTime ahora = reloj.ahora();
         BigDecimal montoCancha = reserva.getMontoCancha();
         stockService.agregar(reserva, producto, req.getCantidad(), ahora);

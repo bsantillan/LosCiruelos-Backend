@@ -83,6 +83,7 @@ public class Producto {
     }
 
     /** Lleva la cuenta de unidades: si no, se puede pedir sin límite y el stock no se mueve. */
+    /** Siempre true desde V36 (todos los productos controlan stock); queda por compatibilidad. */
     public boolean llevaStock() {
         return Boolean.TRUE.equals(controlaStock);
     }

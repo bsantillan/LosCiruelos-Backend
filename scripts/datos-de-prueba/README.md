@@ -9,7 +9,7 @@
    - la configuración ($5.000 la media hora, seña del 50 %, turnos de 90 a 180 minutos, el cliente reserva hasta 30 días adelante);
    - los días de apertura;
    - las 4 canchas;
-   - las pelotas y paletas, que se ofrecen al reservar, y dos productos que se venden en el club: agua mineral (con stock) y Gatorade (sin control de stock, como uno cargado a mano).
+   - las pelotas y paletas, que se ofrecen al reservar, y dos productos que se venden en el club: agua mineral y Gatorade (todos con stock).
 3. **Conserva los ADMIN que había:** mismo mail, contraseña, nombre, celular y canal de avisos. Si no había ninguno, lo crea la app al arrancar, con `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
 4. **Carga las cuentas de prueba.** Todas entran con la contraseña **`Prueba123!`**.
 

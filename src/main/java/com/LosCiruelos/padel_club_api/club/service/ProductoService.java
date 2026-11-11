@@ -53,6 +53,7 @@ public class ProductoService {
 
     @Transactional
     public ProductoResponse crear(ProductoRequest req) {
+        exigirControlDeStock(req);
         if (productoRepository.existsByNombreIgnoreCase(req.getNombre().trim())) {
             throw new EstadoInvalidoException("Ya existe un producto llamado " + req.getNombre().trim() + ".");
         }
@@ -64,13 +65,18 @@ public class ProductoService {
                 .stock(req.getStock())
                 .activo(req.getActivo() == null || req.getActivo())
                 .ofrecerAlReservar(Boolean.TRUE.equals(req.getOfrecerAlReservar()))
-                .controlaStock(req.getControlaStock() == null || req.getControlaStock())
+                .controlaStock(true)
                 .build();
         return productoMapper.aResponse(productoRepository.save(producto));
     }
 
+    /**
+     * Reemplaza nombre, descripción, precio, stock y si se ofrece al reservar. El tipo no cambia;
+     * {@code activo} se ignora (se da de baja y se reactiva con {@link #desactivar} y {@link #reactivar}).
+     */
     @Transactional
     public ProductoResponse actualizar(Long id, ProductoRequest req) {
+        exigirControlDeStock(req);
         Producto producto = bloquearProducto(id);
         if (req.getTipo() != producto.getTipo()) {
             throw new ReservaException("No se puede cambiar el tipo de un producto; creá uno nuevo.");
@@ -82,14 +88,8 @@ public class ProductoService {
         producto.setDescripcion(req.getDescripcion());
         producto.setPrecio(req.getPrecio());
         producto.setStock(req.getStock());
-        if (req.getActivo() != null) {
-            producto.setActivo(req.getActivo());
-        }
         if (req.getOfrecerAlReservar() != null) {
             producto.setOfrecerAlReservar(req.getOfrecerAlReservar());
-        }
-        if (req.getControlaStock() != null) {
-            producto.setControlaStock(req.getControlaStock());
         }
         log.info("Producto #{} actualizado: precio ${}, stock {}", id, producto.getPrecio(), producto.getStock());
         return productoMapper.aResponse(productoRepository.save(producto));
@@ -109,12 +109,32 @@ public class ProductoService {
         return productoMapper.aResponse(productoRepository.save(producto));
     }
 
-    /** Baja lógica: deja de ofrecerse, pero se conserva en las reservas que ya lo tienen. */
+    /**
+     * Baja: deja de ofrecerse y de poder pedirse o venderse. Un producto nunca se borra: las reservas,
+     * ventas y devoluciones viejas lo conservan.
+     */
     @Transactional
     public ProductoResponse desactivar(Long id) {
         Producto producto = bloquearProducto(id);
         producto.setActivo(false);
-        return productoMapper.aResponse(productoRepository.save(producto));
+        log.info("Producto #{} {} dado de baja", id, producto.getNombre());
+        return productoMapper.aResponse(producto);
+    }
+
+    /** Vuelve a dar de alta un producto dado de baja (con el stock y el precio que tenía). */
+    @Transactional
+    public ProductoResponse reactivar(Long id) {
+        Producto producto = bloquearProducto(id);
+        producto.setActivo(true);
+        log.info("Producto #{} {} reactivado", id, producto.getNombre());
+        return productoMapper.aResponse(producto);
+    }
+
+    /** Todos los productos controlan stock: no se puede pedir que uno no lo haga. */
+    private static void exigirControlDeStock(ProductoRequest req) {
+        if (Boolean.FALSE.equals(req.getControlaStock())) {
+            throw new ReservaException("Todos los productos controlan stock: controlaStock no puede ser false.");
+        }
     }
 
     /** Los activos que se ofrecen al reservar (los que ve y pide el cliente). */
@@ -134,21 +154,22 @@ public class ProductoService {
 
     /**
      * Un producto que el personal escribe a mano (en una reserva o una venta suelta): si ya hay uno
-     * con ese nombre se usa ese; si no, queda dado de alta como producto de venta, sin control de
-     * stock y sin ofrecerse al reservar (el ADMIN después lo puede editar).
+     * con ese nombre se usa ese (con su stock); si no, queda dado de alta como producto de venta, sin
+     * ofrecerse al reservar y con stock igual a {@code cantidad}, la que se vende o se agrega ahora
+     * (así queda en 0 y el ADMIN lo repone o lo edita después).
      */
     @Transactional
-    public Producto productoManual(String nombre, BigDecimal precio) {
+    public Producto productoManual(String nombre, BigDecimal precio, int cantidad) {
         String limpio = nombre.trim();
         return productoRepository.findFirstByNombreIgnoreCase(limpio).orElseGet(() -> {
             Producto nuevo = productoRepository.save(Producto.builder()
                     .nombre(limpio)
                     .tipo(TipoProducto.VENTA)
                     .precio(precio)
-                    .stock(0)
+                    .stock(cantidad)
                     .activo(true)
                     .ofrecerAlReservar(false)
-                    .controlaStock(false)
+                    .controlaStock(true)
                     .build());
             log.info("Producto #{} {} dado de alta a mano (${})", nuevo.getId(), limpio, precio);
             return nuevo;

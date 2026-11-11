@@ -641,7 +641,7 @@ class ReservaServiceTest {
             reserva = reserva(30L, cliente, EstadoReserva.PAGADA, "15000");
             pago(1L, reserva, EstadoPago.APROBADO, "15000");
             when(reservaRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(reserva));
-            when(stockService.productoParaAgregar(9L, null, null)).thenReturn(agua);
+            when(stockService.productoParaAgregar(eq(9L), isNull(), isNull(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(agua);
             // el stock agrega el producto a la reserva
             doAnswer(inv -> {
                 agregarProducto(inv.getArgument(0), "AGUA", TipoProducto.VENTA, inv.getArgument(2), "2000");

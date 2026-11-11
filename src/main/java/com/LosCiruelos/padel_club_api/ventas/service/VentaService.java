@@ -71,8 +71,12 @@ public class VentaService {
             venta.esperarPagoConQr(cobroQr.vencimiento());
         }
         Map<Producto, Integer> cantidades = new LinkedHashMap<>();
+        // un producto escrito a mano se da de alta con stock igual a todo lo que se vende de él
+        Map<String, Integer> manuales = new java.util.HashMap<>();
+        req.getItems().stream().filter(i -> i.getProductoId() == null && i.getNombre() != null)
+                .forEach(i -> manuales.merge(i.getNombre().trim().toLowerCase(), i.getCantidad(), Integer::sum));
         for (VentaRequest.Item item : req.getItems()) {
-            cantidades.merge(producto(item), item.getCantidad(), Integer::sum);
+            cantidades.merge(producto(item, manuales), item.getCantidad(), Integer::sum);
         }
         // primero el stock (bloquea los productos y los deja actualizados), después los precios
         productoService.descontarVentaSuelta(cantidades);
@@ -165,14 +169,16 @@ public class VentaService {
         return ventaRepository.findByIdForUpdate(ventaId).orElseThrow(() -> new VentaNoEncontradaException(ventaId));
     }
 
-    private Producto producto(VentaRequest.Item item) {
+    /** @param manuales unidades que se venden de cada producto escrito a mano (nombre en minúsculas) */
+    private Producto producto(VentaRequest.Item item, Map<String, Integer> manuales) {
         Producto producto;
         if (item.getProductoId() != null) {
             producto = productoService.obtener(item.getProductoId());
         } else if (item.getNombre() == null || item.getNombre().isBlank() || item.getPrecio() == null) {
             throw new ReservaException("Indicá el producto (productoId) o su nombre y precio.");
         } else {
-            producto = productoService.productoManual(item.getNombre(), item.getPrecio());
+            producto = productoService.productoManual(item.getNombre(), item.getPrecio(),
+                    manuales.get(item.getNombre().trim().toLowerCase()));
         }
         if (producto.getTipo() != TipoProducto.VENTA) {
             throw new ReservaException(producto.getNombre() + " se alquila con un turno: no se vende suelto.");

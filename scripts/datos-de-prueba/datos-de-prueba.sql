@@ -66,9 +66,9 @@ SELECT n, 'Cancha de césped sintético con iluminación LED.' FROM generate_ser
 INSERT INTO productos (codigo, nombre, descripcion, tipo, precio, stock, activo, ofrecer_al_reservar, controla_stock) VALUES
     ('PELOTAS', 'Pelotas', 'Pelota de pádel, precio por unidad', 'VENTA', 5000, 50, true, true, true),
     ('PALETAS', 'Paletas', 'Alquiler de paleta durante el turno, precio por unidad', 'ALQUILER', 5000, 50, true, true, true),
-    -- se venden en el club (no se ofrecen al reservar): una con stock y una cargada a mano, sin control de stock
+    -- se venden en el club (no se ofrecen al reservar); todos controlan stock
     (NULL, 'Agua mineral', 'Botella de 500 ml', 'VENTA', 1500, 24, true, false, true),
-    (NULL, 'Gatorade', NULL, 'VENTA', 3000, 0, true, false, false);
+    (NULL, 'Gatorade', NULL, 'VENTA', 3000, 20, true, false, true);
 
 -- ── Ayudas (solo existen durante esta sesión) ────────────────────────────
 CREATE FUNCTION pg_temp.usuario(p_email text) RETURNS bigint LANGUAGE sql AS

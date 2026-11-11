@@ -11,6 +11,8 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -85,16 +87,22 @@ class ProductoServiceTest {
         }
 
         @Test
-        void elAdminEligeSiSeOfreceAlReservarYSiControlaStock() {
+        void elAdminEligeSiSeOfreceAlReservarYTodosControlanStock() {
             when(productoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
             var pedido = pedido("Agua", TipoProducto.VENTA);
             pedido.setOfrecerAlReservar(true);
-            pedido.setControlaStock(false);
 
             var r = servicio.crear(pedido);
 
             assertThat(r.getOfrecerAlReservar()).isTrue();
-            assertThat(r.getControlaStock()).isFalse();
+            assertThat(r.getControlaStock()).isTrue();
+
+            pedido.setControlaStock(false);
+            assertThatThrownBy(() -> servicio.crear(pedido))
+                    .isInstanceOf(ReservaException.class)
+                    .hasMessage("Todos los productos controlan stock: controlaStock no puede ser false.");
+            assertThatThrownBy(() -> servicio.actualizar(1L, pedido))
+                    .isInstanceOf(ReservaException.class);
         }
 
         @Test
@@ -139,6 +147,10 @@ class ProductoServiceTest {
             assertThat(servicio.desactivar(2L).getActivo()).isFalse();
             assertThat(servicio.listarTodos()).hasSize(2);
             assertThat(servicio.listarParaReservar()).hasSize(1);
+            // se reactiva con su stock; nunca se borra
+            assertThat(servicio.reactivar(2L).getActivo()).isTrue();
+            verify(productoRepository, never()).delete(any());
+            verify(productoRepository, never()).deleteById(any());
         }
     }
 
@@ -147,11 +159,11 @@ class ProductoServiceTest {
 
         private Producto agua() {
             return Producto.builder().id(5L).nombre("Agua").tipo(TipoProducto.VENTA).precio(new BigDecimal("1500"))
-                    .stock(0).controlaStock(false).build();
+                    .stock(8).build();
         }
 
         @Test
-        void descuentaElStockDeLosQueLoControlan() {
+        void descuentaElStockDeTodos() {
             Producto agua = agua();
             java.util.Map<Producto, Integer> cantidades = new java.util.LinkedHashMap<>();
             cantidades.put(pelotas, 3);
@@ -160,7 +172,25 @@ class ProductoServiceTest {
             servicio.descontarVentaSuelta(cantidades);
 
             assertThat(pelotas.getStock()).isEqualTo(7);
-            assertThat(agua.getStock()).isZero(); // sin control de stock: no se toca
+            assertThat(agua.getStock()).isEqualTo(3);
+        }
+
+        @Test
+        void unProductoEscritoAManoNaceConElStockDeLoQueSeVende() {
+            when(productoRepository.findFirstByNombreIgnoreCase("Barrita")).thenReturn(java.util.Optional.empty());
+            when(productoRepository.save(any())).thenAnswer(inv -> {
+                Producto p = inv.getArgument(0);
+                p.setId(40L);
+                return p;
+            });
+
+            Producto nuevo = servicio.productoManual(" Barrita ", new BigDecimal("1200"), 3);
+
+            assertThat(nuevo.getControlaStock()).isTrue();
+            assertThat(nuevo.getStock()).isEqualTo(3);
+            // al venderlo queda en 0
+            servicio.descontarVentaSuelta(java.util.Map.of(nuevo, 3));
+            assertThat(nuevo.getStock()).isZero();
         }
 
         @Test

@@ -760,7 +760,13 @@ class ControllersTest {
             mvc.perform(json(put("/admin/configuracion/productos/1"), producto)).andExpect(status().isOk());
             mvc.perform(json(patch("/admin/configuracion/productos/1/stock"), "{\"ajuste\":12}"))
                     .andExpect(status().isOk());
-            mvc.perform(delete("/admin/configuracion/productos/1")).andExpect(status().isOk());
+            // un producto no se borra: se da de baja y se reactiva
+            when(productoService.reactivar(1L)).thenReturn(new ProductoResponse());
+            mvc.perform(put("/admin/configuracion/productos/1/baja")).andExpect(status().isOk());
+            mvc.perform(put("/admin/configuracion/productos/1/reactivacion")).andExpect(status().isOk());
+            verify(productoService).desactivar(1L);
+            verify(productoService).reactivar(1L);
+            mvc.perform(delete("/admin/configuracion/productos/1")).andExpect(status().isMethodNotAllowed());
         }
 
         @Test
