@@ -662,14 +662,14 @@ class ControllersTest {
                             java.time.LocalTime.of(9, 30), 2, "Juan Gómez", "NORMAL")),
                     List.of(new com.LosCiruelos.padel_club_api.club.dto.response.FueraDeHorarioResponse.TurnoFijo(4L,
                             java.time.DayOfWeek.MONDAY, java.time.LocalTime.of(8, 0), java.time.LocalTime.of(9, 30), 1)));
-            when(configuracionGeneralService.actualizar(any())).thenThrow(
-                    new com.LosCiruelos.padel_club_api.club.exception.HorariosConReservasException(fuera));
+            when(configuracionGeneralService.actualizar(any(), any())).thenThrow(
+                    com.LosCiruelos.padel_club_api.club.exception.HorariosConReservasException.porHorario(fuera));
 
             mvc.perform(json(put("/admin/configuracion"), CONFIGURACION))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.error").value("El horario nuevo deja afuera 1 reserva y 1 turno fijo. "
-                            + "Para guardarlo igual, mandá \"confirmar\": true: no se cancela ni se modifica nada (se "
-                            + "reprograman o cancelan a mano)."))
+                            + "Para guardarlo igual, mandá \"confirmar\": true: las reservas se cancelan con reembolso "
+                            + "total y se avisa a cada cliente, y los turnos fijos no crean partidos nuevos en ese horario."))
                     .andExpect(jsonPath("$.reservasFueraDeHorario[0].id").value(31))
                     .andExpect(jsonPath("$.reservasFueraDeHorario[0].fecha").value("2026-10-19"))
                     .andExpect(jsonPath("$.reservasFueraDeHorario[0].horaInicio").value("08:00"))
@@ -684,7 +684,7 @@ class ControllersTest {
                     "\"diasAnticipacion\":30,\"confirmar\":true")));
             org.mockito.ArgumentCaptor<com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest> req =
                     org.mockito.ArgumentCaptor.forClass(com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest.class);
-            verify(configuracionGeneralService, org.mockito.Mockito.times(2)).actualizar(req.capture());
+            verify(configuracionGeneralService, org.mockito.Mockito.times(2)).actualizar(req.capture(), eq(EMAIL));
             org.assertj.core.api.Assertions.assertThat(req.getAllValues())
                     .extracting(com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest::getConfirmar)
                     .containsExactly(null, true);
@@ -695,7 +695,9 @@ class ControllersTest {
             when(configuracionGeneralService.horarios()).thenReturn(
                     new com.LosCiruelos.padel_club_api.club.dto.response.HorariosClubResponse(List.of(
                             new com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse.Horario("Lunes",
-                                    java.time.LocalTime.of(8, 0), java.time.LocalTime.of(23, 0))), 90, 180));
+                                    java.time.LocalTime.of(8, 0), java.time.LocalTime.of(23, 0))),
+                            List.of(new com.LosCiruelos.padel_club_api.club.dto.response.HorariosClubResponse.Cierre(
+                                    java.time.LocalDate.of(2026, 12, 25), "Navidad")), 90, 180));
 
             mvc.perform(get("/club/horarios"))
                     .andExpect(status().isOk())
@@ -703,7 +705,45 @@ class ControllersTest {
                     .andExpect(jsonPath("$.horarios[0].apertura").value("08:00"))
                     .andExpect(jsonPath("$.horarios[0].cierre").value("23:00"))
                     .andExpect(jsonPath("$.duracionMinimaTurno").value(90))
-                    .andExpect(jsonPath("$.duracionMaximaTurno").value(180));
+                    .andExpect(jsonPath("$.duracionMaximaTurno").value(180))
+                    .andExpect(jsonPath("$.cierres[0].fecha").value("2026-12-25"))
+                    .andExpect(jsonPath("$.cierres[0].motivo").value("Navidad"));
+        }
+
+        @Test
+        void losDiasCerrados() throws Exception {
+            var cancelaciones = new com.LosCiruelos.padel_club_api.club.dto.response.CancelacionesResponse(List.of(31L),
+                    List.of(new com.LosCiruelos.padel_club_api.club.dto.response.CancelacionesResponse.SinCancelar(32L,
+                            "La reserva tiene un pago en proceso; esperá a que Mercado Pago lo resuelva.")));
+            when(configuracionGeneralService.cerrar(any(), eq(EMAIL))).thenReturn(
+                    new com.LosCiruelos.padel_club_api.club.dto.response.CierreResponse(java.time.LocalDate.of(2026, 12, 25),
+                            "Navidad", TestData.AHORA, cancelaciones));
+
+            mvc.perform(json(post("/admin/configuracion/cierres"), "{\"motivo\":\" \"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.fecha").exists())
+                    .andExpect(jsonPath("$.errors.motivo").exists());
+            mvc.perform(json(post("/admin/configuracion/cierres"),
+                    "{\"fecha\":\"2026-12-25\",\"motivo\":\"Navidad\",\"confirmar\":true}"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.fecha").value("2026-12-25"))
+                    .andExpect(jsonPath("$.cancelaciones.canceladas[0]").value(31))
+                    .andExpect(jsonPath("$.cancelaciones.sinCancelar[0].reservaId").value(32));
+            org.mockito.ArgumentCaptor<com.LosCiruelos.padel_club_api.club.dto.request.CierreRequest> req =
+                    org.mockito.ArgumentCaptor.forClass(com.LosCiruelos.padel_club_api.club.dto.request.CierreRequest.class);
+            verify(configuracionGeneralService).cerrar(req.capture(), eq(EMAIL));
+            org.assertj.core.api.Assertions.assertThat(req.getValue().getConfirmar()).isTrue();
+
+            when(configuracionGeneralService.cierres()).thenReturn(List.of(
+                    new com.LosCiruelos.padel_club_api.club.dto.response.CierreResponse(java.time.LocalDate.of(2026, 12, 25),
+                            "Navidad", TestData.AHORA, null)));
+            mvc.perform(get("/admin/configuracion/cierres").principal(AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].motivo").value("Navidad"));
+
+            mvc.perform(delete("/admin/configuracion/cierres/2026-12-25").principal(AUTH))
+                    .andExpect(status().isNoContent());
+            verify(configuracionGeneralService).reabrir(java.time.LocalDate.of(2026, 12, 25));
         }
 
         @Test
@@ -916,20 +956,20 @@ class ControllersTest {
             mvc.perform(json(put("/admin/configuracion"), CONFIGURACION.replace("\"porcentajeSenia\":50", "\"porcentajeSenia\":150")))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.porcentajeSenia").value("Entre 0 y 100"));
-            verify(configuracionGeneralService, never()).actualizar(any());
+            verify(configuracionGeneralService, never()).actualizar(any(), any());
             com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse respuesta =
                     new com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse(new BigDecimal("0.00"),
                             new BigDecimal("5000.00"), new BigDecimal("50.00"), 90, 180, 1440, 720, true, 120, 30,
                             List.of(new com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse.Horario(
-                                    "Lunes", java.time.LocalTime.of(8, 0), java.time.LocalTime.of(23, 0))));
-            when(configuracionGeneralService.actualizar(any())).thenReturn(respuesta);
+                                    "Lunes", java.time.LocalTime.of(8, 0), java.time.LocalTime.of(23, 0))), null);
+            when(configuracionGeneralService.actualizar(any(), any())).thenReturn(respuesta);
             when(configuracionGeneralService.general()).thenReturn(respuesta);
             mvc.perform(json(put("/admin/configuracion"), CONFIGURACION))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.horarios[0].apertura").value("08:00"));
             org.mockito.ArgumentCaptor<com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest> req =
                     org.mockito.ArgumentCaptor.forClass(com.LosCiruelos.padel_club_api.club.dto.request.ConfiguracionRequest.class);
-            verify(configuracionGeneralService).actualizar(req.capture());
+            verify(configuracionGeneralService).actualizar(req.capture(), eq(EMAIL));
             org.assertj.core.api.Assertions.assertThat(req.getValue().getHorarios().get(0).getCierre())
                     .isEqualTo(java.time.LocalTime.of(23, 0));
             mvc.perform(get("/admin/configuracion").principal(AUTH))

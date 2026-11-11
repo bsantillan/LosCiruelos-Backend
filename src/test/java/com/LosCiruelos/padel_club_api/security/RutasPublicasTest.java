@@ -69,7 +69,8 @@ class RutasPublicasTest {
         ConfiguracionGeneralService configuracionGeneralService() {
             ConfiguracionGeneralService servicio = mock(ConfiguracionGeneralService.class);
             when(servicio.horarios()).thenReturn(new HorariosClubResponse(List.of(
-                    new ConfiguracionResponse.Horario("Lunes", LocalTime.of(8, 0), LocalTime.of(23, 0))), 90, 180));
+                    new ConfiguracionResponse.Horario("Lunes", LocalTime.of(8, 0), LocalTime.of(23, 0))), List.of(), 90,
+                    180));
             return servicio;
         }
 

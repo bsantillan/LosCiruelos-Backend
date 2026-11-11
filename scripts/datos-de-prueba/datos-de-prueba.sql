@@ -309,6 +309,10 @@ WITH v AS (SELECT id FROM ventas WHERE created_at < now() - interval '5 days' OR
 INSERT INTO venta_devolucion_items (devolucion_id, venta_item_id, cantidad, vuelve_al_stock)
 SELECT d.id, i.id, 1, false FROM d, i;
 
+-- ── Un día cerrado (sin reservas ese día) ───────────────────────────────
+INSERT INTO dias_cerrados (configuracion_id, fecha, motivo, created_at, created_by_id)
+VALUES (1, current_date + 40, 'Mantenimiento de las canchas', now(), pg_temp.admin());
+
 DROP EXTENSION pgcrypto;
 
 COMMIT;

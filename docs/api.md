@@ -221,13 +221,14 @@ Cada usuario elige si recibe los avisos por mail o por WhatsApp. Detalle de qué
 ## Horarios del club — `/club/horarios` (público)
 
 ### `GET /club/horarios` → `200`
-Sin sesión. Los días que abre el club, de lunes a domingo, con su horario, y la duración mínima y máxima de los turnos. Un día que no está, el club no abre. Lo usan la grilla del panel (ADMIN y EMPLEADO, también para días pasados) y el sitio del cliente.
+Sin sesión. Los días que abre el club, de lunes a domingo, con su horario, los próximos días cerrados (de hoy en adelante) y la duración mínima y máxima de los turnos. Un día de la semana que no está, el club no abre; un día de `cierres`, tampoco. Lo usan la grilla del panel (ADMIN y EMPLEADO, también para días pasados) y el sitio del cliente.
 ```json
 {
   "horarios": [
     { "dia": "Lunes", "apertura": "08:00", "cierre": "23:00" },
     { "dia": "Sábado", "apertura": "09:00", "cierre": "22:00" }
   ],
+  "cierres": [ { "fecha": "2026-12-25", "motivo": "Navidad" } ],
   "duracionMinimaTurno": 90,
   "duracionMaximaTurno": 180
 }
@@ -431,7 +432,7 @@ Si hay algo y el body no trae `"confirmar": true`, responde `409` sin guardar na
 ```json
 {
   "timestamp": "2026-10-13T10:00:00.000-03:00",
-  "error": "El horario nuevo deja afuera 1 reserva y 1 turno fijo. Para guardarlo igual, mandá \"confirmar\": true: no se cancela ni se modifica nada (se reprograman o cancelan a mano).",
+  "error": "El horario nuevo deja afuera 1 reserva y 1 turno fijo. Para guardarlo igual, mandá \"confirmar\": true: las reservas se cancelan con reembolso total y se avisa a cada cliente, y los turnos fijos no crean partidos nuevos en ese horario.",
   "reservasFueraDeHorario": [
     { "id": 31, "fecha": "2026-10-19", "horaInicio": "08:00", "horaFin": "09:30", "canchaNumero": 2, "clienteNombre": "Juan Gómez", "tipo": "NORMAL" }
   ],
@@ -442,9 +443,25 @@ Si hay algo y el body no trae `"confirmar": true`, responde `409` sin guardar na
 ```
 `reservasFueraDeHorario` va por fecha y hora; `tipo` es `NORMAL` o `PARTIDO`; `clienteNombre` es el titular (en un partido, el responsable).
 
-Con `"confirmar": true` se guarda igual: **las reservas existentes siguen valiendo**, no se cancelan ni se modifican (el ADMIN las reprograma o cancela a mano). Un turno fijo que quedó afuera no crea partidos nuevos en un horario que ya no existe: esas fechas salen en `fechasOmitidas` del turno fijo con el motivo (por ejemplo, "Fuera del horario del club: los lunes abre de 08:30 a 23:00." o "El club ya no abre los domingos."); los partidos que ya estaban creados siguen.
+Con `"confirmar": true` se guarda el cambio y, después, **se cancelan las reservas de la lista** como si las cancelara el ADMIN desde el panel, con **reembolso total** (por Mercado Pago, o `A_REEMBOLSAR` si se cobró en el club) y aviso al cliente y a los jugadores (`CANCELADA_POR_CLUB`). Cada una se cancela en su transacción: si alguna no se puede (por ejemplo, tiene un pago de Mercado Pago en proceso), el cambio queda guardado igual y esa reserva sale en `cancelaciones.sinCancelar`, para cancelarla a mano. La respuesta es la configuración nueva con:
+```json
+"cancelaciones": { "canceladas": [31, 40], "sinCancelar": [ { "reservaId": 42, "motivo": "La reserva tiene un pago en proceso; esperá a que Mercado Pago lo resuelva." } ] }
+```
+(`cancelaciones` es `null` en el `GET`.) Un turno fijo que quedó afuera no crea partidos nuevos en un horario que ya no existe: esas fechas salen en `fechasOmitidas` del turno fijo con el motivo (por ejemplo, "Fuera del horario del club: los lunes abre de 08:30 a 23:00." o "El club ya no abre los domingos."); los partidos que ya estaban creados siguen.
 
-Las secciones `GET`/`PUT /admin/configuracion/avisos` y `/admin/configuracion/reservas` (más arriba) siguen funcionando y editan los mismos datos.
+Las secciones `GET`/`PUT /admin/configuracion/avisos` y `/admin/configuracion/reservas` (más arriba) siguen funcionando y editan los mismos datos (no revisan horarios).
+
+### Días cerrados — `/admin/configuracion/cierres` (rol: ADMIN)
+
+Días puntuales en que el club no abre (un feriado, una obra), además del horario semanal. Ese día no se puede reservar (la disponibilidad y la creación responden `400` "El club está cerrado el viernes 25/12: Navidad.") y los turnos fijos no crean su partido (la fecha sale en `fechasOmitidas` con ese motivo).
+
+**`CierreResponse`**: `{ "fecha": "2026-12-25", "motivo": "Navidad", "cerradoAt": "2026-11-08T10:00:00.000-03:00", "cancelaciones": … }` (`cancelaciones` solo al cerrar; `null` en el listado).
+
+| Método y ruta | Descripción | Errores |
+|---|---|---|
+| `GET /admin/configuracion/cierres` → `200 [CierreResponse]` | Los días cerrados de hoy en adelante, en orden. | `403` |
+| `POST /admin/configuracion/cierres` → `201 CierreResponse` | Cierra el club ese día. Body `{ "fecha": "2026-12-25", "motivo": "Navidad", "confirmar": false }` (`motivo` hasta 200 caracteres; lo ven los clientes en `GET /club/horarios`). Si ese día hay reservas que todavía no empezaron y no están canceladas ni vencidas, sin `"confirmar": true` responde `409` sin cerrar, con el mismo formato que el de `PUT /admin/configuracion`: `reservasFueraDeHorario` (las de ese día) y `turnosFijosFueraDeHorario` (los turnos fijos activos que se juegan ese día, como información). Con `confirmar`, cierra y cancela esas reservas con reembolso total y aviso al cliente, igual que al confirmar un horario; la respuesta trae `cancelaciones`. Si solo hay turnos fijos sin partido creado, cierra directo (ese día no se crea). | `400` validación (`errors.fecha`, `errors.motivo`) o "No se puede cerrar un día que ya pasó." · `403` · `409` "El club ya está cerrado el viernes 25/12." o "El viernes 25/12 hay 2 reservas. Para cerrar igual, mandá \"confirmar\": true: se cancelan con reembolso total y se avisa a cada cliente." (con la lista) |
+| `DELETE /admin/configuracion/cierres/{fecha}` → `204` | Vuelve a abrir ese día. Las reservas que se cancelaron al cerrarlo no vuelven. | `404` "El club no está cerrado el viernes 25/12." · `403` |
 
 ## Configuración: stock de productos — `/admin/configuracion/productos` (rol: ADMIN; EMPLEADO puede listar y ajustar stock)
 
