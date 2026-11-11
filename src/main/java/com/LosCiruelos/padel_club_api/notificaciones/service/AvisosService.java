@@ -67,14 +67,22 @@ public class AvisosService {
         return puedeWhatsapp ? CanalNotificacion.WHATSAPP : CanalNotificacion.EMAIL;
     }
 
+    private boolean porWhatsApp(Destinatario destinatario, AvisoReserva aviso) {
+        String telefono = destinatario.telefono();
+        String plantilla = aviso.tipo().plantilla();
+        String boton = aviso.parametroBoton();
+        return boton == null
+                ? whatsApp.getService().enviarPlantilla(telefono, plantilla, aviso.parametros())
+                : whatsApp.getService().enviarPlantilla(telefono, plantilla, aviso.parametros(), boton);
+    }
+
     /** Envía el aviso a un destinatario. @return el canal por el que salió, o null si falló. */
     public CanalNotificacion entregar(Destinatario destinatario, AvisoReserva aviso) {
         try {
-            if (canalPara(destinatario) == CanalNotificacion.WHATSAPP && whatsApp.getService()
-                    .enviarPlantilla(destinatario.telefono(), aviso.tipo().plantilla(), aviso.parametros())) {
+            if (canalPara(destinatario) == CanalNotificacion.WHATSAPP && porWhatsApp(destinatario, aviso)) {
                 return CanalNotificacion.WHATSAPP;
             }
-            emailServiceFactory.getService().sendAviso(destinatario.email(), aviso.tipo().asunto(), aviso.texto());
+            emailServiceFactory.getService().sendAviso(destinatario.email(), aviso.tipo().asunto(), aviso.textoMail());
             log.info("Aviso {} de la reserva #{} enviado por mail a {}", aviso.tipo(), aviso.reservaId(),
                     destinatario.email());
             return CanalNotificacion.EMAIL;
