@@ -16,7 +16,15 @@ import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.mapper.VentaMapper;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse;
+import com.LosCiruelos.padel_club_api.ventas.dto.response.ListadoVentasResponse;
 import com.LosCiruelos.padel_club_api.ventas.dto.response.VentaResponse;
+import com.LosCiruelos.padel_club_api.ventas.repository.FiltroVentas;
+import com.LosCiruelos.padel_club_api.ventas.repository.VentaSpecification;
+import com.LosCiruelos.padel_club_api.common.Busquedas;
+import com.LosCiruelos.padel_club_api.common.Paginacion;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import java.util.Set;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
 import com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta;
@@ -45,27 +53,54 @@ public class VentaConsultaService {
         return Arrays.stream(MedioDePago.values()).map(m -> ventaMapper.aMedio(m, qr)).toList();
     }
 
-    /** Ventas entre desde y hasta (sin fechas, las de hoy). El ADMIN ve cualquier período; el EMPLEADO, solo hoy. */
+    /** Tamaño de página del listado. */
+    static final int TAMANIO_POR_DEFECTO = 20;
+    static final int TAMANIO_MAXIMO = 100;
+
+    /**
+     * Listado de ventas del personal, paginado, con filtros opcionales que se combinan y los totales
+     * de todo el filtro. Sin fechas, las de hoy. El ADMIN ve cualquier período; el EMPLEADO, solo hoy.
+     *
+     * @param cliente texto a buscar en nombre, apellido o email del cliente (al menos 3 letras)
+     * @param orden   "desc" (por defecto: de la más nueva a la más vieja) o "asc"
+     */
     @Transactional(readOnly = true)
-    public List<VentaResponse> listar(LocalDate desde, LocalDate hasta, String email) {
+    public ListadoVentasResponse listar(LocalDate desde, LocalDate hasta, Long productoId, String cliente,
+            Long clienteId, List<MedioDePago> medios, List<EstadoVenta> estados, int pagina, Integer tamanio,
+            String orden, String email) {
         LocalDate hoy = reloj.hoy();
-        if ((desde == null) != (hasta == null)) {
-            throw new ReservaException("Indicá las dos fechas (desde y hasta) o ninguna para ver las de hoy.");
-        }
-        if (desde == null) {
+        if (desde == null && hasta == null) {
             desde = hoy;
             hasta = hoy;
         }
-        if (desde.isAfter(hasta)) {
+        if (desde != null && hasta != null && desde.isAfter(hasta)) {
             throw new ReservaException("La fecha desde no puede ser posterior a hasta.");
         }
-        if (!Roles.esAdmin(usuarioService.autenticado(email)) && !(desde.equals(hoy) && hasta.equals(hoy))) {
+        if (!Roles.esAdmin(usuarioService.autenticado(email)) && !(hoy.equals(desde) && hoy.equals(hasta))) {
             throw new PermisoDenegadoException("Solo podés ver las ventas de hoy.");
         }
-        return ventaRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
-                desde.atStartOfDay(), hasta.plusDays(1).atStartOfDay()).stream()
-                .map(ventaMapper::aResponse)
-                .toList();
+        String texto = Busquedas.normalizar(cliente);
+        if (texto != null && texto.replace(" ", "").length() < 3) {
+            throw new ReservaException("Escribí al menos 3 letras para buscar un cliente.");
+        }
+        FiltroVentas filtro = new FiltroVentas(desde, hasta, productoId, texto, clienteId,
+                medios != null ? Set.copyOf(medios) : null, estados != null ? Set.copyOf(estados) : null);
+        Sort.Direction direccion = direccion(orden);
+        PageRequest pageable = Paginacion.pagina(pagina, tamanio != null ? tamanio : TAMANIO_POR_DEFECTO,
+                TAMANIO_MAXIMO, Sort.by(direccion, "createdAt").and(Sort.by(direccion, "id")));
+        return ventaMapper.aListado(ventaRepository.findAll(VentaSpecification.delListado(filtro), pageable),
+                ventaRepository.totalesDelListado(filtro));
+    }
+
+    private static Sort.Direction direccion(String orden) {
+        if (orden == null || orden.isBlank()) {
+            return Sort.Direction.DESC;
+        }
+        return switch (orden.trim().toLowerCase()) {
+            case "asc" -> Sort.Direction.ASC;
+            case "desc" -> Sort.Direction.DESC;
+            default -> throw new ReservaException("El orden tiene que ser 'asc' o 'desc'.");
+        };
     }
 
     /** Una venta, con su estado. El EMPLEADO solo ve las de hoy (las otras, 404). */

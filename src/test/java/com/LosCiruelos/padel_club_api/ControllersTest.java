@@ -1448,14 +1448,34 @@ class ControllersTest {
         }
 
         @Test
-        void listarPasaLasFechas() throws Exception {
-            when(ventaConsultaService.listar(any(), any(), eq(EMAIL))).thenReturn(List.of());
+        void listarPasaLosFiltrosYDevuelveLaPaginaConLosTotales() throws Exception {
+            var porMedio = new java.util.EnumMap<MedioDePago, java.math.BigDecimal>(MedioDePago.class);
+            porMedio.put(MedioDePago.EFECTIVO, new java.math.BigDecimal("4500.00"));
+            when(ventaConsultaService.listar(any(), any(), any(), any(), any(), any(), any(), anyInt(), any(), any(),
+                    eq(EMAIL))).thenReturn(new com.LosCiruelos.padel_club_api.ventas.dto.response.ListadoVentasResponse(
+                            List.of(), 1, 20, 21, 2, new com.LosCiruelos.padel_club_api.ventas.dto.response.ListadoVentasResponse
+                                    .Totales(20, 1, new java.math.BigDecimal("4500.00"), new java.math.BigDecimal("1500.00"),
+                                            porMedio)));
 
-            mvc.perform(get("/admin/ventas").param("desde", "2026-10-01").param("hasta", "2026-10-31").principal(AUTH))
+            mvc.perform(get("/admin/ventas").param("desde", "2026-10-01").param("hasta", "2026-10-31")
+                    .param("productoId", "5").param("cliente", "pérez").param("clienteId", "3")
+                    .param("medio", "EFECTIVO").param("medio", "CUENTA_DNI").param("estado", "COBRADA,ANULADA")
+                    .param("page", "1").param("size", "20").param("orden", "asc").principal(AUTH))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.length()").value(0));
+                    .andExpect(jsonPath("$.pagina").value(1))
+                    .andExpect(jsonPath("$.totalElementos").value(21))
+                    .andExpect(jsonPath("$.totales.ventas").value(20))
+                    .andExpect(jsonPath("$.totales.anuladas").value(1))
+                    .andExpect(jsonPath("$.totales.devuelto").value(1500.00))
+                    .andExpect(jsonPath("$.totales.porMedio.EFECTIVO").value(4500.00));
             verify(ventaConsultaService).listar(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31),
-                    EMAIL);
+                    5L, "pérez", 3L, List.of(MedioDePago.EFECTIVO, MedioDePago.CUENTA_DNI),
+                    List.of(com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA,
+                            com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.ANULADA),
+                    1, 20, "asc", EMAIL);
+
+            mvc.perform(get("/admin/ventas").param("medio", "BITCOIN").principal(AUTH))
+                    .andExpect(status().isBadRequest());
         }
     }
 }
