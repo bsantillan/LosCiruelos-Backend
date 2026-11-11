@@ -87,6 +87,7 @@ public class ReservaMapper {
         response.setClienteNombre(nombreCompleto(reserva.getCliente()));
         response.setCreatedAt(reserva.getCreatedAt());
         response.setExpiresAt(reserva.getExpiresAt());
+        response.setModalidadPago(reserva.getModalidadPago());
         response.setPagos(reserva.getPagos().stream()
                 .sorted(Comparator.comparing(Pago::getCreatedAt))
                 .map(pagoMapper::aResponse)

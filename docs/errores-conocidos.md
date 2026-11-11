@@ -45,6 +45,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Modalidad de pago de la reserva del personal**: `POST /admin/reservas` acepta `modalidadPago` (`EN_EL_CLUB` por defecto, `SENIA_ONLINE`, `SIN_SENIA` solo ADMIN). `ReservaResponse` suma `modalidadPago` (null en las del cliente y los partidos); `expiresAt` es `null` en una `SIN_SENIA`. La configuración suma `minutosPagoSeniaOnline` (opcional en el `PUT`). Aviso nuevo al cliente, `SENIA_PENDIENTE` (plantilla de WhatsApp `reserva_pagar_senia_v1`, a dar de alta en Meta).
 - **Reserva del personal para un cliente con el perfil incompleto**: `POST /admin/reservas` ya no responde `403` "El cliente … debe completar su perfil antes de reservar." (alcanza con que sea un CLIENTE activo). `POST /reservas` (el propio cliente) sigue exigiéndolo.
 - **Cambio de horario confirmado y días cerrados**:
   - `PUT /admin/configuracion` con `"confirmar": true` ahora **cancela** las reservas que quedan fuera del horario nuevo (reembolso total y aviso al cliente) y la respuesta suma `cancelaciones: { canceladas, sinCancelar }`. Mostrar las que no se pudieron cancelar para hacerlo a mano. El mensaje del `409` cambió.

@@ -11,6 +11,10 @@ import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva.Destinat
 import com.LosCiruelos.padel_club_api.notificaciones.email.EmailServiceFactory;
 import com.LosCiruelos.padel_club_api.notificaciones.whatsapp.WhatsAppServiceFactory;
 
+import org.springframework.beans.factory.annotation.Value;
+
+import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,8 +32,15 @@ public class AvisosService {
     private final WhatsAppServiceFactory whatsApp;
     private final EmailServiceFactory emailServiceFactory;
 
+    // los links de los avisos al cliente (pagar la seña) van a la pantalla del front
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
+
     @Transactional(readOnly = true)
     public void enviar(AvisoReserva aviso) {
+        if (aviso.tipo() == TipoAviso.SENIA_PENDIENTE) {
+            aviso = aviso.conLink(linkDePago(aviso.reservaId()));
+        }
         if (!aviso.tipo().esParaAdmin()) {
             entregar(aviso.cliente(), aviso);
             return;
@@ -39,6 +50,13 @@ public class AvisosService {
                 entregar(Destinatario.de(admin), aviso);
             }
         }
+    }
+
+    /** La pantalla de pago del cliente para esa reserva (la misma que usa al reservar). */
+    String linkDePago(Long reservaId) {
+        String base = frontendUrl != null && frontendUrl.endsWith("/") ? frontendUrl.substring(0, frontendUrl.length() - 1)
+                : frontendUrl;
+        return base + "/reservas/" + reservaId + "/pago";
     }
 
     /** Canal que se usa de verdad para el destinatario. */

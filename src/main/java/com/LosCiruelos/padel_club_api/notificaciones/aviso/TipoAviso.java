@@ -24,7 +24,9 @@ public enum TipoAviso {
     RECORDATORIO(false, "recordatorio_turno_v2", "Recordatorio de tu turno",
             "Hola {{1}}, te recordamos tu turno en Los Ciruelos: cancha {{2}}, el {{3}}, de {{4}}. {{5}} Si no podés venir, cancelá la reserva desde la página. ¡Te esperamos!"),
     CANCELADA_POR_CLUB(false, "reserva_cancelada_por_club_v2", "Tu reserva fue cancelada",
-            "Hola {{1}}, el club canceló tu reserva de la cancha {{2}} del {{3}}, de {{4}}. {{5}} Disculpá las molestias.");
+            "Hola {{1}}, el club canceló tu reserva de la cancha {{2}} del {{3}}, de {{4}}. {{5}} Disculpá las molestias."),
+    SENIA_PENDIENTE(false, "reserva_pagar_senia_v1", "Pagá la seña de tu reserva",
+            "Hola {{1}}, el club te reservó la cancha {{2}} para el {{3}}, de {{4}}. Para confirmarla, pagá la seña de {{5}} {{6}} desde este link: {{7}} Si no se paga a tiempo, el turno se libera.");
 
     private final boolean paraAdmin;
     private final String plantilla;

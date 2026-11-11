@@ -100,7 +100,7 @@ class TurnoFijoServiceTest {
         JugadoresService jugadoresService = new JugadoresService(usuarioService);
         ReservaService reservaService = new ReservaService(configuracionService, usuarioService,
                 mock(ClienteProfileService.class), reservaRepository, canchaService, mock(PagoRepository.class),
-                stockService, mapper, disponibilidad, jugadoresService, turnoFijoRepository, TestData.reloj(AHORA));
+                stockService, mapper, disponibilidad, jugadoresService, turnoFijoRepository, TestData.reloj(AHORA), org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
         turnos = new TurnoFijoService(turnoFijoRepository, reservaRepository, canchaService, reservaService,
                 disponibilidad, mapper, new TurnoFijoMapper(), jugadoresService, cancelacionService, stockService, configuracionService, usuarioService,
                 TestData.reloj(AHORA));

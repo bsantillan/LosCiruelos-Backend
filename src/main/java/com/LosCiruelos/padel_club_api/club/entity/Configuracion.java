@@ -88,6 +88,12 @@ public class Configuracion {
     @Column(nullable = false, name = "dias_anticipacion_reserva")
     private Integer diasAnticipacionReserva = 30;
 
+    // Reserva que carga el personal con la seña a pagar online (el cliente no está en el club):
+    // cuántos minutos tiene el cliente para pagarla
+    @Builder.Default
+    @Column(nullable = false, name = "minutos_pago_senia_online")
+    private Integer minutosPagoSeniaOnline = 120;
+
     @Builder.Default
     @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(nullable = false, name = "configuracion_general_id")
@@ -279,6 +285,15 @@ public class Configuracion {
     /** Último día que el cliente puede reservar: hoy más los días de anticipación. */
     public LocalDate reservableHasta(LocalDate hoy) {
         return hoy.plusDays(diasAnticipacionReserva);
+    }
+
+    /**
+     * Hasta cuándo se puede pagar online la seña de una reserva que cargó el personal: los minutos
+     * configurados desde ahora, pero nunca más allá del inicio del turno.
+     */
+    public LocalDateTime vencimientoSeniaOnline(LocalDateTime ahora, LocalDateTime inicioDelTurno) {
+        LocalDateTime plazo = ahora.plusMinutes(minutosPagoSeniaOnline);
+        return plazo.isBefore(inicioDelTurno) ? plazo : inicioDelTurno;
     }
 
     /** El cliente no puede reservar más allá de los días de anticipación. */

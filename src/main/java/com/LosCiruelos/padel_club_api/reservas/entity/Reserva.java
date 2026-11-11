@@ -18,6 +18,7 @@ import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Turno;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.ModalidadPago;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
 
 import org.hibernate.annotations.BatchSize;
@@ -115,6 +116,11 @@ public class Reserva {
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
+    // Reserva que cargó el personal: cómo se paga (null en las del cliente y en los partidos)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modalidad_pago", length = 20)
+    private ModalidadPago modalidadPago;
+
     // Cuándo se le mandó al cliente el recordatorio del turno (null: todavía no)
     @Column(name = "recordatorio_enviado_at")
     private LocalDateTime recordatorioEnviadoAt;
@@ -138,6 +144,11 @@ public class Reserva {
     @OrderBy("posicion")
     @OneToMany(mappedBy = "reserva", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReservaJugador> jugadores = new ArrayList<>();
+
+    /** Está confirmada aunque no tenga nada pagado: un partido o una reserva SIN_SENIA. */
+    public boolean confirmadaSinPagar() {
+        return esPartido() || modalidadPago == ModalidadPago.SIN_SENIA;
+    }
 
     public boolean esPartido() {
         return tipo == TipoReserva.PARTIDO;
@@ -266,7 +277,8 @@ public class Reserva {
      * de jugar; si no, la completa el job al terminar).
      * Una reserva confirmada que queda sin nada cubierto (reembolso) pasa a CANCELADA. Un partido
      * no tiene seña: sin nada pagado queda CONFIRMADA (no vence ni se cancela por eso), con algo
-     * PARCIALMENTE_PAGADA y entero PAGADA (o COMPLETADA).
+     * PARCIALMENTE_PAGADA y entero PAGADA (o COMPLETADA). Una reserva SIN_SENIA (la cargó el ADMIN
+     * para cobrarla en el club) sin nada pagado también queda CONFIRMADA.
      * CANCELADA, EXPIRADA y COMPLETADA no cambian.
      *
      * @return true si el estado cambió
@@ -277,7 +289,7 @@ public class Reserva {
         }
         BigDecimal cubierto = getMontoCubierto();
         EstadoReserva nuevo;
-        if (cubierto.signum() == 0 && esPartido()) {
+        if (cubierto.signum() == 0 && confirmadaSinPagar()) {
             nuevo = EstadoReserva.CONFIRMADA;
         } else if (cubierto.signum() == 0) {
             nuevo = estado == EstadoReserva.PENDIENTE ? EstadoReserva.PENDIENTE : EstadoReserva.CANCELADA;

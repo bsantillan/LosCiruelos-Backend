@@ -959,7 +959,7 @@ class ControllersTest {
             verify(configuracionGeneralService, never()).actualizar(any(), any());
             com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse respuesta =
                     new com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse(new BigDecimal("0.00"),
-                            new BigDecimal("5000.00"), new BigDecimal("50.00"), 90, 180, 1440, 720, true, 120, 30,
+                            new BigDecimal("5000.00"), new BigDecimal("50.00"), 90, 180, 1440, 720, true, 120, 30, 120,
                             List.of(new com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse.Horario(
                                     "Lunes", java.time.LocalTime.of(8, 0), java.time.LocalTime.of(23, 0))), null);
             when(configuracionGeneralService.actualizar(any(), any())).thenReturn(respuesta);

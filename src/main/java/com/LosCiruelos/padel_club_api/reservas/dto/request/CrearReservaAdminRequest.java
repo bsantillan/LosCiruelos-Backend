@@ -1,6 +1,7 @@
 package com.LosCiruelos.padel_club_api.reservas.dto.request;
 
 import com.LosCiruelos.padel_club_api.pagos.dto.request.BonificacionRequest;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.ModalidadPago;
 
 import jakarta.validation.Valid;
 import lombok.Data;
@@ -13,6 +14,9 @@ public class CrearReservaAdminRequest extends CrearReservaRequest {
 
     // obligatorio: el cliente de la reserva (se valida en el service, con el mismo error de siempre)
     Long clienteId;
+
+    // Cómo se paga (opcional): EN_EL_CLUB por defecto; SENIA_ONLINE; SIN_SENIA (solo ADMIN)
+    ModalidadPago modalidadPago;
 
     // Solo ADMIN (opcional): bonificar el turno al crearlo, todo o una parte
     @Valid

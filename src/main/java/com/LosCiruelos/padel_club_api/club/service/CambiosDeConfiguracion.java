@@ -64,6 +64,9 @@ public class CambiosDeConfiguracion {
         config.setRecordatorioActivo(req.getRecordatorioActivo());
         config.setMinutosRecordatorio(req.getMinutosRecordatorio());
         config.setDiasAnticipacionReserva(req.getDiasAnticipacion());
+        if (req.getMinutosPagoSeniaOnline() != null) {
+            config.setMinutosPagoSeniaOnline(req.getMinutosPagoSeniaOnline());
+        }
         config.cambiarHorarios(req.getHorarios().stream()
                 .map(h -> new Configuracion.Horario(h.getDia(), h.getApertura(), h.getCierre()))
                 .toList());
