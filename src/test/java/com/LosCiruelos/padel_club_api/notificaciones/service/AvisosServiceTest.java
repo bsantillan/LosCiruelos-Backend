@@ -158,4 +158,22 @@ class AvisosServiceTest {
                         + "Pagó $7.500 de un total de $15.000. Podés ver el detalle en el panel del club.");
         assertThat(Dinero.texto(new BigDecimal("7500.50"))).isEqualTo("$7.500,5");
     }
+
+    @Test
+    void laSeniaPendienteLlegaAlClienteConElLinkDePago() {
+        org.springframework.test.util.ReflectionTestUtils.setField(avisos, "frontendUrl", "https://club.test/");
+        Usuario cliente = usuario(3L, Role.CLIENTE);
+        AvisoReserva aviso = AvisoReserva.de(TipoAviso.SENIA_PENDIENTE,
+                reserva(10L, cliente, EstadoReserva.PENDIENTE, "15000"), new BigDecimal("7500"),
+                "antes de las 12:00 del martes 13/10");
+
+        avisos.enviar(aviso);
+
+        org.mockito.ArgumentCaptor<String> texto = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(email).sendAviso(eq(cliente.getEmail()), eq("Pagá la seña de tu reserva"), texto.capture());
+        assertThat(texto.getValue()).contains("pagá la seña de $7.500 antes de las 12:00 del martes 13/10")
+                .contains("https://club.test/reservas/10/pago")
+                .endsWith("Si no se paga a tiempo, el turno se libera.");
+        verify(usuarioService, never()).adminsActivos();
+    }
 }

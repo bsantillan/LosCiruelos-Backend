@@ -128,7 +128,7 @@ public class NotificacionesService {
         AvisoReserva ejemplo = new AvisoReserva(TipoAviso.RESERVA_CONFIRMADA, 0L,
                 new Destinatario("PRUEBA (cliente de ejemplo)", admin.getEmail(), null, CanalNotificacion.EMAIL, false),
                 1, reloj.hoy(), LocalTime.of(18, 0), LocalTime.of(19, 30),
-                new BigDecimal("15000"), new BigDecimal("7500"), null);
+                new BigDecimal("15000"), new BigDecimal("7500"), null, null);
         CanalNotificacion canal = avisosService.entregar(destinatario, ejemplo);
         String destino = canal == CanalNotificacion.WHATSAPP ? admin.getTelefono() : admin.getEmail();
         return new PruebaAvisoResponse(canal != null, canal, destino);

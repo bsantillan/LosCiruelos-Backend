@@ -17,7 +17,8 @@ import com.LosCiruelos.padel_club_api.common.Fechas;
  *
  * @param monto  lo que corresponde al aviso: lo pagado (confirmada), el total (saldo), lo que
  *               hay que devolver (reembolso manual) o el saldo pendiente (recordatorio)
- * @param detalle texto libre del aviso (quién canceló y el reembolso, el motivo, …)
+ * @param detalle texto libre del aviso (quién canceló y el reembolso, el motivo, hasta cuándo pagar…)
+ * @param link    link para el cliente (pagar la seña); lo completa el envío con la URL del front
  */
 public record AvisoReserva(
         TipoAviso tipo,
@@ -29,7 +30,8 @@ public record AvisoReserva(
         LocalTime horaFin,
         BigDecimal montoTotal,
         BigDecimal monto,
-        String detalle) {
+        String detalle,
+        String link) {
 
     /** Datos de contacto de quien recibe el aviso. */
     public record Destinatario(String nombre, String email, String telefono, CanalNotificacion canal,
@@ -51,7 +53,13 @@ public record AvisoReserva(
             String detalle) {
         return new AvisoReserva(tipo, reserva.getId(), Destinatario.de(destinatario),
                 reserva.getCancha().getNumero(), reserva.getFechaReserva(), reserva.getHoraInicio(),
-                reserva.getHoraFin(), reserva.getMontoTotal(), monto, detalle);
+                reserva.getHoraFin(), reserva.getMontoTotal(), monto, detalle, null);
+    }
+
+    /** El mismo aviso con el link para el cliente. */
+    public AvisoReserva conLink(String link) {
+        return new AvisoReserva(tipo, reservaId, cliente, cancha, fecha, horaInicio, horaFin, montoTotal, monto, detalle,
+                link);
     }
 
     /** Parámetros de la plantilla, en el orden de {{1}}, {{2}}, … de {@link TipoAviso}. */
@@ -69,6 +77,8 @@ public record AvisoReserva(
             case REEMBOLSO_MANUAL -> List.of(Dinero.texto(monto), String.valueOf(reservaId), nombreCompleto,
                     detalle != null ? detalle : "");
             case REEMBOLSO_REALIZADO -> List.of(Dinero.texto(monto), String.valueOf(reservaId), nombreCompleto);
+            case SENIA_PENDIENTE -> List.of(nombreCompleto, canchaTexto, fechaTexto, horario, Dinero.texto(monto),
+                    detalle != null ? detalle : "", link != null ? link : "");
         };
     }
 

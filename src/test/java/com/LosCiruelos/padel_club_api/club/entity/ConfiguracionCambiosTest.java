@@ -80,6 +80,18 @@ class ConfiguracionCambiosTest {
     }
 
     @Test
+    void elPlazoParaPagarLaSeniaOnlineNoPasaDelInicioDelTurno() {
+        // 120 minutos por defecto
+        assertThat(config.vencimientoSeniaOnline(TestData.AHORA, TestData.AHORA.plusDays(1)))
+                .isEqualTo(TestData.AHORA.plusMinutes(120));
+        assertThat(config.vencimientoSeniaOnline(TestData.AHORA, TestData.AHORA.plusMinutes(45)))
+                .isEqualTo(TestData.AHORA.plusMinutes(45));
+        config.setMinutosPagoSeniaOnline(30);
+        assertThat(config.vencimientoSeniaOnline(TestData.AHORA, TestData.AHORA.plusDays(1)))
+                .isEqualTo(TestData.AHORA.plusMinutes(30));
+    }
+
+    @Test
     void unDiaCerradoNoAbreYSePuedeReabrir() {
         java.time.LocalDate navidad = java.time.LocalDate.of(2026, 12, 25);
         config.cerrar(navidad, "Navidad", 1L, TestData.AHORA);

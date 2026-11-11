@@ -8,6 +8,7 @@ import java.util.List;
 
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.ModalidadPago;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.TipoReserva;
 
 import lombok.Data;
@@ -42,8 +43,10 @@ public class ReservaResponse {
     Long clienteId;
     String clienteNombre;
     LocalDateTime createdAt;
-    // hasta cuándo se puede pagar mientras está PENDIENTE
+    // hasta cuándo se puede pagar mientras está PENDIENTE (null si no vence)
     LocalDateTime expiresAt;
+    // reserva que cargó el personal: EN_EL_CLUB, SENIA_ONLINE o SIN_SENIA (null si la hizo el cliente o es un partido)
+    ModalidadPago modalidadPago;
     List<PagoResponse> pagos;
 
     // Cancelación por el cliente (según la política de la configuración)

@@ -292,6 +292,7 @@ Un CLIENTE solo ve y opera sus propias reservas, y además **ve** (sin pagar ni 
   "estado": "PENDIENTE", "tipo": "NORMAL", "turnoFijoId": null, "jugadores": [],
   "clienteId": 3, "clienteNombre": "Juan Pérez",
   "createdAt": "2026-10-12T17:00:00.000-03:00", "expiresAt": "2026-10-12T17:15:00.000-03:00",
+  "modalidadPago": null,
   "pagos": [ { "id": 5, "monto": 7500.00, "estado": "PENDIENTE", "provider": "MERCADO_PAGO" } ]
 }
 ```
@@ -399,6 +400,7 @@ Toda la configuración junta. Lo que responde el `GET` es exactamente el body de
   "minutosReembolsoTotal": 1440, "minutosReembolsoSenia": 720,
   "recordatorioActivo": true, "minutosRecordatorio": 120,
   "diasAnticipacion": 30,
+  "minutosPagoSeniaOnline": 120,
   "horarios": [
     { "dia": "Lunes", "apertura": "08:00", "cierre": "23:00" },
     { "dia": "Sábado", "apertura": "09:00", "cierre": "22:00" }
@@ -413,6 +415,7 @@ Toda la configuración junta. Lo que responde el `GET` es exactamente el body de
 | `duracionMinimaTurno`, `duracionMaximaTurno` | Minutos | 30 a 600, múltiplos de 30, la mínima ≤ la máxima |
 | `minutosReembolsoTotal`, `minutosReembolsoSenia` | Política de cancelación del cliente: con al menos esa anticipación se devuelve todo / la seña | 0 a 10080 (7 días); la de todo ≥ la de la seña |
 | `recordatorioActivo`, `minutosRecordatorio` | Recordatorio del turno al cliente | 15 a 1440 minutos |
+| `minutosPagoSeniaOnline` | Reserva que carga el personal con `modalidadPago: SENIA_ONLINE`: cuántos minutos tiene el cliente para pagar la seña (nunca más allá del inicio del turno) | 15 a 2880; **opcional** en el `PUT` (si no viene, no cambia) |
 | `diasAnticipacion` | Hasta cuántos días adelante reserva el cliente (y hasta dónde se generan los partidos de los turnos fijos) | 1 a 365 |
 | `horarios` | Días que abre el club, de lunes a domingo; un día que no está, el club no abre | 1 a 7 días; `dia` de `Lunes` a `Domingo` (con o sin tilde, sin importar mayúsculas), sin repetir; `apertura` antes de `cierre` (`HH:mm`, el mismo día) y por lo menos el turno mínimo |
 | `confirmar` | Opcional (por defecto `false`): `true` guarda aunque el horario nuevo deje afuera reservas o turnos fijos | |
@@ -690,7 +693,7 @@ Errores: `400 errors.buscar` si falta · `400` si tiene menos de 2 caracteres ·
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
-| `POST /admin/reservas` → `201` | Reserva a nombre de un cliente. Mismo body que `POST /reservas` más `clienteId` (obligatorio: un CLIENTE habilitado; **no hace falta que tenga el perfil completo**, por ejemplo uno que el ADMIN acaba de dar de alta sin celular verificado ni categoría. Los avisos le llegan por el canal que pueda usar: mail si su WhatsApp no está verificado) y `bonificacion` (opcional, **solo ADMIN**: se crea y se bonifica en la misma operación, igual que `POST /admin/reservas/{id}/bonificacion`; `monto` null bonifica el total). | Los de `POST /reservas` · `400` "ADMIN y EMPLEADO deben indicar el clienteId de la reserva.", "El usuario indicado no es un cliente." o cuenta desactivada · `403` bonificación de un EMPLEADO (no se crea nada) |
+| `POST /admin/reservas` → `201` | Reserva a nombre de un cliente. Mismo body que `POST /reservas` más `clienteId` y `modalidadPago` (opcional, cómo se paga; ver abajo). `clienteId` es obligatorio: un CLIENTE habilitado; **no hace falta que tenga el perfil completo**, por ejemplo uno que el ADMIN acaba de dar de alta sin celular verificado ni categoría. Los avisos le llegan por el canal que pueda usar: mail si su WhatsApp no está verificado) y `bonificacion` (opcional, **solo ADMIN**: se crea y se bonifica en la misma operación, igual que `POST /admin/reservas/{id}/bonificacion`; `monto` null bonifica el total). | Los de `POST /reservas` · `400` "ADMIN y EMPLEADO deben indicar el clienteId de la reserva.", "El usuario indicado no es un cliente." o cuenta desactivada · `403` bonificación de un EMPLEADO (no se crea nada) |
 | `GET /admin/reservas/{id}` → `200` | Detalle de cualquier reserva, con los pagos. | `404` |
 | `DELETE /admin/reservas/{id}/cancelar?reembolso=TOTAL\|SENIA\|NADA` → `200 ReservaResponse` | Cancela cualquier reserva hasta que termina el turno. `reembolso` es obligatorio si tiene dinero cobrado. Un partido lo cancela solo el ADMIN. | `400` reembolso faltante · `403` EMPLEADO con un partido · `404` · `409` como en `/reservas` |
 | `GET /admin/reservas/saldos-pendientes` → `200` | Turnos ya jugados que deben saldo (`SEÑADA` o `PARCIALMENTE_PAGADA` con el turno terminado), del más viejo al más nuevo. El listado con `?pendientes=true` también los muestra. | |
@@ -698,6 +701,15 @@ Errores: `400 errors.buscar` si falta · `400` si tiene menos de 2 caracteres ·
 | `POST /admin/reservas/{id}/devolucion` → `200` | Body `{ "paletasDevueltas": 3 }`. Registra la devolución; las faltantes se descuentan del stock. Devuelve la reserva. | `400` cantidad fuera de rango · `404` · `409` turno sin empezar, reserva sin paletas, no confirmada o devolución ya registrada |
 | `POST /admin/reservas/{id}/productos` → `200 ReservaResponse` | Suma un producto a una reserva o partido: lo que el cliente pide en el club antes, durante o después del turno. Body `{ "productoId": 1, "cantidad": 2 }` o, para algo que no está en el catálogo, `{ "nombre": "Gatorade", "precio": 3000, "cantidad": 1 }`: si ya hay un producto con ese nombre (sin importar mayúsculas) se usa ese, con su precio; si no, queda dado de alta como producto de venta, sin control de stock y sin ofrecerse al reservar. Si la reserva ya lo tenía, suma unidades al mismo precio que ya tenía; uno nuevo toma el precio de hoy. El total sube y el estado se recalcula: una reserva paga (o completada) vuelve a quedar con saldo. | `400` sin producto ni nombre y precio, o producto dado de baja · `404` reserva o producto · `409` reserva pendiente, cancelada o expirada, pago online en proceso o sin stock |
 | `DELETE /admin/reservas/{id}/productos/{productoId}?cantidad=1` → `200 ReservaResponse` | Saca unidades de un producto (sin `cantidad`, todas). El stock de venta vuelve y el total baja; no puede quedar por debajo de lo ya pagado. | `400` la reserva no tiene ese producto o cantidad fuera de rango · `404` · `409` como al sumar, total menor a lo pagado o un alquiler con la devolución ya registrada |
+
+**`modalidadPago` de `POST /admin/reservas`** (queda en `ReservaResponse.modalidadPago`; es `null` en las reservas del propio cliente y en los partidos):
+
+| Valor | Para qué | Cómo queda |
+|---|---|---|
+| `EN_EL_CLUB` (por defecto) | El cliente está en el club | `PENDIENTE` que vence a los 15 minutos (`expiresAt`) si no se cobra al menos la seña, como hasta ahora |
+| `SENIA_ONLINE` | El cliente no está en el club | `PENDIENTE` que vence a los `minutosPagoSeniaOnline` de la configuración (120 por defecto), **nunca después del inicio del turno**. Al crearla se le avisa al cliente por su canal (aviso `SENIA_PENDIENTE`) con el link para pagar la seña en la misma pantalla de pago que usa al reservar (`FRONTEND_URL/reservas/{id}/pago`). Si no paga a tiempo, vence y el turno se libera |
+| `SIN_SENIA` | **Solo ADMIN** (EMPLEADO: `403` "Solo el ADMIN puede cargar una reserva sin seña."). Se cobra en el club | `CONFIRMADA` sin pagos y sin vencimiento (`expiresAt: null`), como un partido: aunque no tenga nada pagado no vence ni se cancela sola |
+
 
 Cobrar en el club la seña, el saldo o el total: `POST /admin/reservas/{reservaId}/cobros/efectivo` y `/cobros/presencial`, body `{ "monto": 7500 }`. Aceptan reservas `SEÑADA` y `PARCIALMENTE_PAGADA` aunque el turno no se haya jugado, y `PENDIENTE` mientras esté en plazo (15 min).
 

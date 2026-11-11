@@ -85,6 +85,9 @@ class ReservaServiceTest {
     private Usuario cliente;
     private Usuario otroCliente;
     private Usuario admin;
+    private Usuario empleado;
+    private final org.springframework.context.ApplicationEventPublisher eventos =
+            mock(org.springframework.context.ApplicationEventPublisher.class);
 
     @BeforeEach
     void setUp() {
@@ -107,10 +110,13 @@ class ReservaServiceTest {
                 turnoFijoRepository, TestData.reloj(AHORA));
         reservaService = new ReservaService(configuracionService, usuarioService,
                 clienteProfileService, reservaRepository, canchaService, pagoRepository, stockService,
-                mapper, disponibilidad, new JugadoresService(usuarioService), turnoFijoRepository, TestData.reloj(AHORA));
+                mapper, disponibilidad, new JugadoresService(usuarioService), turnoFijoRepository, TestData.reloj(AHORA),
+                eventos);
 
         cliente = usuario(1L, Role.CLIENTE);
         otroCliente = usuario(2L, Role.CLIENTE);
+        empleado = usuario(4L, Role.EMPLEADO);
+        when(usuarioService.autenticado(empleado.getEmail())).thenReturn(empleado);
         admin = usuario(3L, Role.ADMIN);
         for (Usuario u : List.of(cliente, otroCliente, admin)) {
             when(usuarioService.autenticado(u.getEmail())).thenReturn(u);
@@ -327,6 +333,76 @@ class ReservaServiceTest {
 
             assertThatThrownBy(() -> reservaService.crearParaMi(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail()))
                     .isInstanceOf(PerfilIncompletoException.class);
+        }
+
+        @Test
+        void enElClubVenceALos15MinutosComoSiempre() {
+            sinOtrasReservas();
+
+            ReservaResponse r = reservaService.crearParaCliente(pedidoParaCliente(1L), admin.getEmail());
+
+            assertThat(r.getEstado()).isEqualTo(EstadoReserva.PENDIENTE);
+            assertThat(r.getModalidadPago()).isEqualTo(com.LosCiruelos.padel_club_api.reservas.entity.enums.ModalidadPago.EN_EL_CLUB);
+            assertThat(r.getExpiresAt()).isEqualTo(AHORA.plusMinutes(15));
+            verify(eventos, never()).publishEvent(any(Object.class));
+        }
+
+        @Test
+        void conLaSeniaOnlineTieneMasPlazoYSeLeMandaElLinkAlCliente() {
+            sinOtrasReservas();
+            CrearReservaAdminRequest req = pedidoParaCliente(1L);
+            req.setModalidadPago(com.LosCiruelos.padel_club_api.reservas.entity.enums.ModalidadPago.SENIA_ONLINE);
+
+            ReservaResponse r = reservaService.crearParaCliente(req, admin.getEmail());
+
+            assertThat(r.getEstado()).isEqualTo(EstadoReserva.PENDIENTE);
+            assertThat(r.getModalidadPago()).isEqualTo(com.LosCiruelos.padel_club_api.reservas.entity.enums.ModalidadPago.SENIA_ONLINE);
+            // 120 minutos por defecto
+            assertThat(r.getExpiresAt()).isEqualTo(AHORA.plusMinutes(120));
+            org.mockito.ArgumentCaptor<com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva> aviso =
+                    org.mockito.ArgumentCaptor.forClass(com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva.class);
+            verify(eventos).publishEvent(aviso.capture());
+            assertThat(aviso.getValue().tipo()).isEqualTo(com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso.SENIA_PENDIENTE);
+            assertThat(aviso.getValue().cliente().email()).isEqualTo(cliente.getEmail());
+            assertThat(aviso.getValue().monto()).isEqualByComparingTo("7500"); // la seña (50 % de $15.000)
+            assertThat(aviso.getValue().detalle()).isEqualTo("antes de las 12:00 del martes 13/10");
+        }
+
+        @Test
+        void elPlazoDeLaSeniaOnlineNuncaPasaDelInicioDelTurno() {
+            sinOtrasReservas();
+            CrearReservaAdminRequest req = pedidoParaCliente(1L);
+            req.setFechaReserva(HOY);
+            req.setHoraInicio(LocalTime.of(11, 0));
+            req.setHoraFin(LocalTime.of(12, 30));
+            req.setModalidadPago(com.LosCiruelos.padel_club_api.reservas.entity.enums.ModalidadPago.SENIA_ONLINE);
+
+            assertThat(reservaService.crearParaCliente(req, admin.getEmail()).getExpiresAt())
+                    .isEqualTo(HOY.atTime(11, 0));
+        }
+
+        @Test
+        void sinSeniaQuedaConfirmadaYNoVenceSoloElAdmin() {
+            sinOtrasReservas();
+            CrearReservaAdminRequest req = pedidoParaCliente(1L);
+            req.setModalidadPago(com.LosCiruelos.padel_club_api.reservas.entity.enums.ModalidadPago.SIN_SENIA);
+
+            assertThatThrownBy(() -> reservaService.crearParaCliente(req, empleado.getEmail()))
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class)
+                    .hasMessage("Solo el ADMIN puede cargar una reserva sin seña.");
+
+            ReservaResponse r = reservaService.crearParaCliente(req, admin.getEmail());
+            assertThat(r.getEstado()).isEqualTo(EstadoReserva.CONFIRMADA);
+            assertThat(r.getExpiresAt()).isNull();
+            assertThat(r.getModalidadPago()).isEqualTo(com.LosCiruelos.padel_club_api.reservas.entity.enums.ModalidadPago.SIN_SENIA);
+        }
+
+        @Test
+        void laReservaDelClienteNoTieneModalidad() {
+            sinOtrasReservas();
+
+            assertThat(reservaService.crearParaMi(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail())
+                    .getModalidadPago()).isNull();
         }
 
         @Test

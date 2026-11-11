@@ -1,5 +1,11 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.reservas.entity.enums.ModalidadPago;
+import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
+import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
+import com.LosCiruelos.padel_club_api.common.Fechas;
+import com.LosCiruelos.padel_club_api.common.Roles;
+import org.springframework.context.ApplicationEventPublisher;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.AgregarProductoRequest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -78,6 +84,7 @@ public class ReservaService {
     private final JugadoresService jugadoresService;
     private final TurnoFijoRepository turnoFijoRepository;
     private final Reloj reloj;
+    private final ApplicationEventPublisher eventos;
 
     // ── Bloqueo y acceso ─────────────────────────────────────────────────
 
@@ -105,7 +112,7 @@ public class ReservaService {
         configuracionService.obtener().validarAnticipacion(req.getFechaReserva(), reloj.hoy());
         // el cliente pide solo lo que se ofrece al reservar; el resto lo agrega el personal
         stockService.exigirQueSeOfrezcan(StockService.pedido(req.getProductos()));
-        return crear(req, cliente, cliente);
+        return crear(req, cliente, cliente, null);
     }
 
     /**
@@ -113,15 +120,26 @@ public class ReservaService {
      * cliente que el ADMIN acaba de dar de alta todavía no tiene el celular verificado ni la
      * categoría): alcanza con que sea un CLIENTE activo. Los avisos van por el canal que pueda usar
      * (mail si el WhatsApp no está verificado).
+     *
+     * Cómo se paga ({@code modalidadPago}): EN_EL_CLUB (por defecto) vence a los 15 minutos si no se
+     * cobra la seña; SENIA_ONLINE vence a los minutos configurados (nunca después del inicio del
+     * turno) y se le manda al cliente el link para pagar la seña; SIN_SENIA (solo ADMIN) queda
+     * CONFIRMADA sin pagos, como un partido.
      */
     @Transactional
     public ReservaResponse crearParaCliente(CrearReservaAdminRequest req, String emailPersonal) {
         Usuario personal = usuarioService.autenticado(emailPersonal);
+        ModalidadPago modalidad = req.getModalidadPago() != null ? req.getModalidadPago() : ModalidadPago.EN_EL_CLUB;
+        if (modalidad == ModalidadPago.SIN_SENIA) {
+            Roles.exigirAdmin(personal, "Solo el ADMIN puede cargar una reserva sin seña.");
+        }
         Usuario cliente = clienteDeLaReserva(req.getClienteId());
-        return crear(req, cliente, personal);
+        return crear(req, cliente, personal, modalidad);
     }
 
-    private ReservaResponse crear(CrearReservaRequest req, Usuario cliente, Usuario solicitante) {
+    /** @param modalidad cómo se paga (null: la reserva la hace el propio cliente y la paga online) */
+    private ReservaResponse crear(CrearReservaRequest req, Usuario cliente, Usuario solicitante,
+            ModalidadPago modalidad) {
         LocalDateTime ahora = reloj.ahora();
         Configuracion config = configuracionService.obtener();
         long duracion = disponibilidad.validarHorario(config, req.getFechaReserva(), req.getHoraInicio(), req.getHoraFin(), ahora);
@@ -164,9 +182,10 @@ public class ReservaService {
                 .fechaReserva(req.getFechaReserva())
                 .horaInicio(req.getHoraInicio())
                 .horaFin(req.getHoraFin())
-                .estado(EstadoReserva.PENDIENTE)
+                .estado(modalidad == ModalidadPago.SIN_SENIA ? EstadoReserva.CONFIRMADA : EstadoReserva.PENDIENTE)
                 .createdAt(ahora)
-                .expiresAt(ahora.plusMinutes(MINUTOS_PARA_PAGAR))
+                .expiresAt(vencimiento(modalidad, config, req.getFechaReserva().atTime(req.getHoraInicio()), ahora))
+                .modalidadPago(modalidad)
                 .build();
 
         // 5. Stock: devuelve lo de las reservas que se expiraron o cancelaron y toma lo pedido
@@ -174,6 +193,12 @@ public class ReservaService {
         reserva.setMontoTotal(config.montoTurno(duracion).add(reserva.getMontoProductos()));
 
         reserva = guardarVerificandoSolapamiento(reserva);
+        if (modalidad == ModalidadPago.SENIA_ONLINE) {
+            // el link para pagar la seña lo arma el aviso (con la URL del front)
+            eventos.publishEvent(AvisoReserva.de(TipoAviso.SENIA_PENDIENTE, reserva, config.senia(reserva.getMontoTotal()),
+                    "antes de las %s del %s".formatted(Fechas.textoHora(reserva.getExpiresAt().toLocalTime()),
+                            Fechas.textoFecha(reserva.getExpiresAt().toLocalDate()))));
+        }
         log.info("Reserva #{} creada para el cliente {} en la cancha {} el {} de {} a {}",
                 reserva.getId(), cliente.getId(), cancha.getNumero(), reserva.getFechaReserva(),
                 reserva.getHoraInicio(), reserva.getHoraFin());
@@ -257,6 +282,18 @@ public class ReservaService {
             throw new ReservaException("La cuenta del cliente está desactivada.");
         }
         return cliente;
+    }
+
+    /** Hasta cuándo se puede pagar la reserva según cómo se paga (null: SIN_SENIA no vence). */
+    private static LocalDateTime vencimiento(ModalidadPago modalidad, Configuracion config, LocalDateTime inicioDelTurno,
+            LocalDateTime ahora) {
+        if (modalidad == ModalidadPago.SIN_SENIA) {
+            return null;
+        }
+        if (modalidad == ModalidadPago.SENIA_ONLINE) {
+            return config.vencimientoSeniaOnline(ahora, inicioDelTurno);
+        }
+        return ahora.plusMinutes(MINUTOS_PARA_PAGAR);
     }
 
     private void validarPerfilCompleto(Usuario cliente, String mensaje) {

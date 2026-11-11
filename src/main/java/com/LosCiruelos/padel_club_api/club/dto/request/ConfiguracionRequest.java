@@ -74,6 +74,11 @@ public class ConfiguracionRequest {
     @Max(value = 365, message = "Máximo 365 días")
     private Integer diasAnticipacion;
 
+    // ── Reserva del personal con la seña online: minutos para pagarla (opcional: null no la cambia) ──
+    @Min(value = 15, message = "Mínimo 15 minutos")
+    @Max(value = 2880, message = "Máximo 2880 minutos (48 h)")
+    private Integer minutosPagoSeniaOnline;
+
     // ── Días y horarios de apertura: un día que no está, el club no abre ──
     @NotEmpty(message = "Indicá al menos un día de apertura")
     @Size(max = 7, message = "Son 7 días como máximo")
