@@ -155,6 +155,34 @@ class ReservaRepositoryResumenTest {
     }
 
     @Test
+    void laCajaEsPorJornadaUnCobroDeLas0010EsDeLaAnterior() {
+        // martes 1/9 y miércoles 2/9: abren a las 8:00
+        Reserva r = reserva(LocalDate.of(2026, 9, 2), "18:00", "19:30", EstadoReserva.COMPLETADA, "15000");
+        pago(r, PaymentProvider.MANUAL, null, EstadoPago.APROBADO, "4000", LocalDate.of(2026, 9, 2).atTime(0, 10));
+        pago(r, PaymentProvider.MANUAL, null, EstadoPago.APROBADO, "9000", LocalDate.of(2026, 9, 2).atTime(8, 5));
+        pago(r, PaymentProvider.BONIFICACION, null, EstadoPago.APROBADO, "2000", LocalDate.of(2026, 9, 2).atTime(0, 20));
+        em.flush();
+
+        ResumenResponse martes = resumen(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 1), TestData.AHORA);
+        assertThat(martes.caja().efectivo()).isEqualTo($("4000.00"));
+        assertThat(martes.caja().bonificado()).isEqualTo($("2000.00"));
+        assertThat(martes.caja().inicio()).isEqualTo(LocalDate.of(2026, 9, 1).atTime(8, 0));
+        assertThat(martes.caja().fin()).isEqualTo(LocalDate.of(2026, 9, 2).atTime(8, 0));
+        // lo de la reserva sigue por su fecha: el turno es del miércoles
+        assertThat(martes.jugados().turnos()).isZero();
+
+        ResumenResponse miercoles = resumen(LocalDate.of(2026, 9, 2), LocalDate.of(2026, 9, 2), TestData.AHORA);
+        assertThat(miercoles.caja().efectivo()).isEqualTo($("9000.00"));
+        assertThat(miercoles.caja().bonificado()).isEqualTo($("0.00"));
+        assertThat(miercoles.jugados().turnos()).isEqualTo(1);
+
+        // el ADMIN pide un rango de jornadas: de la apertura del martes a la del jueves
+        ResumenResponse rango = resumen(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 2), TestData.AHORA);
+        assertThat(rango.caja().efectivo()).isEqualTo($("13000.00"));
+        assertThat(rango.caja().fin()).isEqualTo(LocalDate.of(2026, 9, 3).atTime(8, 0));
+    }
+
+    @Test
     void unPeriodoQueCruzaHoySeparaJugadosYPorJugar() {
         ResumenResponse r = resumen(OCT_1, OCT_31, TestData.AHORA);
 
@@ -167,8 +195,8 @@ class ReservaRepositoryResumenTest {
         assertThat(r.cancelaciones()).isEqualTo(new ResumenResponse.Cancelaciones(1, $("7500.00")));
         // caja de octubre: efectivo 15.000; Mercado Pago 10.000 + 6.000 + 7.500 (seña de noviembre) + 15.000
         // (el pago de la cancelada, que entró completo) + 12.000 en el club; devueltos 7.500 el 9/10
-        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago").isEqualTo(new ResumenResponse.Caja($("65500.00"), $("15000.00"), $("50500.00"),
-                $("0.00"), $("7500.00"), $("58000.00"), null));
+        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago", "bonificado", "inicio", "fin").isEqualTo(new ResumenResponse.Caja($("65500.00"), $("15000.00"), $("50500.00"),
+                $("0.00"), $("7500.00"), $("58000.00"), null, null, null, null));
     }
 
     @Test
@@ -208,8 +236,8 @@ class ReservaRepositoryResumenTest {
         assertThat(r.porJugar().aCobrar()).isEqualTo($("12000.00"));
         // Mercado Pago: seña de hoy (6.000) + seña de hoy para noviembre (7.500) + en el club (12.000); la
         // bonificación no
-        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago").isEqualTo(new ResumenResponse.Caja($("25500.00"), $("0.00"), $("25500.00"),
-                $("0.00"), $("0.00"), $("25500.00"), null));
+        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago", "bonificado", "inicio", "fin").isEqualTo(new ResumenResponse.Caja($("25500.00"), $("0.00"), $("25500.00"),
+                $("0.00"), $("0.00"), $("25500.00"), null, null, null, null));
     }
 
     @Test
@@ -265,8 +293,8 @@ class ReservaRepositoryResumenTest {
 
         assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(2, $("11000.00"), $("0.00")));
         // efectivo: el agua (3.000); Mercado Pago: lo de hoy (25.500) + las pelotas (8.000)
-        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago").isEqualTo(new ResumenResponse.Caja($("36500.00"), $("3000.00"), $("33500.00"),
-                $("0.00"), $("0.00"), $("36500.00"), null));
+        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago", "bonificado", "inicio", "fin").isEqualTo(new ResumenResponse.Caja($("36500.00"), $("3000.00"), $("33500.00"),
+                $("0.00"), $("0.00"), $("36500.00"), null, null, null, null));
         assertThat(r.productos()).extracting(ProductoVendido::nombre, ProductoVendido::cantidad)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("Agua", 2L),
                         org.assertj.core.groups.Tuple.tuple("Pelotas", 2L));
@@ -348,8 +376,8 @@ class ReservaRepositoryResumenTest {
         ResumenResponse r = resumen(HOY, HOY, TestData.AHORA);
 
         // Cuenta DNI: 4.000 de la reserva + 3.000 de la venta
-        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago").isEqualTo(new ResumenResponse.Caja($("32500.00"), $("0.00"), $("25500.00"),
-                $("7000.00"), $("0.00"), $("32500.00"), null));
+        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago", "bonificado", "inicio", "fin").isEqualTo(new ResumenResponse.Caja($("32500.00"), $("0.00"), $("25500.00"),
+                $("7000.00"), $("0.00"), $("32500.00"), null, null, null, null));
 
         var totales = repo.totalesParaPersonal(new FiltroReservas(HOY, HOY, null, null, null, null, null, null, null));
         // las dos de hoy: 12.000 por MP en el club + 6.000 de seña online + 4.000 con Cuenta DNI

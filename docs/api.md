@@ -839,7 +839,10 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
     "cuentaDni": 40000.00,
     "devoluciones": 7500.00,
     "neto": 222500.00,
-    "detalleMercadoPago": { "total": 100000.00, "qr": 20000.00, "online": 70000.00, "transferencia": 10000.00 }
+    "detalleMercadoPago": { "total": 100000.00, "qr": 20000.00, "online": 70000.00, "transferencia": 10000.00 },
+    "bonificado": 5000.00,
+    "inicio": "2026-10-01T08:00:00.000-03:00",
+    "fin": "2026-11-02T08:00:00.000-03:00"
   },
   "cancelaciones": { "turnos": 3, "retenido": 7500.00 },
   "ventas": { "cantidad": 12, "total": 30000.00, "devoluciones": 1500.00 },
@@ -858,7 +861,13 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 | `jugados.deuda` | `montoTotal − montoCobrado − montoBonificado`: turnos jugados que no se terminaron de pagar |
 | `porJugar.aCobrar` | `montoTotal − cobradoAnticipado − montoBonificado`: el saldo normal de los turnos que vienen |
 
-**Caja** (por fecha de pago, de las 00:00 de `desde` a las 24:00 de `hasta`):
+**Caja — por jornada, no por día calendario.** Suma lo que pasó entre `caja.inicio` (la apertura de `desde`) y `caja.fin` (la apertura del día siguiente a `hasta`), según el horario semanal: la misma regla que `GET /admin/jornada`. Es igual para el ADMIN y el EMPLEADO, así todos ven la misma caja. Cada cosa cuenta por su momento, no por la fecha de la reserva:
+- los cobros, por `paidAt`;
+- las devoluciones, cuando se entregan o Mercado Pago las confirma;
+- las bonificaciones, cuando se cargan;
+- las ventas sueltas, cuando se registran.
+
+Un cobro de las 00:10 del viernes es de la caja del jueves; uno de las 08:05 del viernes (con apertura a las 08:00), de la del viernes. Lo que es de reservas (`jugados`, `porJugar`, `cancelaciones`, `productos` de las reservas) sigue por la fecha del turno.
 
 | Campo | Cómo se calcula |
 |---|---|
@@ -869,6 +878,8 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 | `total` | `efectivo + mercadoPago + cuentaDni` |
 | `devoluciones` | Las devoluciones `DEVUELTO` por la fecha en que se le **entregaron** al cliente o Mercado Pago las **confirmó** (`entregadoAt`), más las de ventas sueltas |
 | `neto` | `total − devoluciones` (puede ser negativo un día con devoluciones y sin cobros) |
+| `bonificado` | Lo que el ADMIN bonificó en esas jornadas. No es plata: no suma en `total` |
+| `inicio`, `fin` | Desde y hasta cuándo se sumó la caja: la apertura de `desde` y la apertura del día siguiente a `hasta` |
 
 - Entran los pagos que alguna vez se cobraron (`APROBADO`, `DEVUELTO`, `A_REEMBOLSAR`, `REEMBOLSO_PENDIENTE`) por su `paidAt`, con el monto completo: lo devuelto se resta en `devoluciones` el día del reembolso. Las bonificaciones no entran nunca.
 - Lo que queda `A_REEMBOLSAR` (por ejemplo, un pago en efectivo de una reserva cancelada con reembolso) entra en `devoluciones` el día que el personal lo **entrega** (`PUT …/devoluciones/{id}/entrega`). Hasta entonces sigue en `total` el día que se cobró. Los cobros `ANULADO` no entran en ningún lado.
@@ -922,7 +933,7 @@ Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelot
 | `POST /admin/ventas` → `201 VentaResponse` | Registra una venta. En efectivo o con Cuenta DNI queda `COBRADA`. Con Mercado Pago se le asigna al **QR de la caja** una order por el total y queda `ESPERANDO_PAGO` (con el stock apartado) hasta que Mercado Pago confirma el pago: el front muestra "esperando el pago de $X" hasta `qr.venceAt` y consulta `GET /admin/ventas/{id}` cada pocos segundos. Ver [mercado-pago-qr.md](mercado-pago-qr.md). Body abajo. | ver abajo |
 | `DELETE /admin/ventas/{id}/qr` → `200 VentaResponse` | El personal cerró el modal del QR sin que se pagara: cancela la order, la venta queda `NO_COBRADA` y el stock vuelve. Si Mercado Pago dice que ya se pagó, queda `COBRADA`. | `404` · `409` "La venta no está esperando el pago con QR." · `502` Mercado Pago no responde |
 | `PUT /admin/ventas/{id}/verificacion` → `200 VentaResponse` | **Solo ADMIN.** Marca una venta con Cuenta DNI o por transferencia como verificada o la desmarca. Body `{ "verificada": true }`. | `400 errors.verificada` · `403` EMPLEADO ("Solo el ADMIN puede verificar una venta con Cuenta DNI.") · `404` · `409` "Solo se verifican las ventas con Cuenta DNI." |
-| `GET /admin/ventas` → `200 ListadoVentasResponse` | Ventas paginadas, con filtros opcionales que se combinan (ver abajo) y los totales de todo el filtro. Sin `desde` ni `hasta`, las de hoy. El ADMIN ve cualquier período; el EMPLEADO, solo hoy. **Cambio de contrato**: antes devolvía una lista. | `400` `desde` posterior a `hasta`, `cliente` con menos de 3 letras, página o tamaño inválidos, `orden` que no es `asc`/`desc` o un `medio`/`estado` que no existe · `403` EMPLEADO con otro período ("Solo podés ver las ventas de hoy.") o CLIENTE |
+| `GET /admin/ventas` → `200 ListadoVentasResponse` | Ventas paginadas, con filtros opcionales que se combinan (ver abajo) y los totales de todo el filtro. Sin `desde` ni `hasta`, las de hoy. **`desde` y `hasta` son jornadas** (de la apertura de un día a la del siguiente): una venta de las 00:10 es de la jornada anterior. El ADMIN ve cualquier período; el EMPLEADO, solo la jornada en curso (a las 00:30 sigue viendo la del día anterior). **Cambio de contrato**: antes devolvía una lista. | `400` `desde` posterior a `hasta`, `cliente` con menos de 3 letras, página o tamaño inválidos, `orden` que no es `asc`/`desc` o un `medio`/`estado` que no existe · `403` EMPLEADO con otro período ("Solo podés ver las ventas de hoy.") o CLIENTE |
 | `GET /admin/ventas/medios` → `200` | Los medios con que se puede cobrar una venta, en el orden en que se muestran: `[{ "medio": "EFECTIVO", "etiqueta": "Efectivo", "disponible": true, "conQr": false, "detalle": null }, { "medio": "MERCADO_PAGO", "etiqueta": "Mercado Pago (QR de la caja)", "disponible": true, "conQr": true, "detalle": null }, { "medio": "TRANSFERENCIA_MP", "etiqueta": "Mercado Pago (transferencia)", "disponible": true, "conQr": false, "detalle": null }, { "medio": "CUENTA_DNI", "etiqueta": "Cuenta DNI", "disponible": true, "conQr": false, "detalle": null }]`. `MERCADO_PAGO` está disponible solo si el QR de la caja está configurado (`MP_QR_ACCESS_TOKEN` o `MP_ACCESS_TOKEN`, y `MP_QR_EXTERNAL_POS_ID`); si no, `disponible: false` y `detalle: "El QR de la caja de Mercado Pago no está configurado."` (registrar con ese medio daría `503`). No dice si la caja está ocupada en este momento: eso lo responde el `409` al registrar. | `403` CLIENTE |
 | `GET /admin/ventas/{id}` → `200 VentaResponse` | Una venta. El EMPLEADO solo ve las de hoy. Es lo que consulta el modal del QR para ver si se pagó (solo lee la base: el cobro lo confirman el webhook o el job). | `404` no existe o el EMPLEADO pide una de otro día |
 | `POST /admin/ventas/{id}/anulacion` → `200 VentaResponse` | Deja la venta sin efecto (error de carga, el cliente no pagó, se cobró por otro medio): pasa a `ANULADA`, deja de contar en la caja y en lo vendido, y su stock vuelve (en los productos que lo controlan, aunque estén dados de baja). Body `{ "motivo": "Se cargó dos veces" }`. El ADMIN anula ventas de cualquier día (al anular una de un día anterior, cambia la caja de ese día); el EMPLEADO, solo las de hoy y que no estén verificadas. Si se cobró con el QR, Mercado Pago devuelve el total solo; si no, la plata, si se llegó a cobrar, se devuelve a mano por el mismo medio. | `400 errors.motivo` (vacío o de más de 200 caracteres) · `403` EMPLEADO con una venta de otro día ("Solo podés anular ventas de hoy.") o ya verificada ("La venta ya está verificada: solo el ADMIN la puede anular.") · `404` · `409` "La venta ya está anulada.", "La venta tiene devoluciones: no se puede anular. Registrá una devolución por lo que queda.", "La venta está esperando el pago con QR: cancelá el QR antes." o "La venta no se cobró: no hay nada que anular." · `502` "Mercado Pago no aceptó el reembolso. Intentá de nuevo." (cobrada con QR: no se anula) |

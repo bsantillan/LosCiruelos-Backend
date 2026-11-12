@@ -373,8 +373,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
 
     /**
      * Cierre de caja: el monto completo de los pagos que alguna vez se cobraron (estados en
-     * cobrados) con paidAt en [inicio, fin), sin bonificaciones. Lo devuelto se resta aparte,
-     * por la fecha del reembolso.
+     * cobrados) con paidAt en [inicio, fin), por medio. Lo devuelto se resta aparte, por la fecha
+     * de la devolución. Las bonificaciones van aparte (no son plata).
      */
     @Query("""
             SELECT new com.LosCiruelos.padel_club_api.reservas.repository.EntradasDeCaja(
@@ -382,10 +382,10 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
                    COALESCE(SUM(CASE WHEN p.provider = :mercadoPago AND p.orderId IS NULL THEN p.monto ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN p.provider = :mercadoPago AND p.orderId IS NOT NULL THEN p.monto ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN p.provider = :transferencia THEN p.monto ELSE 0 END), 0),
-                   COALESCE(SUM(CASE WHEN p.provider = :cuentaDni THEN p.monto ELSE 0 END), 0))
+                   COALESCE(SUM(CASE WHEN p.provider = :cuentaDni THEN p.monto ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN p.provider = :bonificacion THEN p.monto ELSE 0 END), 0))
             FROM Pago p
             WHERE p.estado IN :cobrados
-              AND p.provider <> :bonificacion
               AND p.paidAt >= :inicio AND p.paidAt < :fin
             """)
     EntradasDeCaja resumenEntradasDeCaja(

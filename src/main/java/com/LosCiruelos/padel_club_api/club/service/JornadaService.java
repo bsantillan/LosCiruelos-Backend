@@ -21,4 +21,9 @@ public class JornadaService {
     public Jornada actual() {
         return configuracionService.obtener().jornadaEn(reloj.ahora());
     }
+
+    /** La jornada del día {@code fecha} (la caja de ese día va de su apertura a la del día siguiente). */
+    public Jornada del(java.time.LocalDate fecha) {
+        return configuracionService.obtener().jornadaDel(fecha);
+    }
 }

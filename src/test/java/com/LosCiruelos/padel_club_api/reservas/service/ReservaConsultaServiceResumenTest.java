@@ -73,7 +73,7 @@ class ReservaConsultaServiceResumenTest {
         when(repo.resumenCobros(any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new CobrosDelPeriodo($("0"), $("0"), $("0"), $("0"), $("0")));
         when(repo.resumenEntradasDeCaja(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(new EntradasDeCaja($("0"), $("0"), $("0"), $("0"), $("0")));
+                .thenReturn(new EntradasDeCaja($("0"), $("0"), $("0"), $("0"), $("0"), $("0")));
         when(repo.resumenDevoluciones(any(), any(), any(), any())).thenReturn($("0"));
     }
 
@@ -89,13 +89,13 @@ class ReservaConsultaServiceResumenTest {
                 eq(Reserva.ESTADOS_QUE_SE_JUEGAN), eq(EstadoReserva.CANCELADA), eq(EstadoPago.APROBADO), any(),
                 eq(PaymentProvider.BONIFICACION)))
                 .thenReturn(new CobrosDelPeriodo($("380000"), $("15000"), $("45000"), $("0"), $("7500")));
-        when(repo.resumenEntradasDeCaja(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay(),
+        when(repo.resumenEntradasDeCaja(TestData.configuracion().jornadaDel(DESDE).inicio(), TestData.configuracion().jornadaDel(HASTA).fin(),
                 Set.of(EstadoPago.APROBADO, EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR,
                         EstadoPago.REEMBOLSO_PENDIENTE),
                 PaymentProvider.MANUAL, PaymentProvider.MERCADO_PAGO, PaymentProvider.TRANSFERENCIA_MP,
                 PaymentProvider.CUENTA_DNI, PaymentProvider.BONIFICACION))
-                .thenReturn(new EntradasDeCaja($("90000"), $("60000"), $("25000"), $("15000"), $("40000")));
-        when(repo.resumenDevoluciones(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay(),
+                .thenReturn(new EntradasDeCaja($("90000"), $("60000"), $("25000"), $("15000"), $("40000"), $("0")));
+        when(repo.resumenDevoluciones(TestData.configuracion().jornadaDel(DESDE).inicio(), TestData.configuracion().jornadaDel(HASTA).fin(),
                 com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion.DEVUELTO,
                 PaymentProvider.BONIFICACION)).thenReturn($("7500"));
         ProductoVendido pelotas = new ProductoVendido(1L, "Pelotas", TipoProducto.VENTA, 40L, $("200000"));
@@ -110,8 +110,8 @@ class ReservaConsultaServiceResumenTest {
                 $("15000.00"), $("25000.00")));
         assertThat(r.porJugar()).isEqualTo(new ResumenResponse.PorJugar(6, $("90000.00"), $("45000.00"),
                 $("0.00"), $("45000.00")));
-        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago").isEqualTo(new ResumenResponse.Caja($("230000.00"), $("90000.00"), $("100000.00"),
-                $("40000.00"), $("7500.00"), $("222500.00"), null));
+        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago", "bonificado", "inicio", "fin").isEqualTo(new ResumenResponse.Caja($("230000.00"), $("90000.00"), $("100000.00"),
+                $("40000.00"), $("7500.00"), $("222500.00"), null, null, null, null));
         assertThat(r.cancelaciones()).isEqualTo(new ResumenResponse.Cancelaciones(3, $("7500.00")));
         assertThat(r.productos()).containsExactly(pelotas);
         // Mercado Pago suma todo, con el detalle: online 60.000, QR 25.000 y transferencia 15.000
@@ -122,13 +122,13 @@ class ReservaConsultaServiceResumenTest {
     @Test
     void sumaLasVentasSueltasALaCajaYJuntaLosProductosVendidos() {
         when(repo.resumenEntradasDeCaja(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(new EntradasDeCaja($("90000"), $("60000"), $("25000"), $("15000"), $("40000")));
+                .thenReturn(new EntradasDeCaja($("90000"), $("60000"), $("25000"), $("15000"), $("40000"), $("0")));
         when(repo.resumenProductos(DESDE, HASTA, Reserva.ESTADOS_QUE_SE_JUEGAN)).thenReturn(List.of(
                 new ProductoVendido(1L, "Pelotas", TipoProducto.VENTA, 40L, $("200000"))));
-        when(ventas.totales(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay()))
+        when(ventas.totales(TestData.configuracion().jornadaDel(DESDE).inicio(), TestData.configuracion().jornadaDel(HASTA).fin()))
                 .thenReturn(new TotalesDeVentas(3L, $("6000"), $("5000"), $("3000"), $("1000")));
-        when(ventas.devoluciones(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay())).thenReturn($("2000"));
-        when(ventas.porProducto(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay())).thenReturn(List.of(
+        when(ventas.devoluciones(TestData.configuracion().jornadaDel(DESDE).inicio(), TestData.configuracion().jornadaDel(HASTA).fin())).thenReturn($("2000"));
+        when(ventas.porProducto(TestData.configuracion().jornadaDel(DESDE).inicio(), TestData.configuracion().jornadaDel(HASTA).fin())).thenReturn(List.of(
                 new VentaPorProducto(1L, "Pelotas", TipoProducto.VENTA, 1L, $("5000")),
                 new VentaPorProducto(7L, "Gatorade", TipoProducto.VENTA, 4L, $("10000"))));
 
@@ -136,8 +136,8 @@ class ReservaConsultaServiceResumenTest {
 
         assertThat(r.ventas()).isEqualTo(new ResumenResponse.Ventas(3, $("15000.00"), $("2000.00")));
         // efectivo 90.000 + 6.000; Mercado Pago 100.000 + 8.000; Cuenta DNI 40.000 + 1.000; se devolvieron 2.000
-        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago").isEqualTo(new ResumenResponse.Caja($("245000.00"), $("96000.00"), $("108000.00"),
-                $("41000.00"), $("2000.00"), $("243000.00"), null));
+        assertThat(r.caja()).usingRecursiveComparison().ignoringFields("detalleMercadoPago", "bonificado", "inicio", "fin").isEqualTo(new ResumenResponse.Caja($("245000.00"), $("96000.00"), $("108000.00"),
+                $("41000.00"), $("2000.00"), $("243000.00"), null, null, null, null));
         // las ventas suman su QR (5.000) y su transferencia (3.000); no se pagan online
         assertThat(r.caja().detalleMercadoPago()).isEqualTo(new com.LosCiruelos.padel_club_api.pagos.dto.response
                 .DetalleMercadoPago($("108000.00"), $("30000.00"), $("60000.00"), $("18000.00")));
@@ -177,7 +177,7 @@ class ReservaConsultaServiceResumenTest {
         assertThat(r.hasta()).isEqualTo(hoy);
         verify(repo).resumenTurnos(hoy, hoy, hoy, AHORA.toLocalTime(), Reserva.ESTADOS_QUE_SE_JUEGAN,
                 EstadoReserva.CANCELADA);
-        verify(repo).resumenDevoluciones(hoy.atStartOfDay(), hoy.plusDays(1).atStartOfDay(),
+        verify(repo).resumenDevoluciones(TestData.configuracion().jornadaDel(hoy).inicio(), TestData.configuracion().jornadaDel(hoy).fin(),
                 com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion.DEVUELTO,
                 PaymentProvider.BONIFICACION);
     }

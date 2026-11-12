@@ -31,7 +31,8 @@ import com.LosCiruelos.padel_club_api.ventas.repository.VentaPorProducto;
 @Component
 public class ResumenMapper {
 
-    public ResumenResponse aResponse(LocalDate desde, LocalDate hasta, TurnosDelPeriodo t, CobrosDelPeriodo c,
+    public ResumenResponse aResponse(LocalDate desde, LocalDate hasta, java.time.LocalDateTime inicioCaja,
+            java.time.LocalDateTime finCaja, TurnosDelPeriodo t, CobrosDelPeriodo c,
             EntradasDeCaja e, BigDecimal devolucionesDeReservas, List<ProductoVendido> productos, TotalesDeVentas v,
             BigDecimal devolucionesDeVentas, List<VentaPorProducto> vendidosSueltos) {
         Jugados jugados = new Jugados(cantidad(t.jugados()), Dinero.redondear(t.montoJugados()),
@@ -51,7 +52,8 @@ public class ResumenMapper {
         BigDecimal devoluciones = devolucionesDeReservas.add(devolucionesDeVentas);
         Caja caja = new Caja(Dinero.redondear(total), Dinero.redondear(efectivo), Dinero.redondear(mercadoPago),
                 Dinero.redondear(cuentaDni),
-                Dinero.redondear(devoluciones), Dinero.redondear(total.subtract(devoluciones)), detalle);
+                Dinero.redondear(devoluciones), Dinero.redondear(total.subtract(devoluciones)), detalle,
+                Dinero.redondear(e.bonificado()), inicioCaja, finCaja);
 
         return new ResumenResponse(desde, hasta, jugados, porJugar, caja,
                 new Cancelaciones(cantidad(t.cancelados()), Dinero.redondear(c.retenidoCancelaciones())),

@@ -290,7 +290,11 @@ public class Configuracion {
      */
     public Jornada jornadaEn(LocalDateTime ahora) {
         LocalDate hoy = ahora.toLocalDate();
-        LocalDate fecha = ahora.isBefore(aperturaDeJornada(hoy)) ? hoy.minusDays(1) : hoy;
+        return jornadaDel(ahora.isBefore(aperturaDeJornada(hoy)) ? hoy.minusDays(1) : hoy);
+    }
+
+    /** La jornada del día {@code fecha}: de su apertura a la apertura del día siguiente. */
+    public Jornada jornadaDel(LocalDate fecha) {
         return new Jornada(fecha, aperturaDeJornada(fecha), aperturaDeJornada(fecha.plusDays(1)));
     }
 

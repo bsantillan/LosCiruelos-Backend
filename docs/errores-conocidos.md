@@ -44,6 +44,10 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Caja por jornada**:
+  - `GET /admin/reservas/resumen`: la `caja` suma por jornada (de la apertura de `desde` a la apertura del día siguiente a `hasta`), también para el ADMIN. Antes era de 00:00 a 24:00. Lo de reservas sigue por la fecha del turno.
+  - `caja` suma `bonificado`, `inicio` y `fin`.
+  - `GET /admin/ventas`: `desde` y `hasta` también son jornadas para el ADMIN. Una venta de las 00:10 es del día anterior.
 - **El EMPLEADO devuelve, con revisión del ADMIN**:
   - `POST …/pagos/{pagoId}/devoluciones` ya no es solo del ADMIN: el EMPLEADO devuelve los cobros que registró el personal en su jornada, con `motivo` obligatorio. Si falta, `400`; fuera de la jornada, `403`.
   - Rutas nuevas, solo del ADMIN: `PUT /admin/reservas/{id}/devoluciones/{devolucionId}/revision` con `{ revisada }` y `GET /admin/reservas/devoluciones-sin-revisar`.

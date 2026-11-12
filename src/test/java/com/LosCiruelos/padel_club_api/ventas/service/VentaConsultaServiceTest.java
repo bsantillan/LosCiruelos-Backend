@@ -121,11 +121,38 @@ class VentaConsultaServiceTest {
     }
 
     @Test
+    void alas0030ElEmpleadoVeLasVentasDeLaJornadaQueNoTermino() {
+        UsuarioService usuarios = mock(UsuarioService.class);
+        when(usuarios.autenticado(empleado.getEmail())).thenReturn(empleado);
+        com.LosCiruelos.padel_club_api.common.Reloj madrugada = TestData.reloj(HOY.plusDays(1).atTime(0, 30));
+        VentaConsultaService aLaMadrugada = new VentaConsultaService(ventaRepository, usuarios, new VentaMapper(),
+                madrugada, cobroQr, TestData.jornadas(madrugada));
+        when(ventaRepository.findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Venta>>any(),
+                org.mockito.ArgumentMatchers.any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+        when(ventaRepository.totalesDelListado(org.mockito.ArgumentMatchers.any())).thenReturn(SIN_TOTALES);
+
+        aLaMadrugada.listar(null, null, null, null, null, null, null, 0, null, null, empleado.getEmail());
+
+        org.mockito.ArgumentCaptor<com.LosCiruelos.padel_club_api.ventas.repository.FiltroVentas> filtro =
+                org.mockito.ArgumentCaptor.forClass(com.LosCiruelos.padel_club_api.ventas.repository.FiltroVentas.class);
+        verify(ventaRepository).totalesDelListado(filtro.capture());
+        // la venta de las 00:10 es de la jornada del martes, que sigue hasta la apertura del miércoles
+        assertThat(filtro.getValue().desde()).isEqualTo(HOY.atTime(8, 0));
+        assertThat(filtro.getValue().hasta()).isEqualTo(HOY.plusDays(1).atTime(8, 0));
+        // y pedir la fecha de hoy calendario (miércoles) no es su jornada
+        assertThatThrownBy(() -> aLaMadrugada.listar(HOY.plusDays(1), HOY.plusDays(1), null, null, null, null, null, 0,
+                null, null, empleado.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class);
+    }
+
+    @Test
     void elAdminVeCualquierPeriodoYCombinaLosFiltros() {
         var filtro = listar(LocalDate.of(2026, 10, 1), null, "  Pérez ", List.of(MedioDePago.CUENTA_DNI),
                 admin.getEmail());
 
-        assertThat(filtro.desde()).isEqualTo(LocalDate.of(2026, 10, 1).atStartOfDay());
+        // desde y hasta son jornadas: el jueves 1/10 abre a las 8:00
+        assertThat(filtro.desde()).isEqualTo(LocalDate.of(2026, 10, 1).atTime(8, 0));
         assertThat(filtro.hasta()).isNull();
         assertThat(filtro.textoCliente()).isEqualTo("perez");
         assertThat(filtro.medios()).containsExactly(MedioDePago.CUENTA_DNI);

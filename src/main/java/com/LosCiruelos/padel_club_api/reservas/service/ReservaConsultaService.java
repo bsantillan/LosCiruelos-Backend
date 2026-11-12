@@ -261,15 +261,16 @@ public class ReservaConsultaService {
         CobrosDelPeriodo c = reservaRepository.resumenCobros(desde, hasta, ahora.toLocalDate(), ahora.toLocalTime(),
                 juegan, EstadoReserva.CANCELADA, EstadoPago.APROBADO, Pago.ESTADOS_DEVUELTOS, PaymentProvider.BONIFICACION);
 
-        // caja: de las 00:00 de desde a las 00:00 del día siguiente a hasta
-        LocalDateTime inicio = desde.atStartOfDay();
-        LocalDateTime fin = hasta.plusDays(1).atStartOfDay();
+        // caja: por jornada (lo que pasó entre la apertura de desde y la apertura del día siguiente a
+        // hasta), igual para el ADMIN y el EMPLEADO; un cobro de las 00:10 es de la jornada anterior
+        LocalDateTime inicio = jornadaService.del(desde).inicio();
+        LocalDateTime fin = jornadaService.del(hasta).fin();
         EntradasDeCaja e = reservaRepository.resumenEntradasDeCaja(inicio, fin, Pago.ESTADOS_COBRADOS, PaymentProvider.MANUAL,
                 PaymentProvider.MERCADO_PAGO, PaymentProvider.TRANSFERENCIA_MP, PaymentProvider.CUENTA_DNI, PaymentProvider.BONIFICACION);
         BigDecimal devoluciones = reservaRepository.resumenDevoluciones(inicio, fin,
                 com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion.DEVUELTO,
                 PaymentProvider.BONIFICACION);
-        return resumenMapper.aResponse(desde, hasta, t, c, e, devoluciones,
+        return resumenMapper.aResponse(desde, hasta, inicio, fin, t, c, e, devoluciones,
                 reservaRepository.resumenProductos(desde, hasta, juegan), ventaConsultaService.totales(inicio, fin),
                 ventaConsultaService.devoluciones(inicio, fin), ventaConsultaService.porProducto(inicio, fin));
     }

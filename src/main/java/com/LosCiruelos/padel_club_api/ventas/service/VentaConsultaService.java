@@ -85,8 +85,9 @@ public class VentaConsultaService {
         if (!esAdmin && !(hoy.equals(desde) && hoy.equals(hasta))) {
             throw new PermisoDenegadoException("Solo podés ver las ventas de hoy.");
         }
-        LocalDateTime inicio = jornada != null ? jornada.inicio() : desde != null ? desde.atStartOfDay() : null;
-        LocalDateTime fin = jornada != null ? jornada.fin() : hasta != null ? hasta.plusDays(1).atStartOfDay() : null;
+        // desde y hasta son jornadas (de la apertura de un día a la del siguiente), para todos
+        LocalDateTime inicio = jornada != null ? jornada.inicio() : desde != null ? jornadaService.del(desde).inicio() : null;
+        LocalDateTime fin = jornada != null ? jornada.fin() : hasta != null ? jornadaService.del(hasta).fin() : null;
         String texto = Busquedas.normalizar(cliente);
         if (texto != null && texto.replace(" ", "").length() < 3) {
             throw new ReservaException("Escribí al menos 3 letras para buscar un cliente.");

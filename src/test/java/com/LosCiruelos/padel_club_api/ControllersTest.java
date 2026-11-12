@@ -1053,7 +1053,8 @@ class ControllersTest {
                             new BigDecimal("45000.00")),
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Caja(
                             new BigDecimal("230000.00"), new BigDecimal("90000.00"), new BigDecimal("100000.00"),
-                            new BigDecimal("40000.00"), new BigDecimal("7500.00"), new BigDecimal("222500.00"), new com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago(new BigDecimal("100000.00"), new BigDecimal("20000.00"), new BigDecimal("70000.00"), new BigDecimal("10000.00"))),
+                            new BigDecimal("40000.00"), new BigDecimal("7500.00"), new BigDecimal("222500.00"), new com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago(new BigDecimal("100000.00"), new BigDecimal("20000.00"), new BigDecimal("70000.00"), new BigDecimal("10000.00")), new BigDecimal("5000.00"),
+                            java.time.LocalDate.of(2026, 10, 1).atTime(8, 0), java.time.LocalDate.of(2026, 11, 2).atTime(8, 0)),
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Cancelaciones(3,
                             new BigDecimal("7500.00")),
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Ventas(3,
@@ -1078,6 +1079,9 @@ class ControllersTest {
                     .andExpect(jsonPath("$.porJugar.cobradoAnticipado").value(45000.00))
                     .andExpect(jsonPath("$.porJugar.aCobrar").value(45000.00))
                     .andExpect(jsonPath("$.caja.total").value(230000.00))
+                    .andExpect(jsonPath("$.caja.bonificado").value(5000.00))
+                    .andExpect(jsonPath("$.caja.inicio").value("2026-10-01T08:00:00.000-03:00"))
+                    .andExpect(jsonPath("$.caja.fin").value("2026-11-02T08:00:00.000-03:00"))
                     .andExpect(jsonPath("$.caja.efectivo").value(90000.00))
                     .andExpect(jsonPath("$.caja.mercadoPago").value(100000.00))
                     .andExpect(jsonPath("$.caja.cuentaDni").value(40000.00))
