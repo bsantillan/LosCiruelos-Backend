@@ -80,6 +80,14 @@ class PermisosDelPersonalTest {
         }
 
         @Bean
+        com.LosCiruelos.padel_club_api.pagos.controller.DevolucionAdminController devolucionAdminController() {
+            return new com.LosCiruelos.padel_club_api.pagos.controller.DevolucionAdminController(
+                    mock(com.LosCiruelos.padel_club_api.pagos.service.AnulacionService.class),
+                    mock(com.LosCiruelos.padel_club_api.pagos.service.DevolucionService.class),
+                    mock(com.LosCiruelos.padel_club_api.pagos.service.PagoConsultaService.class));
+        }
+
+        @Bean
         UsuarioAdminController usuarioAdminController() {
             return new UsuarioAdminController(mock(UsuarioAdminService.class));
         }
@@ -154,5 +162,23 @@ class PermisosDelPersonalTest {
                         .value("2026-10-13"));
         mvc.perform(get("/admin/jornada").with(ADMIN)).andExpect(status().isOk());
         mvc.perform(get("/admin/jornada").with(user("c@test.com").roles("CLIENTE"))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void elEmpleadoAnulaYEntregaPeroSoloElAdminDevuelve() throws Exception {
+        String devolucion = """
+                {"lineas":[{"concepto":"CANCHA","lineaId":null,"monto":1000}],"motivo":"x"}""";
+        mvc.perform(json(post("/admin/reservas/4/pagos/1/anulacion"), "{\"motivo\":\"Error de carga\"}").with(EMPLEADO))
+                .andExpect(status().isOk());
+        mvc.perform(json(post("/admin/reservas/4/pagos/1/anulacion"), "{}").with(EMPLEADO))
+                .andExpect(status().isBadRequest());
+        mvc.perform(put("/admin/reservas/4/devoluciones/7/entrega").with(EMPLEADO)).andExpect(status().isOk());
+        mvc.perform(get("/admin/reservas/devoluciones-a-entregar").with(EMPLEADO)).andExpect(status().isOk());
+        mvc.perform(json(post("/admin/reservas/4/pagos/1/devoluciones"), devolucion).with(EMPLEADO))
+                .andExpect(status().isForbidden());
+        mvc.perform(json(post("/admin/reservas/4/pagos/1/devoluciones"), devolucion).with(ADMIN))
+                .andExpect(status().isCreated());
+        mvc.perform(json(post("/admin/reservas/4/pagos/1/devoluciones"), "{\"lineas\":[]}").with(ADMIN))
+                .andExpect(status().isBadRequest());
     }
 }

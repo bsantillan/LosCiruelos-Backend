@@ -73,6 +73,7 @@ public class SecurityConfig {
                         // Panel del personal: reservas y búsqueda de clientes
                         // Bonificar (no cobrarle al cliente): solo ADMIN
                         .requestMatchers(HttpMethod.POST, "/admin/reservas/*/bonificacion").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/admin/reservas/*/pagos/*/devoluciones").hasRole("ADMIN")
                         .requestMatchers("/admin/reservas/*/pagos/*/verificacion").hasRole("ADMIN")
                         // Armar y modificar partidos: solo ADMIN
                         .requestMatchers("/admin/reservas/partidos", "/admin/reservas/partidos/**").hasRole("ADMIN")

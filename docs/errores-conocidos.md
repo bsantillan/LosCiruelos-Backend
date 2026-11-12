@@ -6,7 +6,6 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 | Tema | Detalle |
 |---|---|
-| Reembolsos | Los pagos online se devuelven solos al cancelar; si MP no acepta el reembolso en el momento, quedan `REEMBOLSO_PENDIENTE` y un job los reintenta durante 24 h. Los pagos en el club, y los que MP no pudo devolver, quedan `A_REEMBOLSAR` con su `montoReembolsado`: falta un endpoint de admin para listarlos y marcarlos como devueltos (hoy se ven en el log). |
 | Funcionalidades | ABM de canchas, agenda del día para el personal. |
 | Rate limiting | Es en memoria (sirve para una instancia). Con varias instancias hay que moverlo a Redis o al proxy. Detrás de un proxy toma la IP real de `X-Forwarded-For` (`server.forward-headers-strategy=framework`, por defecto). |
 | WhatsApp | **Bloqueante**: como el perfil completo exige el celular verificado por WhatsApp, sin el alta en Meta ningún cliente nuevo puede reservar. Falta dar de alta el número del club, verificar el negocio y cargar las 8 plantillas de [whatsapp.md](whatsapp.md). Hasta entonces los avisos van por mail. Las novedades y promociones solo se guardan como preferencia: falta el envío. Los estados de entrega de Meta (leído, no entregado) no se reciben: haría falta su webhook, que también se va a necesitar para el bot. |
@@ -45,6 +44,19 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Anular y devolver cobros de las reservas**:
+  - Rutas nuevas:
+    - `POST /admin/reservas/{id}/pagos/{pagoId}/anulacion` con `{ motivo }`;
+    - `POST /admin/reservas/{id}/pagos/{pagoId}/devoluciones` con `{ lineas: [{ concepto, lineaId, monto }], motivo }` (solo ADMIN, `201`);
+    - `PUT /admin/reservas/{id}/devoluciones/{devolucionId}/entrega`;
+    - `GET /admin/reservas/devoluciones-a-entregar`.
+
+    Las tres operaciones responden `ReservaResponse`.
+  - Nuevo estado de pago `ANULADO`.
+  - `PagoResponse` suma `devoluciones: [{ id, monto, lineas, estado, motivo, creadoAt, entregadoAt, usuario, entregadoPor }]`, `anuladoAt`, `motivoAnulacion` y `anuladoPor`.
+  - Un pago devuelto en parte por línea **sigue `APROBADO`** con `montoReembolsado` acumulado.
+  - La caja (`resumen.caja.devoluciones`) resta las devoluciones cuando se entregan o MP las confirma. Antes, lo `A_REEMBOLSAR` nunca se restaba.
+  - Una reserva confirmada que queda sin nada cubierto (por anular o devolver) queda `CONFIRMADA`: ya no pasa a `CANCELADA` ni a `PENDIENTE`.
 - **Imputación de los pagos por concepto**:
   - `ReservaResponse` suma `montoCanchaPagado` y `montoCanchaPendiente`; cada producto (`productos[]`) suma `lineaId`, `montoPagado` y `montoPendiente`.
   - `PagoResponse` suma `imputaciones: [{ concepto, lineaId, nombre, monto }]`.

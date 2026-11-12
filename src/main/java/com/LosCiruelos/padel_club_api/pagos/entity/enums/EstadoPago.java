@@ -8,5 +8,6 @@ public enum EstadoPago {
     DEVUELTO,       // reembolsado o contracargo
     EXPIRADO,       // nunca se cobró y la reserva expiró o se canceló
     A_REEMBOLSAR,   // hay que devolverlo a mano (pago en el club, cobro sobre una reserva inactiva o reembolso de MP que no se pudo hacer)
-    REEMBOLSO_PENDIENTE // reembolso online pedido que MP todavía no aceptó (ej. el pago se está acreditando): un job lo reintenta
+    REEMBOLSO_PENDIENTE, // reembolso online pedido que MP todavía no aceptó (ej. el pago se está acreditando): un job lo reintenta
+    ANULADO         // cobro del club cargado por error: no existió (no cuenta en caja ni cubre nada)
 }

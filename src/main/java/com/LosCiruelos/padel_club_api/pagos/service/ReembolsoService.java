@@ -14,7 +14,9 @@ import com.LosCiruelos.padel_club_api.pagos.exception.PagoProveedorException;
 import com.LosCiruelos.padel_club_api.pagos.exception.ReembolsoFallidoException;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.pagos.entity.Devolucion;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentService;
 import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr;
@@ -46,6 +48,7 @@ public class ReembolsoService {
     private final PagoRepository pagoRepository;
     private final EstadosDePago estados;
     private final Reloj reloj;
+    private final DevolucionesPorApi porApi;
 
     /**
      * Reparte {@code monto} entre los pagos aprobados de la reserva (ya bloqueada):
@@ -73,10 +76,13 @@ public class ReembolsoService {
             if (aDevolver.signum() <= 0) {
                 continue;
             }
-            pago.setMontoReembolsado(aDevolver);
+            // la devolución libera lo que cubría el pago en proporción y acumula lo reembolsado
+            Devolucion devolucion = pago.devolverEnProporcion(aDevolver, "Cancelación de la reserva", null,
+                    reloj.ahora());
             if (pago.seDevuelvePorApi()) {
                 try {
-                    devolverPorApi(pago, aDevolver);
+                    porApi.devolver(pago, aDevolver, null);
+                    devolucion.marcarDevuelta(null, reloj.ahora());
                     estados.cambiar(pago, EstadoPago.DEVUELTO);
                 } catch (ReembolsoFallidoException e) {
                     pago.setReembolsoSolicitadoAt(reloj.ahora());
@@ -84,6 +90,7 @@ public class ReembolsoService {
                         // el aviso de la cancelación ya dice lo que hay que devolver a mano
                         pasarAReembolsoManual(pago, reserva, null);
                     } else {
+                        devolucion.setEstado(EstadoDevolucion.REEMBOLSO_PENDIENTE);
                         estados.cambiar(pago, EstadoPago.REEMBOLSO_PENDIENTE);
                         log.warn("Pago #{}: MP no aceptó el reembolso de ${}; queda REEMBOLSO_PENDIENTE "
                                 + "para reintentarlo (reserva #{})", pago.getId(), aDevolver, reserva.getId());
@@ -131,7 +138,10 @@ public class ReembolsoService {
             return pago != null ? pago.getEstado() : null; // otro proceso ya lo resolvió (ej. el webhook)
         }
 
-        BigDecimal aDevolver = pago.getMontoReembolsado() != null ? pago.getMontoReembolsado() : pago.getMonto();
+        // lo que está pendiente es la devolución que MP no aceptó; lo devuelto en total (MP lo informa
+        // acumulado) es montoReembolsado (en los pagos de antes de las devoluciones, null es el monto)
+        BigDecimal totalReembolsado = pago.getMontoReembolsado() != null ? pago.getMontoReembolsado() : pago.getMonto();
+        BigDecimal aDevolver = pago.devolucionPendienteDeMp().map(Devolucion::getMonto).orElse(totalReembolsado);
         if (pago.esCobroQr()) {
             return reintentarReembolsoQr(pago, reserva, aDevolver);
         }
@@ -139,7 +149,8 @@ public class ReembolsoService {
         try {
             BigDecimal yaDevuelto = proveedor.consultarPago(pago.getExternalPaymentId()).getMontoDevuelto();
             if (yaDevuelto != null && yaDevuelto.signum() > 0) {
-                if (yaDevuelto.compareTo(aDevolver) == 0) {
+                if (yaDevuelto.compareTo(totalReembolsado) == 0) {
+                    pago.resolverDevolucionesDeMp(true, reloj.ahora());
                     estados.cambiar(pago, EstadoPago.DEVUELTO);
                     log.info("Pago #{}: MP ya tenía devueltos ${}; queda DEVUELTO", pago.getId(), yaDevuelto);
                     estados.avisarReembolsoRealizado(reserva, aDevolver);
@@ -154,6 +165,7 @@ public class ReembolsoService {
             }
 
             proveedor.reembolsar(pago, aDevolver);
+            pago.resolverDevolucionesDeMp(true, reloj.ahora());
             estados.cambiar(pago, EstadoPago.DEVUELTO);
             estados.avisarReembolsoRealizado(reserva, aDevolver);
             log.info("Pago #{}: reembolso de ${} hecho en el reintento (reserva #{})", pago.getId(), aDevolver,
@@ -180,12 +192,14 @@ public class ReembolsoService {
         try {
             if (proveedorQr.consultar(pago.getOrderId()).estado() == EstadoOrden.DEVUELTA
                     && aDevolver.compareTo(pago.getMonto()) == 0) {
+                pago.resolverDevolucionesDeMp(true, reloj.ahora());
                 estados.cambiar(pago, EstadoPago.DEVUELTO);
                 log.info("QR #{}: MP ya tenía devuelta la order {}; queda DEVUELTO", pago.getId(), pago.getOrderId());
                 estados.avisarReembolsoRealizado(reserva, aDevolver);
                 return pago.getEstado();
             }
             proveedorQr.reembolsar(pago.ordenQr(), aDevolver);
+            pago.resolverDevolucionesDeMp(true, reloj.ahora());
             estados.cambiar(pago, EstadoPago.DEVUELTO);
             estados.avisarReembolsoRealizado(reserva, aDevolver);
             log.info("QR #{}: reembolso de ${} hecho en el reintento (reserva #{})", pago.getId(), aDevolver,
@@ -204,14 +218,6 @@ public class ReembolsoService {
         return pago.getEstado();
     }
 
-    /** Un pago online se devuelve con la API de pagos; un QR, con la de orders. */
-    private void devolverPorApi(Pago pago, BigDecimal monto) {
-        if (pago.esCobroQr()) {
-            proveedorQr.reembolsar(pago.ordenQr(), monto);
-        } else {
-            paymentServiceFactory.getService().reembolsar(pago, monto);
-        }
-    }
 
     private boolean plazoDeReintentoVencido(Pago pago) {
         LocalDateTime desde = pago.getReembolsoSolicitadoAt() != null ? pago.getReembolsoSolicitadoAt()
@@ -221,6 +227,7 @@ public class ReembolsoService {
 
     /** @param motivoAviso si no es null, se avisa a los ADMIN con ese motivo */
     private void pasarAReembolsoManual(Pago pago, Reserva reserva, String motivoAviso) {
+        pago.resolverDevolucionesDeMp(false, reloj.ahora());
         estados.cambiar(pago, EstadoPago.A_REEMBOLSAR);
         log.error("Pago #{} (MP {}): no se pudo reembolsar por Mercado Pago. Queda A_REEMBOLSAR: hay que "
                 + "devolver ${} a mano (reserva #{})", pago.getId(), pago.getExternalPaymentId(),

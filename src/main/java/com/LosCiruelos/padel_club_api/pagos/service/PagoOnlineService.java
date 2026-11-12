@@ -16,6 +16,7 @@ import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentResult;
@@ -193,7 +194,7 @@ public class PagoOnlineService {
                 if (!montoCorrecto) {
                     log.error("Pago #{}: MP cobró ${} pero se esperaba ${}. Queda A_REEMBOLSAR.",
                             pago.getId(), resultado.getMonto(), pago.getMonto());
-                    pago.setMontoReembolsado(pago.getMonto());
+                    pago.devolverTodo(EstadoDevolucion.A_REEMBOLSAR, "Mercado Pago cobró otro monto", reloj.ahora());
                     estados.cambiar(pago, EstadoPago.A_REEMBOLSAR);
                     estados.avisarReembolsoManual(pago, reserva, "Mercado Pago cobró "
                             + Dinero.texto(resultado.getMonto()) + " y se esperaba " + Dinero.texto(pago.getMonto())
@@ -201,7 +202,8 @@ public class PagoOnlineService {
                 } else if (reserva.estaInactiva()) {
                     log.warn("Pago #{} aprobado para la reserva #{} en estado {}. Queda A_REEMBOLSAR: "
                             + "hay que devolver el dinero.", pago.getId(), reserva.getId(), reserva.getEstado());
-                    pago.setMontoReembolsado(pago.getMonto());
+                    pago.devolverTodo(EstadoDevolucion.A_REEMBOLSAR, "Cobro de una reserva " + reserva.getEstado(),
+                            reloj.ahora());
                     estados.cambiar(pago, EstadoPago.A_REEMBOLSAR);
                     estados.avisarReembolsoManual(pago, reserva, "Se cobró un pago online de una reserva "
                             + reserva.getEstado() + ".");
@@ -226,9 +228,13 @@ public class PagoOnlineService {
             case DEVUELTO -> {
                 if (!esOtroPagoDeMp && (actual == EstadoPago.APROBADO || actual == EstadoPago.EN_PROCESO
                         || actual == EstadoPago.A_REEMBOLSAR || actual == EstadoPago.REEMBOLSO_PENDIENTE)) {
-                    // devolución hecha fuera del sistema (panel de MP, contracargo): es por el total
-                    if (pago.getMontoReembolsado() == null) {
-                        pago.setMontoReembolsado(pago.getMonto());
+                    // lo que estaba pendiente (un reembolso pedido) queda devuelto; si no había nada pedido, es
+                    // una devolución hecha fuera del sistema (panel de MP, contracargo) por lo que quedaba
+                    pago.resolverDevolucionesDeMp(true, reloj.ahora());
+                    boolean nadaPedido = actual == EstadoPago.APROBADO || actual == EstadoPago.EN_PROCESO;
+                    if (nadaPedido && (pago.getMontoReembolsado() == null
+                            || pago.getMontoReembolsado().compareTo(pago.getMonto()) < 0)) {
+                        pago.devolverTodo(EstadoDevolucion.DEVUELTO, "Devuelto desde Mercado Pago", reloj.ahora());
                     }
                     estados.cambiar(pago, EstadoPago.DEVUELTO);
                     if (actual == EstadoPago.REEMBOLSO_PENDIENTE) {

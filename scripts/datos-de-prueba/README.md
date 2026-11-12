@@ -67,6 +67,9 @@ Repartidas en las 4 canchas, entre las 9 y las 20 (valen para cualquier día de 
 
 Cada pago queda **imputado** como lo haría la app sola: primero la cancha y después los productos, en orden.
 
+- **Cobro anulado:** en la primera reserva futura con un pago parcial hay un efectivo de $2.000 **anulado** por el empleado ("Lo cargué dos veces"). No cuenta en la caja ni cubre nada.
+- **Devoluciones:** cada pago devuelto o por devolver tiene su devolución, sin detalle por línea. La de la reserva cancelada con la plata a devolver a mano aparece en `GET /admin/reservas/devoluciones-a-entregar` para entregarla.
+
 Los pagos de Mercado Pago son **simulados**: tienen ids de pago, preferencias y orders de prueba (`mp-prueba-…`, `ORD-PRUEBA-…`) y nunca se llamó a Mercado Pago.
 
 ### Partidos y turnos fijos

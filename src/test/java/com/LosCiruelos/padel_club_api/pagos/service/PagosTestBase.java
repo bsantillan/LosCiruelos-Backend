@@ -65,12 +65,15 @@ abstract class PagosTestBase {
     protected com.LosCiruelos.padel_club_api.ventas.service.VentaQrService ventaQrService;
 
     protected Usuario cliente;
+    protected PaymentServiceFactory factory;
+    protected EstadosDePago estados;
+    protected ConfiguracionService configuracionService;
     protected Usuario empleado;
 
     @BeforeEach
     void setUp() {
         mercadoPago = mock(PaymentService.class);
-        PaymentServiceFactory factory = mock(PaymentServiceFactory.class);
+        factory = mock(PaymentServiceFactory.class);
         when(factory.getService()).thenReturn(mercadoPago);
 
         ConfiguracionRepository configuracionRepository = mock(ConfiguracionRepository.class);
@@ -94,11 +97,11 @@ abstract class PagosTestBase {
         when(usuarioService.autenticado(cliente.getEmail())).thenReturn(cliente);
         when(usuarioService.autenticado(empleado.getEmail())).thenReturn(empleado);
 
-        ConfiguracionService configuracionService = new ConfiguracionService(configuracionRepository, new ConfiguracionMapper());
+        configuracionService = new ConfiguracionService(configuracionRepository, new ConfiguracionMapper());
         Reloj reloj = TestData.reloj(AHORA);
         eventos = mock(ApplicationEventPublisher.class);
         reservaConsultaService = mock(ReservaConsultaService.class);
-        EstadosDePago estados = new EstadosDePago(pagoRepository, configuracionService, mock(StockService.class),
+        estados = new EstadosDePago(pagoRepository, configuracionService, mock(StockService.class),
                 reloj, eventos);
         pagoOnlineService = new PagoOnlineService(factory, reservaService, pagoRepository, configuracionService,
                 usuarioService, estados, reloj, new PagoMapper());
@@ -106,7 +109,8 @@ abstract class PagosTestBase {
                 reloj, new PagoMapper());
         proveedorQr = mock(ProveedorCobroQr.class);
         when(proveedorQr.estaConfigurado()).thenReturn(true);
-        reembolsoService = new ReembolsoService(factory, proveedorQr, reservaService, pagoRepository, estados, reloj);
+        reembolsoService = new ReembolsoService(factory, proveedorQr, reservaService, pagoRepository, estados, reloj,
+                new DevolucionesPorApi(factory, proveedorQr));
         cajaQr = mock(CajaQrService.class);
         ventaQrService = mock(com.LosCiruelos.padel_club_api.ventas.service.VentaQrService.class);
         cobroQrService = new CobroQrService(reservaService, pagoRepository, usuarioService, estados, proveedorQr,

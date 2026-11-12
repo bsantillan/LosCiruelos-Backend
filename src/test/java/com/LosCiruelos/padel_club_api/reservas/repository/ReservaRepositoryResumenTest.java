@@ -96,6 +96,17 @@ class ReservaRepositoryResumenTest {
                 LocalDate.of(2026, 10, 5).atTime(10, 0));
         devuelto.setMontoReembolsado(new BigDecimal("7500"));
         devuelto.setReembolsadoAt(LocalDate.of(2026, 10, 9).atTime(11, 0));
+        // la devolución la confirmó Mercado Pago el 9/10; una por entregar todavía no salió de la caja
+        com.LosCiruelos.padel_club_api.pagos.entity.Devolucion hecha = com.LosCiruelos.padel_club_api.pagos.entity.Devolucion
+                .builder().pago(devuelto).monto(new BigDecimal("7500"))
+                .estado(com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion.A_REEMBOLSAR)
+                .createdAt(LocalDate.of(2026, 10, 9).atTime(10, 0)).build();
+        hecha.marcarDevuelta(null, LocalDate.of(2026, 10, 9).atTime(11, 0));
+        em.persist(hecha);
+        em.persist(com.LosCiruelos.padel_club_api.pagos.entity.Devolucion.builder().pago(devuelto)
+                .monto(new BigDecimal("1000"))
+                .estado(com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion.A_REEMBOLSAR)
+                .createdAt(LocalDate.of(2026, 10, 9).atTime(10, 0)).build());
 
         // no cuentan: expirada con un pago rechazado y pendiente sin pagar
         Reserva expirada = reserva(LocalDate.of(2026, 10, 9), "18:00", "19:30", EstadoReserva.EXPIRADA, "15000");

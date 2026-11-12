@@ -30,6 +30,12 @@ public class PagoResponse {
     BigDecimal montoReembolsado;
     // qué cubre el pago (cancha y líneas de producto); en un QR esperando el pago, lo que cubre al cobrarse
     java.util.List<ImputacionResponse> imputaciones;
+    // lo que se devolvió (o hay que devolver) de este cobro, por línea
+    java.util.List<DevolucionResponse> devoluciones;
+    // si se anuló (estado ANULADO): cuándo, por qué y quién
+    LocalDateTime anuladoAt;
+    String motivoAnulacion;
+    String anuladoPor;
     // motivo de una bonificación (provider BONIFICACION)
     String motivo;
     // pago con Cuenta DNI o por transferencia: si el ADMIN comprobó que entró a la cuenta (null en los otros) y cuándo

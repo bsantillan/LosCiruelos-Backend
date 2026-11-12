@@ -220,6 +220,9 @@ La jornada en curso, para que el front sepa qué fechas mostrarle al EMPLEADO.
 | `GET /admin/reservas/resumen` | Cualquier período | Solo hoy |
 | Reservas sin seña, bonificaciones, verificar pagos | Sí | `403` |
 | Partidos y turnos fijos | Sí | `403` |
+| Anular un cobro de una reserva | Cualquiera (también bonificaciones) | Solo los que registró el personal en la jornada; nunca una bonificación |
+| Devolver un cobro de una reserva | Sí | `403` |
+| Entregar una devolución y `GET …/devoluciones-a-entregar` | Todas | Las de la jornada |
 | Ventas sueltas | Todas; anula cualquiera, devuelve y verifica | Las de hoy; anula las de hoy no verificadas; no devuelve ni verifica |
 | Productos | Crea, edita, da de baja y reactiva | Ve el catálogo y suma o resta stock (`PATCH …/stock`) |
 | `GET /admin/usuarios`, `GET /admin/usuarios/{id}` | Sí (nunca aparecen los ADMIN) | Sí, los mismos datos; el detalle de un ADMIN → `404` |
@@ -576,6 +579,26 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 | `GET /admin/pagos/cuenta-dni?desde=2026-10-01&hasta=2026-10-31&verificado=false` | **ADMIN** | Todo lo cobrado con Cuenta DNI en el período (pagos de reservas y ventas sueltas, por fecha de cobro), del más viejo al más nuevo, para controlarlo contra la cuenta. `verificado=false` trae lo pendiente de verificar; sin el parámetro, todo. Responde `[{ "origen": "RESERVA" \| "VENTA", "id", "reservaId", "medio", "monto", "fecha", "verificado", "verificadoAt", "anulada" }]`: `id` es el del pago (se verifica con `PUT /admin/reservas/{reservaId}/pagos/{id}/verificacion`) o el de la venta (`PUT /admin/ventas/{id}/verificacion`); `reservaId` es `null` en una venta. Las ventas anuladas también vienen (con `anulada: true`), para conciliar la cuenta si la plata entró y se devolvió; en un pago de reserva, `anulada` es siempre `false`. | `400` falta una fecha o `desde` posterior a `hasta` · `403` EMPLEADO o CLIENTE |
 | `GET /admin/pagos/verificables?desde=2026-10-01&hasta=2026-10-31&verificado=false&medio=TRANSFERENCIA_MP` | **ADMIN** | Como `cuenta-dni`, con **todo lo que se verifica contra la cuenta**: Cuenta DNI y transferencias de Mercado Pago, de reservas y ventas. `medio` (repetible: `CUENTA_DNI`, `TRANSFERENCIA_MP`) filtra; sin indicar, los dos. Cada cobro trae `medio`. `GET /admin/pagos/cuenta-dni` sigue y equivale a `medio=CUENTA_DNI`. | `400` fechas o un `medio` que no se verifica · `403` |
 
+### Anular y devolver cobros — `/admin/reservas/{reservaId}/pagos/{pagoId}/…` y `/admin/reservas/…/devoluciones` (rol: ADMIN, EMPLEADO)
+
+Valen para reservas normales, partidos y partidos de turno fijo (no para las ventas sueltas). Las cuatro operaciones responden la reserva (`ReservaResponse`), con el estado ya recalculado.
+
+- **Anular**: el cobro no tendría que existir porque fue un error de carga.
+- **Devolver**: la plata entró y se le devuelve al cliente, línea por línea.
+
+Después de anular o devolver, el estado se recalcula como siempre, con una excepción: si lo cubierto queda en 0 en una reserva que ya estaba confirmada, queda `CONFIRMADA` y **nunca vuelve a `PENDIENTE` ni vence** (tampoco al cambiar después los productos).
+
+| Método y ruta | Rol | Descripción | Errores |
+|---|---|---|---|
+| `POST /admin/reservas/{reservaId}/pagos/{pagoId}/anulacion` → `200 ReservaResponse` | ADMIN siempre; EMPLEADO, solo cobros que registró el personal dentro de la **jornada** en curso | Body `{ "motivo": "Lo cargué dos veces" }` (obligatorio, hasta 200). Se anula el cobro **entero** (no hay anulación parcial). Solo los cargados en el club: efectivo, transferencia (`presencial`), Cuenta DNI, y las **bonificaciones** (solo el ADMIN). El pago pasa a `ANULADO` y libera todo lo que cubría. No cuenta en la caja ni en el resumen y queda en el historial con `anuladoAt`, `motivoAnulacion` y `anuladoPor`. | `400` sin motivo · `403` "Solo podés anular cobros registrados en la jornada de hoy.", "Solo el ADMIN puede anular una bonificación." o una reserva anterior a la jornada · `404` reserva o pago · `409` "Un cobro de Mercado Pago (online o con el QR) no se anula: la plata entró, hay que devolverla.", "El cobro tiene devoluciones: no se puede anular." o un cobro que no está `APROBADO` |
+| `POST /admin/reservas/{reservaId}/pagos/{pagoId}/devoluciones` → `201 ReservaResponse` | **ADMIN** | Body `{ "lineas": [{ "concepto": "PRODUCTO", "lineaId": 51, "monto": 2000 }, { "concepto": "CANCHA", "lineaId": null, "monto": 1000 }], "motivo": "Agua vencida" }` (`motivo` opcional). De cada línea se devuelve ese monto, que no puede superar lo que **ese cobro** le imputó (para devolverlo todo, mandá todas sus líneas). Baja esas imputaciones, acumula `montoReembolsado` en el pago y crea la devolución con sus líneas. Si fue por **Mercado Pago** (online o QR), se devuelve en el momento por la API (parcial si corresponde) y la devolución queda `DEVUELTO`. Si MP no la acepta, `502` y no se registra nada. Si se **cobró en el club**, queda `A_REEMBOLSAR` hasta que se entrega. El pago sigue `APROBADO` mientras retenga plata; devuelto entero, toma el estado de sus devoluciones. | `400` "Indicá al menos una línea a devolver", "El cobro #8 le cubre $1.000 a Gatorade: no se pueden devolver $2.000.", "La línea #99 no está cubierta por el cobro #8.", línea repetida o sin `lineaId` · `403` EMPLEADO · `404` · `409` "Una bonificación no es plata: no se devuelve, se anula." o un cobro sin nada para devolver · `502` "Mercado Pago no aceptó la devolución. Intentá de nuevo." |
+| `PUT /admin/reservas/{reservaId}/devoluciones/{devolucionId}/entrega` → `200 ReservaResponse` | ADMIN siempre; EMPLEADO, las creadas en la jornada en curso | Se le dio la plata al cliente: la devolución pasa de `A_REEMBOLSAR` a `DEVUELTO` con `entregadoAt` y `entregadoPor`, y cuenta en la caja de ese momento. Si era lo último pendiente del pago, el pago queda `DEVUELTO`. | `403` "Solo podés entregar devoluciones de la jornada de hoy." · `404` · `409` "La devolución no está pendiente de entrega (está DEVUELTO)." |
+| `GET /admin/reservas/devoluciones-a-entregar` → `200 [DevolucionAEntregarResponse]` | ADMIN (todas), EMPLEADO (las de la jornada) | Lo que hay que devolver a mano (`A_REEMBOLSAR`), de lo más viejo a lo más nuevo: `[{ "devolucionId": 3, "reservaId": 46, "fechaReserva": "2026-11-25", "pagoId": 53, "clienteId": 18, "cliente": "Ana Gómez", "monto": 1500.00, "medio": "TRANSFERENCIA_MP", "motivo": "Agua vencida", "creadoAt": "…" }]`. `medio` es el `canal` del cobro original. También aparecen las de las cancelaciones con reembolso y los cobros de Mercado Pago que no se pudieron aplicar. | |
+
+En `PagoResponse`, cada pago suma:
+- `devoluciones: [{ id, monto, lineas: [{ concepto, lineaId, nombre, monto }], estado, motivo, creadoAt, entregadoAt, usuario, entregadoPor }]`. `estado` es `A_REEMBOLSAR`, `REEMBOLSO_PENDIENTE` (MP todavía no la aceptó) o `DEVUELTO`. `usuario` es quién la registró: `null` si la generó el sistema, por ejemplo al cancelar el cliente. `lineas` viene vacía en las de antes de V40 y en los cobros de MP que no se aplicaron.
+- Si se anuló: `anuladoAt`, `motivoAnulacion` y `anuladoPor` (el nombre).
+
 ### Cobro con el QR de la caja — `/admin/reservas/{reservaId}/cobros/qr` (rol: ADMIN, EMPLEADO)
 
 El club tiene **un QR de Mercado Pago impreso en el mostrador** (el de la caja). El personal le asigna a la caja el monto exacto de una reserva; el cliente escanea el QR con la app de Mercado Pago, ve ese monto y paga, y el pago se registra solo. No hay que mostrar ningún QR en la pantalla. Detalle, puesta en marcha y prueba en [mercado-pago-qr.md](mercado-pago-qr.md).
@@ -841,11 +864,11 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 | `detalleMercadoPago` | `mercadoPago` abierto: `qr` (reservas y ventas), `online` (solo reservas) y `transferencia` (reservas y ventas) |
 | `cuentaDni` | Pagos `CUENTA_DNI` (`cobros/cuenta-dni`) cobrados en el período, más las ventas sueltas con `CUENTA_DNI` |
 | `total` | `efectivo + mercadoPago + cuentaDni` |
-| `devoluciones` | Lo devuelto (`montoReembolsado`) de los pagos `DEVUELTO` cuyo reembolso se hizo en el período |
+| `devoluciones` | Las devoluciones `DEVUELTO` por la fecha en que se le **entregaron** al cliente o Mercado Pago las **confirmó** (`entregadoAt`), más las de ventas sueltas |
 | `neto` | `total − devoluciones` (puede ser negativo un día con devoluciones y sin cobros) |
 
 - Entran los pagos que alguna vez se cobraron (`APROBADO`, `DEVUELTO`, `A_REEMBOLSAR`, `REEMBOLSO_PENDIENTE`) por su `paidAt`, con el monto completo: lo devuelto se resta en `devoluciones` el día del reembolso. Las bonificaciones no entran nunca.
-- Lo que queda `A_REEMBOLSAR` (por ejemplo, un pago en efectivo de una reserva cancelada con reembolso, que el personal devuelve a mano) **no** está en `devoluciones`: el sistema no registra cuándo se entregó esa plata. Sí está en `total` el día que se cobró.
+- Lo que queda `A_REEMBOLSAR` (por ejemplo, un pago en efectivo de una reserva cancelada con reembolso) entra en `devoluciones` el día que el personal lo **entrega** (`PUT …/devoluciones/{id}/entrega`). Hasta entonces sigue en `total` el día que se cobró. Los cobros `ANULADO` no entran en ningún lado.
 - Datos anteriores a la migración V16: no se guardaba la fecha del reembolso. Para esos pagos se usó la fecha en que se pidió el reembolso a Mercado Pago si el primer intento falló; si no, la fecha de cobro (o de creación del pago). Las devoluciones viejas pueden aparecer el día del cobro en vez del día en que se devolvieron.
 
 **Cancelaciones y productos**:

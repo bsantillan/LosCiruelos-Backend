@@ -95,7 +95,8 @@ class ReservaConsultaServiceResumenTest {
                 PaymentProvider.MANUAL, PaymentProvider.MERCADO_PAGO, PaymentProvider.TRANSFERENCIA_MP,
                 PaymentProvider.CUENTA_DNI, PaymentProvider.BONIFICACION))
                 .thenReturn(new EntradasDeCaja($("90000"), $("60000"), $("25000"), $("15000"), $("40000")));
-        when(repo.resumenDevoluciones(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay(), EstadoPago.DEVUELTO,
+        when(repo.resumenDevoluciones(DESDE.atStartOfDay(), HASTA.plusDays(1).atStartOfDay(),
+                com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion.DEVUELTO,
                 PaymentProvider.BONIFICACION)).thenReturn($("7500"));
         ProductoVendido pelotas = new ProductoVendido(1L, "Pelotas", TipoProducto.VENTA, 40L, $("200000"));
         when(repo.resumenProductos(DESDE, HASTA, Reserva.ESTADOS_QUE_SE_JUEGAN)).thenReturn(List.of(pelotas));
@@ -176,7 +177,8 @@ class ReservaConsultaServiceResumenTest {
         assertThat(r.hasta()).isEqualTo(hoy);
         verify(repo).resumenTurnos(hoy, hoy, hoy, AHORA.toLocalTime(), Reserva.ESTADOS_QUE_SE_JUEGAN,
                 EstadoReserva.CANCELADA);
-        verify(repo).resumenDevoluciones(hoy.atStartOfDay(), hoy.plusDays(1).atStartOfDay(), EstadoPago.DEVUELTO,
+        verify(repo).resumenDevoluciones(hoy.atStartOfDay(), hoy.plusDays(1).atStartOfDay(),
+                com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion.DEVUELTO,
                 PaymentProvider.BONIFICACION);
     }
 

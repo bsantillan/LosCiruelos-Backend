@@ -46,7 +46,7 @@ WHERE rol = 'ADMIN' OR email IN ('empleado@test.com', current_setting('datos.mai
 
 -- ── Borrar todos los datos ───────────────────────────────────────────────
 -- configuracion arrastra dias y dias_cerrados; canchas, reservas y turnos fijos con sus hijas
-TRUNCATE pago_imputaciones, pagos, reserva_jugadores, reserva_productos, reservas, turno_fijo_jugadores, turno_fijo_productos,
+TRUNCATE pago_devolucion_lineas, pago_devoluciones, pago_imputaciones, pagos, reserva_jugadores, reserva_productos, reservas, turno_fijo_jugadores, turno_fijo_productos,
          turnos_fijos, venta_devolucion_items, venta_devoluciones, venta_items, ventas, dias_cerrados, dias,
          configuracion, canchas, productos, refresh_tokens, verification_tokens, envios_codigo_telefono
          RESTART IDENTITY CASCADE;
@@ -568,6 +568,17 @@ END $$;
 INSERT INTO dias_cerrados (configuracion_id, fecha, motivo, created_at, created_by_id)
 VALUES (1, current_date + 20, 'Mantenimiento de las canchas', now() - interval '1 day', pg_temp.admin());
 
+-- ── Un cobro anulado: el empleado cargó dos veces el mismo efectivo ──────
+-- (en la primera reserva futura que pagó una parte; no cuenta en la caja ni cubre nada)
+INSERT INTO pagos (reserva_id, monto, estado, provider, created_at, paid_at, clave_idempotencia, registrado_por_id,
+                   anulado_at, anulado_por_id, motivo_anulacion)
+SELECT r.id, 2000, 'ANULADO', 'MANUAL', now() - interval '2 hours', now() - interval '2 hours', gen_random_uuid(),
+       pg_temp.empleado(), now() - interval '110 minutes', pg_temp.empleado(), 'Lo cargué dos veces'
+FROM reservas r
+WHERE r.estado = 'PARCIALMENTE_PAGADA' AND r.fecha_reserva > current_date
+ORDER BY r.id
+LIMIT 1;
+
 -- ── Qué cubre cada pago (la imputación automática de la app) ─────────────
 -- Del más viejo al más nuevo, lo que el club se queda de cada pago: primero la cancha hasta
 -- completarla y después cada línea de producto en orden de creación (lo que sobre, a la cancha).
@@ -612,6 +623,16 @@ BEGIN
         END LOOP;
     END LOOP;
 END $$;
+
+-- ── Lo devuelto o por devolver de cada pago (sin detalle por línea) ──────
+-- Las devueltas cuentan en la caja el día en que se devolvieron; las A_REEMBOLSAR aparecen en
+-- GET /admin/reservas/devoluciones-a-entregar hasta que el personal las entrega.
+INSERT INTO pago_devoluciones (pago_id, monto, estado, motivo, created_at, registrada_por_id, entregado_at, clave)
+SELECT id, monto_reembolsado, estado, 'Cancelación de la reserva', COALESCE(reembolsado_at, paid_at, created_at),
+       NULL, CASE WHEN estado = 'DEVUELTO' THEN COALESCE(reembolsado_at, paid_at, created_at) END, gen_random_uuid()
+FROM pagos
+WHERE estado IN ('DEVUELTO', 'A_REEMBOLSAR', 'REEMBOLSO_PENDIENTE') AND provider <> 'BONIFICACION'
+  AND monto_reembolsado > 0;
 
 DROP EXTENSION pgcrypto;
 

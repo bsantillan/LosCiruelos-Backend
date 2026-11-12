@@ -398,18 +398,21 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             @Param("cuentaDni") PaymentProvider cuentaDni,
             @Param("bonificacion") PaymentProvider bonificacion);
 
-    /** Lo devuelto (montoReembolsado; null es el total) de los pagos DEVUELTO con reembolsadoAt en [inicio, fin). */
+    /**
+     * Lo devuelto en [inicio, fin): las devoluciones DEVUELTO por la fecha en que se entregaron al
+     * cliente o Mercado Pago las confirmó (las que esperan entrega todavía no salieron de la caja).
+     */
     @Query("""
-            SELECT COALESCE(SUM(COALESCE(p.montoReembolsado, p.monto)), 0)
-            FROM Pago p
-            WHERE p.estado = :devuelto
+            SELECT COALESCE(SUM(d.monto), 0)
+            FROM Devolucion d JOIN d.pago p
+            WHERE d.estado = :devuelto
               AND p.provider <> :bonificacion
-              AND p.reembolsadoAt >= :inicio AND p.reembolsadoAt < :fin
+              AND d.entregadoAt >= :inicio AND d.entregadoAt < :fin
             """)
     BigDecimal resumenDevoluciones(
             @Param("inicio") LocalDateTime inicio,
             @Param("fin") LocalDateTime fin,
-            @Param("devuelto") EstadoPago devuelto,
+            @Param("devuelto") com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion devuelto,
             @Param("bonificacion") PaymentProvider bonificacion);
 
     @Query("""

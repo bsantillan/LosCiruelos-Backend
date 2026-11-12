@@ -80,6 +80,15 @@ class EstadosDePago {
         }
     }
 
+    /** Después de anular o devolver un cobro ({@link Reserva#recalcularTrasDeshacerUnCobro}); sin avisos. */
+    void recalcularTrasDeshacer(Reserva reserva) {
+        EstadoReserva anterior = reserva.getEstado();
+        BigDecimal senia = configuracionService.obtener().senia(reserva.getMontoTotal());
+        if (reserva.recalcularTrasDeshacerUnCobro(senia, reloj.ahora())) {
+            log.info("Reserva #{}: {} → {} (se deshizo un cobro)", reserva.getId(), anterior, reserva.getEstado());
+        }
+    }
+
     void validarQueAdmitePagos(Reserva reserva) {
         LocalDateTime ahora = reloj.ahora();
         if (reserva.estaVencida(ahora)) {

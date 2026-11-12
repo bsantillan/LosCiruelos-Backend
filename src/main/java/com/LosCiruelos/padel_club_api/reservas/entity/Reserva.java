@@ -440,7 +440,8 @@ public class Reserva {
      * Una reserva confirmada que queda sin nada cubierto (reembolso) pasa a CANCELADA. Un partido
      * no tiene seña: sin nada pagado queda CONFIRMADA (no vence ni se cancela por eso), con algo
      * PARCIALMENTE_PAGADA y entero PAGADA (o COMPLETADA). Una reserva SIN_SENIA (la cargó el ADMIN
-     * para cobrarla en el club) sin nada pagado también queda CONFIRMADA.
+     * para cobrarla en el club) sin nada pagado también queda CONFIRMADA, igual que una que quedó
+     * CONFIRMADA al anular o devolver su cobro ({@link #recalcularTrasDeshacerUnCobro}).
      * CANCELADA, EXPIRADA y COMPLETADA no cambian.
      *
      * @return true si el estado cambió
@@ -451,7 +452,9 @@ public class Reserva {
         }
         BigDecimal cubierto = getMontoCubierto();
         EstadoReserva nuevo;
-        if (cubierto.signum() == 0 && confirmadaSinPagar()) {
+        if (cubierto.signum() == 0 && (confirmadaSinPagar() || estado == EstadoReserva.CONFIRMADA)) {
+            // una CONFIRMADA sin nada cubierto (un partido, SIN_SENIA o porque se anuló o devolvió su
+            // cobro) sigue confirmada: no se cancela ni vuelve a PENDIENTE por un cambio de total
             nuevo = EstadoReserva.CONFIRMADA;
         } else if (cubierto.signum() == 0) {
             nuevo = estado == EstadoReserva.PENDIENTE ? EstadoReserva.PENDIENTE : EstadoReserva.CANCELADA;
@@ -479,6 +482,32 @@ public class Reserva {
             estado = EstadoReserva.PAGADA;
         }
         recalcularEstado(senia, ahora);
+    }
+
+    /**
+     * Después de anular o devolver un cobro: el estado se recalcula como siempre, pero una reserva que
+     * ya estaba confirmada y queda sin nada cubierto queda CONFIRMADA: nunca vuelve a PENDIENTE ni
+     * vence (ni se cancela) por deshacer un cobro. Una COMPLETADA que queda con saldo vuelve a abrirse.
+     *
+     * @return true si el estado cambió
+     */
+    public boolean recalcularTrasDeshacerUnCobro(BigDecimal senia, LocalDateTime ahora) {
+        EstadoReserva anterior = estado;
+        if (estado == EstadoReserva.COMPLETADA && getMontoPendiente().signum() > 0) {
+            estado = EstadoReserva.PAGADA;
+        }
+        if (ESTADOS_CONFIRMADOS.contains(estado) && getMontoCubierto().signum() == 0) {
+            estado = EstadoReserva.CONFIRMADA;
+            expiresAt = null;
+        } else {
+            recalcularEstado(senia, ahora);
+        }
+        return estado != anterior;
+    }
+
+    /** Un pago de esta reserva. */
+    public java.util.Optional<Pago> pago(Long pagoId) {
+        return pagos.stream().filter(p -> p.getId() != null && p.getId().equals(pagoId)).findFirst();
     }
 
     /** Fecha y horario de la reserva (duración, superposición, si empezó o terminó). */

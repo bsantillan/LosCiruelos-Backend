@@ -187,6 +187,8 @@ public class CancelacionService {
     private static BigDecimal sumar(Reserva reserva, EstadoPago estado, boolean online) {
         return Dinero.sumar(reserva.getPagos().stream()
                 .filter(p -> p.getEstado() == estado && (p.getExternalPaymentId() != null) == online)
-                .map(p -> p.getMontoReembolsado() != null ? p.getMontoReembolsado() : p.getMonto()));
+                // la última devolución es la de esta cancelación (antes pudo haber devoluciones por línea)
+                .map(p -> !p.getDevoluciones().isEmpty() ? p.getDevoluciones().getLast().getMonto()
+                        : p.getMontoReembolsado() != null ? p.getMontoReembolsado() : p.getMonto()));
     }
 }

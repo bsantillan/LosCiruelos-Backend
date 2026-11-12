@@ -179,7 +179,7 @@ Se recalcula siempre a partir de los pagos `APROBADO` (plata más bonificaciones
 | menos | nada |
 
 - **Personal**: puede cancelar hasta que termina el turno y elige el reembolso (`TOTAL`, `SENIA` o `NADA`), porque a veces la cancelación es por el club.
-- **Cómo se devuelve**: primero los pagos online de Mercado Pago (reembolso por API, total o parcial, con clave de idempotencia; quedan `DEVUELTO`), después los cobrados en el club (quedan `A_REEMBOLSAR`, a devolver a mano).
+- **Cómo se devuelve**: primero los pagos online de Mercado Pago (reembolso por API, total o parcial, con clave de idempotencia; quedan `DEVUELTO`), después los cobrados en el club (quedan `A_REEMBOLSAR`, a devolver a mano y a entregar con `PUT …/devoluciones/{id}/entrega`). Cada pago devuelto genera una **devolución** que libera lo que cubría en proporción a cada línea.
 - **Si MP no acepta el reembolso** (por ejemplo, un pago recién cobrado que todavía se está acreditando), la reserva se cancela igual (`200`) y ese pago queda `REEMBOLSO_PENDIENTE`. El job de reembolsos lo reintenta cada 2 minutos, con la reserva bloqueada y la misma clave de idempotencia (MP nunca devuelve dos veces):
   - antes de reintentar consulta el pago en MP: si ya figura devuelto ese monto (un intento anterior que respondió con error, o una devolución desde el panel), queda `DEVUELTO` sin pedir otro reembolso;
   - si el reembolso sale → `DEVUELTO`;
@@ -221,6 +221,16 @@ Se ocultan siempre las **descartadas**: canceladas o vencidas sin ningún pago q
 - Un producto del catálogo o uno escrito a mano (nombre y precio): si no existe con ese nombre, se da de alta como producto de venta, sin ofrecerse al reservar y con stock igual a la cantidad que se agrega o se vende (queda en 0).
 - El total cambia y el estado se recalcula con lo pagado: una reserva `PAGADA` o `COMPLETADA` que suma algo vuelve a quedar con saldo (`SEÑADA` o `PARCIALMENTE_PAGADA`; un partido, `PARCIALMENTE_PAGADA`) y, si ya se jugó, aparece como deuda hasta que se cobra.
 - Sacar unidades devuelve el stock de venta. **Lo cobrado no se saca** (`Reserva.validarQueNoSacaLoCobrado`): una línea con plata imputada no puede bajar de lo que tiene cubierto (`409` con `lineaId` y `montoCobrado`: primero hay que anular o devolver ese cobro); lo que no tiene nada cobrado se saca libremente. Lo mismo la cancha: si al cambiar el horario de un partido el precio baja de lo imputado a la cancha, `409`. Nada se reimputa solo de una línea a otra.
+
+### 9 quinquies. Anular y devolver cobros
+- **Anular** (`POST …/pagos/{pagoId}/anulacion`, con motivo):
+  - sirve para un error de carga: el cobro no tendría que existir;
+  - solo para los cobrados en el club (efectivo, transferencia, Cuenta DNI) y las bonificaciones (estas, solo el ADMIN), y entero;
+  - el pago queda `ANULADO`, libera todas sus imputaciones y no cuenta en la caja;
+  - no se anulan los de Mercado Pago (online o QR: la plata entró y se devuelven) ni uno con devoluciones;
+  - el EMPLEADO solo anula lo que registró el personal dentro de la jornada en curso (`Pago.seRegistroEnLaJornada`).
+- **Devolver** (`POST …/pagos/{pagoId}/devoluciones`, solo ADMIN): de cada línea, hasta lo que ese cobro le imputó (`Pago.devolver`). Lo de MP se devuelve en el momento por la API; si MP falla, no se registra nada (`502`). Lo del club queda `A_REEMBOLSAR` hasta que se entrega (`PUT …/devoluciones/{id}/entrega`; el EMPLEADO, las de la jornada).
+- **Estado de la reserva** (`Reserva.recalcularTrasDeshacerUnCobro`): se recalcula como siempre, pero una reserva confirmada que queda sin nada cubierto queda `CONFIRMADA`: nunca vuelve a `PENDIENTE` ni vence ni se cancela por eso.
 
 ### 9 quater. Qué cubre cada pago (imputación)
 - Cada pago cobrado (también las bonificaciones) se reparte en **imputaciones**: la cancha o una línea de producto (`PagoImputacion`, hija del pago). La suma es lo que el club se queda de ese pago (monto − lo devuelto).
@@ -280,6 +290,15 @@ Los productos **nunca se borran** (ni por la API ni por cascada): se dan de baja
 | `EXPIRADO` | Nunca se cobró y quedó sin efecto (reserva vencida o cancelada, cambio de monto, pago manual) |
 | `A_REEMBOLSAR` | Hay que devolver `montoReembolsado` a mano: pago en el club de una reserva cancelada, cobro online sobre una reserva inactiva o por un monto distinto, o reembolso de MP que no se pudo hacer en 24 h |
 | `REEMBOLSO_PENDIENTE` | Se canceló la reserva pero MP todavía no aceptó el reembolso de `montoReembolsado`; el job lo reintenta cada 2 minutos |
+| `ANULADO` | Cobro del club cargado por error: no existió (no cuenta en caja ni cubre nada); guarda quién, cuándo y por qué |
+
+**Devoluciones** (`Devolucion`, hija del pago, con sus líneas). Todo lo que se le devuelve al cliente de un cobro queda en un solo modelo, con su estado: `A_REEMBOLSAR` (a entregar a mano), `REEMBOLSO_PENDIENTE` (MP todavía no la aceptó) o `DEVUELTO` (entregada o confirmada por MP, con `entregadoAt`). Las generan:
+- la devolución por línea del ADMIN;
+- la cancelación con reembolso, que libera lo que cubría cada pago en proporción (`Pago.devolverEnProporcion`);
+- los cobros de MP que no se pueden aplicar (otro monto o una reserva inactiva), que se devuelven enteros;
+- las devoluciones que se hacen desde el panel de MP.
+
+El estado del pago sigue a sus devoluciones (`Pago.actualizarEstadoPorDevoluciones`): mientras retiene plata y estaba aprobado, sigue `APROBADO` con `montoReembolsado` acumulado; si no, toma el estado de sus devoluciones. La caja resta cada devolución cuando se entrega o MP la confirma. Una devolución por línea por MP usa la clave `…-devolucion-{clave de la devolución}`, distinta para cada una.
 
 Cada pago tiene una `clave_idempotencia` (UUID que se genera al crearlo y no cambia). Las operaciones con MP la usan como `X-Idempotency-Key`: `losciruelos-pref-{uuid}`, `losciruelos-cobro-{uuid}` y `losciruelos-reembolso-{uuid}`. No se usa el id del pago porque, si la base se recrea, los ids se repiten y MP respondería con el resultado de un pedido viejo.
 

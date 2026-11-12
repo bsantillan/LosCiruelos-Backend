@@ -62,4 +62,13 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
 
     // Para buscar los pagos de una reserva
     List<Pago> findByReservaId(Long reservaId);
+
+    /** Las devoluciones en ese estado, con su pago, la reserva y el cliente, de la más vieja a la más nueva. */
+    @Query("""
+            SELECT d FROM Devolucion d JOIN FETCH d.pago p JOIN FETCH p.reserva r JOIN FETCH r.cliente
+            WHERE d.estado = :estado
+            ORDER BY d.createdAt, d.id
+            """)
+    List<com.LosCiruelos.padel_club_api.pagos.entity.Devolucion> findDevolucionesEnEstado(
+            @Param("estado") com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion estado);
 }
