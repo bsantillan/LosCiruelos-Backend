@@ -232,7 +232,7 @@ class ControllersTest {
         void elPersonalEligeElReembolsoAlCancelar() throws Exception {
             ReservaResponse cancelada = new ReservaResponse();
             cancelada.setEstado(EstadoReserva.CANCELADA);
-            when(cancelacionService.cancelarComoPersonal(4L, OpcionReembolso.SENIA, EMAIL)).thenReturn(cancelada);
+            when(cancelacionService.cancelarComoPersonal(4L, OpcionReembolso.SENIA, true, EMAIL)).thenReturn(cancelada);
 
             mvc.perform(delete("/admin/reservas/4/cancelar").param("reembolso", "SENIA").principal(AUTH))
                     .andExpect(status().isOk())

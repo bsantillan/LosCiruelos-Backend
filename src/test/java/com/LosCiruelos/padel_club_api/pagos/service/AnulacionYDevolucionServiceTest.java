@@ -152,8 +152,10 @@ class AnulacionYDevolucionServiceTest extends PagosTestBase {
     void unaDevolucionParcialEnElClubQuedaPorEntregarYDespuesSeEntrega() {
         Pago pago = cobro(1L, PaymentProvider.MANUAL, "17000", AHORA.minusHours(1));
 
-        devoluciones(AHORA).devolver(10L, 1L, devolucion(
-                new LineaDevolucionRequest(ConceptoImputacion.PRODUCTO, 51L, new BigDecimal("2000"))), admin.getEmail());
+        DevolucionRequest paraDespues = devolucion(
+                new LineaDevolucionRequest(ConceptoImputacion.PRODUCTO, 51L, new BigDecimal("2000")));
+        paraDespues.setEntregada(false);
+        devoluciones(AHORA).devolver(10L, 1L, paraDespues, admin.getEmail());
 
         Devolucion d = pago.getDevoluciones().getFirst();
         d.setId(70L);
@@ -176,6 +178,35 @@ class AnulacionYDevolucionServiceTest extends PagosTestBase {
         assertThat(d.getEstado()).isEqualTo(EstadoDevolucion.DEVUELTO);
         assertThat(d.getEntregadoAt()).isEqualTo(AHORA.plusMinutes(5));
         assertThat(d.getEntregadoPor()).isSameAs(empleado);
+    }
+
+    @Test
+    void unaDevolucionEnElClubSeEntregaEnElMomentoPorDefecto() {
+        Pago pago = cobro(1L, PaymentProvider.CUENTA_DNI, "17000", AHORA.minusHours(1));
+
+        devoluciones(AHORA).devolver(10L, 1L, devolucion(
+                new LineaDevolucionRequest(ConceptoImputacion.CANCHA, null, new BigDecimal("1000"))), admin.getEmail());
+
+        Devolucion d = pago.getDevoluciones().getFirst();
+        assertThat(d.getEstado()).isEqualTo(EstadoDevolucion.DEVUELTO);
+        assertThat(d.getEntregadoAt()).isEqualTo(AHORA);
+        assertThat(d.getEntregadoPor()).isSameAs(admin);
+        assertThat(pago.getEstado()).isEqualTo(EstadoPago.APROBADO);
+    }
+
+    @Test
+    void alCancelarElPersonalLoDelClubSeDevuelveEnElMomentoOQuedaParaDespues() {
+        Pago enElClub = cobro(1L, PaymentProvider.MANUAL, "10000", AHORA.minusDays(1));
+
+        reembolsoService.reembolsar(reserva, new BigDecimal("10000"), empleado, true);
+        assertThat(enElClub.getDevoluciones().getFirst().getEstado()).isEqualTo(EstadoDevolucion.DEVUELTO);
+        assertThat(enElClub.getDevoluciones().getFirst().getEntregadoPor()).isSameAs(empleado);
+        assertThat(enElClub.getEstado()).isEqualTo(EstadoPago.DEVUELTO);
+
+        Pago otro = cobro(2L, PaymentProvider.MANUAL, "5000", AHORA.minusDays(1));
+        reembolsoService.reembolsar(reserva, new BigDecimal("5000"), empleado, false);
+        assertThat(otro.getDevoluciones().getFirst().getEstado()).isEqualTo(EstadoDevolucion.A_REEMBOLSAR);
+        assertThat(otro.getEstado()).isEqualTo(EstadoPago.A_REEMBOLSAR);
     }
 
     @Test

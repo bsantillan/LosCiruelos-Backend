@@ -23,7 +23,7 @@ class HorariosOcupadosServiceTest {
     @Test
     void cancelaCadaReservaConReembolsoTotalEInformaLasQueNoPudo() {
         CancelacionService cancelacion = mock(CancelacionService.class);
-        when(cancelacion.cancelarComoPersonal(32L, OpcionReembolso.TOTAL, "admin@test.com")).thenThrow(
+        when(cancelacion.cancelarComoPersonal(32L, OpcionReembolso.TOTAL, false, "admin@test.com")).thenThrow(
                 new EstadoInvalidoException("La reserva tiene un pago en proceso; esperá a que Mercado Pago lo resuelva."));
         HorariosOcupadosService servicio = new HorariosOcupadosService(mock(ReservaRepository.class),
                 mock(TurnoFijoRepository.class), new FueraDeHorarioMapper(), cancelacion, TestData.reloj(TestData.AHORA));
@@ -34,7 +34,7 @@ class HorariosOcupadosServiceTest {
         assertThat(r.canceladas()).containsExactly(31L, 33L);
         assertThat(r.sinCancelar()).containsExactly(new CancelacionesResponse.SinCancelar(32L,
                 "La reserva tiene un pago en proceso; esperá a que Mercado Pago lo resuelva."));
-        verify(cancelacion).cancelarComoPersonal(31L, OpcionReembolso.TOTAL, "admin@test.com");
-        verify(cancelacion).cancelarComoPersonal(33L, OpcionReembolso.TOTAL, "admin@test.com");
+        verify(cancelacion).cancelarComoPersonal(31L, OpcionReembolso.TOTAL, false, "admin@test.com");
+        verify(cancelacion).cancelarComoPersonal(33L, OpcionReembolso.TOTAL, false, "admin@test.com");
     }
 }

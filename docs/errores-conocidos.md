@@ -44,6 +44,10 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Devoluciones en el club entregadas en el momento**:
+  - `POST …/pagos/{pagoId}/devoluciones` acepta `entregada` (por defecto `true`): una devolución de un cobro del club queda `DEVUELTO` en el acto. Antes quedaba siempre `A_REEMBOLSAR`; para eso, mandá `false`.
+  - `DELETE /admin/reservas/{id}/cancelar` acepta `?entregada=` (por defecto `true`) para lo cobrado en el club.
+  - El aviso de la cancelación dice "Se devolvieron $X en el club." cuando se entregó en el momento.
 - **Anular y devolver cobros de las reservas**:
   - Rutas nuevas:
     - `POST /admin/reservas/{id}/pagos/{pagoId}/anulacion` con `{ motivo }`;

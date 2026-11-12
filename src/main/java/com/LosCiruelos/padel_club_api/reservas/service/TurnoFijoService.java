@@ -190,7 +190,7 @@ public class TurnoFijoService {
                 ahora.toLocalTime())) {
             Reserva partido = reservaService.bloquear(reservaId);
             if (!partido.estaInactiva()) {
-                cancelacionService.cancelarBloqueada(partido, admin, true, reembolso);
+                cancelacionService.cancelarBloqueada(partido, admin, true, reembolso, false);
                 cancelados++;
             }
         }
@@ -219,7 +219,7 @@ public class TurnoFijoService {
             if (partido.estaInactiva()) {
                 throw new EstadoInvalidoException("La fecha " + fecha + " ya está dada de baja.");
             }
-            ReservaResponse cancelado = cancelacionService.cancelarBloqueada(partido, admin, true, reembolso);
+            ReservaResponse cancelado = cancelacionService.cancelarBloqueada(partido, admin, true, reembolso, false);
             log.info("Turno fijo #{}: fecha {} dada de baja por {} (partido #{})", id, fecha, email,
                     partido.getId());
             return cancelado;

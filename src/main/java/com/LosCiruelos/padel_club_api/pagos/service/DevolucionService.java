@@ -31,8 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Devoluciones de un cobro, línea por línea ({@link Pago#devolver}): la plata entró y se le devuelve
  * al cliente (solo el ADMIN). Lo cobrado por Mercado Pago (online o QR) se devuelve en el momento por
- * su API: si no lo acepta, 502 y no se registra nada. Lo cobrado en el club queda A_REEMBOLSAR hasta
- * que el personal lo entrega.
+ * su API: si no lo acepta, 502 y no se registra nada. Lo cobrado en el club se entrega en el momento
+ * (por defecto) o queda A_REEMBOLSAR hasta que el personal lo entrega.
  */
 @Slf4j
 @Service
@@ -68,6 +68,8 @@ public class DevolucionService {
                 throw new PagoProveedorException("Mercado Pago no aceptó la devolución. Intentá de nuevo.");
             }
             devolucion.marcarDevuelta(null, ahora);
+        } else if (req.seEntregaEnElMomento()) {
+            devolucion.marcarDevuelta(admin, ahora);
         }
         pago.actualizarEstadoPorDevoluciones(ahora);
         pagoRepository.save(pago);

@@ -73,7 +73,7 @@ public class HorariosOcupadosService implements HorariosOcupados {
         List<CancelacionesResponse.SinCancelar> sinCancelar = new ArrayList<>();
         for (Long id : reservaIds) {
             try {
-                cancelacionService.cancelarComoPersonal(id, OpcionReembolso.TOTAL, emailAdmin);
+                cancelacionService.cancelarComoPersonal(id, OpcionReembolso.TOTAL, false, emailAdmin);
                 canceladas.add(id);
             } catch (RuntimeException e) {
                 log.warn("No se pudo cancelar la reserva #{} fuera del horario del club: {}", id, e.getMessage());

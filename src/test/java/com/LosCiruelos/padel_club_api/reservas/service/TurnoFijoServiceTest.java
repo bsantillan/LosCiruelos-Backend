@@ -250,8 +250,8 @@ class TurnoFijoServiceTest {
 
         assertThat(r.getActivo()).isFalse();
         assertThat(tf.getDadoDeBajaAt()).isEqualTo(AHORA);
-        verify(cancelacionService).cancelarBloqueada(proximo, admin, true, OpcionReembolso.TOTAL);
-        verify(cancelacionService, times(1)).cancelarBloqueada(any(), any(), eq(true), any());
+        verify(cancelacionService).cancelarBloqueada(proximo, admin, true, OpcionReembolso.TOTAL, false);
+        verify(cancelacionService, times(1)).cancelarBloqueada(any(), any(), eq(true), any(), org.mockito.ArgumentMatchers.anyBoolean());
 
         assertThatThrownBy(() -> turnos.darDeBaja(8L, null, admin.getEmail()))
                 .isInstanceOf(EstadoInvalidoException.class)
@@ -266,7 +266,7 @@ class TurnoFijoServiceTest {
 
         turnos.darDeBajaFecha(8L, MANIANA, null, admin.getEmail());
 
-        verify(cancelacionService).cancelarBloqueada(partido, admin, true, null);
+        verify(cancelacionService).cancelarBloqueada(partido, admin, true, null, false);
 
         partido.setEstado(EstadoReserva.CANCELADA);
         assertThatThrownBy(() -> turnos.darDeBajaFecha(8L, MANIANA, null, admin.getEmail()))
@@ -287,7 +287,7 @@ class TurnoFijoServiceTest {
         assertThat(guardada.getValue().getEstado()).isEqualTo(EstadoReserva.CANCELADA);
         assertThat(guardada.getValue().getTipo()).isEqualTo(TipoReserva.PARTIDO);
         assertThat(r.getFechaReserva()).isEqualTo(dentroDeDosMeses);
-        verify(cancelacionService, never()).cancelarBloqueada(any(), any(), eq(true), any());
+        verify(cancelacionService, never()).cancelarBloqueada(any(), any(), eq(true), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
     @Test

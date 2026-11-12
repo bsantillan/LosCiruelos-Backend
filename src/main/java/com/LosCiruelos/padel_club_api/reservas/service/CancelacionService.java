@@ -54,20 +54,22 @@ public class CancelacionService {
         Usuario cliente = usuarioService.autenticado(email);
         Reserva reserva = reservaService.bloquearConAcceso(id, cliente);
         exigirAdminSiEsPartido(reserva, cliente);
-        return cancelarBloqueada(reserva, cliente, false, null);
+        return cancelarBloqueada(reserva, cliente, false, null, false);
     }
 
     /**
      * El personal (ADMIN o EMPLEADO) cancela cualquier reserva; un partido, solo el ADMIN.
      *
      * @param reembolso qué se devuelve; obligatorio si la reserva tiene dinero cobrado
+     * @param entregada lo cobrado en el club se le devuelve al cliente en el momento (DEVUELTO); si no,
+     *                  queda A_REEMBOLSAR hasta que se entregue
      */
     @Transactional
-    public ReservaResponse cancelarComoPersonal(Long id, OpcionReembolso reembolso, String email) {
+    public ReservaResponse cancelarComoPersonal(Long id, OpcionReembolso reembolso, boolean entregada, String email) {
         Usuario personal = usuarioService.autenticado(email);
         Reserva reserva = reservaService.bloquearComoPersonal(id, personal);
         exigirAdminSiEsPartido(reserva, personal);
-        return cancelarBloqueada(reserva, personal, true, reembolso);
+        return cancelarBloqueada(reserva, personal, true, reembolso, entregada);
     }
 
     private static void exigirAdminSiEsPartido(Reserva reserva, Usuario usuario) {
@@ -76,9 +78,13 @@ public class CancelacionService {
         }
     }
 
-    /** Cancela una reserva ya bloqueada (también la usan las bajas de los turnos fijos). */
+    /**
+     * Cancela una reserva ya bloqueada (también la usan las bajas de los turnos fijos).
+     *
+     * @param entregada solo para el personal: lo cobrado en el club se devuelve en el momento
+     */
     ReservaResponse cancelarBloqueada(Reserva reserva, Usuario usuario, boolean esPersonal,
-            OpcionReembolso opcionPersonal) {
+            OpcionReembolso opcionPersonal, boolean entregada) {
         Long id = reserva.getId();
         String email = usuario.getEmail();
         LocalDateTime ahora = reloj.ahora();
@@ -110,7 +116,9 @@ public class CancelacionService {
             reembolso = evaluacion.montoReembolso();
         }
 
-        if (reembolso.signum() > 0) {
+        if (reembolso.signum() > 0 && esPersonal) {
+            reembolsoService.reembolsar(reserva, reembolso, usuario, entregada);
+        } else if (reembolso.signum() > 0) {
             reembolsoService.reembolsar(reserva, reembolso);
         }
         reservaService.cancelar(reserva);
@@ -163,6 +171,7 @@ public class CancelacionService {
         BigDecimal pendiente = sumar(reserva, EstadoPago.REEMBOLSO_PENDIENTE, true);
         BigDecimal fallido = sumar(reserva, EstadoPago.A_REEMBOLSAR, true);
         BigDecimal enElClub = sumar(reserva, EstadoPago.A_REEMBOLSAR, false);
+        BigDecimal entregadoEnElClub = sumar(reserva, EstadoPago.DEVUELTO, false);
 
         StringBuilder texto = new StringBuilder("Reembolso de ").append(Dinero.texto(reembolso)).append(":");
         if (hecho.signum() > 0) {
@@ -176,6 +185,9 @@ public class CancelacionService {
             texto.append(" Mercado Pago rechazó ").append(Dinero.texto(fallido))
                     .append(": hay que devolverlo a mano (fallido).");
         }
+        if (entregadoEnElClub.signum() > 0) {
+            texto.append(" Se devolvieron ").append(Dinero.texto(entregadoEnElClub)).append(" en el club.");
+        }
         if (enElClub.signum() > 0) {
             texto.append(" Hay que devolver ").append(Dinero.texto(enElClub))
                     .append(" a mano (se cobró en el club).");
@@ -186,7 +198,7 @@ public class CancelacionService {
     /** Suma lo que se devolvió o hay que devolver de los pagos en ese estado, online o en el club. */
     private static BigDecimal sumar(Reserva reserva, EstadoPago estado, boolean online) {
         return Dinero.sumar(reserva.getPagos().stream()
-                .filter(p -> p.getEstado() == estado && (p.getExternalPaymentId() != null) == online)
+                .filter(p -> p.getEstado() == estado && p.seDevuelvePorApi() == online)
                 // la última devolución es la de esta cancelación (antes pudo haber devoluciones por línea)
                 .map(p -> !p.getDevoluciones().isEmpty() ? p.getDevoluciones().getLast().getMonto()
                         : p.getMontoReembolsado() != null ? p.getMontoReembolsado() : p.getMonto()));

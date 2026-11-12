@@ -24,6 +24,7 @@ import com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr.EstadoOrden
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentServiceFactory;
 import com.LosCiruelos.padel_club_api.pagos.repository.PagoRepository;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
+import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaService;
 
 import lombok.RequiredArgsConstructor;
@@ -59,8 +60,22 @@ public class ReembolsoService {
      * Si MP no acepta un reembolso (ej. el pago recién cobrado todavía se está acreditando),
      * el pago queda REEMBOLSO_PENDIENTE y lo reintenta {@link #reintentarReembolso}: la
      * cancelación sigue adelante igual.
+     *
+     * Las que genera el sistema (cancela el cliente o un cambio de horario del club) quedan a devolver
+     * a mano.
      */
     public void reembolsar(Reserva reserva, BigDecimal monto) {
+        reembolsar(reserva, monto, null, false);
+    }
+
+    /**
+     * Como {@link #reembolsar(Reserva, BigDecimal)}, cuando cancela el personal.
+     *
+     * @param personal  quién registra las devoluciones
+     * @param entregada lo cobrado en el club se le devolvió al cliente en el momento (queda DEVUELTO y
+     *                  cuenta en la caja ahora); si no, queda A_REEMBOLSAR hasta que se entregue
+     */
+    public void reembolsar(Reserva reserva, BigDecimal monto, Usuario personal, boolean entregada) {
         BigDecimal restante = monto;
         List<Pago> aprobados = reserva.getPagos().stream()
                 .filter(p -> p.getEstado() == EstadoPago.APROBADO && !p.esBonificacion()) // no es plata
@@ -77,7 +92,7 @@ public class ReembolsoService {
                 continue;
             }
             // la devolución libera lo que cubría el pago en proporción y acumula lo reembolsado
-            Devolucion devolucion = pago.devolverEnProporcion(aDevolver, "Cancelación de la reserva", null,
+            Devolucion devolucion = pago.devolverEnProporcion(aDevolver, "Cancelación de la reserva", personal,
                     reloj.ahora());
             if (pago.seDevuelvePorApi()) {
                 try {
@@ -96,6 +111,11 @@ public class ReembolsoService {
                                 + "para reintentarlo (reserva #{})", pago.getId(), aDevolver, reserva.getId());
                     }
                 }
+            } else if (entregada) {
+                devolucion.marcarDevuelta(personal, reloj.ahora());
+                estados.cambiar(pago, EstadoPago.DEVUELTO);
+                log.info("Pago #{} cobrado en el club: {} devolvió ${} en el momento (reserva #{})", pago.getId(),
+                        personal.getEmail(), aDevolver, reserva.getId());
             } else {
                 estados.cambiar(pago, EstadoPago.A_REEMBOLSAR);
                 log.warn("Pago #{} cobrado en el club: hay que devolver ${} a mano (reserva #{})", pago.getId(),

@@ -114,12 +114,15 @@ public class ReservaAdminController {
 
     /**
      * Cancela la reserva. Si tiene dinero cobrado hay que indicar qué se devuelve:
-     * {@code reembolso=TOTAL|SENIA|NADA}. Un partido lo cancela solo el ADMIN.
+     * {@code reembolso=TOTAL|SENIA|NADA}. Un partido lo cancela solo el ADMIN. {@code entregada=false}: lo
+     * cobrado en el club queda a devolver a mano (por defecto se devuelve en el momento).
      */
     @DeleteMapping("/{id}/cancelar")
     public ResponseEntity<ReservaResponse> cancelar(@PathVariable Long id,
-            @RequestParam(required = false) OpcionReembolso reembolso, Authentication authentication) {
-        return ResponseEntity.ok(cancelacionService.cancelarComoPersonal(id, reembolso, authentication.getName()));
+            @RequestParam(required = false) OpcionReembolso reembolso,
+            @RequestParam(defaultValue = "true") boolean entregada, Authentication authentication) {
+        return ResponseEntity.ok(cancelacionService.cancelarComoPersonal(id, reembolso, entregada,
+                authentication.getName()));
     }
 
     /**

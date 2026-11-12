@@ -229,7 +229,7 @@ Se ocultan siempre las **descartadas**: canceladas o vencidas sin ningún pago q
   - el pago queda `ANULADO`, libera todas sus imputaciones y no cuenta en la caja;
   - no se anulan los de Mercado Pago (online o QR: la plata entró y se devuelven) ni uno con devoluciones;
   - el EMPLEADO solo anula lo que registró el personal dentro de la jornada en curso (`Pago.seRegistroEnLaJornada`).
-- **Devolver** (`POST …/pagos/{pagoId}/devoluciones`, solo ADMIN): de cada línea, hasta lo que ese cobro le imputó (`Pago.devolver`). Lo de MP se devuelve en el momento por la API; si MP falla, no se registra nada (`502`). Lo del club queda `A_REEMBOLSAR` hasta que se entrega (`PUT …/devoluciones/{id}/entrega`; el EMPLEADO, las de la jornada).
+- **Devolver** (`POST …/pagos/{pagoId}/devoluciones`, solo ADMIN): de cada línea, hasta lo que ese cobro le imputó (`Pago.devolver`). Lo de MP se devuelve en el momento por la API; si MP falla, no se registra nada (`502`). Lo del club se entrega en el momento (`entregada`, por defecto `true`: queda `DEVUELTO`) o queda `A_REEMBOLSAR` hasta que se entrega (`PUT …/devoluciones/{id}/entrega`; el EMPLEADO, las de la jornada). Al cancelar, el personal elige lo mismo con `?entregada=`; las devoluciones del sistema (cancelación del cliente, cambios de horario, bajas de turnos fijos, cobros de MP que no se aplican) quedan `A_REEMBOLSAR`.
 - **Estado de la reserva** (`Reserva.recalcularTrasDeshacerUnCobro`): se recalcula como siempre, pero una reserva confirmada que queda sin nada cubierto queda `CONFIRMADA`: nunca vuelve a `PENDIENTE` ni vence ni se cancela por eso.
 
 ### 9 quater. Qué cubre cada pago (imputación)
