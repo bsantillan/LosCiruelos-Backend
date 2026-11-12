@@ -20,6 +20,8 @@ import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.CobroQrResponse;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.pagos.entity.PagoImputacion;
+import com.LosCiruelos.padel_club_api.pagos.dto.request.ImputacionRequest;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.exception.CobroQrNoConfiguradoException;
 import com.LosCiruelos.padel_club_api.pagos.exception.PagoNoEncontradoException;
@@ -92,7 +94,8 @@ public class CobroQrService {
      * esperando el pago de otra reserva, 409.
      */
     @Transactional
-    public CobroQrResponse generar(Long reservaId, BigDecimal monto, String email) {
+    public CobroQrResponse generar(Long reservaId, BigDecimal monto, List<ImputacionRequest> imputaciones,
+            String email) {
         if (!proveedor.estaConfigurado()) {
             throw new CobroQrNoConfiguradoException();
         }
@@ -108,7 +111,9 @@ public class CobroQrService {
                 .forEach(p -> resolver(reserva, p));
 
         Optional<Pago> activo = qrActivo(reserva, ahora);
-        BigDecimal aCobrar = monto != null ? monto : reserva.getMontoPendiente();
+        List<PagoImputacion.Pedido> pedidas = pagoMapper.aPedidos(imputaciones);
+        BigDecimal aCobrar = monto != null ? monto
+                : pedidas != null && !pedidas.isEmpty() ? CobroService.sumaPedida(pedidas) : reserva.getMontoPendiente();
         if (activo.isPresent()) {
             if (activo.get().getMonto().compareTo(aCobrar) == 0) {
                 return pagoMapper.aCobroQr(activo.get());
@@ -128,6 +133,8 @@ public class CobroQrService {
             throw new ReservaException("El monto ($%s) supera el pendiente ($%s)."
                     .formatted(aCobrar, reserva.getMontoPendiente()));
         }
+        // se guardan al iniciar el cobro y cuentan cuando Mercado Pago lo aprueba
+        List<PagoImputacion> partes = reserva.imputacionPedida(pedidas, aCobrar);
         liberarCajaOFallar(reserva, ahora);
         // un pago online iniciado y sin cobrar ya no corresponde
         reserva.expirarPagosPendientes().forEach(pagoRepository::save);
@@ -140,6 +147,7 @@ public class CobroQrService {
                 .venceAt(ahora.plusMinutes(minutosVencimiento))
                 .registradoPorId(personal.getId())
                 .build();
+        pago.imputar(partes);
         reserva.agregarPago(pago);
         try {
             pago = pagoRepository.save(pago); // el id va en la referencia de la order

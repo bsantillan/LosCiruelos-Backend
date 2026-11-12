@@ -401,8 +401,9 @@ public class ReservaService {
 
     /**
      * Cambia jugadores, cancha, horario o productos de un partido que todavía no se jugó. No se
-     * puede reemplazar a un jugador que ya pagó (o tiene una bonificación), y el total nuevo no puede
-     * quedar por debajo de lo ya pagado. Si no cambia el turno, se mantiene el precio de la cancha.
+     * puede reemplazar a un jugador que ya pagó (o tiene una bonificación), y ni la cancha ni los
+     * productos pueden quedar por debajo de lo que tienen cobrado (409). Si no cambia el turno, se
+     * mantiene el precio de la cancha.
      */
     @Transactional
     public ReservaResponse actualizarPartido(Long id, PartidoRequest req, String email) {
@@ -456,10 +457,7 @@ public class ReservaService {
         // vuelven a validar porque pudo cambiar el horario)
         stockService.moverStock(aLiberar, partido, StockService.pedido(req.getProductos()), ahora);
         BigDecimal total = montoCancha.add(partido.getMontoProductos());
-        if (total.compareTo(partido.getMontoCubierto()) < 0) {
-            throw new EstadoInvalidoException("El total nuevo ($%s) es menor que lo ya pagado ($%s)."
-                    .formatted(total, partido.getMontoCubierto()));
-        }
+        partido.validarQueNoSacaLoCobrado(montoCancha);
         partido.setMontoTotal(total);
         // el total pudo cambiar: el estado se vuelve a calcular con lo pagado (en un partido no hay avisos)
         partido.recalcularEstado(config.senia(total), ahora);
@@ -520,13 +518,10 @@ public class ReservaService {
         }
     }
 
-    /** Cancha + productos; no puede quedar por debajo de lo ya cubierto. */
+    /** Cancha + productos; ninguna línea puede quedar por debajo de lo que tiene cobrado (409). */
     private void actualizarTotal(Reserva reserva, BigDecimal montoCancha, LocalDateTime ahora) {
         BigDecimal total = montoCancha.add(reserva.getMontoProductos());
-        if (total.compareTo(reserva.getMontoCubierto()) < 0) {
-            throw new EstadoInvalidoException("El total nuevo ($%s) es menor que lo ya pagado ($%s)."
-                    .formatted(total, reserva.getMontoCubierto()));
-        }
+        reserva.validarQueNoSacaLoCobrado(montoCancha);
         reserva.setMontoTotal(total);
         reserva.recalcularPorCambioDeTotal(configuracionService.obtener().senia(total), ahora);
     }

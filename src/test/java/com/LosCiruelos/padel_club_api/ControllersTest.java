@@ -305,14 +305,14 @@ class ControllersTest {
                     .andExpect(jsonPath("$.errors.monto").exists());
             mvc.perform(json(post("/admin/reservas/4/cobros/efectivo"), "{}")).andExpect(status().isBadRequest());
 
-            when(cobroService.registrarPagoManual(any(), any(), any(), anyString())).thenReturn(new PagoResponse());
+            when(cobroService.registrarPagoManual(any(), any(), any(), any(), anyString())).thenReturn(new PagoResponse());
             mvc.perform(json(post("/admin/reservas/4/cobros/efectivo"), "{\"monto\":7500}")).andExpect(status().isOk());
             mvc.perform(json(post("/admin/reservas/4/cobros/transferencia"), "{\"monto\":7500}")).andExpect(status().isOk());
             // /presencial queda como alias deprecado de la transferencia
             mvc.perform(json(post("/admin/reservas/4/cobros/presencial"), "{\"monto\":7500}")).andExpect(status().isOk());
-            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, EMAIL);
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, EMAIL);
             verify(cobroService, org.mockito.Mockito.times(2)).registrarPagoManual(4L, new BigDecimal("7500"),
-                    PaymentProvider.TRANSFERENCIA_MP, EMAIL);
+                    PaymentProvider.TRANSFERENCIA_MP, null, EMAIL);
         }
 
         @Test
@@ -348,7 +348,7 @@ class ControllersTest {
                     new BigDecimal("15000.00"), TestData.AHORA.plusMinutes(10),
                     com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago.EN_PROCESO, EstadoReserva.PENDIENTE,
                     new BigDecimal("15000.00"));
-            when(cobroQrService.generar(any(), any(), anyString())).thenReturn(qr);
+            when(cobroQrService.generar(any(), any(), any(), anyString())).thenReturn(qr);
             when(cobroQrService.ultimo(4L, EMAIL)).thenReturn(qr);
             when(cobroQrService.cancelar(4L, EMAIL)).thenReturn(qr);
 
@@ -358,9 +358,9 @@ class ControllersTest {
                     .andExpect(jsonPath("$.orderId").value("ORD1"))
                     .andExpect(jsonPath("$.qrData").doesNotExist())
                     .andExpect(jsonPath("$.venceAt").value("2026-10-13T10:10:00.000-03:00"));
-            verify(cobroQrService).generar(4L, null, EMAIL);
+            verify(cobroQrService).generar(4L, null, null, EMAIL);
             mvc.perform(json(post("/admin/reservas/4/cobros/qr"), "{\"monto\":7500}")).andExpect(status().isOk());
-            verify(cobroQrService).generar(4L, new BigDecimal("7500"), EMAIL);
+            verify(cobroQrService).generar(4L, new BigDecimal("7500"), null, EMAIL);
             mvc.perform(json(post("/admin/reservas/4/cobros/qr"), "{\"monto\":0}")).andExpect(status().isBadRequest());
 
             mvc.perform(get("/admin/reservas/4/cobros/qr").principal(AUTH))
@@ -371,7 +371,7 @@ class ControllersTest {
 
         @Test
         void sinConfigurarElQrResponde503() throws Exception {
-            when(cobroQrService.generar(any(), any(), anyString()))
+            when(cobroQrService.generar(any(), any(), any(), anyString()))
                     .thenThrow(new com.LosCiruelos.padel_club_api.pagos.exception.CobroQrNoConfiguradoException());
 
             mvc.perform(post("/admin/reservas/4/cobros/qr").principal(AUTH))
@@ -398,10 +398,10 @@ class ControllersTest {
             mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.monto").exists());
-            when(cobroService.registrarPagoManual(any(), any(), any(), anyString())).thenReturn(new PagoResponse());
+            when(cobroService.registrarPagoManual(any(), any(), any(), any(), anyString())).thenReturn(new PagoResponse());
             mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{\"monto\":7500}"))
                     .andExpect(status().isOk());
-            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.CUENTA_DNI, EMAIL);
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.CUENTA_DNI, null, EMAIL);
 
             mvc.perform(json(put("/admin/reservas/4/pagos/9/verificacion"), "{}"))
                     .andExpect(status().isBadRequest())
@@ -1250,19 +1250,19 @@ class ControllersTest {
 
         @Test
         void bonificarSinBodyEsTodoLoQueFalta() throws Exception {
-            when(cobroService.bonificar(5L, null, null, EMAIL)).thenReturn(new PagoResponse());
+            when(cobroService.bonificar(5L, null, null, null, EMAIL)).thenReturn(new PagoResponse());
 
             mvc.perform(post("/admin/reservas/5/bonificacion").principal(AUTH)).andExpect(status().isOk());
-            verify(cobroService).bonificar(5L, null, null, EMAIL);
+            verify(cobroService).bonificar(5L, null, null, null, EMAIL);
         }
 
         @Test
         void bonificarUnaParteConMotivo() throws Exception {
-            when(cobroService.bonificar(any(), any(), any(), any())).thenReturn(new PagoResponse());
+            when(cobroService.bonificar(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
 
             mvc.perform(json(post("/admin/reservas/5/bonificacion"), "{\"monto\":7500,\"motivo\":\"socio\"}"))
                     .andExpect(status().isOk());
-            verify(cobroService).bonificar(5L, new BigDecimal("7500"), "socio", EMAIL);
+            verify(cobroService).bonificar(5L, new BigDecimal("7500"), "socio", null, EMAIL);
 
             mvc.perform(json(post("/admin/reservas/5/bonificacion"), "{\"monto\":0}"))
                     .andExpect(status().isBadRequest())
@@ -1271,7 +1271,7 @@ class ControllersTest {
 
         @Test
         void unEmpleadoNoPuedeBonificar() throws Exception {
-            when(cobroService.bonificar(any(), any(), any(), any())).thenThrow(
+            when(cobroService.bonificar(any(), any(), any(), any(), any())).thenThrow(
                     new com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException(
                             "Solo el ADMIN puede bonificar una reserva."));
 

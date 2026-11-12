@@ -293,12 +293,13 @@ class ReservaServicePartidosTest {
             assertThat(r.getMontoTotal()).isEqualByComparingTo("30000");
             assertThat(r.getHoraFin()).isEqualTo(LocalTime.of(21, 0));
 
-            TestData.pago(1L, partido, EstadoPago.APROBADO, "20000");
+            // $20.000 cobrados de la cancha: no se puede bajar a un turno de $15.000
+            TestData.cobrado(1L, partido, "20000");
             assertThatThrownBy(() -> reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
                     JugadorRequest.invitado("Invitado 2"), JugadorRequest.invitado("Invitado 3"),
                     JugadorRequest.invitado("Invitado 4")), admin.getEmail()))
-                    .isInstanceOf(EstadoInvalidoException.class)
-                    .hasMessage("El total nuevo ($15000.00) es menor que lo ya pagado ($20000).");
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.reservas.exception.LineaCobradaException.class)
+                    .hasMessage("La cancha tiene $20.000 cobrados: anulá o devolvé ese cobro antes de bajarle el precio.");
         }
 
         @Test

@@ -2,6 +2,8 @@ package com.LosCiruelos.padel_club_api.pagos.entity;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -12,6 +14,9 @@ import com.LosCiruelos.padel_club_api.pagos.payment.OrdenQr;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 
+import org.hibernate.annotations.BatchSize;
+
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -22,6 +27,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -111,6 +117,12 @@ public class Pago {
     @Column(name = "clave_idempotencia", nullable = false, unique = true, updatable = false)
     private UUID claveIdempotencia = UUID.randomUUID();
 
+    // Qué cubre el pago (cancha y líneas de producto). En un QR esperando el pago, lo que se aplica al cobrarlo.
+    @Builder.Default
+    @BatchSize(size = 50)
+    @OneToMany(mappedBy = "pago", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PagoImputacion> imputaciones = new ArrayList<>();
+
     @PrePersist
     void asignarClaveIdempotencia() {
         if (claveIdempotencia == null) {
@@ -137,6 +149,24 @@ public class Pago {
             reembolsadoAt = ahora;
         }
         estado = nuevo;
+        // un pago que ya no retiene plata (no se cobró, se venció o se devolvió entero) no cubre nada
+        if (nuevo != EstadoPago.EN_PROCESO && getMontoRetenido().signum() == 0) {
+            imputaciones.clear();
+        }
+    }
+
+    /** Lo que cubre el pago: reemplaza las imputaciones que tuviera. */
+    public void imputar(List<PagoImputacion> nuevas) {
+        imputaciones.clear();
+        nuevas.forEach(i -> {
+            i.setPago(this);
+            imputaciones.add(i);
+        });
+    }
+
+    /** Las imputaciones que cuentan: las de un pago cobrado (las de un QR esperando el pago, todavía no). */
+    public List<PagoImputacion> imputacionesVigentes() {
+        return ESTADOS_COBRADOS.contains(estado) ? imputaciones : List.of();
     }
 
     /** Devueltos o por devolver: el club se queda con lo que no se devolvió (monto − montoReembolsado). */

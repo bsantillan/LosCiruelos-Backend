@@ -12,6 +12,18 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 @Component
 public class PagoMapper {
 
+    /** Lo que pidió el personal, para validarlo contra la reserva (null: imputación automática). */
+    public java.util.List<com.LosCiruelos.padel_club_api.pagos.entity.PagoImputacion.Pedido> aPedidos(
+            java.util.List<com.LosCiruelos.padel_club_api.pagos.dto.request.ImputacionRequest> imputaciones) {
+        if (imputaciones == null) {
+            return null;
+        }
+        return imputaciones.stream()
+                .map(i -> new com.LosCiruelos.padel_club_api.pagos.entity.PagoImputacion.Pedido(i.getConcepto(),
+                        i.getLineaId(), i.getMonto()))
+                .toList();
+    }
+
     /** Un medio de cobro de una reserva, con el endpoint para cobrar con él. */
     public com.LosCiruelos.padel_club_api.pagos.dto.response.MedioDeCobroResponse aMedioDeCobro(
             com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago medio, boolean qrConfigurado) {
@@ -33,6 +45,12 @@ public class PagoMapper {
                 Dinero.redondear(pago.getReserva().getMontoPendiente()));
     }
 
+    static com.LosCiruelos.padel_club_api.pagos.dto.response.ImputacionResponse imputacion(
+            com.LosCiruelos.padel_club_api.pagos.entity.PagoImputacion i) {
+        return new com.LosCiruelos.padel_club_api.pagos.dto.response.ImputacionResponse(i.getConcepto(),
+                i.getLinea() != null ? i.getLinea().getId() : null, i.nombre(), Dinero.redondear(i.getMonto()));
+    }
+
     public PagoResponse aResponse(Pago pago) {
         PagoResponse response = new PagoResponse();
         response.setId(pago.getId());
@@ -47,6 +65,7 @@ public class PagoMapper {
         response.setPaidAt(pago.getPaidAt());
         response.setMontoReembolsado(pago.getMontoReembolsado());
         response.setMotivo(pago.getMotivo());
+        response.setImputaciones(pago.getImputaciones().stream().map(PagoMapper::imputacion).toList());
         if (pago.getProvider().seVerifica()) {
             response.setVerificado(pago.estaVerificado());
             response.setVerificadoAt(pago.getVerificadoAt());

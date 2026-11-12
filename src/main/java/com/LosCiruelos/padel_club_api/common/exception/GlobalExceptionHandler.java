@@ -146,7 +146,9 @@ public class GlobalExceptionHandler {
 
         @ExceptionHandler(ReservaException.class)
         public ResponseEntity<Map<String, Object>> handleReserva(ReservaException ex) {
-                return error(ex.getStatus(), ex.getMessage());
+                ResponseEntity<Map<String, Object>> respuesta = error(ex.getStatus(), ex.getMessage());
+                respuesta.getBody().putAll(ex.getDatos());
+                return respuesta;
         }
 
         @ExceptionHandler(DataIntegrityViolationException.class)

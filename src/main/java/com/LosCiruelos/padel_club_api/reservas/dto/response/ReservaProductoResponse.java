@@ -9,6 +9,8 @@ import lombok.Data;
 
 @Data
 public class ReservaProductoResponse {
+    // id de la línea en la reserva (el que se usa en las imputaciones de un cobro)
+    private Long lineaId;
     private Long productoId;
     private String codigo;
     private String nombre;
@@ -16,6 +18,9 @@ public class ReservaProductoResponse {
     private Integer cantidad;
     private BigDecimal precioUnitario;
     private BigDecimal subtotal;
+    // lo cobrado (y bonificado) que cubre esta línea y lo que le falta
+    private BigDecimal montoPagado;
+    private BigDecimal montoPendiente;
     // alquileres: unidades devueltas (null = todavía no se registró la devolución)
     private Integer cantidadDevuelta;
     private LocalDateTime devueltaAt;

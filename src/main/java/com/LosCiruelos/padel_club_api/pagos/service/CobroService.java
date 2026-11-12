@@ -2,6 +2,7 @@ package com.LosCiruelos.padel_club_api.pagos.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,8 @@ import com.LosCiruelos.padel_club_api.common.Roles;
 import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.PagoResponse;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.pagos.entity.PagoImputacion;
+import com.LosCiruelos.padel_club_api.pagos.dto.request.ImputacionRequest;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.exception.PagoNoEncontradoException;
 import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
@@ -50,7 +53,7 @@ public class CobroService {
     /** En un partido se cobra el monto general, igual que en una reserva normal (sin indicar el jugador). */
     @Transactional
     public PagoResponse registrarPagoManual(Long reservaId, BigDecimal monto, PaymentProvider provider,
-            String email) {
+            List<ImputacionRequest> imputaciones, String email) {
         if (monto == null || monto.signum() <= 0) {
             throw new ReservaException("El monto debe ser mayor a cero.");
         }
@@ -67,6 +70,8 @@ public class CobroService {
             throw new ReservaException("El monto ($%s) supera el pendiente ($%s).".formatted(monto, montoPendiente));
         }
 
+        List<PagoImputacion> partes = reserva.imputacionPedida(pagoMapper.aPedidos(imputaciones), monto);
+
         // un pago online iniciado por un monto que ya no corresponde se descarta
         reserva.expirarPagosPendientes().forEach(pagoRepository::save);
 
@@ -79,6 +84,7 @@ public class CobroService {
                 .paidAt(ahora)
                 .registradoPorId(personal.getId())
                 .build();
+        pago.imputar(partes);
         reserva.agregarPago(pago);
         pago = pagoRepository.save(pago);
 
@@ -116,10 +122,12 @@ public class CobroService {
      * registra como un pago BONIFICACION: cubre el monto (la reserva queda confirmada o paga) pero
      * no es plata, así que no cuenta como cobrado ni se devuelve si después se cancela.
      *
-     * @param monto null: todo lo que falta pagar
+     * @param monto        null: lo que suman las imputaciones o, sin ellas, todo lo que falta pagar
+     * @param imputaciones qué cubre (null: primero la cancha, después los productos)
      */
     @Transactional
-    public PagoResponse bonificar(Long reservaId, BigDecimal monto, String motivo, String email) {
+    public PagoResponse bonificar(Long reservaId, BigDecimal monto, String motivo,
+            List<ImputacionRequest> imputaciones, String email) {
         Usuario admin = usuarioService.autenticado(email);
         validarQueEsAdmin(admin);
         Reserva reserva = reservaService.bloquearConAcceso(reservaId, admin);
@@ -132,13 +140,17 @@ public class CobroService {
         if (pendiente.signum() <= 0) {
             throw new EstadoInvalidoException("La reserva ya está paga.");
         }
-        BigDecimal aBonificar = monto != null ? monto : pendiente;
+        List<PagoImputacion.Pedido> pedidas = pagoMapper.aPedidos(imputaciones);
+        BigDecimal aBonificar = monto != null ? monto
+                : pedidas != null && !pedidas.isEmpty() ? sumaPedida(pedidas) : pendiente;
         if (aBonificar.signum() <= 0) {
             throw new ReservaException("El monto debe ser mayor a cero.");
         }
         if (aBonificar.compareTo(pendiente) > 0) {
             throw new ReservaException("El monto ($%s) supera el pendiente ($%s).".formatted(aBonificar, pendiente));
         }
+
+        List<PagoImputacion> partes = reserva.imputacionPedida(pedidas, aBonificar);
 
         // un pago online iniciado por un monto que ya no corresponde se descarta
         reserva.expirarPagosPendientes().forEach(pagoRepository::save);
@@ -153,6 +165,7 @@ public class CobroService {
                 .registradoPorId(admin.getId())
                 .motivo(motivo != null && !motivo.isBlank() ? motivo.trim() : null)
                 .build();
+        bonificacion.imputar(partes);
         reserva.agregarPago(bonificacion);
         bonificacion = pagoRepository.save(bonificacion);
 
@@ -168,8 +181,14 @@ public class CobroService {
     public ReservaResponse crearReservaBonificada(CrearReservaAdminRequest req, String email) {
         validarQueEsAdmin(usuarioService.autenticado(email));
         ReservaResponse creada = reservaService.crearParaCliente(req, email);
-        bonificar(creada.getId(), req.getBonificacion().getMonto(), req.getBonificacion().getMotivo(), email);
+        bonificar(creada.getId(), req.getBonificacion().getMonto(), req.getBonificacion().getMotivo(), null, email);
         return reservaConsultaService.obtener(creada.getId(), email);
+    }
+
+    /** Suma de las imputaciones pedidas (las que no traen monto las rechaza la validación). */
+    static BigDecimal sumaPedida(List<PagoImputacion.Pedido> pedidas) {
+        return com.LosCiruelos.padel_club_api.common.Dinero.sumar(pedidas.stream()
+                .map(PagoImputacion.Pedido::monto).filter(java.util.Objects::nonNull));
     }
 
     private static void validarQueEsAdmin(Usuario usuario) {

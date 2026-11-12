@@ -46,7 +46,7 @@ WHERE rol = 'ADMIN' OR email IN ('empleado@test.com', current_setting('datos.mai
 
 -- ── Borrar todos los datos ───────────────────────────────────────────────
 -- configuracion arrastra dias y dias_cerrados; canchas, reservas y turnos fijos con sus hijas
-TRUNCATE pagos, reserva_jugadores, reserva_productos, reservas, turno_fijo_jugadores, turno_fijo_productos,
+TRUNCATE pago_imputaciones, pagos, reserva_jugadores, reserva_productos, reservas, turno_fijo_jugadores, turno_fijo_productos,
          turnos_fijos, venta_devolucion_items, venta_devoluciones, venta_items, ventas, dias_cerrados, dias,
          configuracion, canchas, productos, refresh_tokens, verification_tokens, envios_codigo_telefono
          RESTART IDENTITY CASCADE;
@@ -567,6 +567,51 @@ END $$;
 -- ── Un día cerrado (sin reservas ese día) ───────────────────────────────
 INSERT INTO dias_cerrados (configuracion_id, fecha, motivo, created_at, created_by_id)
 VALUES (1, current_date + 20, 'Mantenimiento de las canchas', now() - interval '1 day', pg_temp.admin());
+
+-- ── Qué cubre cada pago (la imputación automática de la app) ─────────────
+-- Del más viejo al más nuevo, lo que el club se queda de cada pago: primero la cancha hasta
+-- completarla y después cada línea de producto en orden de creación (lo que sobre, a la cancha).
+DO $$
+DECLARE
+    r record;
+    p record;
+    l record;
+    pendiente_cancha numeric;
+    restante numeric;
+    a_cancha numeric;
+    a_linea numeric;
+BEGIN
+    CREATE TEMP TABLE pendiente_linea ON COMMIT DROP AS
+        SELECT id, reserva_id, cantidad * precio_unitario AS pendiente FROM reserva_productos;
+    FOR r IN SELECT re.id, re.monto_total - COALESCE((SELECT SUM(cantidad * precio_unitario)
+                                                     FROM reserva_productos WHERE reserva_id = re.id), 0) AS cancha
+             FROM reservas re ORDER BY re.id LOOP
+        pendiente_cancha := GREATEST(r.cancha, 0);
+        FOR p IN SELECT id, CASE WHEN estado = 'APROBADO' THEN monto - COALESCE(monto_reembolsado, 0)
+                                 ELSE monto - COALESCE(monto_reembolsado, monto) END AS retenido
+                 FROM pagos
+                 WHERE reserva_id = r.id AND estado IN ('APROBADO', 'DEVUELTO', 'A_REEMBOLSAR', 'REEMBOLSO_PENDIENTE')
+                 ORDER BY COALESCE(paid_at, created_at), id LOOP
+            CONTINUE WHEN p.retenido <= 0;
+            a_cancha := LEAST(p.retenido, pendiente_cancha);
+            pendiente_cancha := pendiente_cancha - a_cancha;
+            restante := p.retenido - a_cancha;
+            FOR l IN SELECT id, pendiente FROM pendiente_linea WHERE reserva_id = r.id ORDER BY id LOOP
+                a_linea := LEAST(restante, l.pendiente);
+                IF a_linea > 0 THEN
+                    INSERT INTO pago_imputaciones (pago_id, concepto, reserva_producto_id, monto)
+                    VALUES (p.id, 'PRODUCTO', l.id, a_linea);
+                    UPDATE pendiente_linea SET pendiente = pendiente - a_linea WHERE id = l.id;
+                    restante := restante - a_linea;
+                END IF;
+            END LOOP;
+            a_cancha := a_cancha + restante;
+            IF a_cancha > 0 THEN
+                INSERT INTO pago_imputaciones (pago_id, concepto, monto) VALUES (p.id, 'CANCHA', a_cancha);
+            END IF;
+        END LOOP;
+    END LOOP;
+END $$;
 
 DROP EXTENSION pgcrypto;
 

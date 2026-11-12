@@ -65,6 +65,8 @@ Repartidas en las 4 canchas, entre las 9 y las 20 (valen para cualquier día de 
   - una con un pago parcial;
   - una cancelada a tiempo con la plata a devolver a mano (`A_REEMBOLSAR`).
 
+Cada pago queda **imputado** como lo haría la app sola: primero la cancha y después los productos, en orden.
+
 Los pagos de Mercado Pago son **simulados**: tienen ids de pago, preferencias y orders de prueba (`mp-prueba-…`, `ORD-PRUEBA-…`) y nunca se llamó a Mercado Pago.
 
 ### Partidos y turnos fijos

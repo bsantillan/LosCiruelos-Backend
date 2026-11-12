@@ -1,7 +1,9 @@
 package com.LosCiruelos.padel_club_api.pagos.dto.request;
 
 import java.math.BigDecimal;
+import java.util.List;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import lombok.Data;
@@ -12,4 +14,8 @@ public class CobroQrRequest {
     @DecimalMin(value = "0.01", message = "El monto debe ser mayor a cero")
     @Digits(integer = 8, fraction = 2, message = "El monto puede tener hasta 2 decimales")
     private BigDecimal monto;
+
+    // Opcional: qué cubre el cobro. Sin imputaciones se imputa solo: primero la cancha y después los productos.
+    @Valid
+    private List<ImputacionRequest> imputaciones;
 }

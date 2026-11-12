@@ -38,7 +38,14 @@ class EstadosDePago {
     private final Reloj reloj;
     private final ApplicationEventPublisher eventos;
 
+    /**
+     * Cambia el estado del pago. Uno que se aprueba sin imputaciones (el pago online del cliente) se
+     * imputa en forma automática: primero la cancha y después los productos.
+     */
     void cambiar(Pago pago, EstadoPago estado) {
+        if (estado == EstadoPago.APROBADO && pago.getImputaciones().isEmpty() && pago.getReserva() != null) {
+            pago.imputar(pago.getReserva().imputacionAutomatica(pago.getMonto()));
+        }
         pago.cambiarEstado(estado, reloj.ahora());
         pagoRepository.save(pago);
     }

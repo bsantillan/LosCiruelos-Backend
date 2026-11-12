@@ -116,6 +116,15 @@ public final class TestData {
                 .build();
     }
 
+    /** Un pago aprobado con la imputación automática (primero la cancha, después los productos). */
+    public static Pago cobrado(Long id, Reserva reserva, String monto) {
+        Pago pago = pago(id, reserva, EstadoPago.APROBADO, monto);
+        reserva.getPagos().remove(pago);
+        pago.imputar(reserva.imputacionAutomatica(pago.getMonto()));
+        reserva.agregarPago(pago);
+        return pago;
+    }
+
     public static Pago pago(Long id, Reserva reserva, EstadoPago estado, String monto) {
         Pago pago = Pago.builder()
                 .id(id)

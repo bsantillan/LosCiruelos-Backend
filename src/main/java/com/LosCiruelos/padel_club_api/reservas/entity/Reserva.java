@@ -16,6 +16,14 @@ import com.LosCiruelos.padel_club_api.common.Roles;
 import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.pagos.entity.PagoImputacion;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.ConceptoImputacion;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
+import com.LosCiruelos.padel_club_api.reservas.exception.LineaCobradaException;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.stream.Stream;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Turno;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
@@ -256,6 +264,144 @@ public class Reserva {
     @Transient
     public BigDecimal getMontoPendiente() {
         return montoTotal.subtract(getMontoCubierto());
+    }
+
+    // ── Imputación de los pagos: qué cubre cada uno ──────────────────────
+
+    /** Las imputaciones de los pagos cobrados (lo que cubre cada uno, sin lo devuelto). */
+    private Stream<PagoImputacion> imputacionesVigentes() {
+        return pagos.stream().flatMap(p -> p.imputacionesVigentes().stream());
+    }
+
+    /** Lo cobrado (y bonificado) que cubre la cancha. */
+    @Transient
+    public BigDecimal getMontoCanchaPagado() {
+        return Dinero.sumar(imputacionesVigentes().filter(PagoImputacion::esDeLaCancha).map(PagoImputacion::getMonto));
+    }
+
+    /** Lo que falta cubrir de la cancha (nunca negativo). */
+    @Transient
+    public BigDecimal getMontoCanchaPendiente() {
+        return getMontoCancha().subtract(getMontoCanchaPagado()).max(BigDecimal.ZERO);
+    }
+
+    /** Lo cobrado (y bonificado) que cubre esa línea de producto. */
+    public BigDecimal pagadoDe(ReservaProducto linea) {
+        return Dinero.sumar(imputacionesVigentes().filter(i -> i.esDe(linea)).map(PagoImputacion::getMonto));
+    }
+
+    /** Lo que falta cubrir de esa línea (nunca negativo). */
+    public BigDecimal pendienteDe(ReservaProducto linea) {
+        return linea.getSubtotal().subtract(pagadoDe(linea)).max(BigDecimal.ZERO);
+    }
+
+    /** Las líneas de producto en orden de creación. */
+    private List<ReservaProducto> lineasEnOrden() {
+        return productos.stream()
+                .sorted(Comparator.comparing(ReservaProducto::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+    }
+
+    /**
+     * Imputación automática de {@code monto} (pagos online del cliente y cobros sin imputaciones):
+     * primero la cancha hasta completarla y después cada línea de producto en orden de creación.
+     * Si sobrara algo (datos viejos inconsistentes), va a la cancha.
+     */
+    public List<PagoImputacion> imputacionAutomatica(BigDecimal monto) {
+        List<PagoImputacion> partes = new ArrayList<>();
+        BigDecimal restante = monto;
+        BigDecimal aCancha = restante.min(getMontoCanchaPendiente());
+        restante = restante.subtract(aCancha);
+        for (ReservaProducto linea : lineasEnOrden()) {
+            BigDecimal aLinea = restante.min(pendienteDe(linea));
+            if (aLinea.signum() > 0) {
+                partes.add(PagoImputacion.aLinea(linea, aLinea));
+                restante = restante.subtract(aLinea);
+            }
+        }
+        aCancha = aCancha.add(restante);
+        if (aCancha.signum() > 0) {
+            partes.addFirst(PagoImputacion.aCancha(aCancha));
+        }
+        return partes;
+    }
+
+    /**
+     * Valida lo que el personal indicó que cubre un cobro de {@code monto} (400 si no cierra):
+     * la suma es el monto, cada parte es mayor a cero y no supera lo pendiente de su línea, la línea es
+     * de esta reserva y no se repite. Sin imputaciones (null o vacía), se imputa en forma automática.
+     */
+    public List<PagoImputacion> imputacionPedida(List<PagoImputacion.Pedido> pedidas, BigDecimal monto) {
+        if (pedidas == null || pedidas.isEmpty()) {
+            return imputacionAutomatica(monto);
+        }
+        if (pedidas.stream().anyMatch(p -> p.monto() == null || p.monto().signum() <= 0)) {
+            throw new ReservaException("El monto de cada imputación tiene que ser mayor a cero.");
+        }
+        BigDecimal suma = Dinero.sumar(pedidas.stream().map(PagoImputacion.Pedido::monto));
+        if (suma.compareTo(monto) != 0) {
+            throw new ReservaException("La suma de las imputaciones (%s) tiene que ser igual al monto (%s)."
+                    .formatted(Dinero.texto(suma), Dinero.texto(monto)));
+        }
+        List<PagoImputacion> partes = new ArrayList<>();
+        Set<Long> lineasVistas = new HashSet<>();
+        boolean canchaVista = false;
+        for (PagoImputacion.Pedido pedida : pedidas) {
+            if (pedida.concepto() == ConceptoImputacion.CANCHA) {
+                if (pedida.lineaId() != null) {
+                    throw new ReservaException("Una imputación a la cancha no lleva lineaId.");
+                }
+                if (canchaVista) {
+                    throw new ReservaException("La cancha está repetida en las imputaciones.");
+                }
+                canchaVista = true;
+                validarQueNoSuperaLoPendiente("la cancha", pedida.monto(), getMontoCanchaPendiente());
+                partes.add(PagoImputacion.aCancha(pedida.monto()));
+                continue;
+            }
+            if (pedida.lineaId() == null) {
+                throw new ReservaException("Indicá la línea (lineaId) de cada imputación a un producto.");
+            }
+            if (!lineasVistas.add(pedida.lineaId())) {
+                throw new ReservaException("La línea #" + pedida.lineaId() + " está repetida en las imputaciones.");
+            }
+            ReservaProducto linea = productos.stream()
+                    .filter(l -> pedida.lineaId().equals(l.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new ReservaException("La línea #" + pedida.lineaId() + " no es de esta reserva."));
+            validarQueNoSuperaLoPendiente(linea.getProducto().getNombre(), pedida.monto(), pendienteDe(linea));
+            partes.add(PagoImputacion.aLinea(linea, pedida.monto()));
+        }
+        return partes;
+    }
+
+    private static void validarQueNoSuperaLoPendiente(String nombre, BigDecimal monto, BigDecimal pendiente) {
+        if (monto.compareTo(pendiente) > 0) {
+            throw new ReservaException("Lo imputado a %s (%s) supera lo pendiente de esa línea (%s)."
+                    .formatted(nombre, Dinero.texto(monto), Dinero.texto(pendiente)));
+        }
+    }
+
+    /**
+     * Lo cobrado no se saca: ninguna línea (ni la cancha, con su precio nuevo {@code montoCancha})
+     * puede quedar por debajo de lo que tiene cubierto, y una línea cubierta no se puede sacar. Lo que
+     * no tiene nada cobrado se saca libremente. Nada se reimputa solo de una línea a otra.
+     *
+     * @throws LineaCobradaException (409) con la línea y lo cobrado, para anular o devolver ese cobro antes
+     */
+    public void validarQueNoSacaLoCobrado(BigDecimal montoCancha) {
+        BigDecimal cancha = getMontoCanchaPagado();
+        if (montoCancha.compareTo(cancha) < 0) {
+            throw new LineaCobradaException("La cancha", null, cancha, true);
+        }
+        Map<ReservaProducto, BigDecimal> porLinea = new LinkedHashMap<>();
+        imputacionesVigentes().filter(i -> !i.esDeLaCancha())
+                .forEach(i -> porLinea.merge(i.getLinea(), i.getMonto(), BigDecimal::add));
+        porLinea.forEach((linea, cobrado) -> {
+            if (!productos.contains(linea) || linea.getSubtotal().compareTo(cobrado) < 0) {
+                throw new LineaCobradaException(linea.getProducto().getNombre(), linea.getId(), cobrado, false);
+            }
+        });
     }
 
     /** Tiene un pago cobrado o que MP todavía está procesando. */

@@ -34,7 +34,7 @@ public class CobroAdminController {
     public ResponseEntity<PagoResponse> cobrarEfectivo(@PathVariable Long reservaId,
             @Valid @RequestBody PagoManualRequest body, Authentication authentication) {
         return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
-                PaymentProvider.MANUAL, authentication.getName()));
+                PaymentProvider.MANUAL, body.getImputaciones(), authentication.getName()));
     }
 
     /** Pago con Cuenta DNI (Banco Provincia). Queda sin verificar hasta que el ADMIN lo controle. */
@@ -42,7 +42,7 @@ public class CobroAdminController {
     public ResponseEntity<PagoResponse> cobrarCuentaDni(@PathVariable Long reservaId,
             @Valid @RequestBody PagoManualRequest body, Authentication authentication) {
         return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
-                PaymentProvider.CUENTA_DNI, authentication.getName()));
+                PaymentProvider.CUENTA_DNI, body.getImputaciones(), authentication.getName()));
     }
 
     /** Solo ADMIN: marca (o desmarca) un pago con Cuenta DNI o por transferencia como verificado en la cuenta. */
@@ -62,7 +62,7 @@ public class CobroAdminController {
     public ResponseEntity<PagoResponse> cobrarTransferencia(@PathVariable Long reservaId,
             @Valid @RequestBody PagoManualRequest body, Authentication authentication) {
         return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
-                PaymentProvider.TRANSFERENCIA_MP, authentication.getName()));
+                PaymentProvider.TRANSFERENCIA_MP, body.getImputaciones(), authentication.getName()));
     }
 
     /** @deprecated usar {@code POST …/cobros/transferencia}: registra lo mismo (una transferencia). */
@@ -83,6 +83,6 @@ public class CobroAdminController {
             @Valid @RequestBody(required = false) BonificacionRequest body, Authentication authentication) {
         BonificacionRequest datos = body != null ? body : new BonificacionRequest();
         return ResponseEntity.ok(cobroService.bonificar(reservaId, datos.getMonto(), datos.getMotivo(),
-                authentication.getName()));
+                datos.getImputaciones(), authentication.getName()));
     }
 }

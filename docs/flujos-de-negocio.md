@@ -220,7 +220,13 @@ Se ocultan siempre las **descartadas**: canceladas o vencidas sin ningún pago q
 - Lo que el cliente pide en el club (una bebida, otro tubo de pelotas) se carga en su reserva o partido **antes, durante o después del turno**, mientras esté confirmado (también `COMPLETADA`) y sin un pago online en proceso.
 - Un producto del catálogo o uno escrito a mano (nombre y precio): si no existe con ese nombre, se da de alta como producto de venta, sin ofrecerse al reservar y con stock igual a la cantidad que se agrega o se vende (queda en 0).
 - El total cambia y el estado se recalcula con lo pagado: una reserva `PAGADA` o `COMPLETADA` que suma algo vuelve a quedar con saldo (`SEÑADA` o `PARCIALMENTE_PAGADA`; un partido, `PARCIALMENTE_PAGADA`) y, si ya se jugó, aparece como deuda hasta que se cobra.
-- Sacar unidades devuelve el stock de venta; el total no puede quedar por debajo de lo ya pagado.
+- Sacar unidades devuelve el stock de venta. **Lo cobrado no se saca** (`Reserva.validarQueNoSacaLoCobrado`): una línea con plata imputada no puede bajar de lo que tiene cubierto (`409` con `lineaId` y `montoCobrado`: primero hay que anular o devolver ese cobro); lo que no tiene nada cobrado se saca libremente. Lo mismo la cancha: si al cambiar el horario de un partido el precio baja de lo imputado a la cancha, `409`. Nada se reimputa solo de una línea a otra.
+
+### 9 quater. Qué cubre cada pago (imputación)
+- Cada pago cobrado (también las bonificaciones) se reparte en **imputaciones**: la cancha o una línea de producto (`PagoImputacion`, hija del pago). La suma es lo que el club se queda de ese pago (monto − lo devuelto).
+- El personal puede indicar qué cubre un cobro (`imputaciones` en `cobros/*` y `bonificacion`; `Reserva.imputacionPedida` lo valida: la suma es el monto, ninguna parte supera lo pendiente de su línea, la línea es de la reserva y no se repite). Si no lo indica, y en los pagos online del cliente, se imputa solo (`Reserva.imputacionAutomatica`): primero la cancha hasta completarla y después cada línea en orden de creación.
+- El QR de la caja guarda las imputaciones al generarse y cuentan cuando se cobra; si Mercado Pago cobró otro monto no se imputa nada. Un pago que deja de retener plata (vencido, devuelto entero) se queda sin imputaciones.
+- `montoPagado`, `montoPendiente` y el estado de la reserva se calculan igual que antes, sobre el total.
 
 ### 9 ter. Ventas sueltas — `/admin/ventas`
 - El personal registra lo que vende sin reserva (una bebida, pelotas): se cobra en el momento, en efectivo, con Cuenta DNI o con Mercado Pago, y se puede asociar a un cliente.

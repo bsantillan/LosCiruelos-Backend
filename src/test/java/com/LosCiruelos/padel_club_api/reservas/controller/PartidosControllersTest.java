@@ -135,21 +135,21 @@ class PartidosControllersTest {
 
     @Test
     void unPartidoSeCobraSinIndicarElJugador() throws Exception {
-        when(cobroService.registrarPagoManual(any(), any(), any(), any())).thenReturn(new PagoResponse());
-        when(cobroService.bonificar(any(), any(), any(), any())).thenReturn(new PagoResponse());
+        when(cobroService.registrarPagoManual(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
+        when(cobroService.bonificar(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
 
         mvc.perform(json(post("/admin/reservas/60/cobros/efectivo"), "{\"monto\":3750}"))
                 .andExpect(status().isOk());
-        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.MANUAL, EMAIL);
+        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.MANUAL, null, EMAIL);
 
         mvc.perform(json(post("/admin/reservas/60/cobros/presencial"), "{\"monto\":3750}"))
                 .andExpect(status().isOk());
-        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.TRANSFERENCIA_MP,
+        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.TRANSFERENCIA_MP, null,
                 EMAIL);
 
         mvc.perform(json(post("/admin/reservas/60/bonificacion"), "{\"motivo\":\"socio\"}"))
                 .andExpect(status().isOk());
-        verify(cobroService).bonificar(60L, null, "socio", EMAIL);
+        verify(cobroService).bonificar(60L, null, "socio", null, EMAIL);
     }
 
     @Test

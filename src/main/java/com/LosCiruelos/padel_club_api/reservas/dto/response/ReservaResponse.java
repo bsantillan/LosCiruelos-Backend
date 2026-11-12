@@ -31,6 +31,9 @@ public class ReservaResponse {
     // lo que el ADMIN bonificó; montoPendiente = montoTotal - montoPagado - montoBonificado
     BigDecimal montoBonificado;
     BigDecimal montoPendiente;
+    // lo cobrado (y bonificado) que cubre la cancha y lo que le falta; cada producto trae lo suyo
+    BigDecimal montoCanchaPagado;
+    BigDecimal montoCanchaPendiente;
     List<ReservaProductoResponse> productos;
     EstadoReserva estado;
     // NORMAL o PARTIDO (de 4 jugadores, armado por el ADMIN)

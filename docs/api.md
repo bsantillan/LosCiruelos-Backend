@@ -308,7 +308,7 @@ Un CLIENTE solo ve y opera sus propias reservas, y además **ve** (sin pagar ni 
 
 **`ReservaResponse`**
 
-`montoPagado` es solo plata cobrada; `montoBonificado`, lo que el ADMIN bonificó; `montoPendiente = montoTotal − montoPagado − montoBonificado`. En `pagos`, una bonificación aparece con `provider: "BONIFICACION"` y su `motivo`. `tipo` es `NORMAL` o `PARTIDO`; en un partido vienen `jugadores` (ver [Partidos](#partidos-y-turnos-fijos--adminpartidos-adminturnos-fijos-rol-admin)), `turnoFijoId` si lo creó un turno fijo, y `clienteId` es el jugador 1 (el responsable). En una reserva normal `jugadores` es `[]`.
+`montoPagado` es solo plata cobrada; `montoBonificado`, lo que el ADMIN bonificó; `montoPendiente = montoTotal − montoPagado − montoBonificado`. Por concepto: `montoCanchaPagado` (lo cobrado y bonificado que cubre la cancha) y `montoCanchaPendiente`; cada producto trae su `lineaId` (el que se usa en las imputaciones de un cobro), `montoPagado` y `montoPendiente`. `montoPagado`, `montoPendiente` y el estado se siguen calculando sobre el total. En `pagos`, una bonificación aparece con `provider: "BONIFICACION"` y su `motivo`. `tipo` es `NORMAL` o `PARTIDO`; en un partido vienen `jugadores` (ver [Partidos](#partidos-y-turnos-fijos--adminpartidos-adminturnos-fijos-rol-admin)), `turnoFijoId` si lo creó un turno fijo, y `clienteId` es el jugador 1 (el responsable). En una reserva normal `jugadores` es `[]`.
 ```json
 {
   "id": 10, "canchaId": 1, "canchaNumero": 1,
@@ -538,12 +538,26 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
   "externalPaymentId": "1234567890",
   "createdAt": "2026-10-12T17:01:00.000-03:00", "paidAt": "2026-10-12T17:02:10.000-03:00",
   "montoReembolsado": null,
+  "imputaciones": [ { "concepto": "CANCHA", "lineaId": null, "nombre": "Cancha", "monto": 7500.00 } ],
   "verificado": null, "verificadoAt": null,
   "estadoReserva": "SEÑADA",
   "detalle": "accredited"
 }
 ```
+`imputaciones` dice **qué cubre el pago**: la cancha (`concepto: "CANCHA"`, `lineaId: null`) o una línea de producto de la reserva (`concepto: "PRODUCTO"`, `lineaId` = el `lineaId` del producto en `ReservaResponse.productos`), con su `nombre` ("Cancha" o el del producto) y el `monto`. En un pago cobrado suman lo que el club se queda de él (monto − lo devuelto); las bonificaciones también se imputan. En un QR esperando el pago son las que se aplican cuando Mercado Pago lo aprueba. Un pago que no se cobró, se venció o se devolvió entero no cubre nada (`[]`).
 `paymentToken` es el id de la preferencia (para inicializar el Brick o el botón de MP); `externalPaymentId`, el id del pago en MP; `verificado` y `verificadoAt`, si el ADMIN comprobó en la cuenta del club que entró un pago con Cuenta DNI, y cuándo (`null` en los otros medios); `estadoReserva`, el estado de la reserva después de la operación; `detalle`, el `status_detail` de MP (solo al cobrar).
+
+**Imputaciones de un cobro del personal.** `cobros/efectivo`, `cobros/transferencia`, `cobros/presencial`, `cobros/cuenta-dni`, `cobros/qr` y `bonificacion` aceptan un campo opcional para indicar qué cubre el cobro:
+
+```json
+{ "monto": 9500, "imputaciones": [
+    { "concepto": "CANCHA", "lineaId": null, "monto": 7500 },
+    { "concepto": "PRODUCTO", "lineaId": 51, "monto": 2000 } ] }
+```
+
+- Sin `imputaciones` se imputa **en forma automática**: primero la cancha hasta completarla y después cada línea de producto en orden de creación. Igual se imputan los pagos online del cliente.
+- En `cobros/qr` y `bonificacion` el `monto` es opcional: sin `monto`, es lo que suman las imputaciones (y sin las dos, todo lo que falta). Las del QR se guardan al generarlo y cuentan cuando Mercado Pago lo aprueba; si MP cobró otro monto (`A_REEMBOLSAR`), no se imputa nada.
+- Errores (`400`): "La suma de las imputaciones ($4.000) tiene que ser igual al monto ($5.000).", "El monto de cada imputación tiene que ser mayor a cero.", "Lo imputado a Gatorade ($5.000) supera lo pendiente de esa línea ($4.000).", "Lo imputado a la cancha (…) supera lo pendiente de esa línea (…).", "La línea #99 no es de esta reserva.", "La línea #51 está repetida en las imputaciones.", "La cancha está repetida en las imputaciones.", "Indicá la línea (lineaId) de cada imputación a un producto." y "Una imputación a la cancha no lleva lineaId.". Un `concepto` que falta o un monto de 0 dan `400` de validación (`errors["imputaciones[0].monto"]`).
 
 **Medios de pago** (los mismos 4 en reservas y ventas): efectivo, Mercado Pago con el QR de la caja, Mercado Pago por transferencia (alias o CVU del club) y Cuenta DNI. En un pago, `provider` es `MANUAL` (efectivo), `MERCADO_PAGO` (online o QR), `TRANSFERENCIA_MP`, `CUENTA_DNI` o `BONIFICACION`; `canal` lo abre: `EFECTIVO`, `MERCADO_PAGO_ONLINE`, `MERCADO_PAGO_QR`, `TRANSFERENCIA_MP`, `CUENTA_DNI` o `BONIFICACION`. `verificado` y `verificadoAt` vienen en los pagos con Cuenta DNI **y por transferencia** (`null` en los demás).
 
@@ -744,7 +758,7 @@ El EMPLEADO solo opera reservas de hoy en adelante: cobrar, cancelar, sumar o sa
 | `GET /admin/reservas/devoluciones-pendientes` → `200` | Reservas cuyo turno ya empezó y tienen paletas sin devolver. Al EMPLEADO, solo las de hoy. | |
 | `POST /admin/reservas/{id}/devolucion` → `200` | Body `{ "paletasDevueltas": 3 }`. Registra la devolución; las faltantes se descuentan del stock. Devuelve la reserva. | `400` cantidad fuera de rango · `404` · `409` turno sin empezar, reserva sin paletas, no confirmada o devolución ya registrada |
 | `POST /admin/reservas/{id}/productos` → `200 ReservaResponse` | Suma un producto a una reserva o partido: lo que el cliente pide en el club antes, durante o después del turno. Body `{ "productoId": 1, "cantidad": 2 }` o, para algo que no está en el catálogo, `{ "nombre": "Gatorade", "precio": 3000, "cantidad": 1 }`: si ya hay un producto con ese nombre (sin importar mayúsculas) se usa ese, con su precio; si no, queda dado de alta como producto de venta, sin control de stock y sin ofrecerse al reservar. Si la reserva ya lo tenía, suma unidades al mismo precio que ya tenía; uno nuevo toma el precio de hoy. El total sube y el estado se recalcula: una reserva paga (o completada) vuelve a quedar con saldo. | `400` sin producto ni nombre y precio, o producto dado de baja · `404` reserva o producto · `409` reserva pendiente, cancelada o expirada, pago online en proceso o sin stock |
-| `DELETE /admin/reservas/{id}/productos/{productoId}?cantidad=1` → `200 ReservaResponse` | Saca unidades de un producto (sin `cantidad`, todas). El stock de venta vuelve y el total baja; no puede quedar por debajo de lo ya pagado. | `400` la reserva no tiene ese producto o cantidad fuera de rango · `404` · `409` como al sumar, total menor a lo pagado o un alquiler con la devolución ya registrada |
+| `DELETE /admin/reservas/{id}/productos/{productoId}?cantidad=1` → `200 ReservaResponse` | Saca unidades de un producto (sin `cantidad`, todas). El stock de venta vuelve y el total baja. **Lo cobrado no se saca**: una línea con plata imputada no baja de lo que tiene cubierto; lo que no tiene nada cobrado se saca libremente. | `400` la reserva no tiene ese producto o cantidad fuera de rango · `404` · `409` como al sumar, un alquiler con la devolución ya registrada o **la línea tiene plata cobrada**: "Gatorade tiene $2.000 cobrados: anulá o devolvé ese cobro antes de sacarlo." con `{ "lineaId": 51, "montoCobrado": 2000.00 }` en el body |
 
 **`modalidadPago` de `POST /admin/reservas`** (queda en `ReservaResponse.modalidadPago`; es `null` en las reservas del propio cliente y en los partidos):
 

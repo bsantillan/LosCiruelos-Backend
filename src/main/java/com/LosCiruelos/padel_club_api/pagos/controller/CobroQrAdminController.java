@@ -32,6 +32,7 @@ public class CobroQrAdminController {
     public ResponseEntity<CobroQrResponse> generar(@PathVariable Long reservaId,
             @Valid @RequestBody(required = false) CobroQrRequest body, Authentication authentication) {
         return ResponseEntity.ok(cobroQrService.generar(reservaId, body != null ? body.getMonto() : null,
+                body != null ? body.getImputaciones() : null,
                 authentication.getName()));
     }
 

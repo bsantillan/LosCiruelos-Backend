@@ -1,7 +1,9 @@
 package com.LosCiruelos.padel_club_api.pagos.dto.request;
 
 import java.math.BigDecimal;
+import java.util.List;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Size;
@@ -20,4 +22,7 @@ public class BonificacionRequest {
     @Size(max = 200, message = "El motivo puede tener hasta 200 caracteres")
     private String motivo;
 
+    // Opcional: qué cubre el cobro. Sin imputaciones se imputa solo: primero la cancha y después los productos.
+    @Valid
+    private List<ImputacionRequest> imputaciones;
 }

@@ -28,6 +28,8 @@ public class PagoResponse {
     LocalDateTime paidAt;
     // cuánto se devolvió (DEVUELTO) o hay que devolver (A_REEMBOLSAR)
     BigDecimal montoReembolsado;
+    // qué cubre el pago (cancha y líneas de producto); en un QR esperando el pago, lo que cubre al cobrarse
+    java.util.List<ImputacionResponse> imputaciones;
     // motivo de una bonificación (provider BONIFICACION)
     String motivo;
     // pago con Cuenta DNI o por transferencia: si el ADMIN comprobó que entró a la cuenta (null en los otros) y cuándo
