@@ -73,6 +73,13 @@ class PermisosDelPersonalTest {
         }
 
         @Bean
+        com.LosCiruelos.padel_club_api.club.controller.JornadaController jornadaController() {
+            return new com.LosCiruelos.padel_club_api.club.controller.JornadaController(
+                    TestData.jornadas(TestData.reloj(TestData.AHORA)),
+                    new com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper());
+        }
+
+        @Bean
         UsuarioAdminController usuarioAdminController() {
             return new UsuarioAdminController(mock(UsuarioAdminService.class));
         }
@@ -138,5 +145,14 @@ class PermisosDelPersonalTest {
         mvc.perform(json(post("/admin/reservas/partidos"), "{}").with(EMPLEADO)).andExpect(status().isForbidden());
         mvc.perform(json(post("/admin/reservas/4/bonificacion"), "{}").with(EMPLEADO)).andExpect(status().isForbidden());
         mvc.perform(get("/admin/reservas").with(ADMIN)).andExpect(status().isOk());
+    }
+
+    @Test
+    void elPersonalVeLaJornadaEnCursoYUnClienteNo() throws Exception {
+        mvc.perform(get("/admin/jornada").with(EMPLEADO)).andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.fecha")
+                        .value("2026-10-13"));
+        mvc.perform(get("/admin/jornada").with(ADMIN)).andExpect(status().isOk());
+        mvc.perform(get("/admin/jornada").with(user("c@test.com").roles("CLIENTE"))).andExpect(status().isForbidden());
     }
 }

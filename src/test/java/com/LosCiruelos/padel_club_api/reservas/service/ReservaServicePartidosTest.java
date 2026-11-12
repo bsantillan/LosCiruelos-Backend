@@ -89,7 +89,7 @@ class ReservaServicePartidosTest {
         reservas = new ReservaService(configuracionService, usuarioService,
                 mock(ClienteProfileService.class), reservaRepository, canchaService, mock(PagoRepository.class),
                 stockService, mapper, disponibilidad, new JugadoresService(usuarioService), turnoFijoRepository,
-                TestData.reloj(AHORA), org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
+                TestData.reloj(AHORA), org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class), com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA)));
 
         admin = usuario(3L, Role.ADMIN);
         empleado = usuario(4L, Role.EMPLEADO);

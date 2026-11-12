@@ -79,6 +79,7 @@ public class SecurityConfig {
                         .requestMatchers("/admin/reservas", "/admin/reservas/**").hasAnyRole("ADMIN", "EMPLEADO")
                         // Usuarios: el EMPLEADO los ve (listado, detalle y búsqueda de clientes); el resto es del ADMIN
                         .requestMatchers(HttpMethod.GET, "/admin/usuarios", "/admin/usuarios/*").hasAnyRole("ADMIN", "EMPLEADO")
+                        .requestMatchers(HttpMethod.GET, "/admin/jornada").hasAnyRole("ADMIN", "EMPLEADO")
                         .requestMatchers("/admin/ventas/*/verificacion", "/admin/ventas/*/devoluciones").hasRole("ADMIN")
                         .requestMatchers("/admin/ventas", "/admin/ventas/**").hasAnyRole("ADMIN", "EMPLEADO")
                         // Reservas del cliente (las del personal están en /admin/reservas)

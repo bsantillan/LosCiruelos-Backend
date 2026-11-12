@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.usuarios.service.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
+import com.LosCiruelos.padel_club_api.club.service.JornadaService;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaAdminRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest;
@@ -85,6 +86,7 @@ public class ReservaService {
     private final TurnoFijoRepository turnoFijoRepository;
     private final Reloj reloj;
     private final ApplicationEventPublisher eventos;
+    private final JornadaService jornadaService;
 
     // ── Bloqueo y acceso ─────────────────────────────────────────────────
 
@@ -103,11 +105,11 @@ public class ReservaService {
 
     /**
      * Para lo que opera el personal sobre una reserva (cobrar, cancelar, productos, paletas): el
-     * EMPLEADO no opera las de días anteriores (403); el ADMIN, todas.
+     * EMPLEADO no opera las anteriores a la jornada en curso (403); el ADMIN, todas.
      */
     public Reserva bloquearComoPersonal(Long id, Usuario personal) {
         Reserva reserva = bloquearConAcceso(id, personal);
-        reserva.exigirQueLaPuedaOperar(personal, reloj.hoy());
+        reserva.exigirQueLaPuedaOperar(personal, jornadaService.actual().fecha());
         return reserva;
     }
 

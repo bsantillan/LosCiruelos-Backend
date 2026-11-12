@@ -86,24 +86,24 @@ class VentaListadoRepositoryTest {
     }
 
     private static FiltroVentas deHoy() {
-        return new FiltroVentas(HOY, HOY, null, null, null, null, null);
+        return new FiltroVentas(HOY.atStartOfDay(), HOY.plusDays(1).atStartOfDay(), null, null, null, null, null);
     }
 
     @Test
     void filtraPorFechaProductoClienteMedioYEstado() {
         assertThat(ids(deHoy())).containsExactly(anulada.getId(), dni.getId(), efectivoDeJose.getId());
         assertThat(ids(new FiltroVentas(null, null, null, null, null, null, null))).hasSize(4);
-        assertThat(ids(new FiltroVentas(HOY.minusDays(1), HOY, pelotas.getId(), null, null, null, null)))
+        assertThat(ids(new FiltroVentas(HOY.minusDays(1).atStartOfDay(), HOY.plusDays(1).atStartOfDay(), pelotas.getId(), null, null, null, null)))
                 .containsExactly(dni.getId(), ayer.getId());
         // cliente: contiene, sin tildes
         assertThat(ids(new FiltroVentas(null, null, null, "jose per", null, null, null)))
                 .containsExactly(efectivoDeJose.getId(), ayer.getId());
         assertThat(ids(new FiltroVentas(null, null, null, null, jose.getId(), null, null))).hasSize(2);
-        assertThat(ids(new FiltroVentas(HOY, HOY, null, null, null, Set.of(MedioDePago.CUENTA_DNI), null)))
+        assertThat(ids(new FiltroVentas(HOY.atStartOfDay(), HOY.plusDays(1).atStartOfDay(), null, null, null, Set.of(MedioDePago.CUENTA_DNI), null)))
                 .containsExactly(dni.getId());
-        assertThat(ids(new FiltroVentas(HOY, HOY, null, null, null, null, Set.of(EstadoVenta.ANULADA))))
+        assertThat(ids(new FiltroVentas(HOY.atStartOfDay(), HOY.plusDays(1).atStartOfDay(), null, null, null, null, Set.of(EstadoVenta.ANULADA))))
                 .containsExactly(anulada.getId());
-        assertThat(ids(new FiltroVentas(HOY, HOY, null, null, null, Set.of(), null))).isEmpty();
+        assertThat(ids(new FiltroVentas(HOY.atStartOfDay(), HOY.plusDays(1).atStartOfDay(), null, null, null, Set.of(), null))).isEmpty();
     }
 
     @Test

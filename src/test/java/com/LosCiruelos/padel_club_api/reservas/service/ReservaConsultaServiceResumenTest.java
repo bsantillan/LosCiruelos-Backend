@@ -66,7 +66,7 @@ class ReservaConsultaServiceResumenTest {
         when(ventas.totales(any(), any())).thenReturn(new TotalesDeVentas(0L, $("0"), $("0"), $("0"), $("0")));
         when(ventas.devoluciones(any(), any())).thenReturn($("0"));
         resumen = new ReservaConsultaService(usuarioService, repo, mock(ReservaMapper.class), new ResumenMapper(),
-                ventas, TestData.reloj(AHORA));
+                ventas, TestData.reloj(AHORA), com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA)));
         // sin reservas ni pagos: las cantidades vienen en null y los montos en 0
         when(repo.resumenTurnos(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new TurnosDelPeriodo(null, $("0"), null, $("0"), null));
@@ -211,7 +211,7 @@ class ReservaConsultaServiceResumenTest {
     void validaElPeriodo() {
         ReservaRepository sinUso = mock(ReservaRepository.class);
         ReservaConsultaService servicio = new ReservaConsultaService(usuarioService, sinUso, mock(ReservaMapper.class),
-                new ResumenMapper(), mock(VentaConsultaService.class), TestData.reloj(AHORA));
+                new ResumenMapper(), mock(VentaConsultaService.class), TestData.reloj(AHORA), com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA)));
         assertThatThrownBy(() -> servicio.resumen(HASTA, DESDE))
                 .isInstanceOf(ReservaException.class)
                 .hasMessage("La fecha desde no puede ser posterior a hasta.");

@@ -45,6 +45,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Jornada del EMPLEADO**: su "hoy" pasa a ser la jornada en curso (de la apertura del día a la apertura del día siguiente). Pasada la medianoche sigue viendo y operando la jornada anterior: reservas de esa fecha en adelante, el resumen de esa fecha y las ventas registradas dentro de la jornada (antes, el día calendario). Nuevo `GET /admin/jornada` → `{ fecha, inicio, fin }` para saber qué fecha mandarle en `desde`/`hasta`. Una venta registrada entre la medianoche y la apertura ahora es de la jornada anterior.
 - **Permisos del EMPLEADO en la API** (antes solo los aplicaba el front):
   - `GET /admin/reservas`: sin `desde` toma hoy; `desde` o `hasta` anteriores a hoy → `403` "Solo podés ver las reservas de hoy en adelante." (también con `pendientes=true`; los totales cambian en consecuencia).
   - `GET /admin/reservas/{id}`: una reserva de un día anterior → `404`.

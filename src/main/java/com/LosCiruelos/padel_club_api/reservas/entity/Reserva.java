@@ -164,16 +164,16 @@ public class Reserva {
     }
 
     /**
-     * El EMPLEADO solo ve y opera las reservas de hoy en adelante (fecha del turno, hora del club);
-     * las de días anteriores son del ADMIN.
+     * El EMPLEADO solo ve y opera las reservas de la jornada en curso en adelante (fecha del turno;
+     * pasada la medianoche, la jornada sigue siendo la del día anterior); las anteriores son del ADMIN.
      */
-    public boolean quedaFueraDelEmpleado(Usuario usuario, LocalDate hoy) {
-        return Roles.esEmpleado(usuario) && fechaReserva.isBefore(hoy);
+    public boolean quedaFueraDelEmpleado(Usuario usuario, LocalDate fechaDeLaJornada) {
+        return Roles.esEmpleado(usuario) && fechaReserva.isBefore(fechaDeLaJornada);
     }
 
     /** @throws PermisoDenegadoException (403) si es un EMPLEADO y la reserva es de un día anterior */
-    public void exigirQueLaPuedaOperar(Usuario personal, LocalDate hoy) {
-        if (quedaFueraDelEmpleado(personal, hoy)) {
+    public void exigirQueLaPuedaOperar(Usuario personal, LocalDate fechaDeLaJornada) {
+        if (quedaFueraDelEmpleado(personal, fechaDeLaJornada)) {
             throw new PermisoDenegadoException("Solo el ADMIN puede operar reservas de días anteriores.");
         }
     }

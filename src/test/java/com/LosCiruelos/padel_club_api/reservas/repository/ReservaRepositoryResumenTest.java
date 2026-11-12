@@ -134,9 +134,9 @@ class ReservaRepositoryResumenTest {
     private ResumenResponse resumen(LocalDate desde, LocalDate hasta, LocalDateTime ahora) {
         Reloj reloj = TestData.reloj(ahora);
         VentaConsultaService ventas = new VentaConsultaService(ventaRepo, mock(UsuarioService.class), new VentaMapper(),
-                reloj, null);
+                reloj, null, com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA)));
         return new ReservaConsultaService(mock(UsuarioService.class), repo, mock(ReservaMapper.class), new ResumenMapper(),
-                ventas, reloj).resumen(desde, hasta);
+                ventas, reloj, com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA))).resumen(desde, hasta);
     }
 
     private static BigDecimal $(String monto) {

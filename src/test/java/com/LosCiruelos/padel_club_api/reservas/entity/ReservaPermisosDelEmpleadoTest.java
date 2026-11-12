@@ -6,6 +6,8 @@ import static com.LosCiruelos.padel_club_api.TestData.usuario;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.LocalDate;
+
 import org.junit.jupiter.api.Test;
 
 import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
@@ -44,5 +46,15 @@ class ReservaPermisosDelEmpleadoTest {
                 .isInstanceOf(PermisoDenegadoException.class)
                 .hasMessage("Solo el ADMIN puede operar reservas de días anteriores.");
         delDia(-1).exigirQueLaPuedaOperar(admin, HOY);
+    }
+
+    @Test
+    void alas0030DelDiaSiguienteElEmpleadoSigueOperandoLaJornadaDeAyer() {
+        LocalDate jornada = com.LosCiruelos.padel_club_api.TestData.configuracion()
+                .jornadaEn(HOY.plusDays(1).atTime(0, 30)).fecha();
+
+        delDia(0).exigirQueLaPuedaOperar(empleado, jornada);
+        assertThat(delDia(0).quedaFueraDelEmpleado(empleado, jornada)).isFalse();
+        assertThat(delDia(-1).quedaFueraDelEmpleado(empleado, jornada)).isTrue();
     }
 }

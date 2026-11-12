@@ -103,7 +103,7 @@ class PagoRepositoryCuentaDniTest {
         em.persist(enEfectivo);
         em.flush();
         PagoConsultaService servicio = new PagoConsultaService(repo,
-                new VentaConsultaService(ventaRepo, null, new VentaMapper(), TestData.reloj(TestData.AHORA), null),
+                new VentaConsultaService(ventaRepo, null, new VentaMapper(), TestData.reloj(TestData.AHORA), null, com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA))),
                 new CuentaDniMapper(), org.mockito.Mockito.mock(com.LosCiruelos.padel_club_api.pagos.payment.ProveedorCobroQr.class),
                 new com.LosCiruelos.padel_club_api.mapper.PagoMapper());
 

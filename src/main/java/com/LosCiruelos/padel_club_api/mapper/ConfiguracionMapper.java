@@ -6,11 +6,13 @@ import com.LosCiruelos.padel_club_api.club.dto.response.CancelacionesResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.CierreResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.HorariosClubResponse;
+import com.LosCiruelos.padel_club_api.club.dto.response.JornadaResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.RecordatorioConfigResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ReservasConfigResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.club.entity.DiaCerrado;
 import com.LosCiruelos.padel_club_api.common.Dinero;
+import com.LosCiruelos.padel_club_api.common.Jornada;
 
 /** Configuración del club → lo que edita el ADMIN. */
 @Component
@@ -56,5 +58,9 @@ public class ConfiguracionMapper {
 
     public ReservasConfigResponse aReservas(Configuracion config) {
         return new ReservasConfigResponse(config.getDiasAnticipacionReserva());
+    }
+
+    public JornadaResponse aJornada(Jornada jornada) {
+        return new JornadaResponse(jornada.fecha(), jornada.inicio(), jornada.fin());
     }
 }

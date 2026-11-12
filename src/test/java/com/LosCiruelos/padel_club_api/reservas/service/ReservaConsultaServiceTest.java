@@ -75,7 +75,7 @@ class ReservaConsultaServiceTest {
         mapper = new ReservaMapper(configuracionService, new PoliticaCancelacion(configuracionService),
                 TestData.reloj(AHORA), new PagoMapper());
         consultas = new ReservaConsultaService(usuarioService, reservaRepository, mapper, new ResumenMapper(),
-                mock(VentaConsultaService.class), TestData.reloj(AHORA));
+                mock(VentaConsultaService.class), TestData.reloj(AHORA), com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA)));
 
         cliente = usuario(1L, Role.CLIENTE);
         otroCliente = usuario(2L, Role.CLIENTE);

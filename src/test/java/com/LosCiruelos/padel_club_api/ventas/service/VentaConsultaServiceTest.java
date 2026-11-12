@@ -42,7 +42,7 @@ class VentaConsultaServiceTest {
         ventaRepository = mock(VentaRepository.class);
         UsuarioService usuarioService = mock(UsuarioService.class);
         cobroQr = mock(CobroQrDeVentas.class);
-        servicio = new VentaConsultaService(ventaRepository, usuarioService, new VentaMapper(), TestData.reloj(AHORA), cobroQr);
+        servicio = new VentaConsultaService(ventaRepository, usuarioService, new VentaMapper(), TestData.reloj(AHORA), cobroQr, com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA)));
         admin = usuario(1L, Role.ADMIN);
         empleado = usuario(2L, Role.EMPLEADO);
         when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
@@ -71,8 +71,9 @@ class VentaConsultaServiceTest {
     void sinFechasListaLasDeHoyDeLaMasNuevaALaMasVieja() {
         var filtro = listar(null, null, null, null, empleado.getEmail());
 
-        assertThat(filtro.desde()).isEqualTo(HOY);
-        assertThat(filtro.hasta()).isEqualTo(HOY);
+        // la jornada de hoy: de la apertura (8:00) a la apertura de mañana
+        assertThat(filtro.desde()).isEqualTo(HOY.atTime(8, 0));
+        assertThat(filtro.hasta()).isEqualTo(HOY.plusDays(1).atTime(8, 0));
         org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> pagina =
                 org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
         verify(ventaRepository).findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Venta>>any(),
@@ -124,7 +125,7 @@ class VentaConsultaServiceTest {
         var filtro = listar(LocalDate.of(2026, 10, 1), null, "  Pérez ", List.of(MedioDePago.CUENTA_DNI),
                 admin.getEmail());
 
-        assertThat(filtro.desde()).isEqualTo(LocalDate.of(2026, 10, 1));
+        assertThat(filtro.desde()).isEqualTo(LocalDate.of(2026, 10, 1).atStartOfDay());
         assertThat(filtro.hasta()).isNull();
         assertThat(filtro.textoCliente()).isEqualTo("perez");
         assertThat(filtro.medios()).containsExactly(MedioDePago.CUENTA_DNI);

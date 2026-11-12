@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.club.service.JornadaService;
 import com.LosCiruelos.padel_club_api.reservas.repository.TurnosDelPeriodo;
 import com.LosCiruelos.padel_club_api.reservas.repository.EntradasDeCaja;
 import com.LosCiruelos.padel_club_api.reservas.repository.CobrosDelPeriodo;
@@ -68,6 +69,7 @@ public class ReservaConsultaService {
     private final ResumenMapper resumenMapper;
     private final VentaConsultaService ventaConsultaService;
     private final Reloj reloj;
+    private final JornadaService jornadaService;
 
     // ── Del cliente ──────────────────────────────────────────────────────
 
@@ -129,7 +131,7 @@ public class ReservaConsultaService {
         Usuario usuario = usuarioService.autenticado(email);
         Reserva reserva = reservaRepository.findById(id).orElseThrow(() -> new ReservaNoEncontradaException(id));
         // al EMPLEADO, una de un día anterior no le existe (como las ventas de otros días)
-        if (!reserva.puedeVerla(usuario) || reserva.quedaFueraDelEmpleado(usuario, reloj.hoy())) {
+        if (!reserva.puedeVerla(usuario) || reserva.quedaFueraDelEmpleado(usuario, jornadaService.actual().fecha())) {
             throw new ReservaNoEncontradaException(id);
         }
         return mapper.aResponsePara(reserva, usuario);
@@ -154,7 +156,7 @@ public class ReservaConsultaService {
             Long clienteId, String cliente, Long canchaId, TipoReserva tipo, Long turnoFijoId, Boolean deTurnoFijo,
             boolean pendientes, int pagina, Integer tamanio, String orden, String email) {
         if (Roles.esEmpleado(usuarioService.autenticado(email))) {
-            LocalDate hoy = reloj.hoy();
+            LocalDate hoy = jornadaService.actual().fecha();
             if ((desde != null && desde.isBefore(hoy)) || (hasta != null && hasta.isBefore(hoy))) {
                 throw new PermisoDenegadoException("Solo podés ver las reservas de hoy en adelante.");
             }
@@ -191,9 +193,10 @@ public class ReservaConsultaService {
     public List<ReservaResponse> saldosPendientes(String email) {
         Usuario personal = usuarioService.autenticado(email);
         LocalDateTime ahora = reloj.ahora();
+        LocalDate jornada = jornadaService.actual().fecha();
         return reservaRepository.findTerminadasConSaldo(Reserva.ESTADOS_CON_SALDO, ahora.toLocalDate(),
                 ahora.toLocalTime()).stream()
-                .filter(r -> !r.quedaFueraDelEmpleado(personal, ahora.toLocalDate()))
+                .filter(r -> !r.quedaFueraDelEmpleado(personal, jornada))
                 .map(mapper::aResponse)
                 .toList();
     }
@@ -203,9 +206,10 @@ public class ReservaConsultaService {
     public List<ReservaResponse> devolucionesPendientes(String email) {
         Usuario personal = usuarioService.autenticado(email);
         LocalDateTime ahora = reloj.ahora();
+        LocalDate jornada = jornadaService.actual().fecha();
         return reservaRepository.findConAlquileresSinDevolver(TipoProducto.ALQUILER, Reserva.ESTADOS_QUE_SE_JUEGAN,
                 ahora.toLocalDate(), ahora.toLocalTime()).stream()
-                .filter(r -> !r.quedaFueraDelEmpleado(personal, ahora.toLocalDate()))
+                .filter(r -> !r.quedaFueraDelEmpleado(personal, jornada))
                 .map(mapper::aResponse)
                 .toList();
     }
@@ -223,7 +227,8 @@ public class ReservaConsultaService {
     @Transactional(readOnly = true)
     public ResumenResponse resumen(LocalDate desde, LocalDate hasta, String email) {
         boolean soloHoy = !Roles.esAdmin(usuarioService.autenticado(email));
-        LocalDate hoy = reloj.hoy();
+        // el "hoy" del EMPLEADO es el de la jornada en curso (pasada la medianoche, el día anterior)
+        LocalDate hoy = soloHoy ? jornadaService.actual().fecha() : reloj.hoy();
         if ((desde == null) != (hasta == null)) {
             throw new ReservaException("Indicá las dos fechas (desde y hasta) o ninguna para ver el día de hoy.");
         }

@@ -199,6 +199,18 @@ Cada usuario elige si recibe los avisos por mail o por WhatsApp. Detalle de qué
 
 El ADMIN puede todo. El EMPLEADO atiende el club en el día: **ve y opera las reservas de hoy en adelante** (por la fecha del turno, en hora del club). Las reglas se aplican en la API (rutas de `SecurityConfig`, `@PreAuthorize` y los services), no solo en el front.
 
+**"Hoy" para el EMPLEADO es la jornada en curso**: la jornada del día D va de la apertura de D a la apertura de D+1, según el horario semanal (los días cerrados no cuentan; si D+1 no abre, se toma la apertura más temprana de la semana). Pasada la medianoche sigue la jornada del día anterior hasta que el club vuelve a abrir: a las 00:30 del miércoles el EMPLEADO sigue viendo y operando las reservas, las ventas y el resumen del martes. Las ventas "de hoy" son las registradas dentro de la jornada.
+
+### `GET /admin/jornada` → `200 JornadaResponse` (rol: ADMIN, EMPLEADO)
+
+La jornada en curso, para que el front sepa qué fechas mostrarle al EMPLEADO.
+
+```json
+{ "fecha": "2026-10-13", "inicio": "2026-10-13T08:00:00.000-03:00", "fin": "2026-10-14T08:00:00.000-03:00" }
+```
+
+`fecha` es el día de la jornada (el que hay que mandar en `desde`/`hasta`), `inicio` la apertura de ese día y `fin` la apertura del siguiente (sin incluir). CLIENTE → `403`.
+
 | Tema | ADMIN | EMPLEADO |
 |---|---|---|
 | `GET /admin/reservas` | Todas, con cualquier período | De hoy en adelante: sin `desde`, desde hoy; `desde` o `hasta` anteriores a hoy → `403` "Solo podés ver las reservas de hoy en adelante.". Vale también con `pendientes=true`, y los totales respetan el límite |
