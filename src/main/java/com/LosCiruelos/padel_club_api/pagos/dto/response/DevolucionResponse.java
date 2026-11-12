@@ -13,7 +13,9 @@ import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion;
  *                    por línea y en los cobros de Mercado Pago que no se aplicaron
  * @param entregadoAt cuándo se le dio al cliente o Mercado Pago lo confirmó (null: todavía no)
  * @param usuario     quién la registró (null: el sistema, por ejemplo al cancelar el cliente)
+ * @param revisada    el ADMIN revisó lo que devolvió el EMPLEADO (las del ADMIN y del sistema nacen revisadas)
  */
 public record DevolucionResponse(Long id, BigDecimal monto, List<ImputacionResponse> lineas, EstadoDevolucion estado,
-        String motivo, LocalDateTime creadoAt, LocalDateTime entregadoAt, String usuario, String entregadoPor) {
+        String motivo, LocalDateTime creadoAt, LocalDateTime entregadoAt, String usuario, String entregadoPor,
+        boolean revisada, LocalDateTime revisadaAt, String revisadaPor) {
 }

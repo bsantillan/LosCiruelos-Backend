@@ -59,18 +59,18 @@ public class PagoMapper {
                         l.getConcepto(), l.getLinea() != null ? l.getLinea().getId() : null, l.getNombre(),
                         Dinero.redondear(l.getMonto()))).toList(),
                 d.getEstado(), d.getMotivo(), d.getCreatedAt(), d.getEntregadoAt(), nombre(d.getRegistradaPor()),
-                nombre(d.getEntregadoPor()));
+                nombre(d.getEntregadoPor()), d.isRevisada(), d.getRevisadaAt(), nombre(d.getRevisadaPor()));
     }
 
-    /** Una devolución por entregar, para el listado del personal. */
-    public com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionAEntregarResponse aDevolucionAEntregar(
+    /** Una devolución en los listados del personal (por entregar o sin revisar). */
+    public com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionListadoResponse aDevolucionDelListado(
             com.LosCiruelos.padel_club_api.pagos.entity.Devolucion d) {
         Pago pago = d.getPago();
         var reserva = pago.getReserva();
-        return new com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionAEntregarResponse(d.getId(),
+        return new com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionListadoResponse(d.getId(),
                 reserva.getId(), reserva.getFechaReserva(), pago.getId(), reserva.getCliente().getId(),
-                nombre(reserva.getCliente()), Dinero.redondear(d.getMonto()), pago.canal(), d.getMotivo(),
-                d.getCreatedAt());
+                nombre(reserva.getCliente()), Dinero.redondear(d.getMonto()), pago.canal(), d.getEstado(),
+                d.getMotivo(), d.getCreatedAt(), nombre(d.getRegistradaPor()), d.isRevisada());
     }
 
     private static String nombre(com.LosCiruelos.padel_club_api.usuarios.entity.Usuario usuario) {

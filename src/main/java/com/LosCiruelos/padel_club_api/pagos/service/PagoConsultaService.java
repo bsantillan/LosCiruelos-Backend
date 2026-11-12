@@ -40,14 +40,25 @@ public class PagoConsultaService {
      * El EMPLEADO ve las de la jornada en curso.
      */
     @Transactional(readOnly = true)
-    public List<com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionAEntregarResponse> devolucionesAEntregar(
+    public List<com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionListadoResponse> devolucionesAEntregar(
             String email) {
         boolean esAdmin = com.LosCiruelos.padel_club_api.common.Roles.esAdmin(usuarioService.autenticado(email));
         com.LosCiruelos.padel_club_api.common.Jornada jornada = esAdmin ? null : jornadaService.actual();
         return pagoRepository.findDevolucionesEnEstado(
                 com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion.A_REEMBOLSAR).stream()
                 .filter(d -> jornada == null || jornada.incluye(d.getCreatedAt()))
-                .map(pagoMapper::aDevolucionAEntregar)
+                .map(pagoMapper::aDevolucionDelListado)
+                .toList();
+    }
+
+    /** Lo que devolvió el EMPLEADO y el ADMIN todavía no revisó (solo ADMIN), de lo más viejo a lo más nuevo. */
+    @Transactional(readOnly = true)
+    public List<com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionListadoResponse> devolucionesSinRevisar(
+            String email) {
+        com.LosCiruelos.padel_club_api.common.Roles.exigirAdmin(usuarioService.autenticado(email),
+                "Solo el ADMIN revisa las devoluciones.");
+        return pagoRepository.findDevolucionesSinRevisar().stream()
+                .map(pagoMapper::aDevolucionDelListado)
                 .toList();
     }
 

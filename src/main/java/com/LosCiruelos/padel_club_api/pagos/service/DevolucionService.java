@@ -10,6 +10,7 @@ import com.LosCiruelos.padel_club_api.club.service.JornadaService;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.common.Roles;
 import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.mapper.ReservaMapper;
 import com.LosCiruelos.padel_club_api.pagos.dto.request.DevolucionRequest;
 import com.LosCiruelos.padel_club_api.pagos.entity.Devolucion;
@@ -30,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Devoluciones de un cobro, línea por línea ({@link Pago#devolver}): la plata entró y se le devuelve
- * al cliente (solo el ADMIN). Lo cobrado por Mercado Pago (online o QR) se devuelve en el momento por
+ * al cliente (el ADMIN, o el EMPLEADO con revisión del ADMIN). Lo cobrado por Mercado Pago (online o QR) se devuelve en el momento por
  * su API: si no lo acepta, 502 y no se registra nada. Lo cobrado en el club se entrega en el momento
  * (por defecto) o queda A_REEMBOLSAR hasta que el personal lo entrega.
  */
@@ -48,12 +49,25 @@ public class DevolucionService {
     private final ReservaMapper reservaMapper;
     private final Reloj reloj;
 
+    /**
+     * El ADMIN devuelve cualquier cobro. El EMPLEADO, solo los que registró el personal dentro de su
+     * jornada y con motivo; lo que devuelve queda sin revisar hasta que el ADMIN lo revisa.
+     */
     @Transactional
     public ReservaResponse devolver(Long reservaId, Long pagoId, DevolucionRequest req, String email) {
         Usuario admin = usuarioService.autenticado(email);
-        Roles.exigirAdmin(admin, "Solo el ADMIN puede devolver un cobro.");
-        Reserva reserva = reservaService.bloquearConAcceso(reservaId, admin);
+        boolean esAdmin = Roles.esAdmin(admin);
+        Reserva reserva = esAdmin ? reservaService.bloquearConAcceso(reservaId, admin)
+                : reservaService.bloquearComoPersonal(reservaId, admin);
         Pago pago = reserva.pago(pagoId).orElseThrow(() -> new PagoNoEncontradoException("Pago no encontrado: " + pagoId));
+        if (!esAdmin) {
+            if (req.getMotivo() == null || req.getMotivo().isBlank()) {
+                throw new ReservaException("Indicá el motivo de la devolución.");
+            }
+            if (!pago.seRegistroEnLaJornada(jornadaService.actual())) {
+                throw new PermisoDenegadoException("Solo podés devolver cobros registrados en la jornada de hoy.");
+            }
+        }
         LocalDateTime ahora = reloj.ahora();
         List<PagoImputacion.Pedido> lineas = req.getLineas().stream()
                 .map(l -> new PagoImputacion.Pedido(l.getConcepto(), l.getLineaId(), l.getMonto()))
@@ -76,6 +90,22 @@ public class DevolucionService {
         estados.recalcularTrasDeshacer(reserva);
         log.info("Cobro #{} de la reserva #{}: {} devuelve ${} ({})", pagoId, reservaId, email, devolucion.getMonto(),
                 devolucion.getEstado());
+        return reservaMapper.aResponse(reserva);
+    }
+
+    /** El ADMIN marca (o desmarca) como revisada una devolución del EMPLEADO. */
+    @Transactional
+    public ReservaResponse revisar(Long reservaId, Long devolucionId, boolean revisada, String email) {
+        Usuario admin = usuarioService.autenticado(email);
+        Roles.exigirAdmin(admin, "Solo el ADMIN revisa las devoluciones.");
+        Reserva reserva = reservaService.bloquearConAcceso(reservaId, admin);
+        Devolucion devolucion = reserva.getPagos().stream()
+                .flatMap(p -> p.devolucion(devolucionId).stream())
+                .findFirst()
+                .orElseThrow(() -> new DevolucionNoEncontradaException(devolucionId));
+        devolucion.revisar(revisada, admin, reloj.ahora());
+        log.info("Devolución #{} (reserva #{}) {} por {}", devolucionId, reservaId,
+                revisada ? "revisada" : "sin revisar", email);
         return reservaMapper.aResponse(reserva);
     }
 

@@ -16,7 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.LosCiruelos.padel_club_api.pagos.dto.request.AnulacionRequest;
 import com.LosCiruelos.padel_club_api.pagos.dto.request.DevolucionRequest;
-import com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionAEntregarResponse;
+import com.LosCiruelos.padel_club_api.pagos.dto.request.RevisionRequest;
+import com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionListadoResponse;
 import com.LosCiruelos.padel_club_api.pagos.service.AnulacionService;
 import com.LosCiruelos.padel_club_api.pagos.service.DevolucionService;
 import com.LosCiruelos.padel_club_api.pagos.service.PagoConsultaService;
@@ -26,8 +27,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Deshacer cobros de una reserva: anular uno cargado por error (ADMIN y EMPLEADO en su jornada),
- * devolverle plata al cliente por línea (solo ADMIN) y entregar una devolución pendiente.
+ * Deshacer cobros de una reserva: anular uno cargado por error y devolverle plata al cliente por
+ * línea (ADMIN, y EMPLEADO en su jornada), entregar una devolución pendiente y, solo el ADMIN, revisar
+ * lo que devolvió el EMPLEADO.
  */
 @RestController
 @RequestMapping("/admin/reservas")
@@ -45,7 +47,6 @@ public class DevolucionAdminController {
         return ResponseEntity.ok(anulacionService.anular(reservaId, pagoId, body.getMotivo(), authentication.getName()));
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{reservaId}/pagos/{pagoId}/devoluciones")
     public ResponseEntity<ReservaResponse> devolver(@PathVariable Long reservaId, @PathVariable Long pagoId,
             @Valid @RequestBody DevolucionRequest body, Authentication authentication) {
@@ -59,9 +60,25 @@ public class DevolucionAdminController {
         return ResponseEntity.ok(devolucionService.entregar(reservaId, devolucionId, authentication.getName()));
     }
 
+    /** Solo ADMIN: marca (o desmarca) como revisada una devolución del EMPLEADO. */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{reservaId}/devoluciones/{devolucionId}/revision")
+    public ResponseEntity<ReservaResponse> revisar(@PathVariable Long reservaId, @PathVariable Long devolucionId,
+            @Valid @RequestBody RevisionRequest body, Authentication authentication) {
+        return ResponseEntity.ok(devolucionService.revisar(reservaId, devolucionId, body.getRevisada(),
+                authentication.getName()));
+    }
+
     /** Lo que hay que devolverle a mano a cada cliente. El EMPLEADO ve las de la jornada. */
     @GetMapping("/devoluciones-a-entregar")
-    public ResponseEntity<List<DevolucionAEntregarResponse>> aEntregar(Authentication authentication) {
+    public ResponseEntity<List<DevolucionListadoResponse>> aEntregar(Authentication authentication) {
         return ResponseEntity.ok(pagoConsultaService.devolucionesAEntregar(authentication.getName()));
+    }
+
+    /** Solo ADMIN: lo que devolvió el EMPLEADO y todavía no se revisó. */
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/devoluciones-sin-revisar")
+    public ResponseEntity<List<DevolucionListadoResponse>> sinRevisar(Authentication authentication) {
+        return ResponseEntity.ok(pagoConsultaService.devolucionesSinRevisar(authentication.getName()));
     }
 }

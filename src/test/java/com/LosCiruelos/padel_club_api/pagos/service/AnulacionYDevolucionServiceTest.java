@@ -223,12 +223,91 @@ class AnulacionYDevolucionServiceTest extends PagosTestBase {
         assertThat(d.getEstado()).isEqualTo(EstadoDevolucion.DEVUELTO);
     }
 
+    // ── El EMPLEADO devuelve, con revisión del ADMIN ─────────────────────
+
     @Test
-    void soloElAdminDevuelve() {
-        cobro(1L, PaymentProvider.MANUAL, "17000", AHORA);
+    void elEmpleadoDevuelveUnCobroDeSuJornadaYQuedaSinRevisar() {
+        Pago pago = cobro(1L, PaymentProvider.MANUAL, "17000", AHORA.minusHours(1));
+
+        devoluciones(AHORA).devolver(10L, 1L, devolucion(
+                new LineaDevolucionRequest(ConceptoImputacion.PRODUCTO, 51L, new BigDecimal("2000"))), empleado.getEmail());
+
+        Devolucion d = pago.getDevoluciones().getFirst();
+        assertThat(d.getRegistradaPor()).isSameAs(empleado);
+        assertThat(d.isRevisada()).isFalse();
+        assertThat(d.getRevisadaAt()).isNull();
+        assertThat(d.getEstado()).isEqualTo(EstadoDevolucion.DEVUELTO); // entregada en el momento
+    }
+
+    @Test
+    void alas0030ElEmpleadoSigueDevolviendoLoDeLaJornada() {
+        Pago pago = cobro(1L, PaymentProvider.CUENTA_DNI, "17000", HOY.atTime(22, 0));
+
+        devoluciones(HOY.plusDays(1).atTime(0, 30)).devolver(10L, 1L, devolucion(
+                new LineaDevolucionRequest(ConceptoImputacion.CANCHA, null, new BigDecimal("1000"))), empleado.getEmail());
+
+        assertThat(pago.getDevoluciones()).hasSize(1);
+    }
+
+    @Test
+    void fueraDeLaJornadaElEmpleadoNoDevuelve() {
+        Pago pago = cobro(1L, PaymentProvider.MANUAL, "17000", HOY.minusDays(1).atTime(21, 0));
 
         assertThatThrownBy(() -> devoluciones(AHORA).devolver(10L, 1L, devolucion(
                 new LineaDevolucionRequest(ConceptoImputacion.CANCHA, null, BigDecimal.TEN)), empleado.getEmail()))
+                .isInstanceOf(PermisoDenegadoException.class)
+                .hasMessage("Solo podés devolver cobros registrados en la jornada de hoy.");
+        assertThat(pago.getDevoluciones()).isEmpty();
+    }
+
+    @Test
+    void elEmpleadoTieneQueIndicarElMotivo() {
+        cobro(1L, PaymentProvider.MANUAL, "17000", AHORA.minusHours(1));
+        DevolucionRequest sinMotivo = devolucion(
+                new LineaDevolucionRequest(ConceptoImputacion.CANCHA, null, BigDecimal.TEN));
+        sinMotivo.setMotivo("  ");
+
+        assertThatThrownBy(() -> devoluciones(AHORA).devolver(10L, 1L, sinMotivo, empleado.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.ReservaException.class)
+                .hasMessage("Indicá el motivo de la devolución.");
+        // al ADMIN no se le exige
+        sinMotivo.setMotivo(null);
+        devoluciones(AHORA).devolver(10L, 1L, sinMotivo, admin.getEmail());
+    }
+
+    @Test
+    void lasDelAdminNacenRevisadasYElAdminRevisaLasDelEmpleado() {
+        Pago pago = cobro(1L, PaymentProvider.MANUAL, "17000", AHORA.minusHours(1));
+        devoluciones(AHORA).devolver(10L, 1L, devolucion(
+                new LineaDevolucionRequest(ConceptoImputacion.CANCHA, null, new BigDecimal("1000"))), admin.getEmail());
+        assertThat(pago.getDevoluciones().getFirst().isRevisada()).isTrue();
+        assertThat(pago.getDevoluciones().getFirst().getRevisadaPor()).isSameAs(admin);
+
+        devoluciones(AHORA).devolver(10L, 1L, devolucion(
+                new LineaDevolucionRequest(ConceptoImputacion.CANCHA, null, new BigDecimal("1000"))), empleado.getEmail());
+        Devolucion delEmpleado = pago.getDevoluciones().getLast();
+        delEmpleado.setId(71L);
+
+        when(pagoRepository.findDevolucionesSinRevisar()).thenReturn(List.of(delEmpleado));
+        PagoConsultaService consultas = new PagoConsultaService(pagoRepository, null, null, proveedorQr,
+                new com.LosCiruelos.padel_club_api.mapper.PagoMapper(), usuarioService, TestData.jornadas(TestData.reloj(AHORA)));
+        assertThat(consultas.devolucionesSinRevisar(admin.getEmail())).singleElement().satisfies(r -> {
+            assertThat(r.devolucionId()).isEqualTo(71L);
+            assertThat(r.registradaPor()).isEqualTo(empleado.getNombre() + " " + empleado.getApellido());
+            assertThat(r.revisada()).isFalse();
+        });
+        assertThatThrownBy(() -> consultas.devolucionesSinRevisar(empleado.getEmail()))
+                .isInstanceOf(PermisoDenegadoException.class);
+
+        devoluciones(AHORA.plusHours(2)).revisar(10L, 71L, true, admin.getEmail());
+        assertThat(delEmpleado.isRevisada()).isTrue();
+        assertThat(delEmpleado.getRevisadaAt()).isEqualTo(AHORA.plusHours(2));
+        assertThat(delEmpleado.getRevisadaPor()).isSameAs(admin);
+
+        devoluciones(AHORA).revisar(10L, 71L, false, admin.getEmail());
+        assertThat(delEmpleado.isRevisada()).isFalse();
+        assertThat(delEmpleado.getRevisadaPor()).isNull();
+        assertThatThrownBy(() -> devoluciones(AHORA).revisar(10L, 71L, true, empleado.getEmail()))
                 .isInstanceOf(PermisoDenegadoException.class);
     }
 

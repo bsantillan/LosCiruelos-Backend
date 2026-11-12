@@ -165,7 +165,7 @@ class PermisosDelPersonalTest {
     }
 
     @Test
-    void elEmpleadoAnulaYEntregaPeroSoloElAdminDevuelve() throws Exception {
+    void elEmpleadoAnulaDevuelveYEntregaPeroSoloElAdminRevisa() throws Exception {
         String devolucion = """
                 {"lineas":[{"concepto":"CANCHA","lineaId":null,"monto":1000}],"motivo":"x"}""";
         mvc.perform(json(post("/admin/reservas/4/pagos/1/anulacion"), "{\"motivo\":\"Error de carga\"}").with(EMPLEADO))
@@ -175,7 +175,13 @@ class PermisosDelPersonalTest {
         mvc.perform(put("/admin/reservas/4/devoluciones/7/entrega").with(EMPLEADO)).andExpect(status().isOk());
         mvc.perform(get("/admin/reservas/devoluciones-a-entregar").with(EMPLEADO)).andExpect(status().isOk());
         mvc.perform(json(post("/admin/reservas/4/pagos/1/devoluciones"), devolucion).with(EMPLEADO))
+                .andExpect(status().isCreated());
+        mvc.perform(json(put("/admin/reservas/4/devoluciones/7/revision"), "{\"revisada\":true}").with(EMPLEADO))
                 .andExpect(status().isForbidden());
+        mvc.perform(get("/admin/reservas/devoluciones-sin-revisar").with(EMPLEADO)).andExpect(status().isForbidden());
+        mvc.perform(json(put("/admin/reservas/4/devoluciones/7/revision"), "{\"revisada\":true}").with(ADMIN))
+                .andExpect(status().isOk());
+        mvc.perform(get("/admin/reservas/devoluciones-sin-revisar").with(ADMIN)).andExpect(status().isOk());
         mvc.perform(json(post("/admin/reservas/4/pagos/1/devoluciones"), devolucion).with(ADMIN))
                 .andExpect(status().isCreated());
         mvc.perform(json(post("/admin/reservas/4/pagos/1/devoluciones"), "{\"lineas\":[]}").with(ADMIN))

@@ -337,10 +337,14 @@ public class Pago {
         return devolucion;
     }
 
+    /** La que registra un EMPLEADO nace sin revisar; la del ADMIN o la del sistema, revisada. */
     private Devolucion nuevaDevolucion(String motivo, Usuario quien, LocalDateTime ahora) {
+        boolean delEmpleado = quien != null && com.LosCiruelos.padel_club_api.common.Roles.esEmpleado(quien);
         return Devolucion.builder().pago(this).monto(BigDecimal.ZERO).estado(EstadoDevolucion.A_REEMBOLSAR)
                 .motivo(motivo != null && !motivo.isBlank() ? motivo.trim() : null).createdAt(ahora)
-                .registradaPor(quien).build();
+                .registradaPor(quien)
+                .revisada(!delEmpleado).revisadaAt(delEmpleado ? null : ahora).revisadaPor(delEmpleado ? null : quien)
+                .build();
     }
 
     /** Pasa {@code monto} de la imputación a la devolución (y la borra si queda en 0). */

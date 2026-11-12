@@ -44,6 +44,11 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **El EMPLEADO devuelve, con revisión del ADMIN**:
+  - `POST …/pagos/{pagoId}/devoluciones` ya no es solo del ADMIN: el EMPLEADO devuelve los cobros que registró el personal en su jornada, con `motivo` obligatorio. Si falta, `400`; fuera de la jornada, `403`.
+  - Rutas nuevas, solo del ADMIN: `PUT /admin/reservas/{id}/devoluciones/{devolucionId}/revision` con `{ revisada }` y `GET /admin/reservas/devoluciones-sin-revisar`.
+  - `PagoResponse.devoluciones[]` suma `revisada`, `revisadaAt` y `revisadaPor`.
+  - Los ítems de `devoluciones-a-entregar` suman `estado`, `registradaPor` y `revisada`.
 - **Devoluciones en el club entregadas en el momento**:
   - `POST …/pagos/{pagoId}/devoluciones` acepta `entregada` (por defecto `true`): una devolución de un cobro del club queda `DEVUELTO` en el acto. Antes quedaba siempre `A_REEMBOLSAR`; para eso, mandá `false`.
   - `DELETE /admin/reservas/{id}/cancelar` acepta `?entregada=` (por defecto `true`) para lo cobrado en el club.

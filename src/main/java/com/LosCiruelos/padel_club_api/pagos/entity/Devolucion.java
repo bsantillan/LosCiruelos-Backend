@@ -79,6 +79,18 @@ public class Devolucion {
     @JoinColumn(name = "entregado_por_id")
     private Usuario entregadoPor;
 
+    // el ADMIN revisó lo que devolvió el EMPLEADO (las del ADMIN y las del sistema nacen revisadas)
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean revisada = true;
+
+    @Column(name = "revisada_at")
+    private LocalDateTime revisadaAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "revisada_por_id")
+    private Usuario revisadaPor;
+
     // distingue cada devolución ante Mercado Pago (claves de idempotencia)
     @Builder.Default
     @Column(nullable = false, unique = true, updatable = false)
@@ -88,6 +100,13 @@ public class Devolucion {
     @BatchSize(size = 50)
     @OneToMany(mappedBy = "devolucion", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DevolucionLinea> lineas = new ArrayList<>();
+
+    /** El ADMIN la marca (o desmarca) como revisada, como la verificación de Cuenta DNI. */
+    public void revisar(boolean ok, Usuario admin, LocalDateTime ahora) {
+        revisada = ok;
+        revisadaAt = ok ? ahora : null;
+        revisadaPor = ok ? admin : null;
+    }
 
     public boolean estaPorEntregar() {
         return estado == EstadoDevolucion.A_REEMBOLSAR;

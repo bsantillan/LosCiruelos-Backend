@@ -71,4 +71,13 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
             """)
     List<com.LosCiruelos.padel_club_api.pagos.entity.Devolucion> findDevolucionesEnEstado(
             @Param("estado") com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion estado);
+
+    /** Las devoluciones que el ADMIN todavía no revisó, de la más vieja a la más nueva. */
+    @Query("""
+            SELECT d FROM Devolucion d JOIN FETCH d.pago p JOIN FETCH p.reserva r JOIN FETCH r.cliente
+            LEFT JOIN FETCH d.registradaPor
+            WHERE d.revisada = false
+            ORDER BY d.createdAt, d.id
+            """)
+    List<com.LosCiruelos.padel_club_api.pagos.entity.Devolucion> findDevolucionesSinRevisar();
 }
