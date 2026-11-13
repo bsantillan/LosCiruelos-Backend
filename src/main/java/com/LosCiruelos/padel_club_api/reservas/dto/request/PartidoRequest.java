@@ -9,7 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
-/** Partido de 4 jugadores (ADMIN): al crearlo y al modificarlo se manda completo. */
+/** Partido de 1 a 4 jugadores (ADMIN): al crearlo y al modificarlo se manda completo. */
 @Data
 public class PartidoRequest {
 
@@ -25,10 +25,11 @@ public class PartidoRequest {
     @NotNull(message = "La hora de fin es obligatoria")
     private LocalTime horaFin;
 
-    // en orden: la posición de cada jugador es su lugar en la lista (1 a 4)
-    @NotNull(message = "Indicá los 4 jugadores")
-    @Size(min = 4, max = 4, message = "Un partido tiene 4 jugadores")
-    private List<@Valid @NotNull(message = "Indicá los 4 jugadores") JugadorRequest> jugadores;
+    // de 1 a 4, en orden: la posición de cada jugador es su lugar en la lista. El 1 (responsable) tiene
+    // que ser un cliente registrado; del 2 al 4 son opcionales (clientes o invitados)
+    @NotNull(message = "Indicá los jugadores")
+    @Size(min = 1, max = 4, message = "Un partido tiene de 1 a 4 jugadores")
+    private List<@Valid @NotNull(message = "Indicá los jugadores") JugadorRequest> jugadores;
 
     // productos del catálogo (opcional): cada uno con productoId y cantidad
     @Valid

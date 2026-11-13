@@ -333,8 +333,9 @@ public class TurnoFijoService {
         return fecha;
     }
 
-    /** Los jugadores se actualizan en su lugar, posición por posición. */
+    /** Los jugadores se actualizan en su lugar, posición por posición; los que ya no están se sacan. */
     private static void asignarJugadores(TurnoFijo tf, List<DatosJugador> jugadores) {
+        tf.getJugadores().removeIf(j -> j.getPosicion() > jugadores.size());
         for (int i = 0; i < jugadores.size(); i++) {
             int posicion = i + 1;
             DatosJugador datos = jugadores.get(i);

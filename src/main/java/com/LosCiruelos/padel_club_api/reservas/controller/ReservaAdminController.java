@@ -87,7 +87,7 @@ public class ReservaAdminController {
     }
 
     /**
-     * Solo ADMIN: arma un partido de 4 jugadores (clientes registrados o invitados). Se consulta,
+     * Solo ADMIN: arma un partido de 1 a 4 jugadores (clientes registrados o invitados). Se consulta,
      * se cobra y se cancela como cualquier reserva.
      */
     @PreAuthorize("hasRole('ADMIN')")
@@ -98,7 +98,7 @@ public class ReservaAdminController {
                 .body(reservaService.crearPartido(request, authentication.getName()));
     }
 
-    /** Solo ADMIN: se manda el partido completo (cancha, fecha, horario, los 4 jugadores y productos). */
+    /** Solo ADMIN: se manda el partido completo (cancha, fecha, horario, los jugadores y productos). */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/partidos/{id}")
     public ResponseEntity<ReservaResponse> actualizarPartido(@PathVariable Long id,

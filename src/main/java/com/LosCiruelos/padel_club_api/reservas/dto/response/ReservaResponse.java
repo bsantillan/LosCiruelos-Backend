@@ -36,11 +36,11 @@ public class ReservaResponse {
     BigDecimal montoCanchaPendiente;
     List<ReservaProductoResponse> productos;
     EstadoReserva estado;
-    // NORMAL o PARTIDO (de 4 jugadores, armado por el ADMIN)
+    // NORMAL o PARTIDO (de 1 a 4 jugadores, armado por el ADMIN)
     TipoReserva tipo;
     // partido creado por un turno fijo
     Long turnoFijoId;
-    // partido: los 4 jugadores con lo que puso cada uno (vacío en una reserva NORMAL)
+    // partido: los jugadores (1 a 4) con lo que puso cada uno (vacío en una reserva NORMAL)
     List<JugadorResponse> jugadores;
     // en un partido es el ADMIN que lo armó
     Long clienteId;

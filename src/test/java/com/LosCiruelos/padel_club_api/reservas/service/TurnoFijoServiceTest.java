@@ -213,6 +213,20 @@ class TurnoFijoServiceTest {
     // ── Modificar ────────────────────────────────────────────────────────
 
     @Test
+    void unTurnoFijoPuedeQuedarConMenosJugadores() {
+        TurnoFijo tf = turnoFijo();
+        when(reservaRepository.findIdsFuturosDelTurnoFijo(8L, AHORA.toLocalDate(), AHORA.toLocalTime()))
+                .thenReturn(List.of());
+        TurnoFijoRequest req = pedido(MANIANA, "19:00", "20:30");
+        req.setJugadores(List.of(JugadorRequest.registrado(1L), JugadorRequest.invitado("Fijo 2")));
+
+        turnos.actualizar(8L, req, admin.getEmail());
+
+        assertThat(tf.getJugadores()).extracting(com.LosCiruelos.padel_club_api.reservas.entity.TurnoFijoJugador::getPosicion)
+                .containsExactly(1, 2);
+    }
+
+    @Test
     void alModificarlosBorraLosPartidosFuturosSinPagosYDejaLosQueTienenPagos() {
         TurnoFijo tf = turnoFijo();
         Reserva sinPagos = partidoDe(tf, 70L, MANIANA);

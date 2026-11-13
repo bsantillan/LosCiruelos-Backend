@@ -45,13 +45,14 @@ public class JugadoresService {
     }
 
     /**
-     * Valida los 4 jugadores: cada uno es un cliente registrado y activo (usuarioId) o un invitado
-     * (nombre, y teléfono opcional). Un mismo cliente no puede estar dos veces. El jugador 1 tiene
-     * que ser un cliente registrado: es el responsable (el cliente de la reserva).
+     * Valida los jugadores (de 1 a 4; la posición es el orden de la lista): cada uno es un cliente
+     * registrado y activo (usuarioId) o un invitado (nombre, y teléfono opcional). Un mismo cliente no
+     * puede estar dos veces. El jugador 1 es obligatorio y tiene que ser un cliente registrado: es el
+     * responsable (el cliente de la reserva). Del 2 al 4 son opcionales.
      */
     public List<DatosJugador> resolverJugadores(List<JugadorRequest> pedidos) {
-        if (pedidos == null || pedidos.size() != Jugadores.POR_PARTIDO) {
-            throw new ReservaException("Un partido tiene " + Jugadores.POR_PARTIDO + " jugadores.");
+        if (pedidos == null || pedidos.isEmpty() || pedidos.size() > Jugadores.MAXIMO_POR_PARTIDO) {
+            throw new ReservaException("Un partido tiene de 1 a " + Jugadores.MAXIMO_POR_PARTIDO + " jugadores.");
         }
         List<DatosJugador> jugadores = new ArrayList<>();
         Set<Long> usuarios = new HashSet<>();
@@ -109,7 +110,7 @@ public class JugadoresService {
         return responsable;
     }
 
-    /** Los jugadores de una reserva nueva, en orden (posición 1 a 4). */
+    /** Los jugadores de una reserva nueva, en orden (posición 1 a n). */
     static void asignar(Reserva reserva, List<DatosJugador> jugadores) {
         for (int i = 0; i < jugadores.size(); i++) {
             DatosJugador datos = jugadores.get(i);
@@ -123,8 +124,12 @@ public class JugadoresService {
         }
     }
 
-    /** Los jugadores se actualizan en su lugar (posición por posición). */
+    /**
+     * Los jugadores se actualizan en su lugar (posición por posición); los que ya no están (un partido
+     * que pasa de 4 a 2 jugadores) se sacan.
+     */
     static void actualizar(Reserva reserva, List<DatosJugador> nuevos) {
+        reserva.getJugadores().removeIf(j -> j.getPosicion() > nuevos.size());
         for (int i = 0; i < nuevos.size(); i++) {
             int posicion = i + 1;
             DatosJugador nuevo = nuevos.get(i);

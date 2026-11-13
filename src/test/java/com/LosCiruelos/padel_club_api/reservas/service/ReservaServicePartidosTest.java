@@ -150,6 +150,18 @@ class ReservaServicePartidosTest {
         }
 
         @Test
+        void unPartidoPuedeTenerDeUnoATresJugadores() {
+            ReservaResponse solo = reservas.crearPartido(pedido(MANIANA, "18:00", "19:30",
+                    JugadorRequest.registrado(1L)), admin.getEmail());
+            assertThat(solo.getJugadores()).extracting(JugadorResponse::getPosicion).containsExactly(1);
+            assertThat(solo.getClienteId()).isEqualTo(1L);
+
+            ReservaResponse dos = reservas.crearPartido(pedido(MANIANA, "20:00", "21:30",
+                    JugadorRequest.registrado(1L), JugadorRequest.invitado("Juan Invitado")), admin.getEmail());
+            assertThat(dos.getJugadores()).extracting(JugadorResponse::getPosicion).containsExactly(1, 2);
+        }
+
+        @Test
         void elJugador1TieneQueSerUnClienteRegistrado() {
             PartidoRequest sinResponsable = pedido(MANIANA, "18:00", "19:30", JugadorRequest.invitado("Juan Invitado"),
                     JugadorRequest.registrado(1L), JugadorRequest.registrado(2L), JugadorRequest.invitado("Pedro"));
@@ -169,10 +181,9 @@ class ReservaServicePartidosTest {
 
         @Test
         void validaLosJugadores() {
-            PartidoRequest tres = pedidoBasico();
-            tres.getJugadores().remove(3);
-            assertThatThrownBy(() -> reservas.crearPartido(tres, admin.getEmail()))
-                    .isInstanceOf(ReservaException.class).hasMessage("Un partido tiene 4 jugadores.");
+            PartidoRequest ninguno = pedido(MANIANA, "18:00", "19:30");
+            assertThatThrownBy(() -> reservas.crearPartido(ninguno, admin.getEmail()))
+                    .isInstanceOf(ReservaException.class).hasMessage("Un partido tiene de 1 a 4 jugadores.");
 
             PartidoRequest repetido = pedido(MANIANA, "18:00", "19:30", JugadorRequest.registrado(1L),
                     JugadorRequest.registrado(1L), JugadorRequest.invitado("A B"), JugadorRequest.invitado("C D"));
@@ -244,6 +255,20 @@ class ReservaServicePartidosTest {
 
         private PartidoRequest mismosDatos(JugadorRequest... jugadores) {
             return pedido(partido.getFechaReserva(), "18:00", "19:30", jugadores);
+        }
+
+        @Test
+        void editarElPartidoPuedeDejarMenosJugadores() {
+            ReservaResponse r = reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
+                    JugadorRequest.invitado("Invitado 2")), admin.getEmail());
+
+            assertThat(r.getJugadores()).extracting(JugadorResponse::getPosicion).containsExactly(1, 2);
+            assertThat(partido.getJugadores()).hasSize(2);
+
+            // y vuelve a sumar uno en la posición 3
+            r = reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
+                    JugadorRequest.invitado("Invitado 2"), JugadorRequest.registrado(2L)), admin.getEmail());
+            assertThat(r.getJugadores()).extracting(JugadorResponse::getPosicion).containsExactly(1, 2, 3);
         }
 
         @Test

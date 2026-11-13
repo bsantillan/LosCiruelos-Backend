@@ -147,7 +147,7 @@ public class Reserva {
     @OneToMany(mappedBy = "reserva", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReservaProducto> productos = new ArrayList<>();
 
-    // Partido: los 4 jugadores (vacío en una reserva NORMAL)
+    // Partido: de 1 a 4 jugadores (vacío en una reserva NORMAL)
     @Builder.Default
     @BatchSize(size = 50)
     @OrderBy("posicion")

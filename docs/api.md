@@ -27,7 +27,7 @@ Con el offset, `new Date(valor)` en el navegador da el instante correcto aunque 
 | `TokenType` | `VERIFY_EMAIL`, `PASSWORD_RESET`, `VERIFY_PHONE` |
 | `CanalNotificacion` | `EMAIL`, `WHATSAPP` |
 | `EstadoReserva` | `PENDIENTE`, `CONFIRMADA` (partido sin nada pagado: no vence), `SEÑADA` (solo reservas normales: un partido no tiene seña), `PARCIALMENTE_PAGADA`, `PAGADA`, `CANCELADA`, `EXPIRADA`, `COMPLETADA` |
-| `TipoReserva` | `NORMAL`, `PARTIDO` (4 jugadores, lo arma el ADMIN) |
+| `TipoReserva` | `NORMAL`, `PARTIDO` (de 1 a 4 jugadores, lo arma el ADMIN) |
 | `EstadoPago` | `PENDIENTE`, `APROBADO`, `RECHAZADO`, `EN_PROCESO`, `DEVUELTO`, `EXPIRADO`, `A_REEMBOLSAR`, `REEMBOLSO_PENDIENTE` |
 | `PaymentProvider` | `MANUAL` (efectivo), `MERCADO_PAGO`, `CUENTA_DNI` (Banco Provincia, cargado a mano; el ADMIN lo verifica contra la cuenta), `BONIFICACION` (el ADMIN no le cobró al cliente: no es plata) |
 | `AuthProvider` | `LOCAL`, `GOOGLE` |
@@ -630,7 +630,7 @@ El club tiene **un QR de Mercado Pago impreso en el mostrador** (el de la caja).
 
 ## Partidos y turnos fijos — `/admin/reservas/partidos`, `/admin/turnos-fijos` (rol: ADMIN)
 
-Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **4 jugadores**: clientes registrados (`usuarioId`) o invitados sin cuenta (`nombre` y, opcional, `telefono`). **El jugador 1 tiene que ser un cliente registrado: es el responsable** y el cliente de la reserva (`clienteId`). Si no tiene cuenta, el ADMIN lo busca en `GET /admin/usuarios/clientes?buscar=` y, si no está, se la crea con `POST /admin/usuarios` (con lo mínimo).
+Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **de 1 a 4 jugadores** (`jugadores` es una lista de 1 a 4: la posición de cada uno es su lugar en la lista; vale para crear y editar partidos, turnos fijos y una fecha de un turno fijo; con 0 o más de 4, `400` "Un partido tiene de 1 a 4 jugadores"). Al editar, los que ya no están se sacan. Cada uno es clientes registrados (`usuarioId`) o invitados sin cuenta (`nombre` y, opcional, `telefono`). **El jugador 1 tiene que ser un cliente registrado: es el responsable** y el cliente de la reserva (`clienteId`). Si no tiene cuenta, el ADMIN lo busca en `GET /admin/usuarios/clientes?buscar=` y, si no está, se la crea con `POST /admin/usuarios` (con lo mínimo).
 - **No vence y no tiene seña.** Sin nada pagado queda `CONFIRMADA`; con algo pagado, `PARCIALMENTE_PAGADA`; entero, `PAGADA` (o `COMPLETADA`). Ocupa la cancha y aparece como deuda si se juega sin pagar entero.
 - **Se cobra en el club, como un todo.** Un solo monto general: se cobra y se bonifica como una reserva normal (`cobros/efectivo`, `cobros/presencial`, `bonificacion`), sin indicar el jugador; cómo se lo dividen es cosa de ellos. No se paga online (`409`).
 - **Lo armó el ADMIN** (`createdBy`), pero su cliente es el responsable. Los jugadores registrados lo ven en `GET /reservas/mias` y en `GET /reservas/{id}` (sin los teléfonos de los demás), pero no lo pueden pagar ni cancelar.

@@ -116,14 +116,24 @@ class PartidosControllersTest {
     }
 
     @Test
-    void sonCuatroJugadores() throws Exception {
+    void sonDeUnoACuatroJugadores() throws Exception {
+        mvc.perform(json(post("/admin/reservas/partidos"), """
+                {"canchaId":1,"fechaReserva":"2026-10-14","horaInicio":"18:00","horaFin":"19:30","jugadores":[]}
+                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.jugadores").value("Un partido tiene de 1 a 4 jugadores"));
+        mvc.perform(json(post("/admin/reservas/partidos"), """
+                {"canchaId":1,"fechaReserva":"2026-10-14","horaInicio":"18:00","horaFin":"19:30",
+                 "jugadores":[{"usuarioId":1},{"nombre":"A"},{"nombre":"B"},{"nombre":"C"},{"nombre":"D"}]}
+                """))
+                .andExpect(status().isBadRequest());
+        verify(reservaService, never()).crearPartido(any(), any());
+
         mvc.perform(json(post("/admin/reservas/partidos"), """
                 {"canchaId":1,"fechaReserva":"2026-10-14","horaInicio":"18:00","horaFin":"19:30",
                  "jugadores":[{"usuarioId":1},{"nombre":"Juan"}]}
                 """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors.jugadores").value("Un partido tiene 4 jugadores"));
-        verify(reservaService, never()).crearPartido(any(), any());
+                .andExpect(status().isCreated());
     }
 
     @Test
