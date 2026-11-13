@@ -797,7 +797,14 @@ class ControllersTest {
             mvc.perform(put("/admin/configuracion/productos/1/reactivacion")).andExpect(status().isOk());
             verify(productoService).desactivar(1L);
             verify(productoService).reactivar(1L);
-            mvc.perform(delete("/admin/configuracion/productos/1")).andExpect(status().isMethodNotAllowed());
+            mvc.perform(delete("/admin/configuracion/productos/1")).andExpect(status().isNoContent());
+            verify(productoService).eliminar(1L);
+            org.mockito.Mockito.doThrow(new com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException(
+                    "El producto ya se usó en reservas o ventas: desactivalo en lugar de eliminarlo."))
+                    .when(productoService).eliminar(2L);
+            mvc.perform(delete("/admin/configuracion/productos/2")).andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.error").value(
+                            "El producto ya se usó en reservas o ventas: desactivalo en lugar de eliminarlo."));
         }
 
         @Test

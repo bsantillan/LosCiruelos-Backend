@@ -39,4 +39,17 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Producto p WHERE p.id = :id")
     Optional<Producto> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * Si el producto se usó: en una reserva o un partido, en un turno fijo o en una venta suelta (sus
+     * devoluciones cuelgan de la venta). Uno usado no se borra: se da de baja.
+     */
+    @Query("""
+            SELECT CASE WHEN EXISTS (SELECT 1 FROM ReservaProducto rp WHERE rp.producto.id = :id)
+                          OR EXISTS (SELECT 1 FROM TurnoFijoProducto tp WHERE tp.producto.id = :id)
+                          OR EXISTS (SELECT 1 FROM VentaItem vi WHERE vi.producto.id = :id)
+                        THEN true ELSE false END
+            FROM Producto p WHERE p.id = :id
+            """)
+    boolean seUso(@Param("id") Long id);
 }

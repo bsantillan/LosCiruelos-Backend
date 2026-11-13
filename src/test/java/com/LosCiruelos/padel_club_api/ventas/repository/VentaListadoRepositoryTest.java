@@ -122,4 +122,18 @@ class VentaListadoRepositoryTest {
         assertThat(deJose.cobradas()).isEqualTo(2);
         assertThat(deJose.cobradoPorMedio().get(MedioDePago.EFECTIVO)).isEqualByComparingTo("9500");
     }
+
+    @Autowired
+    private com.LosCiruelos.padel_club_api.club.repository.ProductoRepository productos;
+
+    @Test
+    void unProductoVendidoSeUsoYUnoNuevoNo() {
+        Producto nuevo = em.persist(Producto.builder().nombre("Gatorade").tipo(TipoProducto.VENTA)
+                .precio(new BigDecimal("2000")).stock(5).activo(true).ofrecerAlReservar(false).controlaStock(true)
+                .build());
+        em.flush();
+
+        assertThat(productos.seUso(agua.getId())).isTrue();
+        assertThat(productos.seUso(nuevo.getId())).isFalse();
+    }
 }

@@ -121,6 +121,26 @@ public class ProductoService {
         return productoMapper.aResponse(producto);
     }
 
+    /**
+     * Borrado definitivo de un producto cargado mal. Solo si nunca se usó (reservas, partidos, turnos
+     * fijos, ventas o devoluciones): uno usado se da de baja, para que lo viejo lo conserve.
+     *
+     * @throws EstadoInvalidoException (409) si ya se usó
+     */
+    @Transactional
+    public void eliminar(Long id) {
+        Producto producto = bloquearProducto(id);
+        if (productoRepository.seUso(id)) {
+            throw new EstadoInvalidoException(
+                    "El producto ya se usó en reservas o ventas: desactivalo en lugar de eliminarlo.");
+        }
+        if (producto.esDelSistema()) {
+            throw new EstadoInvalidoException("Las pelotas y las paletas no se eliminan: son productos del sistema.");
+        }
+        productoRepository.delete(producto);
+        log.info("Producto #{} {} eliminado", id, producto.getNombre());
+    }
+
     /** Vuelve a dar de alta un producto dado de baja (con el stock y el precio que tenía). */
     @Transactional
     public ProductoResponse reactivar(Long id) {

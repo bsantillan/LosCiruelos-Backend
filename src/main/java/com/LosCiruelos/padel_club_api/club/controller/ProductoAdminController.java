@@ -8,6 +8,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -78,7 +79,14 @@ public class ProductoAdminController {
         return ResponseEntity.ok(productoService.ajustarStock(id, request.getAjuste()));
     }
 
-    /** Baja: deja de ofrecerse y de poder pedirse o venderse (un producto nunca se borra). */
+    /** Borrado definitivo de un producto cargado mal que nunca se usó (si se usó, 409: darlo de baja). */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        productoService.eliminar(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Baja: deja de ofrecerse y de poder pedirse o venderse; lo viejo lo conserva. */
     @PutMapping("/{id}/baja")
     public ResponseEntity<ProductoResponse> desactivar(@PathVariable Long id) {
         return ResponseEntity.ok(productoService.desactivar(id));
