@@ -69,6 +69,7 @@ class EstadosDePago {
         }
         EstadoReserva nuevo = reserva.getEstado();
         if (nuevo == EstadoReserva.CANCELADA) {
+            reserva.setCanceladaAt(reloj.ahora()); // la canceló el sistema: se devolvió todo
             reserva.expirarPagosPendientes().forEach(pagoRepository::save);
             stockService.liberar(reserva);
             log.warn("Reserva #{} cancelada: se devolvió todo lo pagado", reserva.getId());

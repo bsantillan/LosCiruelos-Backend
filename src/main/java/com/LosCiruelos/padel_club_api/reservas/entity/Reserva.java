@@ -130,6 +130,14 @@ public class Reserva {
     @Column(name = "modalidad_pago", length = 20)
     private ModalidadPago modalidadPago;
 
+    // Cuándo y quién la canceló (null en las de antes de V43; quién null: el sistema)
+    @Column(name = "cancelada_at")
+    private LocalDateTime canceladaAt;
+
+    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @JoinColumn(name = "cancelada_por_id")
+    private Usuario canceladaPor;
+
     // Cuándo se le mandó al cliente el recordatorio del turno (null: todavía no)
     @Column(name = "recordatorio_enviado_at")
     private LocalDateTime recordatorioEnviadoAt;

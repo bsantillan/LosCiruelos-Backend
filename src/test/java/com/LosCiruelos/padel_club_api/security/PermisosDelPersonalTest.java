@@ -94,6 +94,12 @@ class PermisosDelPersonalTest {
         }
 
         @Bean
+        com.LosCiruelos.padel_club_api.reservas.controller.MetricasAdminController metricasAdminController() {
+            return new com.LosCiruelos.padel_club_api.reservas.controller.MetricasAdminController(
+                    mock(com.LosCiruelos.padel_club_api.reservas.service.MetricasService.class));
+        }
+
+        @Bean
         UsuarioAdminController usuarioAdminController() {
             return new UsuarioAdminController(mock(UsuarioAdminService.class));
         }
@@ -204,5 +210,12 @@ class PermisosDelPersonalTest {
         mvc.perform(get("/admin/reservas/resumen").with(EMPLEADO)).andExpect(status().isForbidden());
         mvc.perform(get("/admin/reservas/resumen").with(ADMIN)).andExpect(status().isOk());
         mvc.perform(get("/admin/caja").with(user("c@test.com").roles("CLIENTE"))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void lasMetricasSonSoloDelAdmin() throws Exception {
+        mvc.perform(get("/admin/metricas").with(EMPLEADO)).andExpect(status().isForbidden());
+        mvc.perform(get("/admin/metricas").param("desde", "2026-10-01").param("hasta", "2026-10-31").with(ADMIN))
+                .andExpect(status().isOk());
     }
 }

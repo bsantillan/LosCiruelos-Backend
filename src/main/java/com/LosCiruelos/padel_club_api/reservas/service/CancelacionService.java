@@ -121,6 +121,8 @@ public class CancelacionService {
         } else if (reembolso.signum() > 0) {
             reembolsoService.reembolsar(reserva, reembolso);
         }
+        reserva.setCanceladaAt(ahora);
+        reserva.setCanceladaPor(usuario);
         reservaService.cancelar(reserva);
         log.info("Reserva #{} cancelada por {} ({}): reembolso ${}", id, email, usuario.getRol(), reembolso);
         avisar(reserva, usuario, esPersonal, reembolso);

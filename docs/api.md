@@ -219,6 +219,7 @@ La jornada en curso, para que el front sepa qué fechas mostrarle al EMPLEADO.
 | `GET /admin/reservas/saldos-pendientes` y `/devoluciones-pendientes` | Todas | Solo las de hoy |
 | `GET /admin/reservas/resumen` | Cualquier período | `403` (usa `GET /admin/caja`) |
 | `GET /admin/caja` (cierre de caja) | Cualquier jornada | Solo la jornada en curso |
+| `GET /admin/metricas` | Sí | `403` |
 | Reservas sin seña, bonificaciones, verificar pagos | Sí | `403` |
 | Partidos y turnos fijos | Sí | `403` |
 | Anular un cobro de una reserva | Cualquiera (también bonificaciones) | Solo los que registró el personal en la jornada; nunca una bonificación |
@@ -801,6 +802,62 @@ El EMPLEADO solo opera reservas de hoy en adelante: cobrar, cancelar, sumar o sa
 Cobrar en el club la seña, el saldo o el total: `POST /admin/reservas/{reservaId}/cobros/efectivo`, `/cobros/transferencia`, `/cobros/cuenta-dni` o `/cobros/qr` (ver `GET /admin/reservas/medios-de-cobro`), body `{ "monto": 7500 }`. Aceptan reservas `SEÑADA` y `PARCIALMENTE_PAGADA` aunque el turno no se haya jugado, y `PENDIENTE` mientras esté en plazo (15 min).
 
 ---
+
+## Métricas del club — `GET /admin/metricas?desde=2026-10-01&hasta=2026-10-31` (rol: ADMIN)
+
+Para decidir precios por franja, promociones y retención. **Solo ADMIN** (EMPLEADO → `403`). Sin fechas, los últimos 30 días hasta hoy; las dos fechas o ninguna (`400`); hasta 366 días.
+
+**Cómo leerlas:**
+- **Comparación:** cada valor marcado como `Comparado` es `{ "actual", "anterior", "variacion" }`, con el período anterior de igual duración (`anterior`). `variacion` es el % de cambio con un decimal ("+12 %": `12.0`), o `null` si el anterior es 0.
+- **Fechas:** lo de reservas va por la fecha del turno; las ventas sueltas, por jornada.
+- **Confirmadas:** las reservas que se juegan o se jugaron (`CONFIRMADA`, `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA`, `COMPLETADA`).
+
+```json
+{
+  "desde": "2026-10-01", "hasta": "2026-10-31",
+  "anterior": { "desde": "2026-08-31", "hasta": "2026-09-30" },
+  "ocupacion": {
+    "porcentaje": { "actual": 42.5, "anterior": 38.0, "variacion": 11.8 },
+    "horasOcupadas": { … }, "horasAbiertas": { … },
+    "porCancha": [ { "canchaId": 1, "numero": 1, "porcentaje": 51.0, "horasOcupadas": 220.5, "ingresos": 2205000.00 } ],
+    "mapa": [ { "dia": "MONDAY", "franjas": [ { "hora": "08:00", "porcentaje": 12.5 }, { "hora": "09:00", "porcentaje": null } ] } ],
+    "porFranja": [ { "franja": "MANIANA", "porcentaje": 20.0, "horasOcupadas": 80.0, "ingresoPorHora": 9500.00 } ],
+    "proximos7Dias": [ { "fecha": "2026-10-13", "porcentaje": 35.0, "horasOcupadas": 21.0, "horasAbiertas": 60.0 } ]
+  },
+  "ingresos": { "total": {…}, "cancha": {…}, "productosDeReservas": {…}, "ventasSueltas": {…},
+                "online": {…}, "enElClub": {…}, "ticketPromedio": {…}, "porHoraOcupada": {…} },
+  "clientes": { "activos": {…}, "nuevos": {…}, "recurrentes": {…}, "frecuencia": {…},
+                "topPorReservas": [ { "clienteId": 18, "nombre": "Ana Gómez", "reservas": 9, "gasto": 135000.00 } ],
+                "topPorGasto": [ … ],
+                "dejaronDeVenir": [ { "clienteId": 21, "nombre": "Juan Pérez", "telefono": "5491122334455", "reservasAntes": 5, "ultimaReserva": "2026-09-02" } ] },
+  "reservas": { "creadas": {…}, "anticipacionPromedioHoras": {…},
+                "anticipacion": { "mismoDia": 30, "unoADosDias": 25, "tresASieteDias": 12, "masDeSieteDias": 4 },
+                "duraciones": [ { "minutos": 90, "cantidad": 60 }, { "minutos": 120, "cantidad": 11 } ],
+                "porTipo": { "normales": 50, "partidos": 6, "turnosFijos": 15 },
+                "porOrigen": { "cliente": 41, "personal": 30 } },
+  "cancelaciones": { "tasa": {…}, "canceladas": {…}, "porCliente": 6, "porClub": 2, "sinDato": 1,
+                     "anticipacion": { "menosDe2Horas": 1, "de2a24Horas": 3, "de1a3Dias": 2, "masDe3Dias": 2 },
+                     "retenido": {…}, "vencidasSinPagar": {…} },
+  "deuda": { "total": 45000.00, "hasta7Dias": 15000.00, "de8a30Dias": 22500.00, "masDe30Dias": 7500.00,
+             "deudores": [ { "clienteId": 18, "nombre": "Ana Gómez", "telefono": "…", "monto": 22500.00, "reservas": 2, "masVieja": "2026-09-20" } ] },
+  "futuro": { "asegurado": 110500.00, "porCobrar14Dias": 144500.00, "turnos14Dias": 16 },
+  "productos": { "masVendidos": [ { "productoId": 1, "nombre": "Pelotas", "tipo": "VENTA", "cantidad": 40, "monto": 320000.00 } ],
+                 "alquilados": [ { "productoId": 2, "nombre": "Paletas", "tipo": "ALQUILER", "cantidad": 80, "monto": 160000.00 } ],
+                 "noDevueltos": { "unidades": 3, "montoAlquiler": 6000.00, "reservas": 2, "sinRegistrar": 1 },
+                 "stockBajo": [ { "productoId": 6, "nombre": "Barrita de cereal", "stock": 0 } ] }
+}
+```
+
+| Bloque | Qué es |
+|---|---|
+| `ocupacion` | Horas ocupadas (reservas confirmadas) sobre las horas abiertas: el horario semanal de cada día del período, sin los días cerrados, por la cantidad de canchas. `porCancha` trae lo facturado de cada cancha (`ingresos`). `mapa`: día de la semana × franja de 1 hora entre la primera apertura y el último cierre de la semana, con el %; `null` si ese día no abre a esa hora. `porFranja`: `MANIANA` (antes de las 12), `TARDE` (12 a 18) y `NOCHE` (desde las 18), con el ingreso de cancha por hora ocupada (para decidir precios por franja). `proximos7Dias`: desde hoy, con las confirmadas y las pendientes de pago vigentes |
+| `ingresos` | Lo facturado del período: `cancha` y `productosDeReservas` de las reservas confirmadas, más `ventasSueltas` (netas de devoluciones); `total` es la suma. `online` (Mercado Pago desde la web) y `enElClub` (efectivo, QR, transferencia, Cuenta DNI) son lo **cobrado** de esas reservas, sin bonificaciones. `ticketPromedio`: (cancha + productos) por reserva confirmada. `porHoraOcupada`: cancha por hora ocupada |
+| `clientes` | `activos`: con al menos una reserva confirmada en el período. `nuevos`: activos cuya primera reserva confirmada es de este período. `recurrentes`: el resto de los activos. `frecuencia`: reservas por cliente activo. `topPorReservas` y `topPorGasto`: los 10 primeros. `dejaronDeVenir`: clientes con 3 o más reservas confirmadas en los 90 días anteriores a los últimos 30 y ninguna en los últimos 30 (contado desde hoy, no desde el período), con su teléfono para contactarlos |
+| `reservas` | Las creadas en el período (por fecha de creación), sin los partidos que genera solo un turno fijo. `anticipacion`: días entre que se crea y el turno (el mismo día, 1–2, 3–7, más de 7). `duraciones`: minutos, de la más elegida a la menos (de las confirmadas). `porTipo`: confirmadas normales, partidos sueltos y de turno fijo. `porOrigen`: las creó el cliente desde la web o el personal |
+| `cancelaciones` | De las reservas del período. `tasa` = canceladas / (canceladas + confirmadas). `porCliente` / `porClub` (el personal o el sistema) y `anticipacion` (cuánto antes del turno) usan el dato que se guarda desde V43. Las canceladas antes de V43 van en `sinDato`. `retenido`: lo pagado de las canceladas que no se devolvió. `vencidasSinPagar`: `EXPIRADA` |
+| `deuda` | A hoy (no depende del período): turnos ya jugados que deben saldo, por antigüedad del turno (0–7, 8–30 y más de 30 días), y los deudores de mayor a menor deuda |
+| `futuro` | `asegurado`: lo ya cobrado de los turnos confirmados que todavía no empezaron. `porCobrar14Dias` y `turnos14Dias`: lo que falta cobrar y cuántos turnos confirmados hay en los próximos 14 días |
+| `productos` | `masVendidos`: los 10 productos de venta más vendidos (en reservas y ventas sueltas). `alquilados`: alquileres en reservas. `noDevueltos`: unidades de alquiler con la devolución registrada que no volvieron (roturas o pérdidas), lo que se cobró de alquiler por ellas, en cuántas reservas, y cuántas reservas terminadas no registraron la devolución. **El sistema no guarda el costo de reponer una paleta**, así que no hay "monto perdido". `stockBajo`: productos de venta activos con 5 unidades o menos |
 
 ## Cierre de caja — `GET /admin/caja?fecha=2026-10-13` (rol: ADMIN, EMPLEADO)
 

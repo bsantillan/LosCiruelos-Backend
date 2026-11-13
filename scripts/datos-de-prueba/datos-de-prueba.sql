@@ -634,6 +634,11 @@ FROM pagos
 WHERE estado IN ('DEVUELTO', 'A_REEMBOLSAR', 'REEMBOLSO_PENDIENTE') AND provider <> 'BONIFICACION'
   AND monto_reembolsado > 0;
 
+-- ── Quién y cuándo canceló (métricas): el cliente, un día antes del turno ──
+UPDATE reservas
+SET cancelada_at = LEAST(fecha_reserva + hora_inicio - interval '1 day', now()), cancelada_por_id = cliente_id
+WHERE estado = 'CANCELADA' AND cancelada_at IS NULL;
+
 DROP EXTENSION pgcrypto;
 
 COMMIT;

@@ -428,4 +428,23 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             @Param("desde") LocalDate desde,
             @Param("hasta") LocalDate hasta,
             @Param("estados") Collection<EstadoReserva> estados);
+
+    /** Las reservas con el turno entre esas fechas, en cualquier estado (métricas). */
+    @EntityGraph(attributePaths = {"cancha", "cliente", "createdBy"})
+    List<Reserva> findByFechaReservaBetween(LocalDate desde, LocalDate hasta);
+
+    /** Las reservas creadas en [inicio, fin), en cualquier estado (métricas). */
+    @EntityGraph(attributePaths = {"cancha", "cliente", "createdBy"})
+    List<Reserva> findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime inicio, LocalDateTime fin);
+
+    /** Las reservas en esos estados con el turno desde esa fecha (métricas: lo que viene). */
+    @EntityGraph(attributePaths = {"cancha", "cliente"})
+    List<Reserva> findByFechaReservaGreaterThanEqualAndEstadoIn(LocalDate desde, Collection<EstadoReserva> estados);
+
+    /** La primera reserva (en esos estados) de cada cliente. */
+    @Query("""
+            SELECT new com.LosCiruelos.padel_club_api.reservas.repository.PrimeraReserva(r.cliente.id, MIN(r.fechaReserva))
+            FROM Reserva r WHERE r.estado IN :estados GROUP BY r.cliente.id
+            """)
+    List<PrimeraReserva> primerasReservas(@Param("estados") Collection<EstadoReserva> estados);
 }

@@ -270,6 +270,15 @@ public class Configuracion {
 
     // ── Reglas ───────────────────────────────────────────────────────────
 
+    /** El horario de {@code fecha} si el club abre (vacío si ese día de la semana no abre o está cerrado). */
+    public Optional<DiaApertura> horarioDel(LocalDate fecha) {
+        if (cierreDel(fecha).isPresent()) {
+            return Optional.empty();
+        }
+        String nombreDia = Fechas.nombreDiaCapitalizado(fecha.getDayOfWeek());
+        return dias_apertura.stream().filter(d -> d.getDia().equalsIgnoreCase(nombreDia)).findFirst();
+    }
+
     /** Horario de apertura de {@code fecha}: el de su día de la semana, salvo que ese día esté cerrado. */
     public DiaApertura diaApertura(LocalDate fecha) {
         String cerrado = motivoCierre(fecha);
