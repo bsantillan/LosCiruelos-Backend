@@ -56,7 +56,7 @@ Después, con la cancha bloqueada:
 3. Las **otras PENDIENTE vigentes del cliente** en esa cancha y fecha, sin pagos activos, se cancelan (el cliente eligió otro horario).
 4. Si el turno está ocupado → `409`.
 5. **Stock**, en un solo paso: se devuelve el stock de las reservas que se expiraron o cancelaron en los pasos anteriores y se toman los productos pedidos (ver [Productos y stock](#productos-y-stock)). Sin stock → `409`.
-6. Se guarda en `PENDIENTE` con `expiresAt = ahora + 15 min`.
+6. Se guarda en `PENDIENTE` con `expiresAt = min(ahora + 15 min, inicio del turno)`: una pendiente nunca sigue tomando un turno que ya empezó (V42 lo aplicó a las que ya había).
 
 **Monto de la cancha** = `montoReserva + montoXMediaHora × ((duración − duracionMinimaTurno) / 30)`: `montoReserva` es el precio del turno mínimo y se suma `montoXMediaHora` por cada media hora de más. Con la configuración inicial (mínimo 90 minutos, $15 000 y $5 000), 90 min = $15 000, 120 = $20 000 y 180 = $30 000. Vale igual para reservas, partidos, partidos de turnos fijos y el `montoCancha` de la disponibilidad (todos usan `Configuracion.montoTurno`). Un turno más corto que el mínimo (uno viejo, si el ADMIN subió el mínimo) cuesta `montoReserva`. Las reservas creadas guardan su monto: un cambio de precio no las toca.
 **Monto de productos** = `Σ cantidad × precio de cada producto pedido` (precios del momento, congelados en la reserva). El cliente pide solo los que se ofrecen al reservar; el personal, cualquiera activo.

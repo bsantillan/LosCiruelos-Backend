@@ -296,7 +296,11 @@ public class ReservaService {
         return cliente;
     }
 
-    /** Hasta cuándo se puede pagar la reserva según cómo se paga (null: SIN_SENIA no vence). */
+    /**
+     * Hasta cuándo se puede pagar la reserva según cómo se paga (null: SIN_SENIA no vence). Una
+     * PENDIENTE vence a los {@value #MINUTOS_PARA_PAGAR} minutos o al empezar el turno, lo que pase
+     * primero: un turno que empezó sin pagar no queda tomado.
+     */
     private static LocalDateTime vencimiento(ModalidadPago modalidad, Configuracion config, LocalDateTime inicioDelTurno,
             LocalDateTime ahora) {
         if (modalidad == ModalidadPago.SIN_SENIA) {
@@ -305,7 +309,8 @@ public class ReservaService {
         if (modalidad == ModalidadPago.SENIA_ONLINE) {
             return config.vencimientoSeniaOnline(ahora, inicioDelTurno);
         }
-        return ahora.plusMinutes(MINUTOS_PARA_PAGAR);
+        LocalDateTime plazo = ahora.plusMinutes(MINUTOS_PARA_PAGAR);
+        return plazo.isBefore(inicioDelTurno) ? plazo : inicioDelTurno;
     }
 
     private void validarPerfilCompleto(Usuario cliente, String mensaje) {

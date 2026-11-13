@@ -339,7 +339,7 @@ Todas las rutas de `/reservas` son **solo del CLIENTE** (el personal recibe `403
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
-| `POST /reservas` → `201` | Crea una reserva `PENDIENTE` para el cliente autenticado, que vence en 15 min si no se paga. Body abajo. | `400` horario o datos inválidos, o fecha más allá de la anticipación ("Podés reservar hasta el sábado 14/11 (30 días de anticipación).") · `403` perfil incompleto · `404` cancha · `409` turno ocupado, sin stock o reserva con pago en curso |
+| `POST /reservas` → `201` | Crea una reserva `PENDIENTE` para el cliente autenticado, que vence si no se paga a los 15 min **o al empezar el turno, lo que pase primero** (`expiresAt = min(creación + 15 min, inicio del turno)`): el job la pasa a `EXPIRADA` y libera el turno y el stock. Si tiene un pago `EN_PROCESO`, se espera a Mercado Pago. Body abajo. | `400` horario o datos inválidos, o fecha más allá de la anticipación ("Podés reservar hasta el sábado 14/11 (30 días de anticipación).") · `403` perfil incompleto · `404` cancha · `409` turno ocupado, sin stock o reserva con pago en curso |
 | `GET /reservas/mias` → `200` | Reservas del usuario autenticado, **paginadas y filtradas** (ver abajo). | `400` parámetros inválidos |
 | `GET /reservas/{id}` → `200` | Detalle con los pagos: una reserva propia o un partido en el que juega. Sirve para consultar el resultado de un pago en proceso. | `404` |
 | `DELETE /reservas/{id}/cancelar` → `200 ReservaResponse` | Cancela la reserva y hace los reembolsos según la política (ver abajo). Devuelve la reserva con los pagos actualizados. El personal cancela con `DELETE /admin/reservas/{id}/cancelar`. | `403` partido (lo cancela el ADMIN) · `404` · `409` turno empezado/terminado, reserva finalizada o pago en proceso. Si Mercado Pago no acepta el reembolso, **se cancela igual** (`200`) y el pago queda `REEMBOLSO_PENDIENTE` |
@@ -790,7 +790,7 @@ El EMPLEADO solo opera reservas de hoy en adelante: cobrar, cancelar, sumar o sa
 
 | Valor | Para qué | Cómo queda |
 |---|---|---|
-| `EN_EL_CLUB` (por defecto) | El cliente está en el club | `PENDIENTE` que vence a los 15 minutos (`expiresAt`) si no se cobra al menos la seña, como hasta ahora |
+| `EN_EL_CLUB` (por defecto) | El cliente está en el club | `PENDIENTE` que vence a los 15 minutos o al empezar el turno, lo que pase primero (`expiresAt`), si no se cobra al menos la seña |
 | `SENIA_ONLINE` | El cliente no está en el club | `PENDIENTE` que vence a los `minutosPagoSeniaOnline` de la configuración (120 por defecto), **nunca después del inicio del turno**. Al crearla se le avisa al cliente por su canal (aviso `SENIA_PENDIENTE`) con el link para pagar la seña en la misma pantalla de pago que usa al reservar (`FRONTEND_URL/reservas/{id}/pago`). Si no paga a tiempo, vence y el turno se libera |
 | `SIN_SENIA` | **Solo ADMIN** (EMPLEADO: `403` "Solo el ADMIN puede cargar una reserva sin seña."). Se cobra en el club | `CONFIRMADA` sin pagos y sin vencimiento (`expiresAt: null`), como un partido: aunque no tenga nada pagado no vence ni se cancela sola |
 

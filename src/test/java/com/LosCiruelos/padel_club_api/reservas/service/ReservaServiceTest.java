@@ -220,6 +220,17 @@ class ReservaServiceTest {
     class Creacion {
 
         @Test
+        void unaPendienteParaUnTurnoQueEmpiezaAntesDe15MinutosVenceAlEmpezarElTurno() {
+            sinOtrasReservas();
+
+            // son las 10:00 y el turno es a las 10:00: no puede seguir tomado hasta las 10:15
+            ReservaResponse r = reservaService.crearParaMi(pedido(HOY, "10:00", "11:30"), cliente.getEmail());
+
+            assertThat(r.getEstado()).isEqualTo(EstadoReserva.PENDIENTE);
+            assertThat(r.getExpiresAt()).isEqualTo(HOY.atTime(10, 0));
+        }
+
+        @Test
         void creaUnaReservaPendienteQueVenceEn15Minutos() {
             sinOtrasReservas();
 

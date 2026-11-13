@@ -44,6 +44,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Una `PENDIENTE` vence al empezar el turno** si eso pasa antes de los 15 minutos: `expiresAt` nunca es posterior al inicio del turno.
 - **Caja por jornada**:
   - `GET /admin/reservas/resumen`: la `caja` suma por jornada (de la apertura de `desde` a la apertura del día siguiente a `hasta`), también para el ADMIN. Antes era de 00:00 a 24:00. Lo de reservas sigue por la fecha del turno.
   - `caja` suma `bonificado`, `inicio` y `fin`.
