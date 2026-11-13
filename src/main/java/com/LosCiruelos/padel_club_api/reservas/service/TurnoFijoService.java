@@ -177,7 +177,7 @@ public class TurnoFijoService {
      * reembolso. Los partidos ya jugados no cambian.
      */
     @Transactional
-    public TurnoFijoResponse darDeBaja(Long id, OpcionReembolso reembolso, String email) {
+    public TurnoFijoResponse darDeBaja(Long id, OpcionReembolso reembolso, boolean entregada, String email) {
         Usuario admin = admin(email);
         TurnoFijo tf = bloquearActivo(id);
         LocalDateTime ahora = reloj.ahora();
@@ -190,7 +190,7 @@ public class TurnoFijoService {
                 ahora.toLocalTime())) {
             Reserva partido = reservaService.bloquear(reservaId);
             if (!partido.estaInactiva()) {
-                cancelacionService.cancelarBloqueada(partido, admin, true, reembolso, false);
+                cancelacionService.cancelarBloqueada(partido, admin, true, reembolso, entregada);
                 cancelados++;
             }
         }
@@ -204,7 +204,8 @@ public class TurnoFijoService {
      * y {@link #generar} no la vuelve a crear.
      */
     @Transactional
-    public ReservaResponse darDeBajaFecha(Long id, LocalDate fecha, OpcionReembolso reembolso, String email) {
+    public ReservaResponse darDeBajaFecha(Long id, LocalDate fecha, OpcionReembolso reembolso, boolean entregada,
+            String email) {
         Usuario admin = admin(email);
         TurnoFijo tf = bloquearActivo(id);
         LocalDateTime ahora = reloj.ahora();
@@ -219,7 +220,7 @@ public class TurnoFijoService {
             if (partido.estaInactiva()) {
                 throw new EstadoInvalidoException("La fecha " + fecha + " ya está dada de baja.");
             }
-            ReservaResponse cancelado = cancelacionService.cancelarBloqueada(partido, admin, true, reembolso, false);
+            ReservaResponse cancelado = cancelacionService.cancelarBloqueada(partido, admin, true, reembolso, entregada);
             log.info("Turno fijo #{}: fecha {} dada de baja por {} (partido #{})", id, fecha, email,
                     partido.getId());
             return cancelado;

@@ -260,14 +260,14 @@ class TurnoFijoServiceTest {
         when(reservaRepository.findIdsFuturosDelTurnoFijo(8L, AHORA.toLocalDate(), AHORA.toLocalTime()))
                 .thenReturn(List.of(70L, 72L));
 
-        TurnoFijoResponse r = turnos.darDeBaja(8L, OpcionReembolso.TOTAL, admin.getEmail());
+        TurnoFijoResponse r = turnos.darDeBaja(8L, OpcionReembolso.TOTAL, true, admin.getEmail());
 
         assertThat(r.getActivo()).isFalse();
         assertThat(tf.getDadoDeBajaAt()).isEqualTo(AHORA);
-        verify(cancelacionService).cancelarBloqueada(proximo, admin, true, OpcionReembolso.TOTAL, false);
+        verify(cancelacionService).cancelarBloqueada(proximo, admin, true, OpcionReembolso.TOTAL, true);
         verify(cancelacionService, times(1)).cancelarBloqueada(any(), any(), eq(true), any(), org.mockito.ArgumentMatchers.anyBoolean());
 
-        assertThatThrownBy(() -> turnos.darDeBaja(8L, null, admin.getEmail()))
+        assertThatThrownBy(() -> turnos.darDeBaja(8L, null, true, admin.getEmail()))
                 .isInstanceOf(EstadoInvalidoException.class)
                 .hasMessage("El turno fijo #8 está dado de baja.");
     }
@@ -278,12 +278,12 @@ class TurnoFijoServiceTest {
         Reserva partido = partidoDe(tf, 70L, MANIANA);
         when(reservaRepository.findByTurnoFijoAndFechaReserva(tf, MANIANA)).thenReturn(Optional.of(partido));
 
-        turnos.darDeBajaFecha(8L, MANIANA, null, admin.getEmail());
+        turnos.darDeBajaFecha(8L, MANIANA, null, true, admin.getEmail()); // entregada en el momento
 
-        verify(cancelacionService).cancelarBloqueada(partido, admin, true, null, false);
+        verify(cancelacionService).cancelarBloqueada(partido, admin, true, null, true);
 
         partido.setEstado(EstadoReserva.CANCELADA);
-        assertThatThrownBy(() -> turnos.darDeBajaFecha(8L, MANIANA, null, admin.getEmail()))
+        assertThatThrownBy(() -> turnos.darDeBajaFecha(8L, MANIANA, null, true, admin.getEmail()))
                 .isInstanceOf(EstadoInvalidoException.class)
                 .hasMessage("La fecha " + MANIANA + " ya está dada de baja.");
     }
@@ -293,7 +293,7 @@ class TurnoFijoServiceTest {
         TurnoFijo tf = turnoFijo();
         LocalDate dentroDeDosMeses = MANIANA.plusWeeks(8);
 
-        var r = turnos.darDeBajaFecha(8L, dentroDeDosMeses, null, admin.getEmail());
+        var r = turnos.darDeBajaFecha(8L, dentroDeDosMeses, null, true, admin.getEmail());
 
         ArgumentCaptor<Reserva> guardada = ArgumentCaptor.forClass(Reserva.class);
         verify(reservaRepository).save(guardada.capture());
@@ -307,10 +307,10 @@ class TurnoFijoServiceTest {
     @Test
     void unaFechaQueNoEsDelTurnoFijo() {
         turnoFijo();
-        assertThatThrownBy(() -> turnos.darDeBajaFecha(8L, MANIANA.plusDays(1), null, admin.getEmail()))
+        assertThatThrownBy(() -> turnos.darDeBajaFecha(8L, MANIANA.plusDays(1), null, true, admin.getEmail()))
                 .isInstanceOf(ReservaException.class)
                 .hasMessageContaining("no se juega");
-        assertThatThrownBy(() -> turnos.darDeBajaFecha(9L, MANIANA, null, admin.getEmail()))
+        assertThatThrownBy(() -> turnos.darDeBajaFecha(9L, MANIANA, null, true, admin.getEmail()))
                 .isInstanceOf(TurnoFijoNoEncontradoException.class);
     }
 

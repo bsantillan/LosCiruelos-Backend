@@ -210,16 +210,16 @@ class PartidosControllersTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
 
-        when(turnoFijoService.darDeBaja(8L, OpcionReembolso.TOTAL, EMAIL)).thenReturn(new TurnoFijoResponse());
+        when(turnoFijoService.darDeBaja(8L, OpcionReembolso.TOTAL, true, EMAIL)).thenReturn(new TurnoFijoResponse());
         mvc.perform(delete("/admin/turnos-fijos/8").param("reembolso", "TOTAL").principal(AUTH))
                 .andExpect(status().isOk());
-        verify(turnoFijoService).darDeBaja(8L, OpcionReembolso.TOTAL, EMAIL);
+        verify(turnoFijoService).darDeBaja(8L, OpcionReembolso.TOTAL, true, EMAIL);
 
-        when(turnoFijoService.darDeBajaFecha(8L, LocalDate.of(2026, 10, 21), null, EMAIL))
+        when(turnoFijoService.darDeBajaFecha(8L, LocalDate.of(2026, 10, 21), null, false, EMAIL))
                 .thenReturn(new ReservaResponse());
-        mvc.perform(delete("/admin/turnos-fijos/8/fechas/2026-10-21").principal(AUTH))
+        mvc.perform(delete("/admin/turnos-fijos/8/fechas/2026-10-21").param("entregada", "false").principal(AUTH))
                 .andExpect(status().isOk());
-        verify(turnoFijoService).darDeBajaFecha(8L, LocalDate.of(2026, 10, 21), null, EMAIL);
+        verify(turnoFijoService).darDeBajaFecha(8L, LocalDate.of(2026, 10, 21), null, false, EMAIL);
     }
 
     @Test

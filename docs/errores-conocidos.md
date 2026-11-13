@@ -44,6 +44,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Bajas de turno fijo con `entregada`**: `DELETE /admin/turnos-fijos/{id}` y `DELETE /admin/turnos-fijos/{id}/fechas/{fecha}` aceptan `?entregada=` (por defecto `true`). Antes lo cobrado en el club quedaba siempre `A_REEMBOLSAR`; ahora, por defecto, se devuelve en el momento.
 - **El EMPLEADO da de alta clientes**: `POST /admin/usuarios` acepta al EMPLEADO con `rol: CLIENTE`; con otro rol, `403` "Solo podés dar de alta clientes.". Editar, desactivar y reactivar siguen siendo del ADMIN.
 - **Partidos y turnos fijos de 1 a 4 jugadores**: `jugadores` acepta de 1 a 4 (antes exactamente 4). El jugador 1 sigue siendo obligatorio y un cliente registrado. El error de validación pasa a ser "Un partido tiene de 1 a 4 jugadores".
 - **Una `PENDIENTE` vence al empezar el turno** si eso pasa antes de los 15 minutos: `expiresAt` nunca es posterior al inicio del turno.
