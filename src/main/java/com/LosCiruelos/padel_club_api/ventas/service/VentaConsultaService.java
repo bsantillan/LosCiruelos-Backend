@@ -146,4 +146,17 @@ public class VentaConsultaService {
     public List<VentaPorProducto> porProducto(LocalDateTime inicio, LocalDateTime fin) {
         return ventaRepository.porProducto(inicio, fin, EstadoVenta.COBRADA);
     }
+
+    /** Las ventas cobradas o anuladas de [inicio, fin), para el cierre de caja (las anuladas se restan). */
+    @Transactional(readOnly = true)
+    public List<Venta> paraLaCaja(LocalDateTime inicio, LocalDateTime fin) {
+        return ventaRepository.findParaLaCaja(inicio, fin, java.util.EnumSet.of(EstadoVenta.COBRADA, EstadoVenta.ANULADA));
+    }
+
+    /** Las devoluciones de ventas de [inicio, fin), para el cierre de caja. */
+    @Transactional(readOnly = true)
+    public List<com.LosCiruelos.padel_club_api.ventas.entity.VentaDevolucion> devolucionesParaLaCaja(
+            LocalDateTime inicio, LocalDateTime fin) {
+        return ventaRepository.findDevolucionesParaLaCaja(inicio, fin);
+    }
 }

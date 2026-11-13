@@ -420,6 +420,10 @@ public class Pago {
     public static final Set<EstadoPago> ESTADOS_DEVUELTOS = Set.of(EstadoPago.DEVUELTO, EstadoPago.A_REEMBOLSAR,
             EstadoPago.REEMBOLSO_PENDIENTE);
 
+    /** Lo que muestra el cierre de caja: lo cobrado (aunque después se devuelva) y lo anulado. */
+    public static final Set<EstadoPago> ESTADOS_PARA_LA_CAJA = Set.of(EstadoPago.APROBADO, EstadoPago.DEVUELTO,
+            EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE, EstadoPago.ANULADO);
+
     /** Los que alguna vez se cobraron: entran a caja el día del cobro aunque después se devuelvan. */
     public static final Set<EstadoPago> ESTADOS_COBRADOS = Set.of(EstadoPago.APROBADO, EstadoPago.DEVUELTO,
             EstadoPago.A_REEMBOLSAR, EstadoPago.REEMBOLSO_PENDIENTE);

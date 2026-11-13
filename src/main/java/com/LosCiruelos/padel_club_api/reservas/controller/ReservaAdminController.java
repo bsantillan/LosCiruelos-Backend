@@ -126,9 +126,10 @@ public class ReservaAdminController {
     }
 
     /**
-     * Resumen del período para el panel (montos, turnos, caja y productos). El ADMIN ve cualquier
-     * período; el EMPLEADO, solo el día de hoy. Sin fechas, el resumen es de hoy.
+     * Solo ADMIN: resumen del período para el panel (montos, turnos, caja y productos). Sin fechas, el
+     * de la jornada en curso. El EMPLEADO ve el cierre de su jornada en GET /admin/caja.
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/resumen")
     public ResponseEntity<ResumenResponse> resumen(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,

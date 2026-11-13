@@ -226,18 +226,15 @@ public class ReservaConsultaService {
      */
     @Transactional(readOnly = true)
     public ResumenResponse resumen(LocalDate desde, LocalDate hasta, String email) {
-        boolean soloHoy = !Roles.esAdmin(usuarioService.autenticado(email));
-        // el "hoy" del EMPLEADO es el de la jornada en curso (pasada la medianoche, el día anterior)
-        LocalDate hoy = soloHoy ? jornadaService.actual().fecha() : reloj.hoy();
+        // solo el ADMIN: el EMPLEADO ve el cierre de su jornada en GET /admin/caja
+        Roles.exigirAdmin(usuarioService.autenticado(email), "Solo el ADMIN ve el resumen.");
+        LocalDate hoy = jornadaService.actual().fecha();
         if ((desde == null) != (hasta == null)) {
             throw new ReservaException("Indicá las dos fechas (desde y hasta) o ninguna para ver el día de hoy.");
         }
         if (desde == null) {
             desde = hoy;
             hasta = hoy;
-        }
-        if (soloHoy && !(desde.equals(hoy) && hasta.equals(hoy))) {
-            throw new PermisoDenegadoException("Solo podés ver el resumen de hoy.");
         }
         return resumen(desde, hasta);
     }

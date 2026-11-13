@@ -88,6 +88,12 @@ class PermisosDelPersonalTest {
         }
 
         @Bean
+        com.LosCiruelos.padel_club_api.pagos.controller.CajaAdminController cajaAdminController() {
+            return new com.LosCiruelos.padel_club_api.pagos.controller.CajaAdminController(
+                    mock(com.LosCiruelos.padel_club_api.pagos.service.CajaService.class));
+        }
+
+        @Bean
         UsuarioAdminController usuarioAdminController() {
             return new UsuarioAdminController(mock(UsuarioAdminService.class));
         }
@@ -189,5 +195,14 @@ class PermisosDelPersonalTest {
                 .andExpect(status().isCreated());
         mvc.perform(json(post("/admin/reservas/4/pagos/1/devoluciones"), "{\"lineas\":[]}").with(ADMIN))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void elEmpleadoVeLaCajaPeroElResumenEsDelAdmin() throws Exception {
+        mvc.perform(get("/admin/caja").with(EMPLEADO)).andExpect(status().isOk());
+        mvc.perform(get("/admin/caja").param("fecha", "2026-10-12").with(ADMIN)).andExpect(status().isOk());
+        mvc.perform(get("/admin/reservas/resumen").with(EMPLEADO)).andExpect(status().isForbidden());
+        mvc.perform(get("/admin/reservas/resumen").with(ADMIN)).andExpect(status().isOk());
+        mvc.perform(get("/admin/caja").with(user("c@test.com").roles("CLIENTE"))).andExpect(status().isForbidden());
     }
 }

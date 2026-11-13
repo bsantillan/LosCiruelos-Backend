@@ -217,7 +217,8 @@ La jornada en curso, para que el front sepa qué fechas mostrarle al EMPLEADO.
 | `GET /admin/reservas/{id}` | Cualquiera | Una de un día anterior → `404` (como las ventas de otros días) |
 | Cobrar (efectivo, transferencia, `presencial`, Cuenta DNI, QR), cancelar, sumar o sacar productos y registrar paletas devueltas | Cualquier reserva | Solo de hoy en adelante: una de un día anterior → `403` "Solo el ADMIN puede operar reservas de días anteriores." |
 | `GET /admin/reservas/saldos-pendientes` y `/devoluciones-pendientes` | Todas | Solo las de hoy |
-| `GET /admin/reservas/resumen` | Cualquier período | Solo hoy |
+| `GET /admin/reservas/resumen` | Cualquier período | `403` (usa `GET /admin/caja`) |
+| `GET /admin/caja` (cierre de caja) | Cualquier jornada | Solo la jornada en curso |
 | Reservas sin seña, bonificaciones, verificar pagos | Sí | `403` |
 | Partidos y turnos fijos | Sí | `403` |
 | Anular un cobro de una reserva | Cualquiera (también bonificaciones) | Solo los que registró el personal en la jornada; nunca una bonificación |
@@ -801,7 +802,48 @@ Cobrar en el club la seña, el saldo o el total: `POST /admin/reservas/{reservaI
 
 ---
 
-## Resumen del club — `/admin/reservas/resumen` (rol: ADMIN, EMPLEADO)
+## Cierre de caja — `GET /admin/caja?fecha=2026-10-13` (rol: ADMIN, EMPLEADO)
+
+El cierre de caja de **una jornada**: de la apertura de `fecha` a la apertura del día siguiente, según el horario semanal (la misma regla que `GET /admin/jornada`). Sin `fecha`, la jornada en curso. El ADMIN ve cualquier jornada; el EMPLEADO, solo la que está en curso (otra fecha → `403` "Solo podés ver la caja de la jornada en curso."). A las 00:30 la jornada en curso sigue siendo la del día anterior.
+
+```json
+{
+  "fecha": "2026-10-13",
+  "inicio": "2026-10-13T08:00:00.000-03:00",
+  "fin": "2026-10-14T08:00:00.000-03:00",
+  "cobrado":  { "efectivo": 6200.00, "mercadoPago": 3000.00, "cuentaDni": 4000.00, "total": 13200.00 },
+  "devuelto": { "efectivo": 1500.00, "mercadoPago": 0.00, "cuentaDni": 0.00, "total": 1500.00 },
+  "efectivoEnCaja": 4700.00,
+  "bonificado": 1000.00,
+  "aEntregar": { "cantidad": 1, "monto": 500.00 },
+  "movimientos": [
+    { "fecha": "2026-10-13T09:00:00.000-03:00", "tipo": "COBRO", "medio": "EFECTIVO", "monto": 5000.00,
+      "detalle": "Reserva #12 · Ana Pérez", "reservaId": 12, "ventaId": null, "registradoPor": "Carla Méndez" },
+    { "fecha": "2026-10-13T09:20:00.000-03:00", "tipo": "ANULACION", "medio": "EFECTIVO", "monto": -2000.00,
+      "detalle": "Anulación · Reserva #12 · Ana Pérez · Lo cargué dos veces", "reservaId": 12, "ventaId": null,
+      "registradoPor": "Carla Méndez" },
+    { "fecha": "2026-10-13T09:55:00.000-03:00", "tipo": "VENTA", "medio": "EFECTIVO", "monto": 1200.00,
+      "detalle": "Venta #8", "reservaId": null, "ventaId": 8, "registradoPor": "Carla Méndez" }
+  ]
+}
+```
+
+| Campo | Qué es |
+|---|---|
+| `cobrado` | Lo cobrado en la jornada, por medio: cobros de reservas y partidos (por `paidAt`) y ventas sueltas (cuando se registran), **sin lo anulado**. `mercadoPago` suma lo online, el QR de la caja y las transferencias a Mercado Pago. No incluye bonificaciones |
+| `devuelto` | Las devoluciones **entregadas** en la jornada (o confirmadas por Mercado Pago), y las de ventas sueltas, por el medio del cobro original |
+| `efectivoEnCaja` | `cobrado.efectivo − devuelto.efectivo`: lo que tiene que haber en la caja |
+| `bonificado` | Lo que el ADMIN bonificó en la jornada (no es plata) |
+| `aEntregar` | Las devoluciones creadas en la jornada que siguen `A_REEMBOLSAR` (cantidad y monto) |
+| `movimientos` | Todo lo que movió plata, en orden de fecha. `tipo`: `COBRO` (reserva o partido), `VENTA`, `DEVOLUCION` o `ANULACION`. `medio`: `EFECTIVO`, `MERCADO_PAGO` o `CUENTA_DNI`. `monto` es negativo si sale (devoluciones) o si resta (anulaciones). `registradoPor`: quién lo hizo (null si fue el cliente online o Mercado Pago) |
+
+- Un cobro o una venta **anulados** aparecen dos veces, en la jornada en que se cobraron: el `COBRO`/`VENTA` y su `ANULACION` en negativo, con la fecha de la anulación. Así la suma de `movimientos` siempre da `cobrado.total − devuelto.total`.
+- Lo que es de reservas (turnos jugados, por jugar, deuda) no está acá: es del resumen del ADMIN.
+
+## Resumen del club — `/admin/reservas/resumen` (rol: ADMIN)
+
+**Solo ADMIN** (el EMPLEADO ve el cierre de su jornada en `GET /admin/caja`; el resumen le responde `403`). Sin fechas, el de la jornada en curso.
+
 
 ### `GET /admin/reservas/resumen?desde=2026-10-01&hasta=2026-10-31` → `200 ResumenResponse`
 Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-dd`) y van las dos juntas o ninguna: **sin fechas, el resumen es del día de hoy**.

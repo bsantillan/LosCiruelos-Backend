@@ -88,4 +88,22 @@ public interface VentaRepository extends JpaRepository<Venta, Long>, JpaSpecific
             @Param("inicio") LocalDateTime inicio,
             @Param("fin") LocalDateTime fin,
             @Param("cobrada") EstadoVenta cobrada);
+
+    /** Las ventas cobradas o anuladas registradas en [inicio, fin), para el cierre de caja. */
+    @Query("""
+            SELECT v FROM Venta v JOIN FETCH v.registradoPor LEFT JOIN FETCH v.cliente LEFT JOIN FETCH v.anuladaPor
+            WHERE v.estado IN :estados AND v.createdAt >= :inicio AND v.createdAt < :fin
+            ORDER BY v.createdAt, v.id
+            """)
+    List<Venta> findParaLaCaja(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin,
+            @Param("estados") java.util.Collection<com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta> estados);
+
+    /** Las devoluciones de ventas registradas en [inicio, fin), con su venta. */
+    @Query("""
+            SELECT d FROM VentaDevolucion d JOIN FETCH d.venta LEFT JOIN FETCH d.registradaPor
+            WHERE d.createdAt >= :inicio AND d.createdAt < :fin
+            ORDER BY d.createdAt, d.id
+            """)
+    List<com.LosCiruelos.padel_club_api.ventas.entity.VentaDevolucion> findDevolucionesParaLaCaja(
+            @Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
 }

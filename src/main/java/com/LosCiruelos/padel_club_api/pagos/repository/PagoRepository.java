@@ -80,4 +80,33 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
             ORDER BY d.createdAt, d.id
             """)
     List<com.LosCiruelos.padel_club_api.pagos.entity.Devolucion> findDevolucionesSinRevisar();
+
+    /** Los pagos cobrados (o anulados) de la jornada, con su reserva y el cliente, para el cierre de caja. */
+    @Query("""
+            SELECT p FROM Pago p JOIN FETCH p.reserva r JOIN FETCH r.cliente LEFT JOIN FETCH p.anuladoPor
+            WHERE p.estado IN :estados AND p.paidAt >= :inicio AND p.paidAt < :fin
+            ORDER BY p.paidAt, p.id
+            """)
+    List<Pago> findParaLaCaja(@Param("inicio") java.time.LocalDateTime inicio,
+            @Param("fin") java.time.LocalDateTime fin, @Param("estados") java.util.Collection<EstadoPago> estados);
+
+    /** Las devoluciones entregadas (o confirmadas por Mercado Pago) en [inicio, fin). */
+    @Query("""
+            SELECT d FROM Devolucion d JOIN FETCH d.pago p JOIN FETCH p.reserva r JOIN FETCH r.cliente
+            LEFT JOIN FETCH d.entregadoPor LEFT JOIN FETCH d.registradaPor
+            WHERE d.estado = :estado AND d.entregadoAt >= :inicio AND d.entregadoAt < :fin
+            ORDER BY d.entregadoAt, d.id
+            """)
+    List<com.LosCiruelos.padel_club_api.pagos.entity.Devolucion> findDevolucionesEntregadas(
+            @Param("estado") com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion estado,
+            @Param("inicio") java.time.LocalDateTime inicio, @Param("fin") java.time.LocalDateTime fin);
+
+    /** Las devoluciones en ese estado creadas en [inicio, fin). */
+    @Query("""
+            SELECT d FROM Devolucion d
+            WHERE d.estado = :estado AND d.createdAt >= :inicio AND d.createdAt < :fin
+            """)
+    List<com.LosCiruelos.padel_club_api.pagos.entity.Devolucion> findDevolucionesCreadas(
+            @Param("estado") com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion estado,
+            @Param("inicio") java.time.LocalDateTime inicio, @Param("fin") java.time.LocalDateTime fin);
 }

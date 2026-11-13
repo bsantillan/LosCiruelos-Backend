@@ -169,9 +169,9 @@ class ReservaConsultaServiceResumenTest {
     }
 
     @Test
-    void sinFechasEsElDiaDeHoyYLaCajaVaDeLas0A_Las24() {
+    void sinFechasEsLaJornadaEnCurso() {
         LocalDate hoy = AHORA.toLocalDate();
-        ResumenResponse r = resumen.resumen(null, null, EMPLEADO);
+        ResumenResponse r = resumen.resumen(null, null, ADMIN);
 
         assertThat(r.desde()).isEqualTo(hoy);
         assertThat(r.hasta()).isEqualTo(hoy);
@@ -183,17 +183,10 @@ class ReservaConsultaServiceResumenTest {
     }
 
     @Test
-    void elEmpleadoSoloVeElDiaDeHoy() {
-        LocalDate hoy = AHORA.toLocalDate();
-        assertThat(resumen.resumen(hoy, hoy, EMPLEADO).desde()).isEqualTo(hoy);
-
-        assertThatThrownBy(() -> resumen.resumen(DESDE, HASTA, EMPLEADO))
+    void elResumenEsSoloDelAdmin() {
+        assertThatThrownBy(() -> resumen.resumen(null, null, EMPLEADO))
                 .isInstanceOf(PermisoDenegadoException.class)
-                .hasMessage("Solo podés ver el resumen de hoy.");
-        assertThatThrownBy(() -> resumen.resumen(hoy.minusDays(1), hoy, EMPLEADO))
-                .isInstanceOf(PermisoDenegadoException.class);
-        assertThatThrownBy(() -> resumen.resumen(hoy, hoy.plusDays(1), EMPLEADO))
-                .isInstanceOf(PermisoDenegadoException.class);
+                .hasMessage("Solo el ADMIN ve el resumen.");
     }
 
     @Test
