@@ -227,7 +227,8 @@ La jornada en curso, para que el front sepa qué fechas mostrarle al EMPLEADO.
 | Ventas sueltas | Todas; anula cualquiera, devuelve y verifica | Las de hoy; anula las de hoy no verificadas; no devuelve ni verifica |
 | Productos | Crea, edita, da de baja y reactiva | Ve el catálogo y suma o resta stock (`PATCH …/stock`) |
 | `GET /admin/usuarios`, `GET /admin/usuarios/{id}` | Sí (nunca aparecen los ADMIN) | Sí, los mismos datos; el detalle de un ADMIN → `404` |
-| Crear, editar, desactivar y reactivar usuarios | Sí | `403` |
+| Crear usuarios (`POST /admin/usuarios`) | Cualquier rol | Solo `rol: CLIENTE`; otro rol → `403` "Solo podés dar de alta clientes." |
+| Editar, desactivar y reactivar usuarios | Sí | `403` |
 | `GET /admin/usuarios/clientes` (buscar para reservar) | Sí | Sí |
 | Configuración del club y días cerrados | Sí | `403` |
 
@@ -247,7 +248,7 @@ La jornada en curso, para que el front sepa qué fechas mostrarle al EMPLEADO.
 
 | Método y ruta | Descripción |
 |---|---|
-| `POST /admin/usuarios` → `201` | Crea un usuario con contraseña temporal aleatoria (12 caracteres) y le manda un email de bienvenida con la contraseña y un código de verificación. Body: `email`, `nombre`, `apellido`, `telefono`, `rol` (obligatorios); `categoria` y `posicion` opcionales para un CLIENTE (sin ellas queda con el perfil incompleto y las carga él; sirve para dar de alta en el momento al responsable de un partido). El usuario queda habilitado y con el email sin verificar. |
+| `POST /admin/usuarios` → `201` | **ADMIN, EMPLEADO** (el EMPLEADO solo da de alta clientes: con otro `rol`, `403` "Solo podés dar de alta clientes."). Crea un usuario con contraseña temporal aleatoria (12 caracteres) y le manda un email de bienvenida con la contraseña y un código de verificación. Body: `email`, `nombre`, `apellido`, `telefono`, `rol` (obligatorios); `categoria` y `posicion` opcionales para un CLIENTE (sin ellas queda con el perfil incompleto y las carga él; sirve para dar de alta en el momento al responsable de un partido). El usuario queda habilitado y con el email sin verificar. |
 | `PUT /admin/usuarios/{id}` → `200` | Edita `nombre`, `apellido`, `telefono`, `rol` (obligatorios) y `categoria`/`posicion` (solo CLIENTE, obligatorias en ese caso). Si deja de ser CLIENTE se borra su perfil de jugador; si pasa a CLIENTE se le crea. No se puede editar a un ADMIN ni convertir a alguien en ADMIN. Todo se valida antes de guardar. |
 | `GET /admin/usuarios` → `200 [ ... ]` | **ADMIN, EMPLEADO.** Lista usuarios (nunca incluye ADMIN). Filtros opcionales por query string: `rol`, `enabled`, `nombre` (busca en nombre o apellido, *contiene*), `email` (*contiene*), `categoria`, `posicion` (estos dos solo junto con `rol=CLIENTE`). |
 | `GET /admin/usuarios/{id}` → `200` | **ADMIN, EMPLEADO.** Detalle de un usuario. Al EMPLEADO, un ADMIN responde `404`. |
@@ -630,7 +631,7 @@ El club tiene **un QR de Mercado Pago impreso en el mostrador** (el de la caja).
 
 ## Partidos y turnos fijos — `/admin/reservas/partidos`, `/admin/turnos-fijos` (rol: ADMIN)
 
-Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **de 1 a 4 jugadores** (`jugadores` es una lista de 1 a 4: la posición de cada uno es su lugar en la lista; vale para crear y editar partidos, turnos fijos y una fecha de un turno fijo; con 0 o más de 4, `400` "Un partido tiene de 1 a 4 jugadores"). Al editar, los que ya no están se sacan. Cada uno es clientes registrados (`usuarioId`) o invitados sin cuenta (`nombre` y, opcional, `telefono`). **El jugador 1 tiene que ser un cliente registrado: es el responsable** y el cliente de la reserva (`clienteId`). Si no tiene cuenta, el ADMIN lo busca en `GET /admin/usuarios/clientes?buscar=` y, si no está, se la crea con `POST /admin/usuarios` (con lo mínimo).
+Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **de 1 a 4 jugadores** (`jugadores` es una lista de 1 a 4: la posición de cada uno es su lugar en la lista; vale para crear y editar partidos, turnos fijos y una fecha de un turno fijo; con 0 o más de 4, `400` "Un partido tiene de 1 a 4 jugadores"). Al editar, los que ya no están se sacan. Cada uno es un cliente registrado (`usuarioId`) o un invitado sin cuenta (`nombre` y, opcional, `telefono`). **El jugador 1 tiene que ser un cliente registrado: es el responsable** y el cliente de la reserva (`clienteId`). Si no tiene cuenta, el ADMIN lo busca en `GET /admin/usuarios/clientes?buscar=` y, si no está, se la crea con `POST /admin/usuarios` (con lo mínimo).
 - **No vence y no tiene seña.** Sin nada pagado queda `CONFIRMADA`; con algo pagado, `PARCIALMENTE_PAGADA`; entero, `PAGADA` (o `COMPLETADA`). Ocupa la cancha y aparece como deuda si se juega sin pagar entero.
 - **Se cobra en el club, como un todo.** Un solo monto general: se cobra y se bonifica como una reserva normal (`cobros/efectivo`, `cobros/presencial`, `bonificacion`), sin indicar el jugador; cómo se lo dividen es cosa de ellos. No se paga online (`409`).
 - **Lo armó el ADMIN** (`createdBy`), pero su cliente es el responsable. Los jugadores registrados lo ven en `GET /reservas/mias` y en `GET /reservas/{id}` (sin los teléfonos de los demás), pero no lo pueden pagar ni cancelar.

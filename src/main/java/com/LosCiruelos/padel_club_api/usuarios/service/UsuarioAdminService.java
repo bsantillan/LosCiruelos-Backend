@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
+import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
 import jakarta.persistence.criteria.Predicate;
 import com.LosCiruelos.padel_club_api.common.Roles;
 import com.LosCiruelos.padel_club_api.usuarios.exception.UsuarioNotFoundException;
@@ -55,8 +56,12 @@ public class UsuarioAdminService {
     private final VerificationService verificationService;
     private final UsuarioMapper usuarioMapper;
 
+    /** El ADMIN da de alta cualquier rol; el EMPLEADO, solo clientes (403 con otro rol). */
     @Transactional
-    public UsuarioAdminResponse crearUsuario(CrearUsuarioAdminRequest request) {
+    public UsuarioAdminResponse crearUsuario(CrearUsuarioAdminRequest request, String email) {
+        if (request.getRol() != Role.CLIENTE && !Roles.esAdmin(usuarioService.autenticado(email))) {
+            throw new PermisoDenegadoException("Solo podés dar de alta clientes.");
+        }
         Usuario existente = usuarioService.findByEmail(request.getEmail());
         if (existente != null) {
             throw new EmailEnUsoException();

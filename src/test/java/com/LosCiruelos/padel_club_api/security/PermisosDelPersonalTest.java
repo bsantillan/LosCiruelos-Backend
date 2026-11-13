@@ -124,10 +124,13 @@ class PermisosDelPersonalTest {
     }
 
     @Test
-    void elEmpleadoNoCreaNiEditaNiDesactivaUsuarios() throws Exception {
+    void elEmpleadoDaDeAltaClientesPeroNoEditaNiDesactivaUsuarios() throws Exception {
         String usuario = """
                 {"nombre":"Ana","apellido":"Gómez","email":"ana@test.com","password":"Prueba123!","rol":"CLIENTE"}""";
-        mvc.perform(json(post("/admin/usuarios"), usuario).with(EMPLEADO)).andExpect(status().isForbidden());
+        // dar de alta clientes sí (otro rol lo rechaza el service con 403)
+        mvc.perform(json(post("/admin/usuarios"), """
+                {"email":"ana@test.com","nombre":"Ana","apellido":"Gómez","telefono":"1122334455","rol":"CLIENTE"}""")
+                .with(EMPLEADO)).andExpect(status().isCreated());
         mvc.perform(json(put("/admin/usuarios/2"), usuario).with(EMPLEADO)).andExpect(status().isForbidden());
         mvc.perform(put("/admin/usuarios/2/reactivar").with(EMPLEADO)).andExpect(status().isForbidden());
         mvc.perform(delete("/admin/usuarios/2/desactivar").with(EMPLEADO)).andExpect(status().isForbidden());

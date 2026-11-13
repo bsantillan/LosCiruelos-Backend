@@ -590,7 +590,7 @@ class ControllersTest {
 
         @Test
         void administracionDeUsuarios() throws Exception {
-            when(usuarioAdminService.crearUsuario(any())).thenReturn(new UsuarioAdminResponse());
+            when(usuarioAdminService.crearUsuario(any(), any())).thenReturn(new UsuarioAdminResponse());
             when(usuarioAdminService.editarUsuario(eq(2L), any())).thenReturn(new UsuarioAdminResponse());
             when(usuarioAdminService.listarUsuarios(any())).thenReturn(List.of());
             when(usuarioAdminService.getUsuario(2L, EMAIL)).thenReturn(new UsuarioAdminResponse());
