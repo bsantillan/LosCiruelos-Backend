@@ -46,7 +46,7 @@ WHERE rol = 'ADMIN' OR email IN ('empleado@test.com', current_setting('datos.mai
 
 -- ── Borrar todos los datos ───────────────────────────────────────────────
 -- configuracion arrastra dias y dias_cerrados; canchas, reservas y turnos fijos con sus hijas
-TRUNCATE cancha_fotos, pago_devolucion_lineas, pago_devoluciones, pago_imputaciones, pagos, reserva_jugadores, reserva_productos, reservas, turno_fijo_jugadores, turno_fijo_productos,
+TRUNCATE novedades, cancha_fotos, pago_devolucion_lineas, pago_devoluciones, pago_imputaciones, pagos, reserva_jugadores, reserva_productos, reservas, turno_fijo_jugadores, turno_fijo_productos,
          turnos_fijos, venta_devolucion_items, venta_devoluciones, venta_items, ventas, dias_cerrados, dias,
          configuracion, canchas, productos, refresh_tokens, verification_tokens, envios_codigo_telefono
          RESTART IDENTITY CASCADE;
@@ -638,6 +638,15 @@ WHERE estado IN ('DEVUELTO', 'A_REEMBOLSAR', 'REEMBOLSO_PENDIENTE') AND provider
 UPDATE reservas
 SET cancelada_at = LEAST(fecha_reserva + hora_inicio - interval '1 day', now()), cancelada_por_id = cliente_id
 WHERE estado = 'CANCELADA' AND cancelada_at IS NULL;
+
+-- ── Novedades de la página de inicio: una publicada, una que vence en una semana y un borrador ──
+INSERT INTO novedades (titulo, descripcion, etiqueta, publicada, publicada_at, visible_hasta, creado_por_id, created_at, updated_at)
+VALUES ('Torneo de primavera', 'Inscripción abierta para todas las categorías. Se juega el último fin de semana del mes.',
+        'Torneo', true, now() - interval '2 days', current_date + 7, pg_temp.admin(), now() - interval '3 days', now() - interval '2 days'),
+       ('Clases para principiantes', 'Martes y jueves de 18 a 19, con paletas incluidas.', 'Clases', true,
+        now() - interval '10 days', NULL, pg_temp.admin(), now() - interval '10 days', now() - interval '10 days'),
+       ('Nuevas luces en la cancha 4', 'Estamos terminando el recambio.', 'Club', false, NULL, NULL, pg_temp.admin(),
+        now() - interval '1 day', now() - interval '1 day');
 
 DROP EXTENSION pgcrypto;
 

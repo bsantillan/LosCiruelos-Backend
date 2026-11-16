@@ -89,6 +89,18 @@ class RutasPublicasTest {
         }
 
         @Bean
+        com.LosCiruelos.padel_club_api.club.controller.NovedadController novedadController() {
+            return new com.LosCiruelos.padel_club_api.club.controller.NovedadController(
+                    mock(com.LosCiruelos.padel_club_api.club.service.NovedadService.class));
+        }
+
+        @Bean
+        com.LosCiruelos.padel_club_api.club.controller.NovedadAdminController novedadAdminController() {
+            return new com.LosCiruelos.padel_club_api.club.controller.NovedadAdminController(
+                    mock(com.LosCiruelos.padel_club_api.club.service.NovedadService.class));
+        }
+
+        @Bean
         ClubController clubController(ConfiguracionGeneralService servicio) {
             return new ClubController(servicio);
         }
@@ -134,5 +146,14 @@ class RutasPublicasTest {
         mvc.perform(get("/admin/canchas").with(org.springframework.security.test.web.servlet.request
                 .SecurityMockMvcRequestPostProcessors.user("a@test.com").roles("ADMIN")))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void lasNovedadesPublicadasSonPublicasYSuGestionEsDelAdmin() throws Exception {
+        mvc.perform(get("/novedades").param("limite", "6")).andExpect(status().isOk());
+        mvc.perform(get("/admin/novedades")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/admin/novedades").with(org.springframework.security.test.web.servlet.request
+                .SecurityMockMvcRequestPostProcessors.user("e@test.com").roles("EMPLEADO")))
+                .andExpect(status().isForbidden());
     }
 }

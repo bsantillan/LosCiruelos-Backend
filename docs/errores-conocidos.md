@@ -44,6 +44,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Novedades**: nuevo `GET /novedades?limite=6` (público) con las publicadas y vigentes, y `/admin/novedades` (ADMIN) para el alta, la edición, la publicación, el borrado y la imagen. Reemplazan a los torneos, que se publican como novedad.
 - **Canchas**: `GET /canchas` trae solo las activas, con `nombre`, `tipo`, `superficie`, `iluminacion`, `activa` y `fotos[{id, url, orden}]`. Nuevo `/admin/canchas` (ADMIN) para el alta, la edición, la baja con confirmación, la reactivación, el borrado y las fotos. Las imágenes se sirven públicas en `GET /archivos/{nombre}`. Una cancha dada de baja da `404` en la disponibilidad y `409` al reservar.
 - **`rango` en los listados**: `GET /reservas/mias`, `GET /admin/reservas` y `GET /admin/ventas` suman `rango: { desde, hasta }` con la primera y la última fecha de toda la lista, sin el filtro de fechas. Ya no hacen falta los pedidos con `size=1` para armar "Todo el período".
 - **Métricas, bloque `futuro`**: pasa a `{ asegurado, porCobrar, turnos, dias }`. Lo por cobrar y los turnos van de hoy hasta hoy + la anticipación de la configuración (`dias`), no 14 días fijos. Se sacan `porCobrar14Dias` y `turnos14Dias`.

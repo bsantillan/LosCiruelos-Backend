@@ -294,6 +294,33 @@ Las canchas **activas**, por número, con sus fotos en orden (la grilla, Reserva
 ### `GET /archivos/{nombre}` → `200` (público)
 Una imagen subida (foto de cancha o imagen de novedad), con su `Content-Type` y `Cache-Control: public, max-age=31536000, immutable` (cada nombre es un UUID que no se reutiliza). Un nombre que no existe → `404`.
 
+## Novedades — `/novedades` (público) y `/admin/novedades` (rol: ADMIN)
+
+Las novedades del club (torneos, clases, avisos) para la página de inicio; los torneos se publican como novedad. El texto "Para más información, comunicate con el club" lo pone el front: no se guarda.
+
+### `GET /novedades?limite=6` → `200` (público)
+Las publicadas y vigentes (`visibleHasta` null o de hoy en adelante), de la más nueva a la más vieja. `limite` de 1 a 20 (por defecto 6; otro valor → `400`).
+```json
+[ { "id": 4, "titulo": "Torneo de primavera", "descripcion": "Inscripción abierta para todas las categorías.",
+    "etiqueta": "Torneo", "imagenUrl": "/archivos/2b9c4e1a-7f3d-4a8b-9c6e-1d2f3a4b5c6d.webp", "publicadaAt": "2026-10-11T18:00:00.000-03:00",
+    "visibleHasta": "2026-10-20" } ]
+```
+
+### Panel del ADMIN (EMPLEADO `403`)
+Body de alta y edición (`NovedadRequest`): `{ "titulo": "Torneo de primavera", "descripcion": "…", "etiqueta": "Torneo", "visibleHasta": "2026-10-20" }`. `titulo` es obligatorio (hasta 80), `descripcion` también (hasta 300), `etiqueta` es opcional (hasta 30) y `visibleHasta` también: después de esa fecha deja de mostrarse sola.
+
+`NovedadResponse`: `{ id, titulo, descripcion, etiqueta, imagenUrl, publicada, publicadaAt, visibleHasta, estado, creadoPor, creadoAt, actualizadoAt }`. `estado` es `BORRADOR` (sin publicar), `PUBLICADA` (publicada y vigente) o `VENCIDA` (publicada, con `visibleHasta` anterior a hoy). `creadoPor` es el nombre.
+
+| Método y ruta | Descripción | Errores |
+|---|---|---|
+| `GET /admin/novedades?page=0&size=20` → `200 PaginaResponse<NovedadResponse>` | Todas, de la más nueva a la más vieja (`size` hasta 100) | `400` página o tamaño inválidos |
+| `POST /admin/novedades` → `201` | Alta: nace como `BORRADOR` | `400` validación |
+| `PUT /admin/novedades/{id}` → `200` | Edición, con el mismo body | `400` · `404` |
+| `PUT /admin/novedades/{id}/publicacion` → `200` | Body `{ "publicada": true }`: la publica y completa `publicadaAt` (si ya estaba publicada, no cambia). Con `false` vuelve a borrador (`publicadaAt` null) | `400` sin `publicada` · `404` |
+| `DELETE /admin/novedades/{id}` → `204` | La borra, con su imagen | `404` |
+| `POST /admin/novedades/{id}/imagen` (multipart, campo `archivo`) → `200` | Pone o reemplaza la imagen (una sola): JPG, PNG o WEBP de hasta 5 MB, con las mismas reglas que las fotos de cancha | `400` · `404` |
+| `DELETE /admin/novedades/{id}/imagen` → `200` | Saca la imagen | `404` |
+
 ## Gestión de canchas — `/admin/canchas` (rol: ADMIN; EMPLEADO `403`)
 
 Body de alta y edición (`CanchaRequest`):
