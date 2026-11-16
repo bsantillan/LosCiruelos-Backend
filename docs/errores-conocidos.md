@@ -44,6 +44,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Métricas, bloque `futuro`**: pasa a `{ asegurado, porCobrar, turnos, dias }`. Lo por cobrar y los turnos van de hoy hasta hoy + la anticipación de la configuración (`dias`), no 14 días fijos. Se sacan `porCobrar14Dias` y `turnos14Dias`.
 - **Métricas del ADMIN**: nuevo `GET /admin/metricas?desde&hasta` (solo ADMIN; sin fechas, los últimos 30 días) con los bloques `ocupacion`, `ingresos`, `clientes`, `reservas`, `cancelaciones`, `deuda`, `futuro` y `productos`. Los valores comparables vienen como `{ actual, anterior, variacion }`.
 - **Cierre de caja**: nuevo `GET /admin/caja?fecha=` (ADMIN cualquier jornada, EMPLEADO la que está en curso) con `fecha`, `inicio`, `fin`, `cobrado`, `devuelto`, `efectivoEnCaja`, `bonificado`, `aEntregar` y `movimientos`. `GET /admin/reservas/resumen` pasa a ser **solo del ADMIN** (el EMPLEADO recibe `403`); sin fechas toma la jornada en curso.
 - **Eliminar un producto**: vuelve `DELETE /admin/configuracion/productos/{id}` → `204`, solo para uno que nunca se usó. Si se usó, `409` "El producto ya se usó en reservas o ventas: desactivalo en lugar de eliminarlo." La baja y la reactivación siguen igual.

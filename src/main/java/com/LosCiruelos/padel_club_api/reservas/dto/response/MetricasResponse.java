@@ -175,10 +175,11 @@ public record MetricasResponse(
 
     /**
      * @param asegurado          lo ya cobrado (seña o total) de los turnos confirmados que todavía no se jugaron
-     * @param porCobrar14Dias    lo que falta cobrar de los turnos confirmados de los próximos 14 días
-     * @param turnos14Dias       cuántos turnos confirmados hay en los próximos 14 días
+     * @param porCobrar         lo que falta cobrar de los turnos confirmados de hoy a hoy + {@code dias}
+     * @param turnos             cuántos turnos confirmados hay en ese rango
+     * @param dias               la anticipación configurada (los días que se puede reservar por adelantado)
      */
-    public record Futuro(BigDecimal asegurado, BigDecimal porCobrar14Dias, long turnos14Dias) {
+    public record Futuro(BigDecimal asegurado, BigDecimal porCobrar, long turnos, int dias) {
     }
 
     // ── Productos ────────────────────────────────────────────────────────

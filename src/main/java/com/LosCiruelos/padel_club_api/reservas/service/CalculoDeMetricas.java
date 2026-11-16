@@ -502,12 +502,18 @@ public final class CalculoDeMetricas {
         return new MetricasResponse.Deuda(r(hasta7.add(hasta30).add(mas)), r(hasta7), r(hasta30), r(mas), deudores);
     }
 
-    /** @param futuras los turnos confirmados que todavía no empezaron */
+    /**
+     * Lo asegurado de todos los turnos que vienen y lo que falta cobrar hasta donde se puede reservar
+     * (hoy + los días de anticipación de la configuración, los mismos que limitan POST /reservas).
+     *
+     * @param futuras los turnos confirmados que todavía no empezaron
+     */
     public MetricasResponse.Futuro futuro(List<Reserva> futuras) {
-        LocalDate tope = ahora.toLocalDate().plusDays(13);
-        List<Reserva> proximas14 = futuras.stream().filter(rr -> !rr.getFechaReserva().isAfter(tope)).toList();
+        LocalDate tope = config.reservableHasta(ahora.toLocalDate());
+        List<Reserva> enRango = futuras.stream().filter(rr -> !rr.getFechaReserva().isAfter(tope)).toList();
         return new MetricasResponse.Futuro(r(Dinero.sumar(futuras.stream().map(Reserva::getMontoPagado))),
-                r(Dinero.sumar(proximas14.stream().map(Reserva::getMontoPendiente))), proximas14.size());
+                r(Dinero.sumar(enRango.stream().map(Reserva::getMontoPendiente))), enRango.size(),
+                config.getDiasAnticipacionReserva());
     }
 
     // ── Productos ────────────────────────────────────────────────────────

@@ -109,7 +109,8 @@ class MetricasRepositoryTest {
         assertThat(m.cancelaciones().porCliente()).isEqualTo(1);
         assertThat(m.clientes().activos().actual()).isEqualByComparingTo("1");
         assertThat(m.clientes().recurrentes().actual()).isEqualByComparingTo("1"); // su primera es del anterior
-        assertThat(m.futuro().turnos14Dias()).isEqualTo(1);
+        assertThat(m.futuro().turnos()).isEqualTo(1);
+        assertThat(m.futuro().dias()).isEqualTo(30);
     }
 
     @Test

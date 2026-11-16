@@ -840,7 +840,7 @@ Para decidir precios por franja, promociones y retención. **Solo ADMIN** (EMPLE
                      "retenido": {…}, "vencidasSinPagar": {…} },
   "deuda": { "total": 45000.00, "hasta7Dias": 15000.00, "de8a30Dias": 22500.00, "masDe30Dias": 7500.00,
              "deudores": [ { "clienteId": 18, "nombre": "Ana Gómez", "telefono": "…", "monto": 22500.00, "reservas": 2, "masVieja": "2026-09-20" } ] },
-  "futuro": { "asegurado": 110500.00, "porCobrar14Dias": 144500.00, "turnos14Dias": 16 },
+  "futuro": { "asegurado": 110500.00, "porCobrar": 210500.00, "turnos": 24, "dias": 30 },
   "productos": { "masVendidos": [ { "productoId": 1, "nombre": "Pelotas", "tipo": "VENTA", "cantidad": 40, "monto": 320000.00 } ],
                  "alquilados": [ { "productoId": 2, "nombre": "Paletas", "tipo": "ALQUILER", "cantidad": 80, "monto": 160000.00 } ],
                  "noDevueltos": { "unidades": 3, "montoAlquiler": 6000.00, "reservas": 2, "sinRegistrar": 1 },
@@ -856,7 +856,7 @@ Para decidir precios por franja, promociones y retención. **Solo ADMIN** (EMPLE
 | `reservas` | Las creadas en el período (por fecha de creación), sin los partidos que genera solo un turno fijo. `anticipacion`: días entre que se crea y el turno (el mismo día, 1–2, 3–7, más de 7). `duraciones`: minutos, de la más elegida a la menos (de las confirmadas). `porTipo`: confirmadas normales, partidos sueltos y de turno fijo. `porOrigen`: las creó el cliente desde la web o el personal |
 | `cancelaciones` | De las reservas del período. `tasa` = canceladas / (canceladas + confirmadas). `porCliente` / `porClub` (el personal o el sistema) y `anticipacion` (cuánto antes del turno) usan el dato que se guarda desde V43. Las canceladas antes de V43 van en `sinDato`. `retenido`: lo pagado de las canceladas que no se devolvió. `vencidasSinPagar`: `EXPIRADA` |
 | `deuda` | A hoy (no depende del período): turnos ya jugados que deben saldo, por antigüedad del turno (0–7, 8–30 y más de 30 días), y los deudores de mayor a menor deuda |
-| `futuro` | `asegurado`: lo ya cobrado de los turnos confirmados que todavía no empezaron. `porCobrar14Dias` y `turnos14Dias`: lo que falta cobrar y cuántos turnos confirmados hay en los próximos 14 días |
+| `futuro` | `asegurado`: lo ya cobrado de todos los turnos confirmados que todavía no empezaron. `porCobrar` y `turnos`: lo que falta cobrar y cuántos turnos confirmados hay **de hoy a hoy + `dias`**, donde `dias` es la anticipación de la configuración (los mismos días que limitan `POST /reservas`) |
 | `productos` | `masVendidos`: los 10 productos de venta más vendidos (en reservas y ventas sueltas). `alquilados`: alquileres en reservas. `noDevueltos`: unidades de alquiler con la devolución registrada que no volvieron (roturas o pérdidas), lo que se cobró de alquiler por ellas, en cuántas reservas, y cuántas reservas terminadas no registraron la devolución. **El sistema no guarda el costo de reponer una paleta**, así que no hay "monto perdido". `stockBajo`: productos de venta activos con 5 unidades o menos |
 
 ## Cierre de caja — `GET /admin/caja?fecha=2026-10-13` (rol: ADMIN, EMPLEADO)

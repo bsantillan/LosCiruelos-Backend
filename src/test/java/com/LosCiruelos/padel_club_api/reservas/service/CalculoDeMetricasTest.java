@@ -212,12 +212,27 @@ class CalculoDeMetricasTest {
 
         Reserva semana = reserva(3L, beto, HOY.plusDays(5), "18:00", "19:30", EstadoReserva.SEÑADA, "15000");
         TestData.pago(3L, semana, EstadoPago.APROBADO, "7500");
-        Reserva lejos = reserva(4L, beto, HOY.plusDays(20), "18:00", "19:30", EstadoReserva.PAGADA, "15000");
-        TestData.pago(4L, lejos, EstadoPago.APROBADO, "15000");
-        MetricasResponse.Futuro f = calculo.futuro(List.of(semana, lejos));
+        Reserva pagada = reserva(4L, beto, HOY.plusDays(20), "18:00", "19:30", EstadoReserva.PAGADA, "15000");
+        TestData.pago(4L, pagada, EstadoPago.APROBADO, "15000");
+        // un turno fijo genera partidos más allá de la anticipación: queda fuera de lo por cobrar
+        Reserva fueraDelRango = reserva(5L, beto, HOY.plusDays(31), "18:00", "19:30", EstadoReserva.CONFIRMADA, "15000");
+
+        // anticipación de 30 días (la de la configuración por defecto): de hoy al 12/11
+        MetricasResponse.Futuro f = calculo.futuro(List.of(semana, pagada, fueraDelRango));
         assertThat(f.asegurado()).isEqualByComparingTo("22500");
-        assertThat(f.porCobrar14Dias()).isEqualByComparingTo("7500");
-        assertThat(f.turnos14Dias()).isEqualTo(1);
+        assertThat(f.porCobrar()).isEqualByComparingTo("7500");
+        assertThat(f.turnos()).isEqualTo(2);
+        assertThat(f.dias()).isEqualTo(30);
+
+        // con 7 días de anticipación solo cuenta el señado de dentro de 5 días
+        var config = TestData.configuracion();
+        config.setDiasAnticipacionReserva(7);
+        MetricasResponse.Futuro conUnaSemana = new CalculoDeMetricas(config, 2, AHORA)
+                .futuro(List.of(semana, pagada, fueraDelRango));
+        assertThat(conUnaSemana.porCobrar()).isEqualByComparingTo("7500");
+        assertThat(conUnaSemana.turnos()).isEqualTo(1);
+        assertThat(conUnaSemana.dias()).isEqualTo(7);
+        assertThat(conUnaSemana.asegurado()).isEqualByComparingTo("22500");
     }
 
     @Test
