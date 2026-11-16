@@ -26,7 +26,7 @@ class HorariosOcupadosServiceTest {
         when(cancelacion.cancelarComoPersonal(32L, OpcionReembolso.TOTAL, false, "admin@test.com")).thenThrow(
                 new EstadoInvalidoException("La reserva tiene un pago en proceso; esperá a que Mercado Pago lo resuelva."));
         HorariosOcupadosService servicio = new HorariosOcupadosService(mock(ReservaRepository.class),
-                mock(TurnoFijoRepository.class), new FueraDeHorarioMapper(), cancelacion, TestData.reloj(TestData.AHORA));
+                mock(TurnoFijoRepository.class), new FueraDeHorarioMapper(), cancelacion, TestData.reloj(TestData.AHORA), null);
 
         CancelacionesResponse r = servicio.cancelar(List.of(31L, 32L, 33L), "admin@test.com");
 

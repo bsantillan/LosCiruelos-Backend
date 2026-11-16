@@ -58,7 +58,7 @@ public class DisponibilidadService {
      */
     @Transactional(readOnly = true)
     public DisponibilidadResponse disponibilidad(Long canchaId, LocalDate fecha, Integer duracion) {
-        Cancha cancha = canchaService.findByIdOrThrow(canchaId);
+        Cancha cancha = canchaService.activaOrThrow(canchaId);
         Configuracion config = configuracionService.obtener();
         LocalDateTime ahora = reloj.ahora();
 

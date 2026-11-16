@@ -32,3 +32,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# imágenes subidas en desarrollo (ARCHIVOS_DIR)
+archivos/

@@ -31,4 +31,25 @@ public interface HorariosOcupados {
      * en su transacción. Las que no se pueden cancelar quedan informadas, con el motivo.
      */
     CancelacionesResponse cancelar(List<Long> reservaIds, String emailAdmin);
+
+    /**
+     * Lo que hay en la cancha de hoy en adelante: las reservas confirmadas o pendientes vigentes que
+     * todavía no empezaron y los turnos fijos activos.
+     */
+    FueraDeHorarioResponse deLaCancha(Long canchaId);
+
+    /**
+     * Da de baja los turnos fijos (con sus partidos futuros, reembolso total) y cancela las reservas de
+     * la cancha como lo haría el ADMIN, cada una en su transacción.
+     *
+     * @return las reservas canceladas y las que no se pudieron; y los turnos fijos dados de baja
+     */
+    LiberacionDeCancha liberarCancha(Long canchaId, String emailAdmin);
+
+    /** Lo que se liberó al dar de baja una cancha. */
+    record LiberacionDeCancha(CancelacionesResponse cancelaciones, List<Long> turnosFijosDadosDeBaja) {
+    }
+
+    /** Si la cancha se usó alguna vez: tiene reservas (en cualquier estado), partidos o turnos fijos. */
+    boolean canchaUsada(Long canchaId);
 }

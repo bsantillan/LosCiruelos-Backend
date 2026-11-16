@@ -46,7 +46,7 @@ WHERE rol = 'ADMIN' OR email IN ('empleado@test.com', current_setting('datos.mai
 
 -- ── Borrar todos los datos ───────────────────────────────────────────────
 -- configuracion arrastra dias y dias_cerrados; canchas, reservas y turnos fijos con sus hijas
-TRUNCATE pago_devolucion_lineas, pago_devoluciones, pago_imputaciones, pagos, reserva_jugadores, reserva_productos, reservas, turno_fijo_jugadores, turno_fijo_productos,
+TRUNCATE cancha_fotos, pago_devolucion_lineas, pago_devoluciones, pago_imputaciones, pagos, reserva_jugadores, reserva_productos, reservas, turno_fijo_jugadores, turno_fijo_productos,
          turnos_fijos, venta_devolucion_items, venta_devoluciones, venta_items, ventas, dias_cerrados, dias,
          configuracion, canchas, productos, refresh_tokens, verification_tokens, envios_codigo_telefono
          RESTART IDENTITY CASCADE;
@@ -72,11 +72,11 @@ INSERT INTO dias (dia, horario_inicio, horario_fin, configuracion_general_id) VA
     ('Jueves', '08:00', '23:00', 1), ('Viernes', '08:00', '23:00', 1), ('Sábado', '09:00', '22:00', 1),
     ('Domingo', '09:00', '20:00', 1);
 
-INSERT INTO canchas (numero, descripcion) VALUES
-    (1, 'Cancha de césped sintético con iluminación LED.'),
-    (2, 'Cancha de césped sintético con iluminación LED.'),
-    (3, 'Cancha panorámica de vidrio.'),
-    (4, 'Cancha techada.');
+INSERT INTO canchas (numero, nombre, descripcion, tipo, superficie, iluminacion, activa) VALUES
+    (1, 'Cancha central', 'Techada, con tribuna.', 'TECHADA', 'Cemento', true, true),
+    (2, NULL, 'Techada.', 'TECHADA', 'Cemento', true, true),
+    (3, NULL, 'Techada.', 'TECHADA', 'Cemento', true, true),
+    (4, NULL, 'Al aire libre, panorámica.', 'AIRE_LIBRE', 'Césped sintético · Blindex', true, true);
 
 -- Todos controlan stock. Las paletas son de alquiler: el stock es el total de paletas del club.
 INSERT INTO productos (codigo, nombre, descripcion, tipo, precio, stock, activo, ofrecer_al_reservar, controla_stock) VALUES

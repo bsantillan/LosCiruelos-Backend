@@ -19,6 +19,7 @@
 | `MAIL_USERNAME` | `spring.mail.username` | Cuenta de Gmail para SMTP | Sí | `club@gmail.com` |
 | `MAIL_PASSWORD` | `spring.mail.password` | **Contraseña de aplicación** de Gmail (no la contraseña normal) | Sí | `abcd efgh ijkl mnop` |
 | `GOOGLE_CLIENT_ID` | `google.client-id` | Client ID de OAuth de Google; el `idToken` del frontend debe estar emitido para este ID | Sí | `xxxx.apps.googleusercontent.com` |
+| `ARCHIVOS_DIR` | `app.archivos.directorio` | Carpeta donde se guardan las imágenes que sube el ADMIN (fotos de canchas, imágenes de novedades). Tiene que persistir entre despliegues (un volumen) | No (`./archivos`) | `/var/lib/losciruelos/archivos` |
 | `MP_ACCESS_TOKEN` | `mercadopago.access-token` | Access token de Mercado Pago (usar el `TEST-...` en desarrollo) | Sí | `TEST-123...` |
 | `MP_WEBHOOK_URL` | `mercadopago.webhook-url` | URL pública a la que MP envía las notificaciones. Debe apuntar a `/pagos/notificacion` (en local, con un túnel tipo ngrok) | Sí | `https://xxxx.ngrok.app/pagos/notificacion` |
 | `FRONTEND_URL` | `app.frontend-url` | URL del frontend. Mercado Pago devuelve al cliente a `FRONTEND_URL/pago/resultado?reservaId=…&resultado=aprobado\|rechazado\|pendiente` después de pagar con su cuenta. Con `https://` además vuelve solo al aprobarse (`auto_return`) | No (por defecto `http://localhost:5173`) | `https://reservas.losciruelos.com` |

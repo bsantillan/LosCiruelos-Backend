@@ -447,4 +447,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             FROM Reserva r WHERE r.estado IN :estados GROUP BY r.cliente.id
             """)
     List<PrimeraReserva> primerasReservas(@Param("estados") Collection<EstadoReserva> estados);
+
+    boolean existsByCanchaId(Long canchaId);
 }

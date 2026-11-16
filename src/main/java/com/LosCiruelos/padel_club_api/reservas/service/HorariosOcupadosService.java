@@ -37,6 +37,7 @@ public class HorariosOcupadosService implements HorariosOcupados {
     private final FueraDeHorarioMapper mapper;
     private final CancelacionService cancelacionService;
     private final Reloj reloj;
+    private final org.springframework.beans.factory.ObjectProvider<TurnoFijoService> turnoFijoServicio;
 
     @Override
     public FueraDeHorarioResponse fueraDeHorario(Configuracion config) {
@@ -83,6 +84,42 @@ public class HorariosOcupadosService implements HorariosOcupados {
         log.info("Reservas fuera del horario del club: {} canceladas, {} sin cancelar", canceladas.size(),
                 sinCancelar.size());
         return new CancelacionesResponse(canceladas, sinCancelar);
+    }
+
+    @Override
+    public FueraDeHorarioResponse deLaCancha(Long canchaId) {
+        LocalDateTime ahora = reloj.ahora();
+        return new FueraDeHorarioResponse(
+                futurasQueSiguen(ahora).stream()
+                        .filter(r -> r.getCancha().getId().equals(canchaId) && !r.estaVencida(ahora))
+                        .map(mapper::aReserva)
+                        .toList(),
+                turnoFijoRepository.findByActivoOrderByDiaSemanaAscHoraInicioAsc(true).stream()
+                        .filter(tf -> tf.getCancha().getId().equals(canchaId))
+                        .map(mapper::aTurnoFijo)
+                        .toList());
+    }
+
+    @Override
+    public LiberacionDeCancha liberarCancha(Long canchaId, String emailAdmin) {
+        // primero los turnos fijos: su baja cancela sus partidos futuros (con reembolso total)
+        List<Long> turnosFijos = new ArrayList<>();
+        for (FueraDeHorarioResponse.TurnoFijo tf : deLaCancha(canchaId).turnosFijosFueraDeHorario()) {
+            try {
+                turnoFijoServicio.getObject().darDeBaja(tf.id(), OpcionReembolso.TOTAL, false, emailAdmin);
+                turnosFijos.add(tf.id());
+            } catch (RuntimeException e) {
+                log.warn("No se pudo dar de baja el turno fijo #{} de la cancha #{}: {}", tf.id(), canchaId, e.getMessage());
+            }
+        }
+        List<Long> reservas = deLaCancha(canchaId).reservasFueraDeHorario().stream()
+                .map(FueraDeHorarioResponse.Reserva::id).toList();
+        return new LiberacionDeCancha(cancelar(reservas, emailAdmin), turnosFijos);
+    }
+
+    @Override
+    public boolean canchaUsada(Long canchaId) {
+        return reservaRepository.existsByCanchaId(canchaId) || turnoFijoRepository.existsByCanchaId(canchaId);
     }
 
     private List<Reserva> futurasQueSiguen(LocalDateTime ahora) {

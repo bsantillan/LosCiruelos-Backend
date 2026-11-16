@@ -58,7 +58,7 @@ class HorariosOcupadosRepositoryTest {
         cancha = em.persist(Cancha.builder().numero(2).descripcion("Cancha 2").build());
         servicio = new HorariosOcupadosService(reservaRepository, turnoFijoRepository, new FueraDeHorarioMapper(),
                 org.mockito.Mockito.mock(com.LosCiruelos.padel_club_api.reservas.service.CancelacionService.class),
-                TestData.reloj(TestData.AHORA));
+                TestData.reloj(TestData.AHORA), null);
         horarioNuevo = TestData.configuracion();
         horarioNuevo.cambiarHorarios(List.of("Lunes", "Martes", "Miércoles", "Jueves", "Viernes").stream()
                 .map(d -> new Configuracion.Horario(d, LocalTime.of(8, 30), LocalTime.of(23, 0)))
@@ -117,5 +117,34 @@ class HorariosOcupadosRepositoryTest {
         FueraDeHorarioResponse actual = servicio.fueraDeHorario(TestData.configuracion());
         assertThat(actual.reservasFueraDeHorario()).isEmpty();
         assertThat(actual.turnosFijosFueraDeHorario()).isEmpty();
+    }
+
+    @Test
+    void loDeUnaCanchaDeHoyEnAdelanteYSiSeUso() {
+        Cancha otra = em.persist(Cancha.builder().numero(3).descripcion("Cancha 3").build());
+        Cancha nueva = em.persist(Cancha.builder().numero(9).descripcion("Sin usar").build());
+        Reserva futura = reserva(LUNES, "18:00", "19:30", EstadoReserva.SEÑADA);
+        Reserva pendiente = reserva(LUNES, "20:00", "21:30", EstadoReserva.PENDIENTE);
+        pendiente.setExpiresAt(TestData.AHORA.plusMinutes(10)); // vigente
+        Reserva vencida = reserva(LUNES, "10:00", "11:30", EstadoReserva.PENDIENTE);
+        vencida.setExpiresAt(TestData.AHORA.minusMinutes(1)); // vencida: no cuenta
+        reserva(HOY.minusDays(1), "18:00", "19:30", EstadoReserva.COMPLETADA); // pasada
+        reserva(LUNES, "12:00", "13:30", EstadoReserva.CANCELADA);
+        TurnoFijo fijo = turnoFijo(DayOfWeek.MONDAY, "08:00", "09:30", true);
+        em.persist(Reserva.builder().cancha(otra).cliente(cliente).createdBy(cliente).fechaReserva(LUNES)
+                .horaInicio(LocalTime.of(18, 0)).horaFin(LocalTime.of(19, 30)).estado(EstadoReserva.SEÑADA)
+                .tipo(TipoReserva.NORMAL).montoTotal(new BigDecimal("15000")).createdAt(TestData.AHORA).build());
+        em.flush();
+        em.clear();
+
+        FueraDeHorarioResponse deLaCancha = servicio.deLaCancha(cancha.getId());
+
+        assertThat(deLaCancha.reservasFueraDeHorario()).extracting(FueraDeHorarioResponse.Reserva::id)
+                .containsExactlyInAnyOrder(futura.getId(), pendiente.getId());
+        assertThat(deLaCancha.turnosFijosFueraDeHorario()).extracting(FueraDeHorarioResponse.TurnoFijo::id)
+                .containsExactly(fijo.getId());
+        assertThat(servicio.canchaUsada(cancha.getId())).isTrue();
+        assertThat(servicio.canchaUsada(otra.getId())).isTrue();
+        assertThat(servicio.canchaUsada(nueva.getId())).isFalse();
     }
 }

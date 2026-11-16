@@ -24,7 +24,7 @@ Las fechas son **relativas al día y la hora en que se corre**: siempre hay rese
 - Recordatorio 2 h antes; se reserva hasta 30 días adelante; la seña online que pide el personal se paga dentro de las 2 h.
 - Horarios: lunes a viernes de 8 a 23, sábados de 9 a 22 y domingos de 9 a 20.
 - Un **día cerrado** dentro de 20 días ("Mantenimiento de las canchas"), sin reservas ese día.
-- **4 canchas.**
+- **4 canchas:** 1 a 3 techadas de cemento (la 1, "Cancha central") y la 4 al aire libre, de césped sintético con blindex; todas con luz y sin fotos (se suben desde el panel).
 
 ### Productos (todos controlan stock)
 

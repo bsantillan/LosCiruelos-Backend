@@ -26,7 +26,7 @@ class CanchaServiceTest {
     @Test
     void listaLasCanchas() {
         CanchaService servicio = new CanchaService(canchaRepository, new CanchaMapper());
-        when(canchaRepository.findAll()).thenReturn(List.of(TestData.cancha()));
+        when(canchaRepository.findByActivaTrueOrderByNumeroAsc()).thenReturn(List.of(TestData.cancha()));
         assertThat(servicio.listarCanchas()).hasSize(1);
         assertThat(servicio.listarCanchas().getFirst().getDescripcion()).isEqualTo("Cancha 1");
     }
@@ -52,5 +52,19 @@ class CanchaServiceTest {
         assertThatThrownBy(() -> servicio.bloquear(9L))
                 .isInstanceOf(CanchaNotFoundException.class)
                 .hasMessage("Cancha no encontrada: 9");
+    }
+
+    @Test
+    void unaCanchaDadaDeBajaNoAceptaReservasNiApareceEnLaDisponibilidad() {
+        CanchaService servicio = new CanchaService(canchaRepository, new CanchaMapper());
+        Cancha inactiva = TestData.cancha();
+        inactiva.setActiva(false);
+        when(canchaRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(inactiva));
+        when(canchaRepository.findById(1L)).thenReturn(Optional.of(inactiva));
+
+        assertThatThrownBy(() -> servicio.bloquear(1L))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException.class)
+                .hasMessageContaining("está dada de baja");
+        assertThatThrownBy(() -> servicio.activaOrThrow(1L)).isInstanceOf(CanchaNotFoundException.class);
     }
 }

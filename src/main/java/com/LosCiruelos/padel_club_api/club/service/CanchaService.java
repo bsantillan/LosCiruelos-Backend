@@ -29,7 +29,18 @@ public class CanchaService {
      * misma cancha para que dos pedidos simultáneos no tomen el mismo horario.
      */
     public Cancha bloquear(Long id) {
-        return canchaRepository.findByIdForUpdate(id)
+        Cancha cancha = canchaRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + id));
+        if (!cancha.estaActiva()) {
+            throw new com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException(
+                    "La cancha " + cancha.getNumero() + " está dada de baja: no acepta reservas, partidos ni turnos fijos.");
+        }
+        return cancha;
+    }
+
+    /** Una cancha activa (para la disponibilidad pública: una dada de baja no existe). */
+    public Cancha activaOrThrow(Long id) {
+        return canchaRepository.findById(id).filter(Cancha::estaActiva)
                 .orElseThrow(() -> new CanchaNotFoundException("Cancha no encontrada: " + id));
     }
 
@@ -44,8 +55,10 @@ public class CanchaService {
         return true;
     }
 
+    /** Las canchas activas con sus fotos (GET /canchas: la grilla, Reservar y la página de inicio). */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<CanchaResponse> listarCanchas() {
-        return canchaRepository.findAll().stream()
+        return canchaRepository.findByActivaTrueOrderByNumeroAsc().stream()
                 .map(canchaMapper::aResponse)
                 .toList();
     }

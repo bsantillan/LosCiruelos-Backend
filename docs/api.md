@@ -283,9 +283,37 @@ Es el horario **actual**: para un día pasado puede no coincidir con el que hab�
 Se pueden consultar sin iniciar sesión (un visitante ve los horarios libres y los precios); para reservar sí hace falta una cuenta con el perfil completo. Si se manda un token vencido o inválido, se responde igual, como visitante.
 
 ### `GET /canchas` → `200`
+Las canchas **activas**, por número, con sus fotos en orden (la grilla, Reservar y la página de inicio):
 ```json
-[ { "id": 1, "numero": 1, "descripcion": "Cancha de césped sintético con iluminación LED." } ]
+[ { "id": 1, "numero": 1, "nombre": "Cancha central", "descripcion": "Techada, con tribuna.",
+    "tipo": "TECHADA", "superficie": "Cemento", "iluminacion": true, "activa": true,
+    "fotos": [ { "id": 3, "url": "/archivos/6f1c2e0a-9b7d-4c1e-8a55-0d2f3b4c5e6f.jpg", "orden": 1 } ] } ]
 ```
+`tipo` es `TECHADA` o `AIRE_LIBRE`; `nombre`, `descripcion` y `superficie` pueden ser `null`. `url` es relativa a la API (`GET /archivos/{nombre}`). Una cancha dada de baja no aparece acá ni en la disponibilidad (`404`), y no acepta reservas, partidos ni turnos fijos nuevos (`409` "La cancha 4 está dada de baja: no acepta reservas, partidos ni turnos fijos.").
+
+### `GET /archivos/{nombre}` → `200` (público)
+Una imagen subida (foto de cancha o imagen de novedad), con su `Content-Type` y `Cache-Control: public, max-age=31536000, immutable` (cada nombre es un UUID que no se reutiliza). Un nombre que no existe → `404`.
+
+## Gestión de canchas — `/admin/canchas` (rol: ADMIN; EMPLEADO `403`)
+
+Body de alta y edición (`CanchaRequest`):
+```json
+{ "numero": 5, "nombre": "Cancha central", "descripcion": "Techada, con tribuna.", "tipo": "TECHADA",
+  "superficie": "Cemento", "iluminacion": true }
+```
+`numero` (obligatorio, > 0, no se repite), `nombre` (hasta 40), `descripcion` (hasta 300), `tipo` (obligatorio: `TECHADA` o `AIRE_LIBRE`), `superficie` (hasta 60) e `iluminacion` (obligatorio). Responden la cancha (`CanchaResponse`, como `GET /canchas`) con `eliminable`.
+
+| Método y ruta | Descripción | Errores |
+|---|---|---|
+| `GET /admin/canchas` → `200 [CanchaResponse]` | Todas, activas o no, con `eliminable` (true si nunca se usó) | |
+| `POST /admin/canchas` → `201` | Alta (nace activa) | `400` validación · `409` "Ya existe la cancha 5." |
+| `PUT /admin/canchas/{id}` → `200` | Edición, con el mismo body | `400` · `404` · `409` número repetido |
+| `PUT /admin/canchas/{id}/baja?confirmar=false` → `200 BajaDeCanchaResponse` | Desactiva la cancha. Si tiene reservas confirmadas o pendientes vigentes de hoy en adelante, o turnos fijos activos, sin `confirmar=true` responde `409` con la lista, igual que el cambio de horario: `{ "error": "La cancha tiene 2 reservas y 1 turno fijo de hoy en adelante. …", "reservasFueraDeHorario": [ { "id", "fecha", "horaInicio", "horaFin", "canchaNumero", "clienteNombre", "tipo" } ], "turnosFijosFueraDeHorario": [ { "id", "diaSemana", "horaInicio", "horaFin", "canchaNumero" } ] }`. Con `confirmar=true` la desactiva, da de baja los turnos fijos (sus partidos futuros se cancelan con reembolso total) y cancela esas reservas con reembolso total y aviso al cliente, cada una por separado. Responde `{ "cancha", "cancelaciones": { "canceladas": [ids], "sinCancelar": [ { "reservaId", "motivo" } ] }, "turnosFijosDadosDeBaja": [ids] }` | `404` · `409` sin confirmar |
+| `PUT /admin/canchas/{id}/reactivacion` → `200` | La vuelve a activar | `404` |
+| `DELETE /admin/canchas/{id}` → `204` | Borrado definitivo, **solo si nunca se usó** (sin reservas de ningún estado, partidos ni turnos fijos). Borra también sus fotos del disco | `404` · `409` "La cancha tiene reservas o turnos fijos: desactivala en lugar de eliminarla." |
+| `POST /admin/canchas/{id}/fotos` (multipart, campo `archivo`) → `200` | Suma una foto al final. JPG, PNG o WEBP (se valida el contenido, no la extensión), hasta 5 MB; hasta 6 fotos | `400` "La imagen tiene que ser JPG, PNG o WEBP.", "La imagen no puede superar los 5 MB." o "Mandá la imagen en el campo \"archivo\"." · `404` · `409` "La cancha ya tiene 6 fotos: sacá una antes de subir otra." |
+| `DELETE /admin/canchas/{id}/fotos/{fotoId}` → `200` | Saca la foto (y la borra del disco); las demás se corren | `404` |
+| `PUT /admin/canchas/{id}/fotos/orden` → `200` | Body `{ "fotos": [3, 1, 2] }`: todas las fotos, en el orden nuevo | `400` si falta o sobra alguna · `404` |
 
 ### `GET /canchas/{id}/disponibilidad?fecha=2026-10-15&duracion=90` → `200`
 ```json
