@@ -122,4 +122,44 @@ class MetricasRepositoryTest {
         assertThatThrownBy(() -> metricas.metricas(null, null, "empleado@test.com"))
                 .isInstanceOf(PermisoDenegadoException.class);
     }
+
+    @Test
+    void elRangoDeFechasEsLaPrimeraYLaUltimaSinElFiltroDeFechas() {
+        assertThat(reservas.rangoDeFechas(null)).isEqualTo(
+                new com.LosCiruelos.padel_club_api.common.RangoDeFechas(HOY.minusDays(14), HOY.plusDays(2)));
+        // el EMPLEADO, desde su jornada
+        assertThat(reservas.rangoDeFechas(ReservaSpecification.desde(HOY))).isEqualTo(
+                new com.LosCiruelos.padel_club_api.common.RangoDeFechas(HOY.plusDays(2), HOY.plusDays(2)));
+        // las del cliente que no son descartadas (la cancelada sin pagos se descarta)
+        assertThat(reservas.rangoDeFechas(ReservaSpecification.delClienteOJugador(ana)
+                .and(ReservaSpecification.proximas(TestData.AHORA)))).isEqualTo(
+                new com.LosCiruelos.padel_club_api.common.RangoDeFechas(HOY.plusDays(2), HOY.plusDays(2)));
+        assertThat(reservas.rangoDeFechas(ReservaSpecification.desde(HOY.plusDays(100))))
+                .isEqualTo(com.LosCiruelos.padel_club_api.common.RangoDeFechas.VACIO);
+    }
+
+    @Test
+    void elRangoDeLasVentasEsPorJornada() {
+        Usuario empleado = TestData.usuario(null, Role.EMPLEADO);
+        empleado.setEmail("empleado@test.com");
+        empleado = em.persist(empleado);
+        var agua = em.persist(com.LosCiruelos.padel_club_api.club.entity.Producto.builder().nombre("Agua")
+                .tipo(com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto.VENTA).precio(new BigDecimal("600"))
+                .stock(10).build());
+        for (var cuando : List.of(HOY.minusDays(3).atTime(0, 10), HOY.atTime(9, 0))) {
+            var venta = com.LosCiruelos.padel_club_api.ventas.entity.Venta.builder().createdAt(cuando)
+                    .medio(com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago.EFECTIVO)
+                    .registradoPor(empleado).build();
+            venta.agregar(agua, 1);
+            em.persist(venta);
+        }
+        em.flush();
+
+        var extremos = ventas.rangoDeRegistro(null, null);
+        assertThat(extremos).containsExactly(HOY.minusDays(3).atTime(0, 10), HOY.atTime(9, 0));
+        // una venta de las 00:10 es de la jornada del día anterior
+        assertThat(TestData.configuracion().jornadaEn(extremos[0]).fecha()).isEqualTo(HOY.minusDays(4));
+        assertThat(ventas.rangoDeRegistro(HOY.atTime(8, 0), HOY.plusDays(1).atTime(8, 0)))
+                .containsExactly(HOY.atTime(9, 0), HOY.atTime(9, 0));
+    }
 }

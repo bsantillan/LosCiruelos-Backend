@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.common.RangoDeFechas;
 import com.LosCiruelos.padel_club_api.club.service.JornadaService;
 import com.LosCiruelos.padel_club_api.reservas.repository.TurnosDelPeriodo;
 import com.LosCiruelos.padel_club_api.reservas.repository.EntradasDeCaja;
@@ -113,6 +114,15 @@ public class ReservaConsultaService {
         if (!incluirDescartadas) {
             filtro = filtro.and(ReservaSpecification.sinDescartadas());
         }
+        // el rango de "Todo el período": respeta tipo e incluirDescartadas, sin el filtro de fechas ni de estados
+        Specification<Reserva> sinFechas = ReservaSpecification.delClienteOJugador(usuario);
+        if (tipo != null && !tipo.isBlank()) {
+            sinFechas = sinFechas.and(tipo.trim().equalsIgnoreCase("proximas") ? ReservaSpecification.proximas(ahora)
+                    : ReservaSpecification.historial(ahora));
+        }
+        if (!incluirDescartadas) {
+            sinFechas = sinFechas.and(ReservaSpecification.sinDescartadas());
+        }
         if (desde != null) {
             filtro = filtro.and(ReservaSpecification.desde(desde));
         }
@@ -122,7 +132,7 @@ public class ReservaConsultaService {
 
         Page<ReservaResponse> resultado = reservaRepository.findAll(filtro, PageRequest.of(pagina, tamanio, orden))
                 .map(r -> mapper.aResponsePara(r, usuario));
-        return PaginaResponse.de(resultado);
+        return PaginaResponse.de(resultado, reservaRepository.rangoDeFechas(sinFechas));
     }
 
     /** Detalle de una reserva: la propia, la de un partido en el que juega, o cualquiera para el personal. */
@@ -155,7 +165,8 @@ public class ReservaConsultaService {
     public ListadoReservasResponse listar(LocalDate desde, LocalDate hasta, List<EstadoReserva> estados,
             Long clienteId, String cliente, Long canchaId, TipoReserva tipo, Long turnoFijoId, Boolean deTurnoFijo,
             boolean pendientes, int pagina, Integer tamanio, String orden, String email) {
-        if (Roles.esEmpleado(usuarioService.autenticado(email))) {
+        boolean esEmpleado = Roles.esEmpleado(usuarioService.autenticado(email));
+        if (esEmpleado) {
             LocalDate hoy = jornadaService.actual().fecha();
             if ((desde != null && desde.isBefore(hoy)) || (hasta != null && hasta.isBefore(hoy))) {
                 throw new PermisoDenegadoException("Solo podés ver las reservas de hoy en adelante.");
@@ -182,7 +193,10 @@ public class ReservaConsultaService {
 
         Page<ReservaResponse> resultado = reservaRepository.findAll(ReservaSpecification.paraPersonal(filtro), pageable)
                 .map(mapper::aResponse);
-        return ListadoReservasResponse.de(resultado, reservaRepository.totalesParaPersonal(filtro));
+        // "Todo el período": de la primera a la última fecha de turno (el EMPLEADO, desde su jornada)
+        RangoDeFechas rango = reservaRepository.rangoDeFechas(
+                esEmpleado ? ReservaSpecification.desde(jornadaService.actual().fecha()) : null);
+        return ListadoReservasResponse.de(resultado, reservaRepository.totalesParaPersonal(filtro), rango);
     }
 
     /**

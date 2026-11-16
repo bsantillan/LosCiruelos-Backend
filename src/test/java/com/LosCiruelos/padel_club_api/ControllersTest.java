@@ -1156,7 +1156,9 @@ class ControllersTest {
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse.Totales(57,
                             new BigDecimal("855000.00"), new BigDecimal("690000.00"), new BigDecimal("410000.00"),
                             new BigDecimal("250000.00"), new BigDecimal("30000.00"), new BigDecimal("15000.00"),
-                            new BigDecimal("165000.00"), null));
+                            new BigDecimal("165000.00"), null),
+                    new com.LosCiruelos.padel_club_api.common.RangoDeFechas(java.time.LocalDate.of(2026, 3, 2),
+                            java.time.LocalDate.of(2026, 11, 20)));
         }
 
         @Test
@@ -1173,6 +1175,8 @@ class ControllersTest {
                     .andExpect(jsonPath("$.contenido[0].id").value(10))
                     .andExpect(jsonPath("$.totalElementos").value(57))
                     .andExpect(jsonPath("$.totales.reservas").value(57))
+                    .andExpect(jsonPath("$.rango.desde").value("2026-03-02"))
+                    .andExpect(jsonPath("$.rango.hasta").value("2026-11-20"))
                     .andExpect(jsonPath("$.totales.cobradoEfectivo").value(410000.00))
                     .andExpect(jsonPath("$.totales.cobradoMercadoPago").value(250000.00))
                     .andExpect(jsonPath("$.totales.cobradoCuentaDni").value(30000.00))
@@ -1497,7 +1501,8 @@ class ControllersTest {
                     eq(EMAIL))).thenReturn(new com.LosCiruelos.padel_club_api.ventas.dto.response.ListadoVentasResponse(
                             List.of(), 1, 20, 21, 2, new com.LosCiruelos.padel_club_api.ventas.dto.response.ListadoVentasResponse
                                     .Totales(20, 1, new java.math.BigDecimal("4500.00"), new java.math.BigDecimal("1500.00"),
-                                            porMedio, null)));
+                                            porMedio, null),
+                            com.LosCiruelos.padel_club_api.common.RangoDeFechas.VACIO));
 
             mvc.perform(get("/admin/ventas").param("desde", "2026-10-01").param("hasta", "2026-10-31")
                     .param("productoId", "5").param("cliente", "pérez").param("clienteId", "3")
@@ -1508,6 +1513,7 @@ class ControllersTest {
                     .andExpect(jsonPath("$.totalElementos").value(21))
                     .andExpect(jsonPath("$.totales.ventas").value(20))
                     .andExpect(jsonPath("$.totales.anuladas").value(1))
+                    .andExpect(jsonPath("$.rango.desde").doesNotExist())
                     .andExpect(jsonPath("$.totales.devuelto").value(1500.00))
                     .andExpect(jsonPath("$.totales.porMedio.EFECTIVO").value(4500.00));
             verify(ventaConsultaService).listar(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31),

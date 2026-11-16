@@ -37,7 +37,8 @@ public class VentaMapper {
     }
 
     /** Una página del listado con los totales del filtro: el neto de cada medio es lo cobrado menos lo devuelto. */
-    public ListadoVentasResponse aListado(org.springframework.data.domain.Page<Venta> pagina, TotalesDelListado t) {
+    public ListadoVentasResponse aListado(org.springframework.data.domain.Page<Venta> pagina, TotalesDelListado t,
+            com.LosCiruelos.padel_club_api.common.RangoDeFechas rango) {
         java.util.Map<MedioDePago, BigDecimal> porMedio = new java.util.EnumMap<>(MedioDePago.class);
         BigDecimal cobrado = BigDecimal.ZERO;
         BigDecimal devuelto = BigDecimal.ZERO;
@@ -55,7 +56,7 @@ public class VentaMapper {
                                 .DetalleMercadoPago(porMedio.get(MedioDePago.MERCADO_PAGO)
                                         .add(porMedio.get(MedioDePago.TRANSFERENCIA_MP)),
                                         porMedio.get(MedioDePago.MERCADO_PAGO), Dinero.redondear(BigDecimal.ZERO),
-                                        porMedio.get(MedioDePago.TRANSFERENCIA_MP))));
+                                        porMedio.get(MedioDePago.TRANSFERENCIA_MP))), rango);
     }
 
     /** @param qrConfigurado si el QR de la caja está configurado (los medios con QR dependen de eso) */

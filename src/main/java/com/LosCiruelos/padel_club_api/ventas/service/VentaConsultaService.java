@@ -98,7 +98,7 @@ public class VentaConsultaService {
         PageRequest pageable = Paginacion.pagina(pagina, tamanio != null ? tamanio : TAMANIO_POR_DEFECTO,
                 TAMANIO_MAXIMO, Sort.by(direccion, "createdAt").and(Sort.by(direccion, "id")));
         return ventaMapper.aListado(ventaRepository.findAll(VentaSpecification.delListado(filtro), pageable),
-                ventaRepository.totalesDelListado(filtro));
+                ventaRepository.totalesDelListado(filtro), rango(jornada));
     }
 
     private static Sort.Direction direccion(String orden) {
@@ -158,5 +158,20 @@ public class VentaConsultaService {
     public List<com.LosCiruelos.padel_club_api.ventas.entity.VentaDevolucion> devolucionesParaLaCaja(
             LocalDateTime inicio, LocalDateTime fin) {
         return ventaRepository.findDevolucionesParaLaCaja(inicio, fin);
+    }
+
+    /**
+     * "Todo el período" de las ventas: la jornada de la primera y la de la última venta. El EMPLEADO,
+     * solo su jornada en curso (si tiene ventas).
+     */
+    private com.LosCiruelos.padel_club_api.common.RangoDeFechas rango(Jornada jornadaDelEmpleado) {
+        LocalDateTime[] extremos = jornadaDelEmpleado != null
+                ? ventaRepository.rangoDeRegistro(jornadaDelEmpleado.inicio(), jornadaDelEmpleado.fin())
+                : ventaRepository.rangoDeRegistro(null, null);
+        if (extremos == null || extremos[0] == null) {
+            return com.LosCiruelos.padel_club_api.common.RangoDeFechas.VACIO;
+        }
+        return new com.LosCiruelos.padel_club_api.common.RangoDeFechas(jornadaService.de(extremos[0]).fecha(),
+                jornadaService.de(extremos[1]).fecha());
     }
 }

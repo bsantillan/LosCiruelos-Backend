@@ -10,7 +10,7 @@ import org.springframework.data.domain.Page;
  * totales del filtro completo (no solo de la página).
  */
 public record ListadoReservasResponse(List<ReservaResponse> contenido, int pagina, int tamanio, long totalElementos,
-        int totalPaginas, Totales totales) {
+        int totalPaginas, Totales totales, com.LosCiruelos.padel_club_api.common.RangoDeFechas rango) {
 
     /**
      * @param montoCobrado       lo que el club se quedó de los pagos (aprobado menos lo devuelto)
@@ -26,8 +26,9 @@ public record ListadoReservasResponse(List<ReservaResponse> contenido, int pagin
                     detalleMercadoPago) {
     }
 
-    public static ListadoReservasResponse de(Page<ReservaResponse> page, Totales totales) {
+    public static ListadoReservasResponse de(Page<ReservaResponse> page, Totales totales,
+            com.LosCiruelos.padel_club_api.common.RangoDeFechas rango) {
         return new ListadoReservasResponse(page.getContent(), page.getNumber(), page.getSize(),
-                page.getTotalElements(), page.getTotalPages(), totales);
+                page.getTotalElements(), page.getTotalPages(), totales, rango);
     }
 }

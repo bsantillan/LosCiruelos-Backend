@@ -65,4 +65,24 @@ public class VentaConsultasImpl implements VentaConsultas {
         }
         return new TotalesDelListado(cobradas, anuladas, cobrado, devuelto);
     }
+
+    @Override
+    public java.time.LocalDateTime[] rangoDeRegistro(java.time.LocalDateTime inicio, java.time.LocalDateTime fin) {
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+        CriteriaQuery<Tuple> q = cb.createTupleQuery();
+        Root<Venta> v = q.from(Venta.class);
+        q.multiselect(cb.least(v.<java.time.LocalDateTime>get("createdAt")),
+                cb.greatest(v.<java.time.LocalDateTime>get("createdAt")));
+        java.util.List<jakarta.persistence.criteria.Predicate> condiciones = new java.util.ArrayList<>();
+        if (inicio != null) {
+            condiciones.add(cb.greaterThanOrEqualTo(v.get("createdAt"), inicio));
+        }
+        if (fin != null) {
+            condiciones.add(cb.lessThan(v.get("createdAt"), fin));
+        }
+        q.where(condiciones.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        Tuple t = em.createQuery(q).getSingleResult();
+        return new java.time.LocalDateTime[] { t.get(0, java.time.LocalDateTime.class),
+                t.get(1, java.time.LocalDateTime.class) };
+    }
 }

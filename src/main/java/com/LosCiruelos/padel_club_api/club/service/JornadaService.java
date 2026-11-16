@@ -22,6 +22,11 @@ public class JornadaService {
         return configuracionService.obtener().jornadaEn(reloj.ahora());
     }
 
+    /** La jornada a la que pertenece {@code momento} (una venta de las 00:10 es de la jornada anterior). */
+    public Jornada de(java.time.LocalDateTime momento) {
+        return configuracionService.obtener().jornadaEn(momento);
+    }
+
     /** La jornada del día {@code fecha} (la caja de ese día va de su apertura a la del día siguiente). */
     public Jornada del(java.time.LocalDate fecha) {
         return configuracionService.obtener().jornadaDel(fecha);
