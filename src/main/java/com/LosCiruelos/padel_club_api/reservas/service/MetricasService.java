@@ -71,7 +71,7 @@ public class MetricasService {
         Periodo actual = new Periodo(desde, hasta);
         Periodo anterior = actual.anterior();
 
-        List<CanchaDeMetricas> canchas = canchaService.listarCanchas().stream()
+        List<CanchaDeMetricas> canchas = canchaService.listarCanchas(false).stream()
                 .map(c -> new CanchaDeMetricas(c.getId(), c.getNumero())).toList();
         CalculoDeMetricas calculo = new CalculoDeMetricas(configuracionService.obtener(), canchas.size(), ahora);
 

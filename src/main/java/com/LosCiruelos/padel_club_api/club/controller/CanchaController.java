@@ -27,8 +27,9 @@ public class CanchaController {
     private final DisponibilidadService disponibilidadService;
 
     @GetMapping
-    public ResponseEntity<List<CanchaResponse>> listarCanchas() {
-        return ResponseEntity.ok(canchaService.listarCanchas());
+    public ResponseEntity<List<CanchaResponse>> listarCanchas(
+            @RequestParam(defaultValue = "false") boolean incluirInactivas) {
+        return ResponseEntity.ok(canchaService.listarCanchas(incluirInactivas));
     }
 
     @GetMapping("/{id}/disponibilidad")

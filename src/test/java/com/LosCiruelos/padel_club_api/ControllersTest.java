@@ -608,10 +608,14 @@ class ControllersTest {
 
         @Test
         void canchasYDisponibilidad() throws Exception {
-            when(canchaService.listarCanchas()).thenReturn(List.of(new CanchaResponse()));
+            when(canchaService.listarCanchas(anyBoolean())).thenReturn(List.of(new CanchaResponse()));
             when(disponibilidadService.disponibilidad(any(), any(), any())).thenReturn(new DisponibilidadResponse());
 
             mvc.perform(get("/canchas").principal(AUTH)).andExpect(status().isOk());
+            verify(canchaService).listarCanchas(false);
+            mvc.perform(get("/canchas").param("incluirInactivas", "true")).andExpect(status().isOk());
+            verify(canchaService).listarCanchas(true);
+            mvc.perform(get("/canchas").param("incluirInactivas", "si")).andExpect(status().isBadRequest());
             mvc.perform(get("/canchas/1/disponibilidad").param("fecha", "2099-01-01").param("duracion", "90"))
                     .andExpect(status().isOk());
             // duracion es opcional (el servicio usa la mínima configurada)

@@ -55,10 +55,15 @@ public class CanchaService {
         return true;
     }
 
-    /** Las canchas activas con sus fotos (GET /canchas: la grilla, Reservar y la página de inicio). */
+    /**
+     * Las canchas con sus fotos, por número (GET /canchas). Sin {@code incluirInactivas}, solo las activas (la grilla
+     * y Reservar); con él, también las dadas de baja (la página de inicio las muestra como no disponibles).
+     */
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public List<CanchaResponse> listarCanchas() {
-        return canchaRepository.findByActivaTrueOrderByNumeroAsc().stream()
+    public List<CanchaResponse> listarCanchas(boolean incluirInactivas) {
+        List<Cancha> canchas = incluirInactivas ? canchaRepository.findAllByOrderByNumeroAsc()
+                : canchaRepository.findByActivaTrueOrderByNumeroAsc();
+        return canchas.stream()
                 .map(canchaMapper::aResponse)
                 .toList();
     }

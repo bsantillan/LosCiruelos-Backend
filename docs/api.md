@@ -282,8 +282,8 @@ Es el horario **actual**: para un día pasado puede no coincidir con el que hab�
 
 Se pueden consultar sin iniciar sesión (un visitante ve los horarios libres y los precios); para reservar sí hace falta una cuenta con el perfil completo. Si se manda un token vencido o inválido, se responde igual, como visitante.
 
-### `GET /canchas` → `200`
-Las canchas **activas**, por número, con sus fotos en orden (la grilla, Reservar y la página de inicio):
+### `GET /canchas?incluirInactivas=false` → `200` (público)
+Las canchas **activas**, por número, con sus fotos en orden (la grilla y Reservar). Con `incluirInactivas=true` trae todas, activas y dadas de baja, también por número: la página de inicio muestra las de `"activa": false` como "No disponible por el momento". `incluirInactivas` es opcional (por defecto `false`); un valor que no es `true`/`false` → `400`. No trae `eliminable` (solo del panel).
 ```json
 [ { "id": 1, "numero": 1, "nombre": "Cancha central", "descripcion": "Techada, con tribuna.",
     "tipo": "TECHADA", "superficie": "Cemento", "iluminacion": true, "activa": true,

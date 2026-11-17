@@ -80,7 +80,7 @@ class MetricasRepositoryTest {
         CanchaResponse c = new CanchaResponse();
         c.setId(cancha.getId());
         c.setNumero(1);
-        when(canchas.listarCanchas()).thenReturn(List.of(c));
+        when(canchas.listarCanchas(false)).thenReturn(List.of(c));
         ConfiguracionService config = mock(ConfiguracionService.class);
         when(config.obtener()).thenReturn(TestData.configuracion());
         var reloj = TestData.reloj(TestData.AHORA);

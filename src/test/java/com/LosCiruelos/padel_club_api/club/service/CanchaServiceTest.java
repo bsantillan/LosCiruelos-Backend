@@ -27,8 +27,25 @@ class CanchaServiceTest {
     void listaLasCanchas() {
         CanchaService servicio = new CanchaService(canchaRepository, new CanchaMapper());
         when(canchaRepository.findByActivaTrueOrderByNumeroAsc()).thenReturn(List.of(TestData.cancha()));
-        assertThat(servicio.listarCanchas()).hasSize(1);
-        assertThat(servicio.listarCanchas().getFirst().getDescripcion()).isEqualTo("Cancha 1");
+        assertThat(servicio.listarCanchas(false)).hasSize(1);
+        assertThat(servicio.listarCanchas(false).getFirst().getDescripcion()).isEqualTo("Cancha 1");
+    }
+
+    @Test
+    void conIncluirInactivasTraeTambienLasDadasDeBajaSinEliminable() {
+        CanchaService servicio = new CanchaService(canchaRepository, new CanchaMapper());
+        Cancha activa = TestData.cancha();
+        Cancha deBaja = TestData.cancha();
+        deBaja.setId(2L);
+        deBaja.setNumero(2);
+        deBaja.setActiva(false);
+        when(canchaRepository.findAllByOrderByNumeroAsc()).thenReturn(List.of(activa, deBaja));
+
+        assertThat(servicio.listarCanchas(true))
+                .extracting(r -> r.getNumero(), r -> r.getActiva(), r -> r.getEliminable())
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(1, true, null),
+                        org.assertj.core.groups.Tuple.tuple(2, false, null));
+        verify(canchaRepository, org.mockito.Mockito.never()).findByActivaTrueOrderByNumeroAsc();
     }
 
     @Test
