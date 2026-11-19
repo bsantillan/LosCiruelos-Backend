@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class EmailServiceFactory {
 
-    @Value("${email.provider}")  // "gmail" o "sendgrid"
+    @Value("${email.provider}")  // hoy solo "gmail"
     private String provider;
 
     private final Map<String, EmailService> services;
