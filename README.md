@@ -33,7 +33,7 @@ API REST del club de pádel **Los Ciruelos**: registro y login de usuarios (emai
    ```
    O con "Run/Debug" desde VS Code, que usa `launch.json`.
 
-4. **Swagger UI**: `http://localhost:8080/swagger-ui/index.html` (spec en `/v3/api-docs`). Para endpoints protegidos, usar "Authorize" con el `accessToken` del login.
+4. **Swagger UI**: `http://localhost:8080/swagger-ui/index.html` (spec en `/v3/api-docs`). Está apagado por defecto: agregar `SWAGGER_HABILITADO=true` al bloque `env` de `launch.json`. Para endpoints protegidos, usar "Authorize" con el `accessToken` del login.
 
 ### Datos que se crean al arrancar
 

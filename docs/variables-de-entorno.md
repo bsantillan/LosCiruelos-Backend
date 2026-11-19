@@ -33,6 +33,7 @@
 | `WHATSAPP_TOKEN` | `whatsapp.token` | Token permanente del usuario de sistema de Meta (Cloud API). Ver [whatsapp.md](whatsapp.md) | No (sin él los avisos van por mail) | `EAAG...` |
 | `WHATSAPP_PHONE_NUMBER_ID` | `whatsapp.phone-number-id` | Identificador del número del club en Meta (no es el número) | No | `123456789012345` |
 | `CORS_ALLOWED_ORIGINS` | `app.cors.allowed-origins` | Orígenes del frontend permitidos, separados por coma | No (por defecto `http://localhost:3000,http://localhost:5173`) | `https://reservas.losciruelos.com` |
+| `SWAGGER_HABILITADO` | `springdoc.api-docs.enabled`, `springdoc.swagger-ui.enabled` | `true` publica Swagger UI (`/swagger-ui/index.html`) y la spec (`/v3/api-docs`). Sin la variable responden 404. **Nunca en producción** | No (por defecto `false`) | `true` |
 | `APP_SEED_USUARIO_PRUEBA` | `app.seed.usuario-prueba` | `true` crea el cliente de prueba `user.prueba@losciruelos.com` / `UserPassword123!`. **Nunca en producción** | No (por defecto `false`) | `true` |
 | `SHOW_SQL` | `spring.jpa.show-sql` | Loguea el SQL de Hibernate | No (por defecto `false`) | `true` |
 
