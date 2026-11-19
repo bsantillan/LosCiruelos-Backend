@@ -41,6 +41,14 @@ public final class TestData {
         return Reloj.fijo(momento);
     }
 
+    /** La jornada real (con el horario de {@link #configuracion()}) en el momento del reloj. */
+    public static com.LosCiruelos.padel_club_api.club.service.JornadaService jornadas(Reloj reloj) {
+        com.LosCiruelos.padel_club_api.club.service.ConfiguracionService config = org.mockito.Mockito
+                .mock(com.LosCiruelos.padel_club_api.club.service.ConfiguracionService.class);
+        org.mockito.Mockito.lenient().when(config.obtener()).thenReturn(configuracion());
+        return new com.LosCiruelos.padel_club_api.club.service.JornadaService(config, reloj);
+    }
+
     /** Configuración por defecto del DataInitializer: seña 50 %, 90-180 min, $5000 cada 30 min. */
     public static Configuracion configuracion() {
         List<DiaApertura> dias = new ArrayList<>();
@@ -106,6 +114,15 @@ public final class TestData {
                 .createdAt(AHORA.minusMinutes(5))
                 .expiresAt(AHORA.plusMinutes(10))
                 .build();
+    }
+
+    /** Un pago aprobado con la imputación automática (primero la cancha, después los productos). */
+    public static Pago cobrado(Long id, Reserva reserva, String monto) {
+        Pago pago = pago(id, reserva, EstadoPago.APROBADO, monto);
+        reserva.getPagos().remove(pago);
+        pago.imputar(reserva.imputacionAutomatica(pago.getMonto()));
+        reserva.agregarPago(pago);
+        return pago;
     }
 
     public static Pago pago(Long id, Reserva reserva, EstadoPago estado, String monto) {

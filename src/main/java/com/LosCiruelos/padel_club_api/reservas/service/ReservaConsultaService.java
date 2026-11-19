@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.reservas.service;
 
+import com.LosCiruelos.padel_club_api.common.RangoDeFechas;
+import com.LosCiruelos.padel_club_api.club.service.JornadaService;
 import com.LosCiruelos.padel_club_api.reservas.repository.TurnosDelPeriodo;
 import com.LosCiruelos.padel_club_api.reservas.repository.EntradasDeCaja;
 import com.LosCiruelos.padel_club_api.reservas.repository.CobrosDelPeriodo;
@@ -68,6 +70,7 @@ public class ReservaConsultaService {
     private final ResumenMapper resumenMapper;
     private final VentaConsultaService ventaConsultaService;
     private final Reloj reloj;
+    private final JornadaService jornadaService;
 
     // ── Del cliente ──────────────────────────────────────────────────────
 
@@ -111,6 +114,15 @@ public class ReservaConsultaService {
         if (!incluirDescartadas) {
             filtro = filtro.and(ReservaSpecification.sinDescartadas());
         }
+        // el rango de "Todo el período": respeta tipo e incluirDescartadas, sin el filtro de fechas ni de estados
+        Specification<Reserva> sinFechas = ReservaSpecification.delClienteOJugador(usuario);
+        if (tipo != null && !tipo.isBlank()) {
+            sinFechas = sinFechas.and(tipo.trim().equalsIgnoreCase("proximas") ? ReservaSpecification.proximas(ahora)
+                    : ReservaSpecification.historial(ahora));
+        }
+        if (!incluirDescartadas) {
+            sinFechas = sinFechas.and(ReservaSpecification.sinDescartadas());
+        }
         if (desde != null) {
             filtro = filtro.and(ReservaSpecification.desde(desde));
         }
@@ -120,7 +132,7 @@ public class ReservaConsultaService {
 
         Page<ReservaResponse> resultado = reservaRepository.findAll(filtro, PageRequest.of(pagina, tamanio, orden))
                 .map(r -> mapper.aResponsePara(r, usuario));
-        return PaginaResponse.de(resultado);
+        return PaginaResponse.de(resultado, reservaRepository.rangoDeFechas(sinFechas));
     }
 
     /** Detalle de una reserva: la propia, la de un partido en el que juega, o cualquiera para el personal. */
@@ -129,7 +141,7 @@ public class ReservaConsultaService {
         Usuario usuario = usuarioService.autenticado(email);
         Reserva reserva = reservaRepository.findById(id).orElseThrow(() -> new ReservaNoEncontradaException(id));
         // al EMPLEADO, una de un día anterior no le existe (como las ventas de otros días)
-        if (!reserva.puedeVerla(usuario) || reserva.quedaFueraDelEmpleado(usuario, reloj.hoy())) {
+        if (!reserva.puedeVerla(usuario) || reserva.quedaFueraDelEmpleado(usuario, jornadaService.actual().fecha())) {
             throw new ReservaNoEncontradaException(id);
         }
         return mapper.aResponsePara(reserva, usuario);
@@ -153,8 +165,9 @@ public class ReservaConsultaService {
     public ListadoReservasResponse listar(LocalDate desde, LocalDate hasta, List<EstadoReserva> estados,
             Long clienteId, String cliente, Long canchaId, TipoReserva tipo, Long turnoFijoId, Boolean deTurnoFijo,
             boolean pendientes, int pagina, Integer tamanio, String orden, String email) {
-        if (Roles.esEmpleado(usuarioService.autenticado(email))) {
-            LocalDate hoy = reloj.hoy();
+        boolean esEmpleado = Roles.esEmpleado(usuarioService.autenticado(email));
+        if (esEmpleado) {
+            LocalDate hoy = jornadaService.actual().fecha();
             if ((desde != null && desde.isBefore(hoy)) || (hasta != null && hasta.isBefore(hoy))) {
                 throw new PermisoDenegadoException("Solo podés ver las reservas de hoy en adelante.");
             }
@@ -180,7 +193,10 @@ public class ReservaConsultaService {
 
         Page<ReservaResponse> resultado = reservaRepository.findAll(ReservaSpecification.paraPersonal(filtro), pageable)
                 .map(mapper::aResponse);
-        return ListadoReservasResponse.de(resultado, reservaRepository.totalesParaPersonal(filtro));
+        // "Todo el período": de la primera a la última fecha de turno (el EMPLEADO, desde su jornada)
+        RangoDeFechas rango = reservaRepository.rangoDeFechas(
+                esEmpleado ? ReservaSpecification.desde(jornadaService.actual().fecha()) : null);
+        return ListadoReservasResponse.de(resultado, reservaRepository.totalesParaPersonal(filtro), rango);
     }
 
     /**
@@ -191,9 +207,10 @@ public class ReservaConsultaService {
     public List<ReservaResponse> saldosPendientes(String email) {
         Usuario personal = usuarioService.autenticado(email);
         LocalDateTime ahora = reloj.ahora();
+        LocalDate jornada = jornadaService.actual().fecha();
         return reservaRepository.findTerminadasConSaldo(Reserva.ESTADOS_CON_SALDO, ahora.toLocalDate(),
                 ahora.toLocalTime()).stream()
-                .filter(r -> !r.quedaFueraDelEmpleado(personal, ahora.toLocalDate()))
+                .filter(r -> !r.quedaFueraDelEmpleado(personal, jornada))
                 .map(mapper::aResponse)
                 .toList();
     }
@@ -203,9 +220,10 @@ public class ReservaConsultaService {
     public List<ReservaResponse> devolucionesPendientes(String email) {
         Usuario personal = usuarioService.autenticado(email);
         LocalDateTime ahora = reloj.ahora();
+        LocalDate jornada = jornadaService.actual().fecha();
         return reservaRepository.findConAlquileresSinDevolver(TipoProducto.ALQUILER, Reserva.ESTADOS_QUE_SE_JUEGAN,
                 ahora.toLocalDate(), ahora.toLocalTime()).stream()
-                .filter(r -> !r.quedaFueraDelEmpleado(personal, ahora.toLocalDate()))
+                .filter(r -> !r.quedaFueraDelEmpleado(personal, jornada))
                 .map(mapper::aResponse)
                 .toList();
     }
@@ -222,17 +240,15 @@ public class ReservaConsultaService {
      */
     @Transactional(readOnly = true)
     public ResumenResponse resumen(LocalDate desde, LocalDate hasta, String email) {
-        boolean soloHoy = !Roles.esAdmin(usuarioService.autenticado(email));
-        LocalDate hoy = reloj.hoy();
+        // solo el ADMIN: el EMPLEADO ve el cierre de su jornada en GET /admin/caja
+        Roles.exigirAdmin(usuarioService.autenticado(email), "Solo el ADMIN ve el resumen.");
+        LocalDate hoy = jornadaService.actual().fecha();
         if ((desde == null) != (hasta == null)) {
             throw new ReservaException("Indicá las dos fechas (desde y hasta) o ninguna para ver el día de hoy.");
         }
         if (desde == null) {
             desde = hoy;
             hasta = hoy;
-        }
-        if (soloHoy && !(desde.equals(hoy) && hasta.equals(hoy))) {
-            throw new PermisoDenegadoException("Solo podés ver el resumen de hoy.");
         }
         return resumen(desde, hasta);
     }
@@ -256,14 +272,16 @@ public class ReservaConsultaService {
         CobrosDelPeriodo c = reservaRepository.resumenCobros(desde, hasta, ahora.toLocalDate(), ahora.toLocalTime(),
                 juegan, EstadoReserva.CANCELADA, EstadoPago.APROBADO, Pago.ESTADOS_DEVUELTOS, PaymentProvider.BONIFICACION);
 
-        // caja: de las 00:00 de desde a las 00:00 del día siguiente a hasta
-        LocalDateTime inicio = desde.atStartOfDay();
-        LocalDateTime fin = hasta.plusDays(1).atStartOfDay();
+        // caja: por jornada (lo que pasó entre la apertura de desde y la apertura del día siguiente a
+        // hasta), igual para el ADMIN y el EMPLEADO; un cobro de las 00:10 es de la jornada anterior
+        LocalDateTime inicio = jornadaService.del(desde).inicio();
+        LocalDateTime fin = jornadaService.del(hasta).fin();
         EntradasDeCaja e = reservaRepository.resumenEntradasDeCaja(inicio, fin, Pago.ESTADOS_COBRADOS, PaymentProvider.MANUAL,
                 PaymentProvider.MERCADO_PAGO, PaymentProvider.TRANSFERENCIA_MP, PaymentProvider.CUENTA_DNI, PaymentProvider.BONIFICACION);
-        BigDecimal devoluciones = reservaRepository.resumenDevoluciones(inicio, fin, EstadoPago.DEVUELTO,
+        BigDecimal devoluciones = reservaRepository.resumenDevoluciones(inicio, fin,
+                com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion.DEVUELTO,
                 PaymentProvider.BONIFICACION);
-        return resumenMapper.aResponse(desde, hasta, t, c, e, devoluciones,
+        return resumenMapper.aResponse(desde, hasta, inicio, fin, t, c, e, devoluciones,
                 reservaRepository.resumenProductos(desde, hasta, juegan), ventaConsultaService.totales(inicio, fin),
                 ventaConsultaService.devoluciones(inicio, fin), ventaConsultaService.porProducto(inicio, fin));
     }

@@ -57,6 +57,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/pagos/notificacion").permitAll() // webhook de Mercado Pago
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/archivos/*").permitAll() // imágenes públicas
+                        .requestMatchers(HttpMethod.GET, "/novedades").permitAll()
                         // Un visitante sin cuenta puede ver canchas, horarios libres y precios (no reservar).
                         // La disponibilidad solo informa horarios: no expone datos de las reservas ni de clientes
                         .requestMatchers(HttpMethod.GET, "/canchas", "/canchas/*/disponibilidad",
@@ -73,12 +75,17 @@ public class SecurityConfig {
                         // Panel del personal: reservas y búsqueda de clientes
                         // Bonificar (no cobrarle al cliente): solo ADMIN
                         .requestMatchers(HttpMethod.POST, "/admin/reservas/*/bonificacion").hasRole("ADMIN")
+                        .requestMatchers("/admin/reservas/devoluciones-sin-revisar", "/admin/reservas/*/devoluciones/*/revision")
+                        .hasRole("ADMIN")
                         .requestMatchers("/admin/reservas/*/pagos/*/verificacion").hasRole("ADMIN")
                         // Armar y modificar partidos: solo ADMIN
                         .requestMatchers("/admin/reservas/partidos", "/admin/reservas/partidos/**").hasRole("ADMIN")
                         .requestMatchers("/admin/reservas", "/admin/reservas/**").hasAnyRole("ADMIN", "EMPLEADO")
                         // Usuarios: el EMPLEADO los ve (listado, detalle y búsqueda de clientes); el resto es del ADMIN
                         .requestMatchers(HttpMethod.GET, "/admin/usuarios", "/admin/usuarios/*").hasAnyRole("ADMIN", "EMPLEADO")
+                        .requestMatchers(HttpMethod.POST, "/admin/usuarios").hasAnyRole("ADMIN", "EMPLEADO")
+                        .requestMatchers(HttpMethod.GET, "/admin/jornada", "/admin/caja").hasAnyRole("ADMIN", "EMPLEADO")
+                        .requestMatchers("/admin/reservas/resumen").hasRole("ADMIN")
                         .requestMatchers("/admin/ventas/*/verificacion", "/admin/ventas/*/devoluciones").hasRole("ADMIN")
                         .requestMatchers("/admin/ventas", "/admin/ventas/**").hasAnyRole("ADMIN", "EMPLEADO")
                         // Reservas del cliente (las del personal están en /admin/reservas)

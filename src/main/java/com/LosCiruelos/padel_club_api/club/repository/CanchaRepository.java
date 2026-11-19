@@ -20,4 +20,12 @@ public interface CanchaRepository extends JpaRepository<Cancha, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM Cancha c WHERE c.id = :id")
     Optional<Cancha> findByIdForUpdate(@Param("id") Long id);
+
+    java.util.List<Cancha> findAllByOrderByNumeroAsc();
+
+    java.util.List<Cancha> findByActivaTrueOrderByNumeroAsc();
+
+    boolean existsByNumero(Integer numero);
+
+    boolean existsByNumeroAndIdNot(Integer numero, Long id);
 }

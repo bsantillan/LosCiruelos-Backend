@@ -8,7 +8,7 @@ import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 
 /** Una página del listado de ventas del personal, con los totales de todo el filtro. */
 public record ListadoVentasResponse(List<VentaResponse> contenido, int pagina, int tamanio, long totalElementos,
-        int totalPaginas, Totales totales) {
+        int totalPaginas, Totales totales, com.LosCiruelos.padel_club_api.common.RangoDeFechas rango) {
 
     /**
      * @param ventas   cuántas ventas COBRADA hay en el filtro

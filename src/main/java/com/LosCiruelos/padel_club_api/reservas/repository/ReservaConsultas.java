@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.reservas.repository;
 
+import org.springframework.data.jpa.domain.Specification;
+import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse.Totales;
 
 /**
@@ -14,4 +16,7 @@ public interface ReservaConsultas {
      * lo que deben las que tienen saldo.
      */
     Totales totalesParaPersonal(FiltroReservas filtro);
+
+    /** La primera y la última fecha de turno de las reservas que cumplen {@code spec} (MIN/MAX, con índice). */
+    com.LosCiruelos.padel_club_api.common.RangoDeFechas rangoDeFechas(Specification<Reserva> spec);
 }

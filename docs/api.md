@@ -27,7 +27,7 @@ Con el offset, `new Date(valor)` en el navegador da el instante correcto aunque 
 | `TokenType` | `VERIFY_EMAIL`, `PASSWORD_RESET`, `VERIFY_PHONE` |
 | `CanalNotificacion` | `EMAIL`, `WHATSAPP` |
 | `EstadoReserva` | `PENDIENTE`, `CONFIRMADA` (partido sin nada pagado: no vence), `SEÑADA` (solo reservas normales: un partido no tiene seña), `PARCIALMENTE_PAGADA`, `PAGADA`, `CANCELADA`, `EXPIRADA`, `COMPLETADA` |
-| `TipoReserva` | `NORMAL`, `PARTIDO` (4 jugadores, lo arma el ADMIN) |
+| `TipoReserva` | `NORMAL`, `PARTIDO` (de 1 a 4 jugadores, lo arma el ADMIN) |
 | `EstadoPago` | `PENDIENTE`, `APROBADO`, `RECHAZADO`, `EN_PROCESO`, `DEVUELTO`, `EXPIRADO`, `A_REEMBOLSAR`, `REEMBOLSO_PENDIENTE` |
 | `PaymentProvider` | `MANUAL` (efectivo), `MERCADO_PAGO`, `CUENTA_DNI` (Banco Provincia, cargado a mano; el ADMIN lo verifica contra la cuenta), `BONIFICACION` (el ADMIN no le cobró al cliente: no es plata) |
 | `AuthProvider` | `LOCAL`, `GOOGLE` |
@@ -199,19 +199,38 @@ Cada usuario elige si recibe los avisos por mail o por WhatsApp. Detalle de qué
 
 El ADMIN puede todo. El EMPLEADO atiende el club en el día: **ve y opera las reservas de hoy en adelante** (por la fecha del turno, en hora del club). Las reglas se aplican en la API (rutas de `SecurityConfig`, `@PreAuthorize` y los services), no solo en el front.
 
+**"Hoy" para el EMPLEADO es la jornada en curso**: la jornada del día D va de la apertura de D a la apertura de D+1, según el horario semanal (los días cerrados no cuentan; si D+1 no abre, se toma la apertura más temprana de la semana). Pasada la medianoche sigue la jornada del día anterior hasta que el club vuelve a abrir: a las 00:30 del miércoles el EMPLEADO sigue viendo y operando las reservas, las ventas y el resumen del martes. Las ventas "de hoy" son las registradas dentro de la jornada.
+
+### `GET /admin/jornada` → `200 JornadaResponse` (rol: ADMIN, EMPLEADO)
+
+La jornada en curso, para que el front sepa qué fechas mostrarle al EMPLEADO.
+
+```json
+{ "fecha": "2026-10-13", "inicio": "2026-10-13T08:00:00.000-03:00", "fin": "2026-10-14T08:00:00.000-03:00" }
+```
+
+`fecha` es el día de la jornada (el que hay que mandar en `desde`/`hasta`), `inicio` la apertura de ese día y `fin` la apertura del siguiente (sin incluir). CLIENTE → `403`.
+
 | Tema | ADMIN | EMPLEADO |
 |---|---|---|
 | `GET /admin/reservas` | Todas, con cualquier período | De hoy en adelante: sin `desde`, desde hoy; `desde` o `hasta` anteriores a hoy → `403` "Solo podés ver las reservas de hoy en adelante.". Vale también con `pendientes=true`, y los totales respetan el límite |
 | `GET /admin/reservas/{id}` | Cualquiera | Una de un día anterior → `404` (como las ventas de otros días) |
 | Cobrar (efectivo, transferencia, `presencial`, Cuenta DNI, QR), cancelar, sumar o sacar productos y registrar paletas devueltas | Cualquier reserva | Solo de hoy en adelante: una de un día anterior → `403` "Solo el ADMIN puede operar reservas de días anteriores." |
 | `GET /admin/reservas/saldos-pendientes` y `/devoluciones-pendientes` | Todas | Solo las de hoy |
-| `GET /admin/reservas/resumen` | Cualquier período | Solo hoy |
+| `GET /admin/reservas/resumen` | Cualquier período | `403` (usa `GET /admin/caja`) |
+| `GET /admin/caja` (cierre de caja) | Cualquier jornada | Solo la jornada en curso |
+| `GET /admin/metricas` | Sí | `403` |
 | Reservas sin seña, bonificaciones, verificar pagos | Sí | `403` |
 | Partidos y turnos fijos | Sí | `403` |
+| Anular un cobro de una reserva | Cualquiera (también bonificaciones) | Solo los que registró el personal en la jornada; nunca una bonificación |
+| Devolver un cobro de una reserva | Cualquiera | Solo los que registró el personal en la jornada, con motivo; quedan sin revisar |
+| Revisar devoluciones (`PUT …/revision`, `GET …/devoluciones-sin-revisar`) | Sí | `403` |
+| Entregar una devolución y `GET …/devoluciones-a-entregar` | Todas | Las de la jornada |
 | Ventas sueltas | Todas; anula cualquiera, devuelve y verifica | Las de hoy; anula las de hoy no verificadas; no devuelve ni verifica |
 | Productos | Crea, edita, da de baja y reactiva | Ve el catálogo y suma o resta stock (`PATCH …/stock`) |
 | `GET /admin/usuarios`, `GET /admin/usuarios/{id}` | Sí (nunca aparecen los ADMIN) | Sí, los mismos datos; el detalle de un ADMIN → `404` |
-| Crear, editar, desactivar y reactivar usuarios | Sí | `403` |
+| Crear usuarios (`POST /admin/usuarios`) | Cualquier rol | Solo `rol: CLIENTE`; otro rol → `403` "Solo podés dar de alta clientes." |
+| Editar, desactivar y reactivar usuarios | Sí | `403` |
 | `GET /admin/usuarios/clientes` (buscar para reservar) | Sí | Sí |
 | Configuración del club y días cerrados | Sí | `403` |
 
@@ -231,7 +250,7 @@ El ADMIN puede todo. El EMPLEADO atiende el club en el día: **ve y opera las re
 
 | Método y ruta | Descripción |
 |---|---|
-| `POST /admin/usuarios` → `201` | Crea un usuario con contraseña temporal aleatoria (12 caracteres) y le manda un email de bienvenida con la contraseña y un código de verificación. Body: `email`, `nombre`, `apellido`, `telefono`, `rol` (obligatorios); `categoria` y `posicion` opcionales para un CLIENTE (sin ellas queda con el perfil incompleto y las carga él; sirve para dar de alta en el momento al responsable de un partido). El usuario queda habilitado y con el email sin verificar. |
+| `POST /admin/usuarios` → `201` | **ADMIN, EMPLEADO** (el EMPLEADO solo da de alta clientes: con otro `rol`, `403` "Solo podés dar de alta clientes."). Crea un usuario con contraseña temporal aleatoria (12 caracteres) y le manda un email de bienvenida con la contraseña y un código de verificación. Body: `email`, `nombre`, `apellido`, `telefono`, `rol` (obligatorios); `categoria` y `posicion` opcionales para un CLIENTE (sin ellas queda con el perfil incompleto y las carga él; sirve para dar de alta en el momento al responsable de un partido). El usuario queda habilitado y con el email sin verificar. |
 | `PUT /admin/usuarios/{id}` → `200` | Edita `nombre`, `apellido`, `telefono`, `rol` (obligatorios) y `categoria`/`posicion` (solo CLIENTE, obligatorias en ese caso). Si deja de ser CLIENTE se borra su perfil de jugador; si pasa a CLIENTE se le crea. No se puede editar a un ADMIN ni convertir a alguien en ADMIN. Todo se valida antes de guardar. |
 | `GET /admin/usuarios` → `200 [ ... ]` | **ADMIN, EMPLEADO.** Lista usuarios (nunca incluye ADMIN). Filtros opcionales por query string: `rol`, `enabled`, `nombre` (busca en nombre o apellido, *contiene*), `email` (*contiene*), `categoria`, `posicion` (estos dos solo junto con `rol=CLIENTE`). |
 | `GET /admin/usuarios/{id}` → `200` | **ADMIN, EMPLEADO.** Detalle de un usuario. Al EMPLEADO, un ADMIN responde `404`. |
@@ -263,10 +282,65 @@ Es el horario **actual**: para un día pasado puede no coincidir con el que hab�
 
 Se pueden consultar sin iniciar sesión (un visitante ve los horarios libres y los precios); para reservar sí hace falta una cuenta con el perfil completo. Si se manda un token vencido o inválido, se responde igual, como visitante.
 
-### `GET /canchas` → `200`
+### `GET /canchas?incluirInactivas=false` → `200` (público)
+Las canchas **activas**, por número, con sus fotos en orden (la grilla y Reservar). Con `incluirInactivas=true` trae todas, activas y dadas de baja, también por número: la página de inicio muestra las de `"activa": false` como "No disponible por el momento". `incluirInactivas` es opcional (por defecto `false`); un valor que no es `true`/`false` → `400`. No trae `eliminable` (solo del panel).
 ```json
-[ { "id": 1, "numero": 1, "descripcion": "Cancha de césped sintético con iluminación LED." } ]
+[ { "id": 1, "numero": 1, "nombre": "Cancha central", "descripcion": "Techada, con tribuna.",
+    "tipo": "TECHADA", "superficie": "Cemento", "iluminacion": true, "activa": true,
+    "fotos": [ { "id": 3, "url": "/archivos/6f1c2e0a-9b7d-4c1e-8a55-0d2f3b4c5e6f.jpg", "orden": 1 } ] } ]
 ```
+`tipo` es `TECHADA` o `AIRE_LIBRE`; `nombre`, `descripcion` y `superficie` pueden ser `null`. `url` es relativa a la API (`GET /archivos/{nombre}`). Una cancha dada de baja no aparece acá ni en la disponibilidad (`404`), y no acepta reservas, partidos ni turnos fijos nuevos (`409` "La cancha 4 está dada de baja: no acepta reservas, partidos ni turnos fijos.").
+
+### `GET /archivos/{nombre}` → `200` (público)
+Una imagen subida (foto de cancha o imagen de novedad), con su `Content-Type` y `Cache-Control: public, max-age=31536000, immutable` (cada nombre es un UUID que no se reutiliza). Un nombre que no existe → `404`.
+
+## Novedades — `/novedades` (público) y `/admin/novedades` (rol: ADMIN)
+
+Las novedades del club (torneos, clases, avisos) para la página de inicio; los torneos se publican como novedad. El texto "Para más información, comunicate con el club" lo pone el front: no se guarda.
+
+### `GET /novedades?limite=6` → `200` (público)
+Las publicadas y vigentes (`visibleHasta` null o de hoy en adelante), de la más nueva a la más vieja. `limite` de 1 a 20 (por defecto 6; otro valor → `400`).
+```json
+[ { "id": 4, "titulo": "Torneo de primavera", "descripcion": "Inscripción abierta para todas las categorías.",
+    "etiqueta": "Torneo", "imagenUrl": "/archivos/2b9c4e1a-7f3d-4a8b-9c6e-1d2f3a4b5c6d.webp", "publicadaAt": "2026-10-11T18:00:00.000-03:00",
+    "visibleHasta": "2026-10-20" } ]
+```
+
+### Panel del ADMIN (EMPLEADO `403`)
+Body de alta y edición (`NovedadRequest`): `{ "titulo": "Torneo de primavera", "descripcion": "…", "etiqueta": "Torneo", "visibleHasta": "2026-10-20" }`. `titulo` es obligatorio (hasta 80), `descripcion` también (hasta 300), `etiqueta` es opcional (hasta 30) y `visibleHasta` también: después de esa fecha deja de mostrarse sola.
+
+`NovedadResponse`: `{ id, titulo, descripcion, etiqueta, imagenUrl, publicada, publicadaAt, visibleHasta, estado, creadoPor, creadoAt, actualizadoAt }`. `estado` es `BORRADOR` (sin publicar), `PUBLICADA` (publicada y vigente) o `VENCIDA` (publicada, con `visibleHasta` anterior a hoy). `creadoPor` es el nombre.
+
+| Método y ruta | Descripción | Errores |
+|---|---|---|
+| `GET /admin/novedades?page=0&size=20` → `200 PaginaResponse<NovedadResponse>` | Todas, de la más nueva a la más vieja (`size` hasta 100) | `400` página o tamaño inválidos |
+| `POST /admin/novedades` → `201` | Alta: nace como `BORRADOR` | `400` validación |
+| `PUT /admin/novedades/{id}` → `200` | Edición, con el mismo body | `400` · `404` |
+| `PUT /admin/novedades/{id}/publicacion` → `200` | Body `{ "publicada": true }`: la publica y completa `publicadaAt` (si ya estaba publicada, no cambia). Con `false` vuelve a borrador (`publicadaAt` null) | `400` sin `publicada` · `404` |
+| `DELETE /admin/novedades/{id}` → `204` | La borra, con su imagen | `404` |
+| `POST /admin/novedades/{id}/imagen` (multipart, campo `archivo`) → `200` | Pone o reemplaza la imagen (una sola): JPG, PNG o WEBP de hasta 5 MB, con las mismas reglas que las fotos de cancha | `400` · `404` |
+| `DELETE /admin/novedades/{id}/imagen` → `200` | Saca la imagen | `404` |
+
+## Gestión de canchas — `/admin/canchas` (rol: ADMIN; EMPLEADO `403`)
+
+Body de alta y edición (`CanchaRequest`):
+```json
+{ "numero": 5, "nombre": "Cancha central", "descripcion": "Techada, con tribuna.", "tipo": "TECHADA",
+  "superficie": "Cemento", "iluminacion": true }
+```
+`numero` (obligatorio, > 0, no se repite), `nombre` (hasta 40), `descripcion` (hasta 300), `tipo` (obligatorio: `TECHADA` o `AIRE_LIBRE`), `superficie` (hasta 60) e `iluminacion` (obligatorio). Responden la cancha (`CanchaResponse`, como `GET /canchas`) con `eliminable`.
+
+| Método y ruta | Descripción | Errores |
+|---|---|---|
+| `GET /admin/canchas` → `200 [CanchaResponse]` | Todas, activas o no, con `eliminable` (true si nunca se usó) | |
+| `POST /admin/canchas` → `201` | Alta (nace activa) | `400` validación · `409` "Ya existe la cancha 5." |
+| `PUT /admin/canchas/{id}` → `200` | Edición, con el mismo body | `400` · `404` · `409` número repetido |
+| `PUT /admin/canchas/{id}/baja?confirmar=false` → `200 BajaDeCanchaResponse` | Desactiva la cancha. Si tiene reservas confirmadas o pendientes vigentes de hoy en adelante, o turnos fijos activos, sin `confirmar=true` responde `409` con la lista, igual que el cambio de horario: `{ "error": "La cancha tiene 2 reservas y 1 turno fijo de hoy en adelante. …", "reservasFueraDeHorario": [ { "id", "fecha", "horaInicio", "horaFin", "canchaNumero", "clienteNombre", "tipo" } ], "turnosFijosFueraDeHorario": [ { "id", "diaSemana", "horaInicio", "horaFin", "canchaNumero" } ] }`. Con `confirmar=true` la desactiva, da de baja los turnos fijos (sus partidos futuros se cancelan con reembolso total) y cancela esas reservas con reembolso total y aviso al cliente, cada una por separado. Responde `{ "cancha", "cancelaciones": { "canceladas": [ids], "sinCancelar": [ { "reservaId", "motivo" } ] }, "turnosFijosDadosDeBaja": [ids] }` | `404` · `409` sin confirmar |
+| `PUT /admin/canchas/{id}/reactivacion` → `200` | La vuelve a activar | `404` |
+| `DELETE /admin/canchas/{id}` → `204` | Borrado definitivo, **solo si nunca se usó** (sin reservas de ningún estado, partidos ni turnos fijos). Borra también sus fotos del disco | `404` · `409` "La cancha tiene reservas o turnos fijos: desactivala en lugar de eliminarla." |
+| `POST /admin/canchas/{id}/fotos` (multipart, campo `archivo`) → `200` | Suma una foto al final. JPG, PNG o WEBP (se valida el contenido, no la extensión), hasta 5 MB; hasta 6 fotos | `400` "La imagen tiene que ser JPG, PNG o WEBP.", "La imagen no puede superar los 5 MB." o "Mandá la imagen en el campo \"archivo\"." · `404` · `409` "La cancha ya tiene 6 fotos: sacá una antes de subir otra." |
+| `DELETE /admin/canchas/{id}/fotos/{fotoId}` → `200` | Saca la foto (y la borra del disco); las demás se corren | `404` |
+| `PUT /admin/canchas/{id}/fotos/orden` → `200` | Body `{ "fotos": [3, 1, 2] }`: todas las fotos, en el orden nuevo | `400` si falta o sobra alguna · `404` |
 
 ### `GET /canchas/{id}/disponibilidad?fecha=2026-10-15&duracion=90` → `200`
 ```json
@@ -296,7 +370,7 @@ Un CLIENTE solo ve y opera sus propias reservas, y además **ve** (sin pagar ni 
 
 **`ReservaResponse`**
 
-`montoPagado` es solo plata cobrada; `montoBonificado`, lo que el ADMIN bonificó; `montoPendiente = montoTotal − montoPagado − montoBonificado`. En `pagos`, una bonificación aparece con `provider: "BONIFICACION"` y su `motivo`. `tipo` es `NORMAL` o `PARTIDO`; en un partido vienen `jugadores` (ver [Partidos](#partidos-y-turnos-fijos--adminpartidos-adminturnos-fijos-rol-admin)), `turnoFijoId` si lo creó un turno fijo, y `clienteId` es el jugador 1 (el responsable). En una reserva normal `jugadores` es `[]`.
+`montoPagado` es solo plata cobrada; `montoBonificado`, lo que el ADMIN bonificó; `montoPendiente = montoTotal − montoPagado − montoBonificado`. Por concepto: `montoCanchaPagado` (lo cobrado y bonificado que cubre la cancha) y `montoCanchaPendiente`; cada producto trae su `lineaId` (el que se usa en las imputaciones de un cobro), `montoPagado` y `montoPendiente`. `montoPagado`, `montoPendiente` y el estado se siguen calculando sobre el total. En `pagos`, una bonificación aparece con `provider: "BONIFICACION"` y su `motivo`. `tipo` es `NORMAL` o `PARTIDO`; en un partido vienen `jugadores` (ver [Partidos](#partidos-y-turnos-fijos--adminpartidos-adminturnos-fijos-rol-admin)), `turnoFijoId` si lo creó un turno fijo, y `clienteId` es el jugador 1 (el responsable). En una reserva normal `jugadores` es `[]`.
 ```json
 {
   "id": 10, "canchaId": 1, "canchaNumero": 1,
@@ -323,7 +397,7 @@ Todas las rutas de `/reservas` son **solo del CLIENTE** (el personal recibe `403
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
-| `POST /reservas` → `201` | Crea una reserva `PENDIENTE` para el cliente autenticado, que vence en 15 min si no se paga. Body abajo. | `400` horario o datos inválidos, o fecha más allá de la anticipación ("Podés reservar hasta el sábado 14/11 (30 días de anticipación).") · `403` perfil incompleto · `404` cancha · `409` turno ocupado, sin stock o reserva con pago en curso |
+| `POST /reservas` → `201` | Crea una reserva `PENDIENTE` para el cliente autenticado, que vence si no se paga a los 15 min **o al empezar el turno, lo que pase primero** (`expiresAt = min(creación + 15 min, inicio del turno)`): el job la pasa a `EXPIRADA` y libera el turno y el stock. Si tiene un pago `EN_PROCESO`, se espera a Mercado Pago. Body abajo. | `400` horario o datos inválidos, o fecha más allá de la anticipación ("Podés reservar hasta el sábado 14/11 (30 días de anticipación).") · `403` perfil incompleto · `404` cancha · `409` turno ocupado, sin stock o reserva con pago en curso |
 | `GET /reservas/mias` → `200` | Reservas del usuario autenticado, **paginadas y filtradas** (ver abajo). | `400` parámetros inválidos |
 | `GET /reservas/{id}` → `200` | Detalle con los pagos: una reserva propia o un partido en el que juega. Sirve para consultar el resultado de un pago en proceso. | `404` |
 | `DELETE /reservas/{id}/cancelar` → `200 ReservaResponse` | Cancela la reserva y hace los reembolsos según la política (ver abajo). Devuelve la reserva con los pagos actualizados. El personal cancela con `DELETE /admin/reservas/{id}/cancelar`. | `403` partido (lo cancela el ADMIN) · `404` · `409` turno empezado/terminado, reserva finalizada o pago en proceso. Si Mercado Pago no acepta el reembolso, **se cancela igual** (`200`) y el pago queda `REEMBOLSO_PENDIENTE` |
@@ -354,6 +428,12 @@ Todas las rutas de `/reservas` son **solo del CLIENTE** (el personal recibe `403
 **Turnos jugados**: `turnoTerminado` dice si el turno ya terminó, y `debeSaldo` si además la reserva sigue `SEÑADA` o `PARCIALMENTE_PAGADA` (se jugó pero falta cobrar `montoPendiente`). El front puede mostrarla como "Jugada · saldo pendiente $X". Pasa a `COMPLETADA` cuando el personal registra el pago del saldo.
 
 ### `GET /reservas/mias` — filtros y paginación
+
+**`rango`** (en `GET /reservas/mias`, `GET /admin/reservas` y `GET /admin/ventas`): `{ "desde": "2026-03-02", "hasta": "2026-11-20" }`, la primera y la última fecha de **toda la lista** de ese usuario, sin el filtro de fechas, sin los otros filtros y sin paginar. Sirve para mostrar de qué fecha a qué fecha va "Todo el período" sin pedidos extra. Los dos `null` si no hay nada. Se calcula con MIN/MAX sobre la fecha, con índice.
+- `GET /reservas/mias`: por fecha del turno, respetando `tipo` (`proximas` / `historial`) e `incluirDescartadas`.
+- `GET /admin/reservas`: por fecha del turno; el EMPLEADO, desde su jornada en curso.
+- `GET /admin/ventas`: por la jornada de la venta (una de las 00:10 es del día anterior); el EMPLEADO, solo su jornada en curso.
+
 
 Todos los parámetros son opcionales:
 
@@ -508,7 +588,8 @@ Días puntuales en que el club no abre (un feriado, una obra), además del horar
 | `PUT /admin/configuracion/productos/{id}` → `200` | Reemplaza nombre, descripción, precio y stock; `ofrecerAlReservar` se cambia solo si viene. `activo` **se ignora** (se usan baja y reactivación). El `tipo` no se puede cambiar. | `400` (también `controlaStock: false`) · `404` · `409` |
 | `GET /admin/configuracion/productos/disponibilidad?fecha=2026-10-20&horaInicio=18:00&horaFin=19:30&excluirReservaId=123` → `200` | **ADMIN, EMPLEADO.** Para el panel (nueva reserva, partidos y turnos fijos): unidades libres de **todos los productos activos** en ese horario, se ofrezcan o no al reservar, en orden de id. Misma forma que `GET /productos/disponibilidad`: `[{ "id", "codigo", "nombre", "tipo", "precio", "disponibles", "ofrecerAlReservar" }]` (el front muestra primero los que se ofrecen y el resto como "Más productos"). `disponibles` sale del mismo cálculo que valida el stock al guardar: VENTA, el stock actual; ALQUILER, el total menos las unidades en uso en reservas activas que se superponen con ese horario (en cualquier cancha) y las de turnos terminados sin devolver. `excluirReservaId` (opcional): al editar una reserva o un partido, lo que esa reserva ya tiene cuenta como libre: sus alquileres no se cuentan como en uso y sus unidades de venta se suman al stock, igual que al guardar (salvo que esté cancelada o vencida: su stock ya volvió). Si la reserva no existe, se ignora. No tiene el tope de anticipación del cliente. | `400` falta una fecha u hora, formato inválido u `horaFin` no posterior a `horaInicio` ("La hora de inicio debe ser anterior a la hora de fin.") · `403` CLIENTE o PROFESOR |
 | `PATCH /admin/configuracion/productos/{id}/stock` → `200` | **ADMIN, EMPLEADO.** Suma o resta unidades: `{ "ajuste": 12 }` (reposición), `{ "ajuste": -1 }` (rotura). | `404` · `409` si quedaría negativo |
-| `PUT /admin/configuracion/productos/{id}/baja` → `200` | Baja (`activo = false`): deja de ofrecerse, de poder pedirse en reservas y de venderse. **Los productos nunca se borran**: las reservas, ventas y devoluciones viejas los conservan. Reemplaza a `DELETE /admin/configuracion/productos/{id}`, que ya no existe (`405`). | `404` |
+| `PUT /admin/configuracion/productos/{id}/baja` → `200` | Baja (`activo = false`): deja de ofrecerse, de poder pedirse en reservas y de venderse. Un producto usado no se borra: las reservas, ventas y devoluciones viejas lo conservan. | `404` |
+| `DELETE /admin/configuracion/productos/{id}` → `204` | **Solo ADMIN.** Borrado definitivo de un producto cargado mal, **solo si nunca se usó**: sin reservas ni partidos, turnos fijos, ventas ni devoluciones que lo referencien. Las pelotas y las paletas (productos del sistema) no se eliminan. | `404` · `409` "El producto ya se usó en reservas o ventas: desactivalo en lugar de eliminarlo." o "Las pelotas y las paletas no se eliminan: son productos del sistema." |
 | `PUT /admin/configuracion/productos/{id}/reactivacion` → `200` | Vuelve a dar de alta un producto dado de baja, con el precio y el stock que tenía. | `404` |
 
 Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración V6) y precio de **$5000 por unidad** (migración V7). El admin los cambia desde `/admin/configuracion/productos`.
@@ -526,12 +607,26 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
   "externalPaymentId": "1234567890",
   "createdAt": "2026-10-12T17:01:00.000-03:00", "paidAt": "2026-10-12T17:02:10.000-03:00",
   "montoReembolsado": null,
+  "imputaciones": [ { "concepto": "CANCHA", "lineaId": null, "nombre": "Cancha", "monto": 7500.00 } ],
   "verificado": null, "verificadoAt": null,
   "estadoReserva": "SEÑADA",
   "detalle": "accredited"
 }
 ```
+`imputaciones` dice **qué cubre el pago**: la cancha (`concepto: "CANCHA"`, `lineaId: null`) o una línea de producto de la reserva (`concepto: "PRODUCTO"`, `lineaId` = el `lineaId` del producto en `ReservaResponse.productos`), con su `nombre` ("Cancha" o el del producto) y el `monto`. En un pago cobrado suman lo que el club se queda de él (monto − lo devuelto); las bonificaciones también se imputan. En un QR esperando el pago son las que se aplican cuando Mercado Pago lo aprueba. Un pago que no se cobró, se venció o se devolvió entero no cubre nada (`[]`).
 `paymentToken` es el id de la preferencia (para inicializar el Brick o el botón de MP); `externalPaymentId`, el id del pago en MP; `verificado` y `verificadoAt`, si el ADMIN comprobó en la cuenta del club que entró un pago con Cuenta DNI, y cuándo (`null` en los otros medios); `estadoReserva`, el estado de la reserva después de la operación; `detalle`, el `status_detail` de MP (solo al cobrar).
+
+**Imputaciones de un cobro del personal.** `cobros/efectivo`, `cobros/transferencia`, `cobros/presencial`, `cobros/cuenta-dni`, `cobros/qr` y `bonificacion` aceptan un campo opcional para indicar qué cubre el cobro:
+
+```json
+{ "monto": 9500, "imputaciones": [
+    { "concepto": "CANCHA", "lineaId": null, "monto": 7500 },
+    { "concepto": "PRODUCTO", "lineaId": 51, "monto": 2000 } ] }
+```
+
+- Sin `imputaciones` se imputa **en forma automática**: primero la cancha hasta completarla y después cada línea de producto en orden de creación. Igual se imputan los pagos online del cliente.
+- En `cobros/qr` y `bonificacion` el `monto` es opcional: sin `monto`, es lo que suman las imputaciones (y sin las dos, todo lo que falta). Las del QR se guardan al generarlo y cuentan cuando Mercado Pago lo aprueba; si MP cobró otro monto (`A_REEMBOLSAR`), no se imputa nada.
+- Errores (`400`): "La suma de las imputaciones ($4.000) tiene que ser igual al monto ($5.000).", "El monto de cada imputación tiene que ser mayor a cero.", "Lo imputado a Gatorade ($5.000) supera lo pendiente de esa línea ($4.000).", "Lo imputado a la cancha (…) supera lo pendiente de esa línea (…).", "La línea #99 no es de esta reserva.", "La línea #51 está repetida en las imputaciones.", "La cancha está repetida en las imputaciones.", "Indicá la línea (lineaId) de cada imputación a un producto." y "Una imputación a la cancha no lleva lineaId.". Un `concepto` que falta o un monto de 0 dan `400` de validación (`errors["imputaciones[0].monto"]`).
 
 **Medios de pago** (los mismos 4 en reservas y ventas): efectivo, Mercado Pago con el QR de la caja, Mercado Pago por transferencia (alias o CVU del club) y Cuenta DNI. En un pago, `provider` es `MANUAL` (efectivo), `MERCADO_PAGO` (online o QR), `TRANSFERENCIA_MP`, `CUENTA_DNI` o `BONIFICACION`; `canal` lo abre: `EFECTIVO`, `MERCADO_PAGO_ONLINE`, `MERCADO_PAGO_QR`, `TRANSFERENCIA_MP`, `CUENTA_DNI` o `BONIFICACION`. `verificado` y `verificadoAt` vienen en los pagos con Cuenta DNI **y por transferencia** (`null` en los demás).
 
@@ -549,6 +644,28 @@ Pelotas y paletas arrancan con stock de **50 pelotas y 50 paletas** (migración 
 | `PUT /admin/reservas/{reservaId}/pagos/{pagoId}/verificacion` | **ADMIN** | Marca un pago con Cuenta DNI **o por transferencia** como verificado (el ADMIN comprobó en la cuenta del club que la plata entró) o lo desmarca. Body `{ "verificado": true }`. Responde el pago con `verificado` y `verificadoAt`. | `400 errors.verificado` · `403` EMPLEADO ("Solo el ADMIN puede verificar un pago con Cuenta DNI.") · `404` reserva o pago · `409` "Solo se verifican los pagos con Cuenta DNI." |
 | `GET /admin/pagos/cuenta-dni?desde=2026-10-01&hasta=2026-10-31&verificado=false` | **ADMIN** | Todo lo cobrado con Cuenta DNI en el período (pagos de reservas y ventas sueltas, por fecha de cobro), del más viejo al más nuevo, para controlarlo contra la cuenta. `verificado=false` trae lo pendiente de verificar; sin el parámetro, todo. Responde `[{ "origen": "RESERVA" \| "VENTA", "id", "reservaId", "medio", "monto", "fecha", "verificado", "verificadoAt", "anulada" }]`: `id` es el del pago (se verifica con `PUT /admin/reservas/{reservaId}/pagos/{id}/verificacion`) o el de la venta (`PUT /admin/ventas/{id}/verificacion`); `reservaId` es `null` en una venta. Las ventas anuladas también vienen (con `anulada: true`), para conciliar la cuenta si la plata entró y se devolvió; en un pago de reserva, `anulada` es siempre `false`. | `400` falta una fecha o `desde` posterior a `hasta` · `403` EMPLEADO o CLIENTE |
 | `GET /admin/pagos/verificables?desde=2026-10-01&hasta=2026-10-31&verificado=false&medio=TRANSFERENCIA_MP` | **ADMIN** | Como `cuenta-dni`, con **todo lo que se verifica contra la cuenta**: Cuenta DNI y transferencias de Mercado Pago, de reservas y ventas. `medio` (repetible: `CUENTA_DNI`, `TRANSFERENCIA_MP`) filtra; sin indicar, los dos. Cada cobro trae `medio`. `GET /admin/pagos/cuenta-dni` sigue y equivale a `medio=CUENTA_DNI`. | `400` fechas o un `medio` que no se verifica · `403` |
+
+### Anular y devolver cobros — `/admin/reservas/{reservaId}/pagos/{pagoId}/…` y `/admin/reservas/…/devoluciones` (rol: ADMIN, EMPLEADO)
+
+Valen para reservas normales, partidos y partidos de turno fijo (no para las ventas sueltas). Las cuatro operaciones responden la reserva (`ReservaResponse`), con el estado ya recalculado.
+
+- **Anular**: el cobro no tendría que existir porque fue un error de carga.
+- **Devolver**: la plata entró y se le devuelve al cliente, línea por línea.
+
+Después de anular o devolver, el estado se recalcula como siempre, con una excepción: si lo cubierto queda en 0 en una reserva que ya estaba confirmada, queda `CONFIRMADA` y **nunca vuelve a `PENDIENTE` ni vence** (tampoco al cambiar después los productos).
+
+| Método y ruta | Rol | Descripción | Errores |
+|---|---|---|---|
+| `POST /admin/reservas/{reservaId}/pagos/{pagoId}/anulacion` → `200 ReservaResponse` | ADMIN siempre; EMPLEADO, solo cobros que registró el personal dentro de la **jornada** en curso | Body `{ "motivo": "Lo cargué dos veces" }` (obligatorio, hasta 200). Se anula el cobro **entero** (no hay anulación parcial). Solo los cargados en el club: efectivo, transferencia (`presencial`), Cuenta DNI, y las **bonificaciones** (solo el ADMIN). El pago pasa a `ANULADO` y libera todo lo que cubría. No cuenta en la caja ni en el resumen y queda en el historial con `anuladoAt`, `motivoAnulacion` y `anuladoPor`. | `400` sin motivo · `403` "Solo podés anular cobros registrados en la jornada de hoy.", "Solo el ADMIN puede anular una bonificación." o una reserva anterior a la jornada · `404` reserva o pago · `409` "Un cobro de Mercado Pago (online o con el QR) no se anula: la plata entró, hay que devolverla.", "El cobro tiene devoluciones: no se puede anular." o un cobro que no está `APROBADO` |
+| `POST /admin/reservas/{reservaId}/pagos/{pagoId}/devoluciones` → `201 ReservaResponse` | ADMIN siempre; EMPLEADO, solo cobros que registró el personal dentro de la **jornada**, y con `motivo` obligatorio. Lo que devuelve el EMPLEADO queda **sin revisar** hasta que lo revisa el ADMIN | Body `{ "lineas": [{ "concepto": "PRODUCTO", "lineaId": 51, "monto": 2000 }, { "concepto": "CANCHA", "lineaId": null, "monto": 1000 }], "motivo": "Agua vencida", "entregada": true }` (`motivo` opcional; `entregada`, por defecto `true`). De cada línea se devuelve ese monto, que no puede superar lo que **ese cobro** le imputó (para devolverlo todo, mandá todas sus líneas). Baja esas imputaciones, acumula `montoReembolsado` en el pago y crea la devolución con sus líneas. Si fue por **Mercado Pago** (online o QR), se devuelve en el momento por la API (parcial si corresponde) y la devolución queda `DEVUELTO`. Si MP no la acepta, `502` y no se registra nada. Si se **cobró en el club**, con `entregada: true` se le dio la plata en el momento: queda `DEVUELTO` con `entregadoAt` y `entregadoPor` = quien la registra, y sale de la caja ahora. Con `entregada: false` queda `A_REEMBOLSAR` hasta que se entrega. En Mercado Pago `entregada` se ignora. El pago sigue `APROBADO` mientras retenga plata; devuelto entero, toma el estado de sus devoluciones. | `400` "Indicá al menos una línea a devolver", "Indicá el motivo de la devolución." (EMPLEADO), "El cobro #8 le cubre $1.000 a Gatorade: no se pueden devolver $2.000.", "La línea #99 no está cubierta por el cobro #8.", línea repetida o sin `lineaId` · `403` "Solo podés devolver cobros registrados en la jornada de hoy." o una reserva anterior a la jornada (EMPLEADO) · `404` · `409` "Una bonificación no es plata: no se devuelve, se anula." o un cobro sin nada para devolver · `502` "Mercado Pago no aceptó la devolución. Intentá de nuevo." |
+| `PUT /admin/reservas/{reservaId}/devoluciones/{devolucionId}/entrega` → `200 ReservaResponse` | ADMIN siempre; EMPLEADO, las creadas en la jornada en curso | Se le dio la plata al cliente: la devolución pasa de `A_REEMBOLSAR` a `DEVUELTO` con `entregadoAt` y `entregadoPor`, y cuenta en la caja de ese momento. Si era lo último pendiente del pago, el pago queda `DEVUELTO`. | `403` "Solo podés entregar devoluciones de la jornada de hoy." · `404` · `409` "La devolución no está pendiente de entrega (está DEVUELTO)." |
+| `PUT /admin/reservas/{reservaId}/devoluciones/{devolucionId}/revision` → `200 ReservaResponse` | **ADMIN** | Body `{ "revisada": true }` (o `false` para desmarcarla, como la verificación de Cuenta DNI). Guarda `revisadaAt` y `revisadaPor`. | `400` sin `revisada` · `403` EMPLEADO · `404` |
+| `GET /admin/reservas/devoluciones-sin-revisar` → `200 [DevolucionListadoResponse]` | **ADMIN** | Las devoluciones del personal que el ADMIN todavía no revisó, de la más vieja a la más nueva, con el mismo formato que `devoluciones-a-entregar`. | `403` EMPLEADO |
+| `GET /admin/reservas/devoluciones-a-entregar` → `200 [DevolucionListadoResponse]` | ADMIN (todas), EMPLEADO (las de la jornada) | Lo que hay que devolver a mano (`A_REEMBOLSAR`), de lo más viejo a lo más nuevo: `[{ "devolucionId": 3, "reservaId": 46, "fechaReserva": "2026-11-25", "pagoId": 53, "clienteId": 18, "cliente": "Ana Gómez", "monto": 1500.00, "medio": "TRANSFERENCIA_MP", "estado": "A_REEMBOLSAR", "motivo": "Agua vencida", "creadoAt": "…", "registradaPor": "Carla Méndez", "revisada": false }]`. `medio` es el `canal` del cobro original. También aparecen las de las cancelaciones con reembolso y los cobros de Mercado Pago que no se pudieron aplicar. | |
+
+En `PagoResponse`, cada pago suma:
+- `devoluciones: [{ id, monto, lineas: [{ concepto, lineaId, nombre, monto }], estado, motivo, creadoAt, entregadoAt, usuario, entregadoPor, revisada, revisadaAt, revisadaPor }]`. Las del ADMIN y las del sistema nacen `revisada: true`; las del EMPLEADO, `false`. `estado` es `A_REEMBOLSAR`, `REEMBOLSO_PENDIENTE` (MP todavía no la aceptó) o `DEVUELTO`. `usuario` es quién la registró: `null` si la generó el sistema, por ejemplo al cancelar el cliente. `lineas` viene vacía en las de antes de V40 y en los cobros de MP que no se aplicaron.
+- Si se anuló: `anuladoAt`, `motivoAnulacion` y `anuladoPor` (el nombre).
 
 ### Cobro con el QR de la caja — `/admin/reservas/{reservaId}/cobros/qr` (rol: ADMIN, EMPLEADO)
 
@@ -578,7 +695,7 @@ El club tiene **un QR de Mercado Pago impreso en el mostrador** (el de la caja).
 
 ## Partidos y turnos fijos — `/admin/reservas/partidos`, `/admin/turnos-fijos` (rol: ADMIN)
 
-Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **4 jugadores**: clientes registrados (`usuarioId`) o invitados sin cuenta (`nombre` y, opcional, `telefono`). **El jugador 1 tiene que ser un cliente registrado: es el responsable** y el cliente de la reserva (`clienteId`). Si no tiene cuenta, el ADMIN lo busca en `GET /admin/usuarios/clientes?buscar=` y, si no está, se la crea con `POST /admin/usuarios` (con lo mínimo).
+Un **partido** es una reserva `tipo: "PARTIDO"` que arma el ADMIN con **de 1 a 4 jugadores** (`jugadores` es una lista de 1 a 4: la posición de cada uno es su lugar en la lista; vale para crear y editar partidos, turnos fijos y una fecha de un turno fijo; con 0 o más de 4, `400` "Un partido tiene de 1 a 4 jugadores"). Al editar, los que ya no están se sacan. Cada uno es un cliente registrado (`usuarioId`) o un invitado sin cuenta (`nombre` y, opcional, `telefono`). **El jugador 1 tiene que ser un cliente registrado: es el responsable** y el cliente de la reserva (`clienteId`). Si no tiene cuenta, el ADMIN lo busca en `GET /admin/usuarios/clientes?buscar=` y, si no está, se la crea con `POST /admin/usuarios` (con lo mínimo).
 - **No vence y no tiene seña.** Sin nada pagado queda `CONFIRMADA`; con algo pagado, `PARCIALMENTE_PAGADA`; entero, `PAGADA` (o `COMPLETADA`). Ocupa la cancha y aparece como deuda si se juega sin pagar entero.
 - **Se cobra en el club, como un todo.** Un solo monto general: se cobra y se bonifica como una reserva normal (`cobros/efectivo`, `cobros/presencial`, `bonificacion`), sin indicar el jugador; cómo se lo dividen es cosa de ellos. No se paga online (`409`).
 - **Lo armó el ADMIN** (`createdBy`), pero su cliente es el responsable. Los jugadores registrados lo ven en `GET /reservas/mias` y en `GET /reservas/{id}` (sin los teléfonos de los demás), pero no lo pueden pagar ni cancelar.
@@ -650,14 +767,16 @@ Un **turno fijo** es el mismo partido (cancha, día de la semana, horario y juga
 | `GET /admin/turnos-fijos/{id}` → `200` | Detalle con sus próximos partidos. | `404` |
 | `POST /admin/turnos-fijos` → `201` | Body `{ "canchaId", "desde", "horaInicio", "horaFin", "jugadores": [4], "productos": [{ "productoId", "cantidad" }] }` (los productos de cada partido). El día de la semana es el de `desde` (hoy o futuro). El horario se valida en la primera fecha que se juega. | `400` datos o jugadores inválidos, horario fuera de apertura · `404` cancha · `409` otro turno fijo activo superpuesto en esa cancha y día |
 | `PUT /admin/turnos-fijos/{id}` → `200` | Mismo body, completo (un `desde` que ya pasó se acepta si no cambia). Los partidos futuros **sin pagos** se vuelven a crear con los datos nuevos; los que **tienen pagos** quedan como estaban y vienen en `partidosSinCambiar` (se editan uno por uno con `PUT /admin/partidos/{id}`). Las fechas dadas de baja siguen libres. | igual · `409` dado de baja |
-| `DELETE /admin/turnos-fijos/{id}?reembolso=TOTAL\|SENIA\|NADA` → `200` | **Baja general**: deja de bloquear el horario y cancela los partidos que todavía no empezaron (aviso a los jugadores). `reembolso` es obligatorio si alguno tiene plata cobrada. Los ya jugados no cambian. | `400` falta el reembolso · `409` ya dado de baja |
-| `DELETE /admin/turnos-fijos/{id}/fechas/{fecha}?reembolso=…` → `200 ReservaResponse` | **Baja de una fecha** (esa semana no vienen): cancela el partido de esa fecha o, si todavía no se creó, la registra como cancelada. Ese horario queda libre para otros y no se vuelve a crear. | `400` el turno fijo no se juega esa fecha o falta el reembolso · `409` fecha ya dada de baja o turno empezado |
+| `DELETE /admin/turnos-fijos/{id}?reembolso=TOTAL\|SENIA\|NADA&entregada=true` → `200` | **Baja general** (`entregada`, por defecto `true`, como en `DELETE /admin/reservas/{id}/cancelar`: lo cobrado en el club se devuelve en el momento; con `false` queda `A_REEMBOLSAR`): deja de bloquear el horario y cancela los partidos que todavía no empezaron (aviso a los jugadores). `reembolso` es obligatorio si alguno tiene plata cobrada. Los ya jugados no cambian. | `400` falta el reembolso · `409` ya dado de baja |
+| `DELETE /admin/turnos-fijos/{id}/fechas/{fecha}?reembolso=…&entregada=true` → `200 ReservaResponse` | **Baja de una fecha** (con `entregada` como la baja general) (esa semana no vienen): cancela el partido de esa fecha o, si todavía no se creó, la registra como cancelada. Ese horario queda libre para otros y no se vuelve a crear. | `400` el turno fijo no se juega esa fecha o falta el reembolso · `409` fecha ya dada de baja o turno empezado |
 
 ---
 
 ## Panel del personal — `/admin/reservas` y `/admin/usuarios/clientes` (rol: ADMIN, EMPLEADO)
 
 ### `GET /admin/reservas` → `200 ListadoReservasResponse`
+
+Suma `rango` (ver [`GET /reservas/mias`](#get-reservasmias--filtros-y-paginación)): de la primera a la última fecha de turno de todas las reservas; para el EMPLEADO, desde su jornada en curso.
 Reservas pasadas y futuras de cualquier cliente, para consultarlas y cobrar en el club. Todos los parámetros son opcionales y se combinan (se cumplen todos a la vez). **El EMPLEADO solo ve de hoy en adelante**: sin `desde`, toma hoy; con `desde` o `hasta` anteriores a hoy responde `403` "Solo podés ver las reservas de hoy en adelante." (también con `pendientes=true`; los totales respetan el límite).
 
 | Parámetro | Valores | Por defecto | Qué hace |
@@ -727,18 +846,18 @@ El EMPLEADO solo opera reservas de hoy en adelante: cobrar, cancelar, sumar o sa
 |---|---|---|
 | `POST /admin/reservas` → `201` | Reserva a nombre de un cliente. Mismo body que `POST /reservas` más `clienteId` y `modalidadPago` (opcional, cómo se paga; ver abajo). `clienteId` es obligatorio: un CLIENTE habilitado; **no hace falta que tenga el perfil completo**, por ejemplo uno que el ADMIN acaba de dar de alta sin celular verificado ni categoría. Los avisos le llegan por el canal que pueda usar: mail si su WhatsApp no está verificado) y `bonificacion` (opcional, **solo ADMIN**: se crea y se bonifica en la misma operación, igual que `POST /admin/reservas/{id}/bonificacion`; `monto` null bonifica el total). | Los de `POST /reservas` · `400` "ADMIN y EMPLEADO deben indicar el clienteId de la reserva.", "El usuario indicado no es un cliente." o cuenta desactivada · `403` bonificación de un EMPLEADO (no se crea nada) |
 | `GET /admin/reservas/{id}` → `200` | Detalle de cualquier reserva, con los pagos. Al EMPLEADO, una de un día anterior responde `404`. | `404` |
-| `DELETE /admin/reservas/{id}/cancelar?reembolso=TOTAL\|SENIA\|NADA` → `200 ReservaResponse` | Cancela cualquier reserva hasta que termina el turno. `reembolso` es obligatorio si tiene dinero cobrado. Un partido lo cancela solo el ADMIN. | `400` reembolso faltante · `403` EMPLEADO con un partido · `404` · `409` como en `/reservas` |
+| `DELETE /admin/reservas/{id}/cancelar?reembolso=TOTAL\|SENIA\|NADA&entregada=true` → `200 ReservaResponse` | Cancela cualquier reserva hasta que termina el turno. `reembolso` es obligatorio si tiene dinero cobrado. `entregada` (por defecto `true`): lo cobrado en el club se le devuelve al cliente en el momento (la devolución queda `DEVUELTO`, con quien cancela, y sale de la caja ahora); con `false` queda `A_REEMBOLSAR` hasta `PUT …/devoluciones/{id}/entrega`. Lo de Mercado Pago lo devuelve la API igual. Las devoluciones que genera el sistema (cancela el cliente o un cambio de horario del club) quedan `A_REEMBOLSAR`; las bajas de turno fijo aceptan el mismo `entregada`. Un partido lo cancela solo el ADMIN. | `400` reembolso faltante · `403` EMPLEADO con un partido · `404` · `409` como en `/reservas` |
 | `GET /admin/reservas/saldos-pendientes` → `200` | Turnos ya jugados que deben saldo (`SEÑADA` o `PARCIALMENTE_PAGADA` con el turno terminado), del más viejo al más nuevo. El listado con `?pendientes=true` también los muestra. Al EMPLEADO, solo los de hoy. | |
 | `GET /admin/reservas/devoluciones-pendientes` → `200` | Reservas cuyo turno ya empezó y tienen paletas sin devolver. Al EMPLEADO, solo las de hoy. | |
 | `POST /admin/reservas/{id}/devolucion` → `200` | Body `{ "paletasDevueltas": 3 }`. Registra la devolución; las faltantes se descuentan del stock. Devuelve la reserva. | `400` cantidad fuera de rango · `404` · `409` turno sin empezar, reserva sin paletas, no confirmada o devolución ya registrada |
 | `POST /admin/reservas/{id}/productos` → `200 ReservaResponse` | Suma un producto a una reserva o partido: lo que el cliente pide en el club antes, durante o después del turno. Body `{ "productoId": 1, "cantidad": 2 }` o, para algo que no está en el catálogo, `{ "nombre": "Gatorade", "precio": 3000, "cantidad": 1 }`: si ya hay un producto con ese nombre (sin importar mayúsculas) se usa ese, con su precio; si no, queda dado de alta como producto de venta, sin control de stock y sin ofrecerse al reservar. Si la reserva ya lo tenía, suma unidades al mismo precio que ya tenía; uno nuevo toma el precio de hoy. El total sube y el estado se recalcula: una reserva paga (o completada) vuelve a quedar con saldo. | `400` sin producto ni nombre y precio, o producto dado de baja · `404` reserva o producto · `409` reserva pendiente, cancelada o expirada, pago online en proceso o sin stock |
-| `DELETE /admin/reservas/{id}/productos/{productoId}?cantidad=1` → `200 ReservaResponse` | Saca unidades de un producto (sin `cantidad`, todas). El stock de venta vuelve y el total baja; no puede quedar por debajo de lo ya pagado. | `400` la reserva no tiene ese producto o cantidad fuera de rango · `404` · `409` como al sumar, total menor a lo pagado o un alquiler con la devolución ya registrada |
+| `DELETE /admin/reservas/{id}/productos/{productoId}?cantidad=1` → `200 ReservaResponse` | Saca unidades de un producto (sin `cantidad`, todas). El stock de venta vuelve y el total baja. **Lo cobrado no se saca**: una línea con plata imputada no baja de lo que tiene cubierto; lo que no tiene nada cobrado se saca libremente. | `400` la reserva no tiene ese producto o cantidad fuera de rango · `404` · `409` como al sumar, un alquiler con la devolución ya registrada o **la línea tiene plata cobrada**: "Gatorade tiene $2.000 cobrados: anulá o devolvé ese cobro antes de sacarlo." con `{ "lineaId": 51, "montoCobrado": 2000.00 }` en el body |
 
 **`modalidadPago` de `POST /admin/reservas`** (queda en `ReservaResponse.modalidadPago`; es `null` en las reservas del propio cliente y en los partidos):
 
 | Valor | Para qué | Cómo queda |
 |---|---|---|
-| `EN_EL_CLUB` (por defecto) | El cliente está en el club | `PENDIENTE` que vence a los 15 minutos (`expiresAt`) si no se cobra al menos la seña, como hasta ahora |
+| `EN_EL_CLUB` (por defecto) | El cliente está en el club | `PENDIENTE` que vence a los 15 minutos o al empezar el turno, lo que pase primero (`expiresAt`), si no se cobra al menos la seña |
 | `SENIA_ONLINE` | El cliente no está en el club | `PENDIENTE` que vence a los `minutosPagoSeniaOnline` de la configuración (120 por defecto), **nunca después del inicio del turno**. Al crearla se le avisa al cliente por su canal (aviso `SENIA_PENDIENTE`) con el link para pagar la seña en la misma pantalla de pago que usa al reservar (`FRONTEND_URL/reservas/{id}/pago`). Si no paga a tiempo, vence y el turno se libera |
 | `SIN_SENIA` | **Solo ADMIN** (EMPLEADO: `403` "Solo el ADMIN puede cargar una reserva sin seña."). Se cobra en el club | `CONFIRMADA` sin pagos y sin vencimiento (`expiresAt: null`), como un partido: aunque no tenga nada pagado no vence ni se cancela sola |
 
@@ -747,7 +866,104 @@ Cobrar en el club la seña, el saldo o el total: `POST /admin/reservas/{reservaI
 
 ---
 
-## Resumen del club — `/admin/reservas/resumen` (rol: ADMIN, EMPLEADO)
+## Métricas del club — `GET /admin/metricas?desde=2026-10-01&hasta=2026-10-31` (rol: ADMIN)
+
+Para decidir precios por franja, promociones y retención. **Solo ADMIN** (EMPLEADO → `403`). Sin fechas, los últimos 30 días hasta hoy; las dos fechas o ninguna (`400`); hasta 366 días.
+
+**Cómo leerlas:**
+- **Comparación:** cada valor marcado como `Comparado` es `{ "actual", "anterior", "variacion" }`, con el período anterior de igual duración (`anterior`). `variacion` es el % de cambio con un decimal ("+12 %": `12.0`), o `null` si el anterior es 0.
+- **Fechas:** lo de reservas va por la fecha del turno; las ventas sueltas, por jornada.
+- **Confirmadas:** las reservas que se juegan o se jugaron (`CONFIRMADA`, `SEÑADA`, `PARCIALMENTE_PAGADA`, `PAGADA`, `COMPLETADA`).
+
+```json
+{
+  "desde": "2026-10-01", "hasta": "2026-10-31",
+  "anterior": { "desde": "2026-08-31", "hasta": "2026-09-30" },
+  "ocupacion": {
+    "porcentaje": { "actual": 42.5, "anterior": 38.0, "variacion": 11.8 },
+    "horasOcupadas": { … }, "horasAbiertas": { … },
+    "porCancha": [ { "canchaId": 1, "numero": 1, "porcentaje": 51.0, "horasOcupadas": 220.5, "ingresos": 2205000.00 } ],
+    "mapa": [ { "dia": "MONDAY", "franjas": [ { "hora": "08:00", "porcentaje": 12.5 }, { "hora": "09:00", "porcentaje": null } ] } ],
+    "porFranja": [ { "franja": "MANIANA", "porcentaje": 20.0, "horasOcupadas": 80.0, "ingresoPorHora": 9500.00 } ],
+    "proximos7Dias": [ { "fecha": "2026-10-13", "porcentaje": 35.0, "horasOcupadas": 21.0, "horasAbiertas": 60.0 } ]
+  },
+  "ingresos": { "total": {…}, "cancha": {…}, "productosDeReservas": {…}, "ventasSueltas": {…},
+                "online": {…}, "enElClub": {…}, "ticketPromedio": {…}, "porHoraOcupada": {…} },
+  "clientes": { "activos": {…}, "nuevos": {…}, "recurrentes": {…}, "frecuencia": {…},
+                "topPorReservas": [ { "clienteId": 18, "nombre": "Ana Gómez", "reservas": 9, "gasto": 135000.00 } ],
+                "topPorGasto": [ … ],
+                "dejaronDeVenir": [ { "clienteId": 21, "nombre": "Juan Pérez", "telefono": "5491122334455", "reservasAntes": 5, "ultimaReserva": "2026-09-02" } ] },
+  "reservas": { "creadas": {…}, "anticipacionPromedioHoras": {…},
+                "anticipacion": { "mismoDia": 30, "unoADosDias": 25, "tresASieteDias": 12, "masDeSieteDias": 4 },
+                "duraciones": [ { "minutos": 90, "cantidad": 60 }, { "minutos": 120, "cantidad": 11 } ],
+                "porTipo": { "normales": 50, "partidos": 6, "turnosFijos": 15 },
+                "porOrigen": { "cliente": 41, "personal": 30 } },
+  "cancelaciones": { "tasa": {…}, "canceladas": {…}, "porCliente": 6, "porClub": 2, "sinDato": 1,
+                     "anticipacion": { "menosDe2Horas": 1, "de2a24Horas": 3, "de1a3Dias": 2, "masDe3Dias": 2 },
+                     "retenido": {…}, "vencidasSinPagar": {…} },
+  "deuda": { "total": 45000.00, "hasta7Dias": 15000.00, "de8a30Dias": 22500.00, "masDe30Dias": 7500.00,
+             "deudores": [ { "clienteId": 18, "nombre": "Ana Gómez", "telefono": "…", "monto": 22500.00, "reservas": 2, "masVieja": "2026-09-20" } ] },
+  "futuro": { "asegurado": 110500.00, "porCobrar": 210500.00, "turnos": 24, "dias": 30 },
+  "productos": { "masVendidos": [ { "productoId": 1, "nombre": "Pelotas", "tipo": "VENTA", "cantidad": 40, "monto": 320000.00 } ],
+                 "alquilados": [ { "productoId": 2, "nombre": "Paletas", "tipo": "ALQUILER", "cantidad": 80, "monto": 160000.00 } ],
+                 "noDevueltos": { "unidades": 3, "montoAlquiler": 6000.00, "reservas": 2, "sinRegistrar": 1 },
+                 "stockBajo": [ { "productoId": 6, "nombre": "Barrita de cereal", "stock": 0 } ] }
+}
+```
+
+| Bloque | Qué es |
+|---|---|
+| `ocupacion` | Horas ocupadas (reservas confirmadas) sobre las horas abiertas: el horario semanal de cada día del período, sin los días cerrados, por la cantidad de canchas. `porCancha` trae lo facturado de cada cancha (`ingresos`). `mapa`: día de la semana × franja de 1 hora entre la primera apertura y el último cierre de la semana, con el %; `null` si ese día no abre a esa hora. `porFranja`: `MANIANA` (antes de las 12), `TARDE` (12 a 18) y `NOCHE` (desde las 18), con el ingreso de cancha por hora ocupada (para decidir precios por franja). `proximos7Dias`: desde hoy, con las confirmadas y las pendientes de pago vigentes |
+| `ingresos` | Lo facturado del período: `cancha` y `productosDeReservas` de las reservas confirmadas, más `ventasSueltas` (netas de devoluciones); `total` es la suma. `online` (Mercado Pago desde la web) y `enElClub` (efectivo, QR, transferencia, Cuenta DNI) son lo **cobrado** de esas reservas, sin bonificaciones. `ticketPromedio`: (cancha + productos) por reserva confirmada. `porHoraOcupada`: cancha por hora ocupada |
+| `clientes` | `activos`: con al menos una reserva confirmada en el período. `nuevos`: activos cuya primera reserva confirmada es de este período. `recurrentes`: el resto de los activos. `frecuencia`: reservas por cliente activo. `topPorReservas` y `topPorGasto`: los 10 primeros. `dejaronDeVenir`: clientes con 3 o más reservas confirmadas en los 90 días anteriores a los últimos 30 y ninguna en los últimos 30 (contado desde hoy, no desde el período), con su teléfono para contactarlos |
+| `reservas` | Las creadas en el período (por fecha de creación), sin los partidos que genera solo un turno fijo. `anticipacion`: días entre que se crea y el turno (el mismo día, 1–2, 3–7, más de 7). `duraciones`: minutos, de la más elegida a la menos (de las confirmadas). `porTipo`: confirmadas normales, partidos sueltos y de turno fijo. `porOrigen`: las creó el cliente desde la web o el personal |
+| `cancelaciones` | De las reservas del período. `tasa` = canceladas / (canceladas + confirmadas). `porCliente` / `porClub` (el personal o el sistema) y `anticipacion` (cuánto antes del turno) usan el dato que se guarda desde V43. Las canceladas antes de V43 van en `sinDato`. `retenido`: lo pagado de las canceladas que no se devolvió. `vencidasSinPagar`: `EXPIRADA` |
+| `deuda` | A hoy (no depende del período): turnos ya jugados que deben saldo, por antigüedad del turno (0–7, 8–30 y más de 30 días), y los deudores de mayor a menor deuda |
+| `futuro` | `asegurado`: lo ya cobrado de todos los turnos confirmados que todavía no empezaron. `porCobrar` y `turnos`: lo que falta cobrar y cuántos turnos confirmados hay **de hoy a hoy + `dias`**, donde `dias` es la anticipación de la configuración (los mismos días que limitan `POST /reservas`) |
+| `productos` | `masVendidos`: los 10 productos de venta más vendidos (en reservas y ventas sueltas). `alquilados`: alquileres en reservas. `noDevueltos`: unidades de alquiler con la devolución registrada que no volvieron (roturas o pérdidas), lo que se cobró de alquiler por ellas, en cuántas reservas, y cuántas reservas terminadas no registraron la devolución. **El sistema no guarda el costo de reponer una paleta**, así que no hay "monto perdido". `stockBajo`: productos de venta activos con 5 unidades o menos |
+
+## Cierre de caja — `GET /admin/caja?fecha=2026-10-13` (rol: ADMIN, EMPLEADO)
+
+El cierre de caja de **una jornada**: de la apertura de `fecha` a la apertura del día siguiente, según el horario semanal (la misma regla que `GET /admin/jornada`). Sin `fecha`, la jornada en curso. El ADMIN ve cualquier jornada; el EMPLEADO, solo la que está en curso (otra fecha → `403` "Solo podés ver la caja de la jornada en curso."). A las 00:30 la jornada en curso sigue siendo la del día anterior.
+
+```json
+{
+  "fecha": "2026-10-13",
+  "inicio": "2026-10-13T08:00:00.000-03:00",
+  "fin": "2026-10-14T08:00:00.000-03:00",
+  "cobrado":  { "efectivo": 6200.00, "mercadoPago": 3000.00, "cuentaDni": 4000.00, "total": 13200.00 },
+  "devuelto": { "efectivo": 1500.00, "mercadoPago": 0.00, "cuentaDni": 0.00, "total": 1500.00 },
+  "efectivoEnCaja": 4700.00,
+  "bonificado": 1000.00,
+  "aEntregar": { "cantidad": 1, "monto": 500.00 },
+  "movimientos": [
+    { "fecha": "2026-10-13T09:00:00.000-03:00", "tipo": "COBRO", "medio": "EFECTIVO", "monto": 5000.00,
+      "detalle": "Reserva #12 · Ana Pérez", "reservaId": 12, "ventaId": null, "registradoPor": "Carla Méndez" },
+    { "fecha": "2026-10-13T09:20:00.000-03:00", "tipo": "ANULACION", "medio": "EFECTIVO", "monto": -2000.00,
+      "detalle": "Anulación · Reserva #12 · Ana Pérez · Lo cargué dos veces", "reservaId": 12, "ventaId": null,
+      "registradoPor": "Carla Méndez" },
+    { "fecha": "2026-10-13T09:55:00.000-03:00", "tipo": "VENTA", "medio": "EFECTIVO", "monto": 1200.00,
+      "detalle": "Venta #8", "reservaId": null, "ventaId": 8, "registradoPor": "Carla Méndez" }
+  ]
+}
+```
+
+| Campo | Qué es |
+|---|---|
+| `cobrado` | Lo cobrado en la jornada, por medio: cobros de reservas y partidos (por `paidAt`) y ventas sueltas (cuando se registran), **sin lo anulado**. `mercadoPago` suma lo online, el QR de la caja y las transferencias a Mercado Pago. No incluye bonificaciones |
+| `devuelto` | Las devoluciones **entregadas** en la jornada (o confirmadas por Mercado Pago), y las de ventas sueltas, por el medio del cobro original |
+| `efectivoEnCaja` | `cobrado.efectivo − devuelto.efectivo`: lo que tiene que haber en la caja |
+| `bonificado` | Lo que el ADMIN bonificó en la jornada (no es plata) |
+| `aEntregar` | Las devoluciones creadas en la jornada que siguen `A_REEMBOLSAR` (cantidad y monto) |
+| `movimientos` | Todo lo que movió plata, en orden de fecha. `tipo`: `COBRO` (reserva o partido), `VENTA`, `DEVOLUCION` o `ANULACION`. `medio`: `EFECTIVO`, `MERCADO_PAGO` o `CUENTA_DNI`. `monto` es negativo si sale (devoluciones) o si resta (anulaciones). `registradoPor`: quién lo hizo (null si fue el cliente online o Mercado Pago) |
+
+- Un cobro o una venta **anulados** aparecen dos veces, en la jornada en que se cobraron: el `COBRO`/`VENTA` y su `ANULACION` en negativo, con la fecha de la anulación. Así la suma de `movimientos` siempre da `cobrado.total − devuelto.total`.
+- Lo que es de reservas (turnos jugados, por jugar, deuda) no está acá: es del resumen del ADMIN.
+
+## Resumen del club — `/admin/reservas/resumen` (rol: ADMIN)
+
+**Solo ADMIN** (el EMPLEADO ve el cierre de su jornada en `GET /admin/caja`; el resumen le responde `403`). Sin fechas, el de la jornada en curso.
+
 
 ### `GET /admin/reservas/resumen?desde=2026-10-01&hasta=2026-10-31` → `200 ResumenResponse`
 Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-dd`) y van las dos juntas o ninguna: **sin fechas, el resumen es del día de hoy**.
@@ -787,7 +1003,10 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
     "cuentaDni": 40000.00,
     "devoluciones": 7500.00,
     "neto": 222500.00,
-    "detalleMercadoPago": { "total": 100000.00, "qr": 20000.00, "online": 70000.00, "transferencia": 10000.00 }
+    "detalleMercadoPago": { "total": 100000.00, "qr": 20000.00, "online": 70000.00, "transferencia": 10000.00 },
+    "bonificado": 5000.00,
+    "inicio": "2026-10-01T08:00:00.000-03:00",
+    "fin": "2026-11-02T08:00:00.000-03:00"
   },
   "cancelaciones": { "turnos": 3, "retenido": 7500.00 },
   "ventas": { "cantidad": 12, "total": 30000.00, "devoluciones": 1500.00 },
@@ -806,7 +1025,13 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 | `jugados.deuda` | `montoTotal − montoCobrado − montoBonificado`: turnos jugados que no se terminaron de pagar |
 | `porJugar.aCobrar` | `montoTotal − cobradoAnticipado − montoBonificado`: el saldo normal de los turnos que vienen |
 
-**Caja** (por fecha de pago, de las 00:00 de `desde` a las 24:00 de `hasta`):
+**Caja — por jornada, no por día calendario.** Suma lo que pasó entre `caja.inicio` (la apertura de `desde`) y `caja.fin` (la apertura del día siguiente a `hasta`), según el horario semanal: la misma regla que `GET /admin/jornada`. Es igual para el ADMIN y el EMPLEADO, así todos ven la misma caja. Cada cosa cuenta por su momento, no por la fecha de la reserva:
+- los cobros, por `paidAt`;
+- las devoluciones, cuando se entregan o Mercado Pago las confirma;
+- las bonificaciones, cuando se cargan;
+- las ventas sueltas, cuando se registran.
+
+Un cobro de las 00:10 del viernes es de la caja del jueves; uno de las 08:05 del viernes (con apertura a las 08:00), de la del viernes. Lo que es de reservas (`jugados`, `porJugar`, `cancelaciones`, `productos` de las reservas) sigue por la fecha del turno.
 
 | Campo | Cómo se calcula |
 |---|---|
@@ -815,11 +1040,13 @@ Resumen del período para el panel del club. Las fechas son inclusive (`yyyy-MM-
 | `detalleMercadoPago` | `mercadoPago` abierto: `qr` (reservas y ventas), `online` (solo reservas) y `transferencia` (reservas y ventas) |
 | `cuentaDni` | Pagos `CUENTA_DNI` (`cobros/cuenta-dni`) cobrados en el período, más las ventas sueltas con `CUENTA_DNI` |
 | `total` | `efectivo + mercadoPago + cuentaDni` |
-| `devoluciones` | Lo devuelto (`montoReembolsado`) de los pagos `DEVUELTO` cuyo reembolso se hizo en el período |
+| `devoluciones` | Las devoluciones `DEVUELTO` por la fecha en que se le **entregaron** al cliente o Mercado Pago las **confirmó** (`entregadoAt`), más las de ventas sueltas |
 | `neto` | `total − devoluciones` (puede ser negativo un día con devoluciones y sin cobros) |
+| `bonificado` | Lo que el ADMIN bonificó en esas jornadas. No es plata: no suma en `total` |
+| `inicio`, `fin` | Desde y hasta cuándo se sumó la caja: la apertura de `desde` y la apertura del día siguiente a `hasta` |
 
 - Entran los pagos que alguna vez se cobraron (`APROBADO`, `DEVUELTO`, `A_REEMBOLSAR`, `REEMBOLSO_PENDIENTE`) por su `paidAt`, con el monto completo: lo devuelto se resta en `devoluciones` el día del reembolso. Las bonificaciones no entran nunca.
-- Lo que queda `A_REEMBOLSAR` (por ejemplo, un pago en efectivo de una reserva cancelada con reembolso, que el personal devuelve a mano) **no** está en `devoluciones`: el sistema no registra cuándo se entregó esa plata. Sí está en `total` el día que se cobró.
+- Lo que queda `A_REEMBOLSAR` (por ejemplo, un pago en efectivo de una reserva cancelada con reembolso) entra en `devoluciones` el día que el personal lo **entrega** (`PUT …/devoluciones/{id}/entrega`). Hasta entonces sigue en `total` el día que se cobró. Los cobros `ANULADO` no entran en ningún lado.
 - Datos anteriores a la migración V16: no se guardaba la fecha del reembolso. Para esos pagos se usó la fecha en que se pidió el reembolso a Mercado Pago si el primer intento falló; si no, la fecha de cobro (o de creación del pago). Las devoluciones viejas pueden aparecer el día del cobro en vez del día en que se devolvieron.
 
 **Cancelaciones y productos**:
@@ -870,7 +1097,7 @@ Lo que el club vende sin reserva, partido ni turno (una bebida, un tubo de pelot
 | `POST /admin/ventas` → `201 VentaResponse` | Registra una venta. En efectivo o con Cuenta DNI queda `COBRADA`. Con Mercado Pago se le asigna al **QR de la caja** una order por el total y queda `ESPERANDO_PAGO` (con el stock apartado) hasta que Mercado Pago confirma el pago: el front muestra "esperando el pago de $X" hasta `qr.venceAt` y consulta `GET /admin/ventas/{id}` cada pocos segundos. Ver [mercado-pago-qr.md](mercado-pago-qr.md). Body abajo. | ver abajo |
 | `DELETE /admin/ventas/{id}/qr` → `200 VentaResponse` | El personal cerró el modal del QR sin que se pagara: cancela la order, la venta queda `NO_COBRADA` y el stock vuelve. Si Mercado Pago dice que ya se pagó, queda `COBRADA`. | `404` · `409` "La venta no está esperando el pago con QR." · `502` Mercado Pago no responde |
 | `PUT /admin/ventas/{id}/verificacion` → `200 VentaResponse` | **Solo ADMIN.** Marca una venta con Cuenta DNI o por transferencia como verificada o la desmarca. Body `{ "verificada": true }`. | `400 errors.verificada` · `403` EMPLEADO ("Solo el ADMIN puede verificar una venta con Cuenta DNI.") · `404` · `409` "Solo se verifican las ventas con Cuenta DNI." |
-| `GET /admin/ventas` → `200 ListadoVentasResponse` | Ventas paginadas, con filtros opcionales que se combinan (ver abajo) y los totales de todo el filtro. Sin `desde` ni `hasta`, las de hoy. El ADMIN ve cualquier período; el EMPLEADO, solo hoy. **Cambio de contrato**: antes devolvía una lista. | `400` `desde` posterior a `hasta`, `cliente` con menos de 3 letras, página o tamaño inválidos, `orden` que no es `asc`/`desc` o un `medio`/`estado` que no existe · `403` EMPLEADO con otro período ("Solo podés ver las ventas de hoy.") o CLIENTE |
+| `GET /admin/ventas` → `200 ListadoVentasResponse` | Suma `rango`: la jornada de la primera y la de la última venta (el EMPLEADO, su jornada en curso, o `null` si no tiene ventas). Ventas paginadas, con filtros opcionales que se combinan (ver abajo) y los totales de todo el filtro. Sin `desde` ni `hasta`, las de hoy. **`desde` y `hasta` son jornadas** (de la apertura de un día a la del siguiente): una venta de las 00:10 es de la jornada anterior. El ADMIN ve cualquier período; el EMPLEADO, solo la jornada en curso (a las 00:30 sigue viendo la del día anterior). **Cambio de contrato**: antes devolvía una lista. | `400` `desde` posterior a `hasta`, `cliente` con menos de 3 letras, página o tamaño inválidos, `orden` que no es `asc`/`desc` o un `medio`/`estado` que no existe · `403` EMPLEADO con otro período ("Solo podés ver las ventas de hoy.") o CLIENTE |
 | `GET /admin/ventas/medios` → `200` | Los medios con que se puede cobrar una venta, en el orden en que se muestran: `[{ "medio": "EFECTIVO", "etiqueta": "Efectivo", "disponible": true, "conQr": false, "detalle": null }, { "medio": "MERCADO_PAGO", "etiqueta": "Mercado Pago (QR de la caja)", "disponible": true, "conQr": true, "detalle": null }, { "medio": "TRANSFERENCIA_MP", "etiqueta": "Mercado Pago (transferencia)", "disponible": true, "conQr": false, "detalle": null }, { "medio": "CUENTA_DNI", "etiqueta": "Cuenta DNI", "disponible": true, "conQr": false, "detalle": null }]`. `MERCADO_PAGO` está disponible solo si el QR de la caja está configurado (`MP_QR_ACCESS_TOKEN` o `MP_ACCESS_TOKEN`, y `MP_QR_EXTERNAL_POS_ID`); si no, `disponible: false` y `detalle: "El QR de la caja de Mercado Pago no está configurado."` (registrar con ese medio daría `503`). No dice si la caja está ocupada en este momento: eso lo responde el `409` al registrar. | `403` CLIENTE |
 | `GET /admin/ventas/{id}` → `200 VentaResponse` | Una venta. El EMPLEADO solo ve las de hoy. Es lo que consulta el modal del QR para ver si se pagó (solo lee la base: el cobro lo confirman el webhook o el job). | `404` no existe o el EMPLEADO pide una de otro día |
 | `POST /admin/ventas/{id}/anulacion` → `200 VentaResponse` | Deja la venta sin efecto (error de carga, el cliente no pagó, se cobró por otro medio): pasa a `ANULADA`, deja de contar en la caja y en lo vendido, y su stock vuelve (en los productos que lo controlan, aunque estén dados de baja). Body `{ "motivo": "Se cargó dos veces" }`. El ADMIN anula ventas de cualquier día (al anular una de un día anterior, cambia la caja de ese día); el EMPLEADO, solo las de hoy y que no estén verificadas. Si se cobró con el QR, Mercado Pago devuelve el total solo; si no, la plata, si se llegó a cobrar, se devuelve a mano por el mismo medio. | `400 errors.motivo` (vacío o de más de 200 caracteres) · `403` EMPLEADO con una venta de otro día ("Solo podés anular ventas de hoy.") o ya verificada ("La venta ya está verificada: solo el ADMIN la puede anular.") · `404` · `409` "La venta ya está anulada.", "La venta tiene devoluciones: no se puede anular. Registrá una devolución por lo que queda.", "La venta está esperando el pago con QR: cancelá el QR antes." o "La venta no se cobró: no hay nada que anular." · `502` "Mercado Pago no aceptó el reembolso. Intentá de nuevo." (cobrada con QR: no se anula) |

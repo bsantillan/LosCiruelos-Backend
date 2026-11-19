@@ -112,7 +112,7 @@ class ReservaServiceTest {
         reservaService = new ReservaService(configuracionService, usuarioService,
                 clienteProfileService, reservaRepository, canchaService, pagoRepository, stockService,
                 mapper, disponibilidad, new JugadoresService(usuarioService), turnoFijoRepository, TestData.reloj(AHORA),
-                eventos);
+                eventos, com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA)));
 
         cliente = usuario(1L, Role.CLIENTE);
         otroCliente = usuario(2L, Role.CLIENTE);
@@ -218,6 +218,17 @@ class ReservaServiceTest {
 
     @Nested
     class Creacion {
+
+        @Test
+        void unaPendienteParaUnTurnoQueEmpiezaAntesDe15MinutosVenceAlEmpezarElTurno() {
+            sinOtrasReservas();
+
+            // son las 10:00 y el turno es a las 10:00: no puede seguir tomado hasta las 10:15
+            ReservaResponse r = reservaService.crearParaMi(pedido(HOY, "10:00", "11:30"), cliente.getEmail());
+
+            assertThat(r.getEstado()).isEqualTo(EstadoReserva.PENDIENTE);
+            assertThat(r.getExpiresAt()).isEqualTo(HOY.atTime(10, 0));
+        }
 
         @Test
         void creaUnaReservaPendienteQueVenceEn15Minutos() {
@@ -690,18 +701,37 @@ class ReservaServiceTest {
         }
 
         @Test
-        void sacarUnProductoNoPuedeDejarElTotalPorDebajoDeLoPagado() {
+        void unProductoCobradoNoSeSacaSinDeshacerElCobro() {
             agregarProducto(reserva, "AGUA", TipoProducto.VENTA, 2, "2000");
             reserva.setMontoTotal(new BigDecimal("19000"));
-            pago(2L, reserva, EstadoPago.APROBADO, "4000");
+            com.LosCiruelos.padel_club_api.TestData.cobrado(2L, reserva, "19000"); // cancha 15000 + agua 4000
             doAnswer(inv -> {
                 reserva.getProductos().clear();
                 return null;
             }).when(stockService).quitar(reserva, 9L, null);
 
             assertThatThrownBy(() -> reservaService.quitarProducto(30L, 9L, null, admin.getEmail()))
-                    .isInstanceOf(EstadoInvalidoException.class)
-                    .hasMessage("El total nuevo ($15000) es menor que lo ya pagado ($19000).");
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.reservas.exception.LineaCobradaException.class)
+                    .hasMessage("AGUA tiene $4.000 cobrados: anulá o devolvé ese cobro antes de sacarlo.")
+                    .satisfies(e -> assertThat(((com.LosCiruelos.padel_club_api.common.exception.ReservaException) e)
+                            .getDatos()).containsEntry("montoCobrado", new BigDecimal("4000.00")));
+        }
+
+        @Test
+        void unProductoSinNadaCobradoSeSacaAunqueLaCanchaEsteCobrada() {
+            agregarProducto(reserva, "AGUA", TipoProducto.VENTA, 2, "2000");
+            reserva.setMontoTotal(new BigDecimal("19000"));
+            com.LosCiruelos.padel_club_api.TestData.cobrado(2L, reserva, "15000"); // solo la cancha
+            doAnswer(inv -> {
+                reserva.getProductos().clear();
+                return null;
+            }).when(stockService).quitar(reserva, 9L, null);
+
+            ReservaResponse r = reservaService.quitarProducto(30L, 9L, null, admin.getEmail());
+
+            assertThat(r.getMontoTotal()).isEqualByComparingTo("15000");
+            assertThat(r.getMontoCanchaPagado()).isEqualByComparingTo("15000");
+            assertThat(r.getMontoCanchaPendiente()).isEqualByComparingTo("0");
         }
     }
 

@@ -62,7 +62,7 @@ class VentaServiceTest {
         cobroQr = mock(CobroQrDeVentas.class);
         when(cobroQr.vencimiento()).thenReturn(AHORA.plusMinutes(10));
         servicio = new VentaService(ventaRepository, productoService, usuarioService, new VentaMapper(),
-                TestData.reloj(AHORA), cobroQr);
+                TestData.reloj(AHORA), cobroQr, com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA)));
 
         empleado = usuario(2L, Role.EMPLEADO);
         cliente = usuario(3L, Role.CLIENTE);

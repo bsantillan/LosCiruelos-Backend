@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.ventas.service;
 
+import com.LosCiruelos.padel_club_api.club.service.JornadaService;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -44,6 +45,7 @@ public class VentaService {
     private final VentaMapper ventaMapper;
     private final Reloj reloj;
     private final CobroQrDeVentas cobroQr;
+    private final JornadaService jornadaService;
 
     /**
      * Registra una venta suelta. Cada ítem es un producto de venta del catálogo o uno escrito a mano
@@ -113,7 +115,7 @@ public class VentaService {
     public VentaResponse anular(Long ventaId, String motivo, String email) {
         Usuario personal = usuarioService.autenticado(email);
         Venta venta = bloquear(ventaId);
-        venta.validarQuePuedeAnularla(personal, reloj.hoy());
+        venta.validarQuePuedeAnularla(personal, jornadaService.actual());
         venta.anular(personal, motivo.trim(), reloj.ahora());
         if (venta.seCobroConQr()) {
             cobroQr.reembolsar(venta, venta.getTotal(), "anulacion");
@@ -156,7 +158,7 @@ public class VentaService {
     public VentaResponse cambiarCliente(Long ventaId, Long clienteId, String email) {
         Usuario personal = usuarioService.autenticado(email);
         Venta venta = bloquear(ventaId);
-        if (!Roles.esAdmin(personal) && !venta.esDelDia(reloj.hoy())) {
+        if (!Roles.esAdmin(personal) && !venta.esDeLaJornada(jornadaService.actual())) {
             throw new PermisoDenegadoException("Solo podés modificar ventas de hoy.");
         }
         venta.cambiarCliente(clienteId != null ? cliente(clienteId) : null);

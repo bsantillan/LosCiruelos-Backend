@@ -89,7 +89,7 @@ class ReservaServicePartidosTest {
         reservas = new ReservaService(configuracionService, usuarioService,
                 mock(ClienteProfileService.class), reservaRepository, canchaService, mock(PagoRepository.class),
                 stockService, mapper, disponibilidad, new JugadoresService(usuarioService), turnoFijoRepository,
-                TestData.reloj(AHORA), org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
+                TestData.reloj(AHORA), org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class), com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA)));
 
         admin = usuario(3L, Role.ADMIN);
         empleado = usuario(4L, Role.EMPLEADO);
@@ -150,6 +150,18 @@ class ReservaServicePartidosTest {
         }
 
         @Test
+        void unPartidoPuedeTenerDeUnoATresJugadores() {
+            ReservaResponse solo = reservas.crearPartido(pedido(MANIANA, "18:00", "19:30",
+                    JugadorRequest.registrado(1L)), admin.getEmail());
+            assertThat(solo.getJugadores()).extracting(JugadorResponse::getPosicion).containsExactly(1);
+            assertThat(solo.getClienteId()).isEqualTo(1L);
+
+            ReservaResponse dos = reservas.crearPartido(pedido(MANIANA, "20:00", "21:30",
+                    JugadorRequest.registrado(1L), JugadorRequest.invitado("Juan Invitado")), admin.getEmail());
+            assertThat(dos.getJugadores()).extracting(JugadorResponse::getPosicion).containsExactly(1, 2);
+        }
+
+        @Test
         void elJugador1TieneQueSerUnClienteRegistrado() {
             PartidoRequest sinResponsable = pedido(MANIANA, "18:00", "19:30", JugadorRequest.invitado("Juan Invitado"),
                     JugadorRequest.registrado(1L), JugadorRequest.registrado(2L), JugadorRequest.invitado("Pedro"));
@@ -169,10 +181,9 @@ class ReservaServicePartidosTest {
 
         @Test
         void validaLosJugadores() {
-            PartidoRequest tres = pedidoBasico();
-            tres.getJugadores().remove(3);
-            assertThatThrownBy(() -> reservas.crearPartido(tres, admin.getEmail()))
-                    .isInstanceOf(ReservaException.class).hasMessage("Un partido tiene 4 jugadores.");
+            PartidoRequest ninguno = pedido(MANIANA, "18:00", "19:30");
+            assertThatThrownBy(() -> reservas.crearPartido(ninguno, admin.getEmail()))
+                    .isInstanceOf(ReservaException.class).hasMessage("Un partido tiene de 1 a 4 jugadores.");
 
             PartidoRequest repetido = pedido(MANIANA, "18:00", "19:30", JugadorRequest.registrado(1L),
                     JugadorRequest.registrado(1L), JugadorRequest.invitado("A B"), JugadorRequest.invitado("C D"));
@@ -247,6 +258,20 @@ class ReservaServicePartidosTest {
         }
 
         @Test
+        void editarElPartidoPuedeDejarMenosJugadores() {
+            ReservaResponse r = reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
+                    JugadorRequest.invitado("Invitado 2")), admin.getEmail());
+
+            assertThat(r.getJugadores()).extracting(JugadorResponse::getPosicion).containsExactly(1, 2);
+            assertThat(partido.getJugadores()).hasSize(2);
+
+            // y vuelve a sumar uno en la posición 3
+            r = reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
+                    JugadorRequest.invitado("Invitado 2"), JugadorRequest.registrado(2L)), admin.getEmail());
+            assertThat(r.getJugadores()).extracting(JugadorResponse::getPosicion).containsExactly(1, 2, 3);
+        }
+
+        @Test
         void reemplazaAUnJugadorQueNoPagoEnSuLugar() {
             ReservaResponse r = reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
                     JugadorRequest.registrado(2L), JugadorRequest.invitado("Invitado 3"),
@@ -293,12 +318,13 @@ class ReservaServicePartidosTest {
             assertThat(r.getMontoTotal()).isEqualByComparingTo("30000");
             assertThat(r.getHoraFin()).isEqualTo(LocalTime.of(21, 0));
 
-            TestData.pago(1L, partido, EstadoPago.APROBADO, "20000");
+            // $20.000 cobrados de la cancha: no se puede bajar a un turno de $15.000
+            TestData.cobrado(1L, partido, "20000");
             assertThatThrownBy(() -> reservas.actualizarPartido(60L, mismosDatos(JugadorRequest.registrado(1L),
                     JugadorRequest.invitado("Invitado 2"), JugadorRequest.invitado("Invitado 3"),
                     JugadorRequest.invitado("Invitado 4")), admin.getEmail()))
-                    .isInstanceOf(EstadoInvalidoException.class)
-                    .hasMessage("El total nuevo ($15000.00) es menor que lo ya pagado ($20000).");
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.reservas.exception.LineaCobradaException.class)
+                    .hasMessage("La cancha tiene $20.000 cobrados: anulá o devolvé ese cobro antes de bajarle el precio.");
         }
 
         @Test

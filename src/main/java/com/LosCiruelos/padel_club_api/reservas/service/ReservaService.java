@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.usuarios.service.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
+import com.LosCiruelos.padel_club_api.club.service.JornadaService;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaAdminRequest;
 import com.LosCiruelos.padel_club_api.reservas.dto.request.CrearReservaRequest;
@@ -85,6 +86,7 @@ public class ReservaService {
     private final TurnoFijoRepository turnoFijoRepository;
     private final Reloj reloj;
     private final ApplicationEventPublisher eventos;
+    private final JornadaService jornadaService;
 
     // ── Bloqueo y acceso ─────────────────────────────────────────────────
 
@@ -103,11 +105,11 @@ public class ReservaService {
 
     /**
      * Para lo que opera el personal sobre una reserva (cobrar, cancelar, productos, paletas): el
-     * EMPLEADO no opera las de días anteriores (403); el ADMIN, todas.
+     * EMPLEADO no opera las anteriores a la jornada en curso (403); el ADMIN, todas.
      */
     public Reserva bloquearComoPersonal(Long id, Usuario personal) {
         Reserva reserva = bloquearConAcceso(id, personal);
-        reserva.exigirQueLaPuedaOperar(personal, reloj.hoy());
+        reserva.exigirQueLaPuedaOperar(personal, jornadaService.actual().fecha());
         return reserva;
     }
 
@@ -294,7 +296,11 @@ public class ReservaService {
         return cliente;
     }
 
-    /** Hasta cuándo se puede pagar la reserva según cómo se paga (null: SIN_SENIA no vence). */
+    /**
+     * Hasta cuándo se puede pagar la reserva según cómo se paga (null: SIN_SENIA no vence). Una
+     * PENDIENTE vence a los {@value #MINUTOS_PARA_PAGAR} minutos o al empezar el turno, lo que pase
+     * primero: un turno que empezó sin pagar no queda tomado.
+     */
     private static LocalDateTime vencimiento(ModalidadPago modalidad, Configuracion config, LocalDateTime inicioDelTurno,
             LocalDateTime ahora) {
         if (modalidad == ModalidadPago.SIN_SENIA) {
@@ -303,7 +309,8 @@ public class ReservaService {
         if (modalidad == ModalidadPago.SENIA_ONLINE) {
             return config.vencimientoSeniaOnline(ahora, inicioDelTurno);
         }
-        return ahora.plusMinutes(MINUTOS_PARA_PAGAR);
+        LocalDateTime plazo = ahora.plusMinutes(MINUTOS_PARA_PAGAR);
+        return plazo.isBefore(inicioDelTurno) ? plazo : inicioDelTurno;
     }
 
     private void validarPerfilCompleto(Usuario cliente, String mensaje) {
@@ -399,8 +406,9 @@ public class ReservaService {
 
     /**
      * Cambia jugadores, cancha, horario o productos de un partido que todavía no se jugó. No se
-     * puede reemplazar a un jugador que ya pagó (o tiene una bonificación), y el total nuevo no puede
-     * quedar por debajo de lo ya pagado. Si no cambia el turno, se mantiene el precio de la cancha.
+     * puede reemplazar a un jugador que ya pagó (o tiene una bonificación), y ni la cancha ni los
+     * productos pueden quedar por debajo de lo que tienen cobrado (409). Si no cambia el turno, se
+     * mantiene el precio de la cancha.
      */
     @Transactional
     public ReservaResponse actualizarPartido(Long id, PartidoRequest req, String email) {
@@ -454,10 +462,7 @@ public class ReservaService {
         // vuelven a validar porque pudo cambiar el horario)
         stockService.moverStock(aLiberar, partido, StockService.pedido(req.getProductos()), ahora);
         BigDecimal total = montoCancha.add(partido.getMontoProductos());
-        if (total.compareTo(partido.getMontoCubierto()) < 0) {
-            throw new EstadoInvalidoException("El total nuevo ($%s) es menor que lo ya pagado ($%s)."
-                    .formatted(total, partido.getMontoCubierto()));
-        }
+        partido.validarQueNoSacaLoCobrado(montoCancha);
         partido.setMontoTotal(total);
         // el total pudo cambiar: el estado se vuelve a calcular con lo pagado (en un partido no hay avisos)
         partido.recalcularEstado(config.senia(total), ahora);
@@ -518,13 +523,10 @@ public class ReservaService {
         }
     }
 
-    /** Cancha + productos; no puede quedar por debajo de lo ya cubierto. */
+    /** Cancha + productos; ninguna línea puede quedar por debajo de lo que tiene cobrado (409). */
     private void actualizarTotal(Reserva reserva, BigDecimal montoCancha, LocalDateTime ahora) {
         BigDecimal total = montoCancha.add(reserva.getMontoProductos());
-        if (total.compareTo(reserva.getMontoCubierto()) < 0) {
-            throw new EstadoInvalidoException("El total nuevo ($%s) es menor que lo ya pagado ($%s)."
-                    .formatted(total, reserva.getMontoCubierto()));
-        }
+        reserva.validarQueNoSacaLoCobrado(montoCancha);
         reserva.setMontoTotal(total);
         reserva.recalcularPorCambioDeTotal(configuracionService.obtener().senia(total), ahora);
     }

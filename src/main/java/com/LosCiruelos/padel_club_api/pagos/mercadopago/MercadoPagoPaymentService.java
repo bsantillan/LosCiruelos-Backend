@@ -174,11 +174,11 @@ public class MercadoPagoPaymentService implements PaymentService {
     }
 
     @Override
-    public void reembolsar(Pago pago, BigDecimal monto) {
+    public void reembolsar(Pago pago, BigDecimal monto, String operacion) {
         try {
             // misma clave en cada reintento: MP nunca devuelve dos veces el mismo reembolso
             new PaymentRefundClient().refund(Long.parseLong(pago.getExternalPaymentId()), monto,
-                    opciones(pago, "reembolso"));
+                    opciones(pago, operacion));
             log.info("Reembolso de ${} del pago #{} (MP {})", monto, pago.getId(), pago.getExternalPaymentId());
         } catch (MPApiException e) {
             log.warn("MP no pudo reembolsar el pago #{}: {} — {}", pago.getId(), e.getStatusCode(), contenido(e));

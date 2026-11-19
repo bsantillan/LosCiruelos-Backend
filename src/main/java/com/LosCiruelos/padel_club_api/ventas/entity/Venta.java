@@ -1,7 +1,7 @@
 package com.LosCiruelos.padel_club_api.ventas.entity;
 
+import com.LosCiruelos.padel_club_api.common.Jornada;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -142,16 +142,16 @@ public class Venta {
     }
 
     /**
-     * Si {@code quien} puede anularla: el ADMIN, cualquier venta; el EMPLEADO, solo las de hoy y que
-     * el ADMIN todavía no verificó contra la cuenta.
+     * Si {@code quien} puede anularla: el ADMIN, cualquier venta; el EMPLEADO, solo las de la jornada
+     * en curso y que el ADMIN todavía no verificó contra la cuenta.
      *
      * @throws PermisoDenegadoException (403) si no puede
      */
-    public void validarQuePuedeAnularla(Usuario quien, LocalDate hoy) {
+    public void validarQuePuedeAnularla(Usuario quien, Jornada jornada) {
         if (Roles.esAdmin(quien)) {
             return;
         }
-        if (!esDelDia(hoy)) {
+        if (!esDeLaJornada(jornada)) {
             throw new PermisoDenegadoException("Solo podés anular ventas de hoy.");
         }
         if (estaVerificada()) {
@@ -291,8 +291,9 @@ public class Venta {
         return Dinero.sumar(devoluciones.stream().map(VentaDevolucion::getMonto));
     }
 
-    public boolean esDelDia(LocalDate dia) {
-        return createdAt.toLocalDate().equals(dia);
+    /** Se registró dentro de la jornada (lo que ve y opera el EMPLEADO). */
+    public boolean esDeLaJornada(Jornada jornada) {
+        return jornada.incluye(createdAt);
     }
 
     /** Unidades de cada producto de la venta. */

@@ -52,7 +52,7 @@ class CobroQrServiceTest extends PagosTestBase {
     }
 
     private CobroQrResponse generar(String monto) {
-        return cobroQrService.generar(10L, monto != null ? new BigDecimal(monto) : null, empleado.getEmail());
+        return cobroQrService.generar(10L, monto != null ? new BigDecimal(monto) : null, null, empleado.getEmail());
     }
 
     private Pago qr() {

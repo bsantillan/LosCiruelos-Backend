@@ -146,7 +146,23 @@ public class GlobalExceptionHandler {
 
         @ExceptionHandler(ReservaException.class)
         public ResponseEntity<Map<String, Object>> handleReserva(ReservaException ex) {
-                return error(ex.getStatus(), ex.getMessage());
+                ResponseEntity<Map<String, Object>> respuesta = error(ex.getStatus(), ex.getMessage());
+                respuesta.getBody().putAll(ex.getDatos());
+                return respuesta;
+        }
+
+        /** Un archivo que pasa el límite de subida de Spring: 400 con el mismo mensaje que la validación. */
+        @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+        public ResponseEntity<Map<String, Object>> handleArchivoGrande(
+                        org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+                return error(HttpStatus.BAD_REQUEST, "La imagen no puede superar los 5 MB.");
+        }
+
+        /** Falta el archivo en un pedido multipart. */
+        @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+        public ResponseEntity<Map<String, Object>> handleSinArchivo(
+                        org.springframework.web.multipart.support.MissingServletRequestPartException ex) {
+                return error(HttpStatus.BAD_REQUEST, "Mandá la imagen en el campo \"" + ex.getRequestPartName() + "\".");
         }
 
         @ExceptionHandler(DataIntegrityViolationException.class)

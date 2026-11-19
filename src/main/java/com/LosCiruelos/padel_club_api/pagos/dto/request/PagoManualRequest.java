@@ -1,7 +1,9 @@
 package com.LosCiruelos.padel_club_api.pagos.dto.request;
 
 import java.math.BigDecimal;
+import java.util.List;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
@@ -14,4 +16,7 @@ public class PagoManualRequest {
     @Digits(integer = 8, fraction = 2, message = "El monto puede tener hasta 2 decimales")
     private BigDecimal monto;
 
+    // Opcional: qué cubre el cobro. Sin imputaciones se imputa solo: primero la cancha y después los productos.
+    @Valid
+    private List<ImputacionRequest> imputaciones;
 }

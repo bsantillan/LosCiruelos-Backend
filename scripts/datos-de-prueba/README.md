@@ -24,7 +24,7 @@ Las fechas son **relativas al día y la hora en que se corre**: siempre hay rese
 - Recordatorio 2 h antes; se reserva hasta 30 días adelante; la seña online que pide el personal se paga dentro de las 2 h.
 - Horarios: lunes a viernes de 8 a 23, sábados de 9 a 22 y domingos de 9 a 20.
 - Un **día cerrado** dentro de 20 días ("Mantenimiento de las canchas"), sin reservas ese día.
-- **4 canchas.**
+- **4 canchas:** 1 a 3 techadas de cemento (la 1, "Cancha central") y la 4 al aire libre, de césped sintético con blindex; todas con luz y sin fotos (se suben desde el panel).
 
 ### Productos (todos controlan stock)
 
@@ -64,6 +64,13 @@ Repartidas en las 4 canchas, entre las 9 y las 20 (valen para cualquier día de 
   - una de 2 h con paletas y una pelota;
   - una con un pago parcial;
   - una cancelada a tiempo con la plata a devolver a mano (`A_REEMBOLSAR`).
+
+Cada pago queda **imputado** como lo haría la app sola: primero la cancha y después los productos, en orden.
+
+- **Novedades:** 2 publicadas (un torneo que se ve hasta dentro de una semana y unas clases) y un borrador.
+- **Cancelaciones:** las reservas canceladas tienen quién y cuándo (el cliente, un día antes del turno), para las métricas.
+- **Cobro anulado:** en la primera reserva futura con un pago parcial hay un efectivo de $2.000 **anulado** por el empleado ("Lo cargué dos veces"). No cuenta en la caja ni cubre nada.
+- **Devoluciones:** cada pago devuelto o por devolver tiene su devolución, sin detalle por línea. La de la reserva cancelada con la plata a devolver a mano aparece en `GET /admin/reservas/devoluciones-a-entregar` para entregarla.
 
 Los pagos de Mercado Pago son **simulados**: tienen ids de pago, preferencias y orders de prueba (`mp-prueba-…`, `ORD-PRUEBA-…`) y nunca se llamó a Mercado Pago.
 

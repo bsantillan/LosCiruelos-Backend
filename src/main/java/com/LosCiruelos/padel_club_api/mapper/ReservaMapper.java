@@ -5,6 +5,7 @@ import java.util.Comparator;
 
 import org.springframework.stereotype.Component;
 
+import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.common.Reloj;
@@ -78,7 +79,12 @@ public class ReservaMapper {
         response.setMontoPagado(reserva.getMontoPagado());
         response.setMontoBonificado(reserva.getMontoBonificado());
         response.setMontoPendiente(reserva.getMontoPendiente());
-        response.setProductos(reserva.getProductos().stream().map(ReservaMapper::producto).toList());
+        response.setMontoCanchaPagado(Dinero.redondear(reserva.getMontoCanchaPagado()));
+        response.setMontoCanchaPendiente(Dinero.redondear(reserva.getMontoCanchaPendiente()));
+        response.setProductos(reserva.getProductos().stream()
+                .sorted(Comparator.comparing(ReservaProducto::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(p -> producto(reserva, p))
+                .toList());
         response.setEstado(reserva.getEstado());
         response.setTipo(reserva.getTipo());
         response.setTurnoFijoId(reserva.getTurnoFijo() != null ? reserva.getTurnoFijo().getId() : null);
@@ -95,8 +101,9 @@ public class ReservaMapper {
         return response;
     }
 
-    private static ReservaProductoResponse producto(ReservaProducto item) {
+    private static ReservaProductoResponse producto(Reserva reserva, ReservaProducto item) {
         ReservaProductoResponse r = new ReservaProductoResponse();
+        r.setLineaId(item.getId());
         r.setProductoId(item.getProducto().getId());
         r.setCodigo(item.getProducto().getCodigo());
         r.setNombre(item.getProducto().getNombre());
@@ -104,6 +111,8 @@ public class ReservaMapper {
         r.setCantidad(item.getCantidad());
         r.setPrecioUnitario(item.getPrecioUnitario());
         r.setSubtotal(item.getSubtotal());
+        r.setMontoPagado(Dinero.redondear(reserva.pagadoDe(item)));
+        r.setMontoPendiente(Dinero.redondear(reserva.pendienteDe(item)));
         r.setCantidadDevuelta(item.getCantidadDevuelta());
         r.setDevueltaAt(item.getDevueltaAt());
         return r;

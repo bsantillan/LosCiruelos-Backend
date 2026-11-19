@@ -87,7 +87,7 @@ public class ReservaAdminController {
     }
 
     /**
-     * Solo ADMIN: arma un partido de 4 jugadores (clientes registrados o invitados). Se consulta,
+     * Solo ADMIN: arma un partido de 1 a 4 jugadores (clientes registrados o invitados). Se consulta,
      * se cobra y se cancela como cualquier reserva.
      */
     @PreAuthorize("hasRole('ADMIN')")
@@ -98,7 +98,7 @@ public class ReservaAdminController {
                 .body(reservaService.crearPartido(request, authentication.getName()));
     }
 
-    /** Solo ADMIN: se manda el partido completo (cancha, fecha, horario, los 4 jugadores y productos). */
+    /** Solo ADMIN: se manda el partido completo (cancha, fecha, horario, los jugadores y productos). */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/partidos/{id}")
     public ResponseEntity<ReservaResponse> actualizarPartido(@PathVariable Long id,
@@ -114,18 +114,22 @@ public class ReservaAdminController {
 
     /**
      * Cancela la reserva. Si tiene dinero cobrado hay que indicar qué se devuelve:
-     * {@code reembolso=TOTAL|SENIA|NADA}. Un partido lo cancela solo el ADMIN.
+     * {@code reembolso=TOTAL|SENIA|NADA}. Un partido lo cancela solo el ADMIN. {@code entregada=false}: lo
+     * cobrado en el club queda a devolver a mano (por defecto se devuelve en el momento).
      */
     @DeleteMapping("/{id}/cancelar")
     public ResponseEntity<ReservaResponse> cancelar(@PathVariable Long id,
-            @RequestParam(required = false) OpcionReembolso reembolso, Authentication authentication) {
-        return ResponseEntity.ok(cancelacionService.cancelarComoPersonal(id, reembolso, authentication.getName()));
+            @RequestParam(required = false) OpcionReembolso reembolso,
+            @RequestParam(defaultValue = "true") boolean entregada, Authentication authentication) {
+        return ResponseEntity.ok(cancelacionService.cancelarComoPersonal(id, reembolso, entregada,
+                authentication.getName()));
     }
 
     /**
-     * Resumen del período para el panel (montos, turnos, caja y productos). El ADMIN ve cualquier
-     * período; el EMPLEADO, solo el día de hoy. Sin fechas, el resumen es de hoy.
+     * Solo ADMIN: resumen del período para el panel (montos, turnos, caja y productos). Sin fechas, el
+     * de la jornada en curso. El EMPLEADO ve el cierre de su jornada en GET /admin/caja.
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/resumen")
     public ResponseEntity<ResumenResponse> resumen(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,

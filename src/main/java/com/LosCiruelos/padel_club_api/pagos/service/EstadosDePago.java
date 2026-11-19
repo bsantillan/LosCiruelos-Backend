@@ -38,7 +38,14 @@ class EstadosDePago {
     private final Reloj reloj;
     private final ApplicationEventPublisher eventos;
 
+    /**
+     * Cambia el estado del pago. Uno que se aprueba sin imputaciones (el pago online del cliente) se
+     * imputa en forma automática: primero la cancha y después los productos.
+     */
     void cambiar(Pago pago, EstadoPago estado) {
+        if (estado == EstadoPago.APROBADO && pago.getImputaciones().isEmpty() && pago.getReserva() != null) {
+            pago.imputar(pago.getReserva().imputacionAutomatica(pago.getMonto()));
+        }
         pago.cambiarEstado(estado, reloj.ahora());
         pagoRepository.save(pago);
     }
@@ -62,6 +69,7 @@ class EstadosDePago {
         }
         EstadoReserva nuevo = reserva.getEstado();
         if (nuevo == EstadoReserva.CANCELADA) {
+            reserva.setCanceladaAt(reloj.ahora()); // la canceló el sistema: se devolvió todo
             reserva.expirarPagosPendientes().forEach(pagoRepository::save);
             stockService.liberar(reserva);
             log.warn("Reserva #{} cancelada: se devolvió todo lo pagado", reserva.getId());
@@ -70,6 +78,15 @@ class EstadosDePago {
         // los partidos los arma y los sigue el ADMIN: no se le avisa de cada pago
         if (avisar && !reserva.esPartido()) {
             avisarCambioDeEstado(reserva, anterior, nuevo);
+        }
+    }
+
+    /** Después de anular o devolver un cobro ({@link Reserva#recalcularTrasDeshacerUnCobro}); sin avisos. */
+    void recalcularTrasDeshacer(Reserva reserva) {
+        EstadoReserva anterior = reserva.getEstado();
+        BigDecimal senia = configuracionService.obtener().senia(reserva.getMontoTotal());
+        if (reserva.recalcularTrasDeshacerUnCobro(senia, reloj.ahora())) {
+            log.info("Reserva #{}: {} → {} (se deshizo un cobro)", reserva.getId(), anterior, reserva.getEstado());
         }
     }
 

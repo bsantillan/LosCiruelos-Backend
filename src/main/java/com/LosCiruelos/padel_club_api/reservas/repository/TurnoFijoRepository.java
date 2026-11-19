@@ -68,4 +68,6 @@ public interface TurnoFijoRepository extends JpaRepository<TurnoFijo, Long> {
             @Param("dia") DayOfWeek dia,
             @Param("horaInicio") LocalTime horaInicio,
             @Param("horaFin") LocalTime horaFin);
+
+    boolean existsByCanchaId(Long canchaId);
 }

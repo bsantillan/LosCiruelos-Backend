@@ -123,4 +123,21 @@ public class ReservaConsultasImpl implements ReservaConsultas {
         return valor instanceof BigDecimal bd ? bd : new BigDecimal(String.valueOf(valor));
     }
 
+    @Override
+    public com.LosCiruelos.padel_club_api.common.RangoDeFechas rangoDeFechas(Specification<Reserva> spec) {
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+        CriteriaQuery<Tuple> q = cb.createTupleQuery();
+        Root<Reserva> r = q.from(Reserva.class);
+        q.multiselect(cb.least(r.<java.time.LocalDate>get("fechaReserva")),
+                cb.greatest(r.<java.time.LocalDate>get("fechaReserva")));
+        if (spec != null) {
+            jakarta.persistence.criteria.Predicate condicion = spec.toPredicate(r, q, cb);
+            if (condicion != null) {
+                q.where(condicion);
+            }
+        }
+        Tuple t = em.createQuery(q).getSingleResult();
+        return new com.LosCiruelos.padel_club_api.common.RangoDeFechas(t.get(0, java.time.LocalDate.class),
+                t.get(1, java.time.LocalDate.class));
+    }
 }

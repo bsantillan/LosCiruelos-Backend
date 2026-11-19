@@ -232,7 +232,7 @@ class ControllersTest {
         void elPersonalEligeElReembolsoAlCancelar() throws Exception {
             ReservaResponse cancelada = new ReservaResponse();
             cancelada.setEstado(EstadoReserva.CANCELADA);
-            when(cancelacionService.cancelarComoPersonal(4L, OpcionReembolso.SENIA, EMAIL)).thenReturn(cancelada);
+            when(cancelacionService.cancelarComoPersonal(4L, OpcionReembolso.SENIA, true, EMAIL)).thenReturn(cancelada);
 
             mvc.perform(delete("/admin/reservas/4/cancelar").param("reembolso", "SENIA").principal(AUTH))
                     .andExpect(status().isOk())
@@ -305,14 +305,14 @@ class ControllersTest {
                     .andExpect(jsonPath("$.errors.monto").exists());
             mvc.perform(json(post("/admin/reservas/4/cobros/efectivo"), "{}")).andExpect(status().isBadRequest());
 
-            when(cobroService.registrarPagoManual(any(), any(), any(), anyString())).thenReturn(new PagoResponse());
+            when(cobroService.registrarPagoManual(any(), any(), any(), any(), anyString())).thenReturn(new PagoResponse());
             mvc.perform(json(post("/admin/reservas/4/cobros/efectivo"), "{\"monto\":7500}")).andExpect(status().isOk());
             mvc.perform(json(post("/admin/reservas/4/cobros/transferencia"), "{\"monto\":7500}")).andExpect(status().isOk());
             // /presencial queda como alias deprecado de la transferencia
             mvc.perform(json(post("/admin/reservas/4/cobros/presencial"), "{\"monto\":7500}")).andExpect(status().isOk());
-            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, EMAIL);
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, EMAIL);
             verify(cobroService, org.mockito.Mockito.times(2)).registrarPagoManual(4L, new BigDecimal("7500"),
-                    PaymentProvider.TRANSFERENCIA_MP, EMAIL);
+                    PaymentProvider.TRANSFERENCIA_MP, null, EMAIL);
         }
 
         @Test
@@ -348,7 +348,7 @@ class ControllersTest {
                     new BigDecimal("15000.00"), TestData.AHORA.plusMinutes(10),
                     com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago.EN_PROCESO, EstadoReserva.PENDIENTE,
                     new BigDecimal("15000.00"));
-            when(cobroQrService.generar(any(), any(), anyString())).thenReturn(qr);
+            when(cobroQrService.generar(any(), any(), any(), anyString())).thenReturn(qr);
             when(cobroQrService.ultimo(4L, EMAIL)).thenReturn(qr);
             when(cobroQrService.cancelar(4L, EMAIL)).thenReturn(qr);
 
@@ -358,9 +358,9 @@ class ControllersTest {
                     .andExpect(jsonPath("$.orderId").value("ORD1"))
                     .andExpect(jsonPath("$.qrData").doesNotExist())
                     .andExpect(jsonPath("$.venceAt").value("2026-10-13T10:10:00.000-03:00"));
-            verify(cobroQrService).generar(4L, null, EMAIL);
+            verify(cobroQrService).generar(4L, null, null, EMAIL);
             mvc.perform(json(post("/admin/reservas/4/cobros/qr"), "{\"monto\":7500}")).andExpect(status().isOk());
-            verify(cobroQrService).generar(4L, new BigDecimal("7500"), EMAIL);
+            verify(cobroQrService).generar(4L, new BigDecimal("7500"), null, EMAIL);
             mvc.perform(json(post("/admin/reservas/4/cobros/qr"), "{\"monto\":0}")).andExpect(status().isBadRequest());
 
             mvc.perform(get("/admin/reservas/4/cobros/qr").principal(AUTH))
@@ -371,7 +371,7 @@ class ControllersTest {
 
         @Test
         void sinConfigurarElQrResponde503() throws Exception {
-            when(cobroQrService.generar(any(), any(), anyString()))
+            when(cobroQrService.generar(any(), any(), any(), anyString()))
                     .thenThrow(new com.LosCiruelos.padel_club_api.pagos.exception.CobroQrNoConfiguradoException());
 
             mvc.perform(post("/admin/reservas/4/cobros/qr").principal(AUTH))
@@ -398,10 +398,10 @@ class ControllersTest {
             mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.monto").exists());
-            when(cobroService.registrarPagoManual(any(), any(), any(), anyString())).thenReturn(new PagoResponse());
+            when(cobroService.registrarPagoManual(any(), any(), any(), any(), anyString())).thenReturn(new PagoResponse());
             mvc.perform(json(post("/admin/reservas/4/cobros/cuenta-dni"), "{\"monto\":7500}"))
                     .andExpect(status().isOk());
-            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.CUENTA_DNI, EMAIL);
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.CUENTA_DNI, null, EMAIL);
 
             mvc.perform(json(put("/admin/reservas/4/pagos/9/verificacion"), "{}"))
                     .andExpect(status().isBadRequest())
@@ -590,7 +590,7 @@ class ControllersTest {
 
         @Test
         void administracionDeUsuarios() throws Exception {
-            when(usuarioAdminService.crearUsuario(any())).thenReturn(new UsuarioAdminResponse());
+            when(usuarioAdminService.crearUsuario(any(), any())).thenReturn(new UsuarioAdminResponse());
             when(usuarioAdminService.editarUsuario(eq(2L), any())).thenReturn(new UsuarioAdminResponse());
             when(usuarioAdminService.listarUsuarios(any())).thenReturn(List.of());
             when(usuarioAdminService.getUsuario(2L, EMAIL)).thenReturn(new UsuarioAdminResponse());
@@ -608,10 +608,14 @@ class ControllersTest {
 
         @Test
         void canchasYDisponibilidad() throws Exception {
-            when(canchaService.listarCanchas()).thenReturn(List.of(new CanchaResponse()));
+            when(canchaService.listarCanchas(anyBoolean())).thenReturn(List.of(new CanchaResponse()));
             when(disponibilidadService.disponibilidad(any(), any(), any())).thenReturn(new DisponibilidadResponse());
 
             mvc.perform(get("/canchas").principal(AUTH)).andExpect(status().isOk());
+            verify(canchaService).listarCanchas(false);
+            mvc.perform(get("/canchas").param("incluirInactivas", "true")).andExpect(status().isOk());
+            verify(canchaService).listarCanchas(true);
+            mvc.perform(get("/canchas").param("incluirInactivas", "si")).andExpect(status().isBadRequest());
             mvc.perform(get("/canchas/1/disponibilidad").param("fecha", "2099-01-01").param("duracion", "90"))
                     .andExpect(status().isOk());
             // duracion es opcional (el servicio usa la mínima configurada)
@@ -797,7 +801,14 @@ class ControllersTest {
             mvc.perform(put("/admin/configuracion/productos/1/reactivacion")).andExpect(status().isOk());
             verify(productoService).desactivar(1L);
             verify(productoService).reactivar(1L);
-            mvc.perform(delete("/admin/configuracion/productos/1")).andExpect(status().isMethodNotAllowed());
+            mvc.perform(delete("/admin/configuracion/productos/1")).andExpect(status().isNoContent());
+            verify(productoService).eliminar(1L);
+            org.mockito.Mockito.doThrow(new com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException(
+                    "El producto ya se usó en reservas o ventas: desactivalo en lugar de eliminarlo."))
+                    .when(productoService).eliminar(2L);
+            mvc.perform(delete("/admin/configuracion/productos/2")).andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.error").value(
+                            "El producto ya se usó en reservas o ventas: desactivalo en lugar de eliminarlo."));
         }
 
         @Test
@@ -1053,7 +1064,8 @@ class ControllersTest {
                             new BigDecimal("45000.00")),
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Caja(
                             new BigDecimal("230000.00"), new BigDecimal("90000.00"), new BigDecimal("100000.00"),
-                            new BigDecimal("40000.00"), new BigDecimal("7500.00"), new BigDecimal("222500.00"), new com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago(new BigDecimal("100000.00"), new BigDecimal("20000.00"), new BigDecimal("70000.00"), new BigDecimal("10000.00"))),
+                            new BigDecimal("40000.00"), new BigDecimal("7500.00"), new BigDecimal("222500.00"), new com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago(new BigDecimal("100000.00"), new BigDecimal("20000.00"), new BigDecimal("70000.00"), new BigDecimal("10000.00")), new BigDecimal("5000.00"),
+                            java.time.LocalDate.of(2026, 10, 1).atTime(8, 0), java.time.LocalDate.of(2026, 11, 2).atTime(8, 0)),
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Cancelaciones(3,
                             new BigDecimal("7500.00")),
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Ventas(3,
@@ -1078,6 +1090,9 @@ class ControllersTest {
                     .andExpect(jsonPath("$.porJugar.cobradoAnticipado").value(45000.00))
                     .andExpect(jsonPath("$.porJugar.aCobrar").value(45000.00))
                     .andExpect(jsonPath("$.caja.total").value(230000.00))
+                    .andExpect(jsonPath("$.caja.bonificado").value(5000.00))
+                    .andExpect(jsonPath("$.caja.inicio").value("2026-10-01T08:00:00.000-03:00"))
+                    .andExpect(jsonPath("$.caja.fin").value("2026-11-02T08:00:00.000-03:00"))
                     .andExpect(jsonPath("$.caja.efectivo").value(90000.00))
                     .andExpect(jsonPath("$.caja.mercadoPago").value(100000.00))
                     .andExpect(jsonPath("$.caja.cuentaDni").value(40000.00))
@@ -1145,7 +1160,9 @@ class ControllersTest {
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse.Totales(57,
                             new BigDecimal("855000.00"), new BigDecimal("690000.00"), new BigDecimal("410000.00"),
                             new BigDecimal("250000.00"), new BigDecimal("30000.00"), new BigDecimal("15000.00"),
-                            new BigDecimal("165000.00"), null));
+                            new BigDecimal("165000.00"), null),
+                    new com.LosCiruelos.padel_club_api.common.RangoDeFechas(java.time.LocalDate.of(2026, 3, 2),
+                            java.time.LocalDate.of(2026, 11, 20)));
         }
 
         @Test
@@ -1162,6 +1179,8 @@ class ControllersTest {
                     .andExpect(jsonPath("$.contenido[0].id").value(10))
                     .andExpect(jsonPath("$.totalElementos").value(57))
                     .andExpect(jsonPath("$.totales.reservas").value(57))
+                    .andExpect(jsonPath("$.rango.desde").value("2026-03-02"))
+                    .andExpect(jsonPath("$.rango.hasta").value("2026-11-20"))
                     .andExpect(jsonPath("$.totales.cobradoEfectivo").value(410000.00))
                     .andExpect(jsonPath("$.totales.cobradoMercadoPago").value(250000.00))
                     .andExpect(jsonPath("$.totales.cobradoCuentaDni").value(30000.00))
@@ -1250,19 +1269,19 @@ class ControllersTest {
 
         @Test
         void bonificarSinBodyEsTodoLoQueFalta() throws Exception {
-            when(cobroService.bonificar(5L, null, null, EMAIL)).thenReturn(new PagoResponse());
+            when(cobroService.bonificar(5L, null, null, null, EMAIL)).thenReturn(new PagoResponse());
 
             mvc.perform(post("/admin/reservas/5/bonificacion").principal(AUTH)).andExpect(status().isOk());
-            verify(cobroService).bonificar(5L, null, null, EMAIL);
+            verify(cobroService).bonificar(5L, null, null, null, EMAIL);
         }
 
         @Test
         void bonificarUnaParteConMotivo() throws Exception {
-            when(cobroService.bonificar(any(), any(), any(), any())).thenReturn(new PagoResponse());
+            when(cobroService.bonificar(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
 
             mvc.perform(json(post("/admin/reservas/5/bonificacion"), "{\"monto\":7500,\"motivo\":\"socio\"}"))
                     .andExpect(status().isOk());
-            verify(cobroService).bonificar(5L, new BigDecimal("7500"), "socio", EMAIL);
+            verify(cobroService).bonificar(5L, new BigDecimal("7500"), "socio", null, EMAIL);
 
             mvc.perform(json(post("/admin/reservas/5/bonificacion"), "{\"monto\":0}"))
                     .andExpect(status().isBadRequest())
@@ -1271,7 +1290,7 @@ class ControllersTest {
 
         @Test
         void unEmpleadoNoPuedeBonificar() throws Exception {
-            when(cobroService.bonificar(any(), any(), any(), any())).thenThrow(
+            when(cobroService.bonificar(any(), any(), any(), any(), any())).thenThrow(
                     new com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException(
                             "Solo el ADMIN puede bonificar una reserva."));
 
@@ -1486,7 +1505,8 @@ class ControllersTest {
                     eq(EMAIL))).thenReturn(new com.LosCiruelos.padel_club_api.ventas.dto.response.ListadoVentasResponse(
                             List.of(), 1, 20, 21, 2, new com.LosCiruelos.padel_club_api.ventas.dto.response.ListadoVentasResponse
                                     .Totales(20, 1, new java.math.BigDecimal("4500.00"), new java.math.BigDecimal("1500.00"),
-                                            porMedio, null)));
+                                            porMedio, null),
+                            com.LosCiruelos.padel_club_api.common.RangoDeFechas.VACIO));
 
             mvc.perform(get("/admin/ventas").param("desde", "2026-10-01").param("hasta", "2026-10-31")
                     .param("productoId", "5").param("cliente", "pérez").param("clienteId", "3")
@@ -1497,6 +1517,7 @@ class ControllersTest {
                     .andExpect(jsonPath("$.totalElementos").value(21))
                     .andExpect(jsonPath("$.totales.ventas").value(20))
                     .andExpect(jsonPath("$.totales.anuladas").value(1))
+                    .andExpect(jsonPath("$.rango.desde").doesNotExist())
                     .andExpect(jsonPath("$.totales.devuelto").value(1500.00))
                     .andExpect(jsonPath("$.totales.porMedio.EFECTIVO").value(4500.00));
             verify(ventaConsultaService).listar(java.time.LocalDate.of(2026, 10, 1), java.time.LocalDate.of(2026, 10, 31),

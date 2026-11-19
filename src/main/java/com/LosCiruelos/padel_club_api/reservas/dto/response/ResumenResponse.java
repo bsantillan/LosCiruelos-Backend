@@ -36,11 +36,18 @@ public record ResumenResponse(
      * Plata que entró y salió en el período, incluidas las ventas sueltas, por medio: efectivo y lo
      * que entra a una cuenta (Mercado Pago, sea online o en el club, y Cuenta DNI).
      * total = efectivo + mercadoPago + cuentaDni; neto = total - devoluciones.
+     * <p>
+     * <b>Es por jornada</b>, no por día calendario: suma lo que pasó entre {@code inicio} (la apertura
+     * de {@code desde}) y {@code fin} (la apertura del día siguiente a {@code hasta}). Un cobro de las
+     * 00:10 es de la jornada del día anterior.
+     *
+     * @param detalleMercadoPago {@code mercadoPago} abierto en QR, online y transferencia
+     * @param bonificado         lo bonificado por el ADMIN en esas jornadas (no es plata: no suma al total)
      */
-    /** @param detalleMercadoPago {@code mercadoPago} abierto en QR, online y transferencia */
     public record Caja(BigDecimal total, BigDecimal efectivo, BigDecimal mercadoPago, BigDecimal cuentaDni,
             BigDecimal devoluciones, BigDecimal neto,
-            com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago detalleMercadoPago) {
+            com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago detalleMercadoPago,
+            BigDecimal bonificado, java.time.LocalDateTime inicio, java.time.LocalDateTime fin) {
     }
 
     /** Reservas canceladas del período y lo pagado que el club no devolvió. */

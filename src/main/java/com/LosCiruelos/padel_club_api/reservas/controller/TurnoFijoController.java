@@ -79,15 +79,18 @@ public class TurnoFijoController {
     /** Baja general: se cancelan los partidos que todavía no empezaron (reembolso si tienen plata cobrada). */
     @DeleteMapping("/{id}")
     public ResponseEntity<TurnoFijoResponse> darDeBaja(@PathVariable Long id,
-            @RequestParam(required = false) OpcionReembolso reembolso, Authentication authentication) {
-        return ResponseEntity.ok(turnoFijoService.darDeBaja(id, reembolso, authentication.getName()));
+            @RequestParam(required = false) OpcionReembolso reembolso,
+            @RequestParam(defaultValue = "true") boolean entregada, Authentication authentication) {
+        return ResponseEntity.ok(turnoFijoService.darDeBaja(id, reembolso, entregada, authentication.getName()));
     }
 
     /** Baja de una sola fecha (esa semana no vienen): el horario de ese día queda libre. */
     @DeleteMapping("/{id}/fechas/{fecha}")
     public ResponseEntity<ReservaResponse> darDeBajaFecha(@PathVariable Long id,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
-            @RequestParam(required = false) OpcionReembolso reembolso, Authentication authentication) {
-        return ResponseEntity.ok(turnoFijoService.darDeBajaFecha(id, fecha, reembolso, authentication.getName()));
+            @RequestParam(required = false) OpcionReembolso reembolso,
+            @RequestParam(defaultValue = "true") boolean entregada, Authentication authentication) {
+        return ResponseEntity.ok(turnoFijoService.darDeBajaFecha(id, fecha, reembolso, entregada,
+                authentication.getName()));
     }
 }

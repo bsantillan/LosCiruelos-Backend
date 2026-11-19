@@ -32,3 +32,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# imágenes subidas en desarrollo (ARCHIVOS_DIR)
+archivos/
+
+# carpeta de salida del compilador de Eclipse / VS Code Java (copia el proyecto, incluidos .env y launch.json)
+bin/

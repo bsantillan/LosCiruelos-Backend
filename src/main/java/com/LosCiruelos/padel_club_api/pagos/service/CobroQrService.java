@@ -20,6 +20,9 @@ import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.mapper.PagoMapper;
 import com.LosCiruelos.padel_club_api.pagos.dto.response.CobroQrResponse;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.pagos.entity.PagoImputacion;
+import com.LosCiruelos.padel_club_api.pagos.dto.request.ImputacionRequest;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.exception.CobroQrNoConfiguradoException;
 import com.LosCiruelos.padel_club_api.pagos.exception.PagoNoEncontradoException;
@@ -92,7 +95,8 @@ public class CobroQrService {
      * esperando el pago de otra reserva, 409.
      */
     @Transactional
-    public CobroQrResponse generar(Long reservaId, BigDecimal monto, String email) {
+    public CobroQrResponse generar(Long reservaId, BigDecimal monto, List<ImputacionRequest> imputaciones,
+            String email) {
         if (!proveedor.estaConfigurado()) {
             throw new CobroQrNoConfiguradoException();
         }
@@ -108,7 +112,9 @@ public class CobroQrService {
                 .forEach(p -> resolver(reserva, p));
 
         Optional<Pago> activo = qrActivo(reserva, ahora);
-        BigDecimal aCobrar = monto != null ? monto : reserva.getMontoPendiente();
+        List<PagoImputacion.Pedido> pedidas = pagoMapper.aPedidos(imputaciones);
+        BigDecimal aCobrar = monto != null ? monto
+                : pedidas != null && !pedidas.isEmpty() ? CobroService.sumaPedida(pedidas) : reserva.getMontoPendiente();
         if (activo.isPresent()) {
             if (activo.get().getMonto().compareTo(aCobrar) == 0) {
                 return pagoMapper.aCobroQr(activo.get());
@@ -128,6 +134,8 @@ public class CobroQrService {
             throw new ReservaException("El monto ($%s) supera el pendiente ($%s)."
                     .formatted(aCobrar, reserva.getMontoPendiente()));
         }
+        // se guardan al iniciar el cobro y cuentan cuando Mercado Pago lo aprueba
+        List<PagoImputacion> partes = reserva.imputacionPedida(pedidas, aCobrar);
         liberarCajaOFallar(reserva, ahora);
         // un pago online iniciado y sin cobrar ya no corresponde
         reserva.expirarPagosPendientes().forEach(pagoRepository::save);
@@ -140,6 +148,7 @@ public class CobroQrService {
                 .venceAt(ahora.plusMinutes(minutosVencimiento))
                 .registradoPorId(personal.getId())
                 .build();
+        pago.imputar(partes);
         reserva.agregarPago(pago);
         try {
             pago = pagoRepository.save(pago); // el id va en la referencia de la order
@@ -278,7 +287,8 @@ public class CobroQrService {
             }
             case DEVUELTA -> {
                 // se cobró y se devolvió desde el panel de MP antes de que llegara la confirmación
-                pago.setMontoReembolsado(pago.getMonto());
+                pago.getImputaciones().clear(); // nunca se aplicaron
+                pago.devolverTodo(EstadoDevolucion.DEVUELTO, "Devuelto desde Mercado Pago", reloj.ahora());
                 estados.cambiar(pago, EstadoPago.DEVUELTO);
                 log.warn("QR #{} (order {}) cobrado y devuelto desde Mercado Pago", pago.getId(), pago.getOrderId());
             }
@@ -289,7 +299,8 @@ public class CobroQrService {
         if (montoPagado != null && montoPagado.compareTo(pago.getMonto()) != 0) {
             log.error("QR #{} (order {}): MP cobró ${} pero se esperaba ${}. Queda A_REEMBOLSAR.", pago.getId(),
                     pago.getOrderId(), montoPagado, pago.getMonto());
-            pago.setMontoReembolsado(pago.getMonto());
+            pago.getImputaciones().clear(); // si cobró otro monto no se imputa nada
+            pago.devolverTodo(EstadoDevolucion.A_REEMBOLSAR, "Mercado Pago cobró otro monto con el QR", reloj.ahora());
             estados.cambiar(pago, EstadoPago.A_REEMBOLSAR);
             estados.avisarReembolsoManual(pago, reserva, "Mercado Pago cobró " + Dinero.texto(montoPagado)
                     + " con el QR y se esperaba " + Dinero.texto(pago.getMonto()) + ".");
@@ -298,7 +309,9 @@ public class CobroQrService {
         if (reserva.estaInactiva()) {
             log.warn("QR #{} cobrado para la reserva #{} en estado {}. Queda A_REEMBOLSAR.", pago.getId(),
                     reserva.getId(), reserva.getEstado());
-            pago.setMontoReembolsado(pago.getMonto());
+            pago.getImputaciones().clear();
+            pago.devolverTodo(EstadoDevolucion.A_REEMBOLSAR, "Cobro con QR de una reserva " + reserva.getEstado(),
+                    reloj.ahora());
             estados.cambiar(pago, EstadoPago.A_REEMBOLSAR);
             estados.avisarReembolsoManual(pago, reserva, "Se cobró un QR de una reserva " + reserva.getEstado()
                     + ".");

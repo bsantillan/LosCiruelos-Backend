@@ -46,7 +46,7 @@ WHERE rol = 'ADMIN' OR email IN ('empleado@test.com', current_setting('datos.mai
 
 -- ── Borrar todos los datos ───────────────────────────────────────────────
 -- configuracion arrastra dias y dias_cerrados; canchas, reservas y turnos fijos con sus hijas
-TRUNCATE pagos, reserva_jugadores, reserva_productos, reservas, turno_fijo_jugadores, turno_fijo_productos,
+TRUNCATE novedades, cancha_fotos, pago_devolucion_lineas, pago_devoluciones, pago_imputaciones, pagos, reserva_jugadores, reserva_productos, reservas, turno_fijo_jugadores, turno_fijo_productos,
          turnos_fijos, venta_devolucion_items, venta_devoluciones, venta_items, ventas, dias_cerrados, dias,
          configuracion, canchas, productos, refresh_tokens, verification_tokens, envios_codigo_telefono
          RESTART IDENTITY CASCADE;
@@ -72,11 +72,11 @@ INSERT INTO dias (dia, horario_inicio, horario_fin, configuracion_general_id) VA
     ('Jueves', '08:00', '23:00', 1), ('Viernes', '08:00', '23:00', 1), ('Sábado', '09:00', '22:00', 1),
     ('Domingo', '09:00', '20:00', 1);
 
-INSERT INTO canchas (numero, descripcion) VALUES
-    (1, 'Cancha de césped sintético con iluminación LED.'),
-    (2, 'Cancha de césped sintético con iluminación LED.'),
-    (3, 'Cancha panorámica de vidrio.'),
-    (4, 'Cancha techada.');
+INSERT INTO canchas (numero, nombre, descripcion, tipo, superficie, iluminacion, activa) VALUES
+    (1, 'Cancha central', 'Techada, con tribuna.', 'TECHADA', 'Cemento', true, true),
+    (2, NULL, 'Techada.', 'TECHADA', 'Cemento', true, true),
+    (3, NULL, 'Techada.', 'TECHADA', 'Cemento', true, true),
+    (4, NULL, 'Al aire libre, panorámica.', 'AIRE_LIBRE', 'Césped sintético · Blindex', true, true);
 
 -- Todos controlan stock. Las paletas son de alquiler: el stock es el total de paletas del club.
 INSERT INTO productos (codigo, nombre, descripcion, tipo, precio, stock, activo, ofrecer_al_reservar, controla_stock) VALUES
@@ -567,6 +567,86 @@ END $$;
 -- ── Un día cerrado (sin reservas ese día) ───────────────────────────────
 INSERT INTO dias_cerrados (configuracion_id, fecha, motivo, created_at, created_by_id)
 VALUES (1, current_date + 20, 'Mantenimiento de las canchas', now() - interval '1 day', pg_temp.admin());
+
+-- ── Un cobro anulado: el empleado cargó dos veces el mismo efectivo ──────
+-- (en la primera reserva futura que pagó una parte; no cuenta en la caja ni cubre nada)
+INSERT INTO pagos (reserva_id, monto, estado, provider, created_at, paid_at, clave_idempotencia, registrado_por_id,
+                   anulado_at, anulado_por_id, motivo_anulacion)
+SELECT r.id, 2000, 'ANULADO', 'MANUAL', now() - interval '2 hours', now() - interval '2 hours', gen_random_uuid(),
+       pg_temp.empleado(), now() - interval '110 minutes', pg_temp.empleado(), 'Lo cargué dos veces'
+FROM reservas r
+WHERE r.estado = 'PARCIALMENTE_PAGADA' AND r.fecha_reserva > current_date
+ORDER BY r.id
+LIMIT 1;
+
+-- ── Qué cubre cada pago (la imputación automática de la app) ─────────────
+-- Del más viejo al más nuevo, lo que el club se queda de cada pago: primero la cancha hasta
+-- completarla y después cada línea de producto en orden de creación (lo que sobre, a la cancha).
+DO $$
+DECLARE
+    r record;
+    p record;
+    l record;
+    pendiente_cancha numeric;
+    restante numeric;
+    a_cancha numeric;
+    a_linea numeric;
+BEGIN
+    CREATE TEMP TABLE pendiente_linea ON COMMIT DROP AS
+        SELECT id, reserva_id, cantidad * precio_unitario AS pendiente FROM reserva_productos;
+    FOR r IN SELECT re.id, re.monto_total - COALESCE((SELECT SUM(cantidad * precio_unitario)
+                                                     FROM reserva_productos WHERE reserva_id = re.id), 0) AS cancha
+             FROM reservas re ORDER BY re.id LOOP
+        pendiente_cancha := GREATEST(r.cancha, 0);
+        FOR p IN SELECT id, CASE WHEN estado = 'APROBADO' THEN monto - COALESCE(monto_reembolsado, 0)
+                                 ELSE monto - COALESCE(monto_reembolsado, monto) END AS retenido
+                 FROM pagos
+                 WHERE reserva_id = r.id AND estado IN ('APROBADO', 'DEVUELTO', 'A_REEMBOLSAR', 'REEMBOLSO_PENDIENTE')
+                 ORDER BY COALESCE(paid_at, created_at), id LOOP
+            CONTINUE WHEN p.retenido <= 0;
+            a_cancha := LEAST(p.retenido, pendiente_cancha);
+            pendiente_cancha := pendiente_cancha - a_cancha;
+            restante := p.retenido - a_cancha;
+            FOR l IN SELECT id, pendiente FROM pendiente_linea WHERE reserva_id = r.id ORDER BY id LOOP
+                a_linea := LEAST(restante, l.pendiente);
+                IF a_linea > 0 THEN
+                    INSERT INTO pago_imputaciones (pago_id, concepto, reserva_producto_id, monto)
+                    VALUES (p.id, 'PRODUCTO', l.id, a_linea);
+                    UPDATE pendiente_linea SET pendiente = pendiente - a_linea WHERE id = l.id;
+                    restante := restante - a_linea;
+                END IF;
+            END LOOP;
+            a_cancha := a_cancha + restante;
+            IF a_cancha > 0 THEN
+                INSERT INTO pago_imputaciones (pago_id, concepto, monto) VALUES (p.id, 'CANCHA', a_cancha);
+            END IF;
+        END LOOP;
+    END LOOP;
+END $$;
+
+-- ── Lo devuelto o por devolver de cada pago (sin detalle por línea) ──────
+-- Las devueltas cuentan en la caja el día en que se devolvieron; las A_REEMBOLSAR aparecen en
+-- GET /admin/reservas/devoluciones-a-entregar hasta que el personal las entrega.
+INSERT INTO pago_devoluciones (pago_id, monto, estado, motivo, created_at, registrada_por_id, entregado_at, clave)
+SELECT id, monto_reembolsado, estado, 'Cancelación de la reserva', COALESCE(reembolsado_at, paid_at, created_at),
+       NULL, CASE WHEN estado = 'DEVUELTO' THEN COALESCE(reembolsado_at, paid_at, created_at) END, gen_random_uuid()
+FROM pagos
+WHERE estado IN ('DEVUELTO', 'A_REEMBOLSAR', 'REEMBOLSO_PENDIENTE') AND provider <> 'BONIFICACION'
+  AND monto_reembolsado > 0;
+
+-- ── Quién y cuándo canceló (métricas): el cliente, un día antes del turno ──
+UPDATE reservas
+SET cancelada_at = LEAST(fecha_reserva + hora_inicio - interval '1 day', now()), cancelada_por_id = cliente_id
+WHERE estado = 'CANCELADA' AND cancelada_at IS NULL;
+
+-- ── Novedades de la página de inicio: una publicada, una que vence en una semana y un borrador ──
+INSERT INTO novedades (titulo, descripcion, etiqueta, publicada, publicada_at, visible_hasta, creado_por_id, created_at, updated_at)
+VALUES ('Torneo de primavera', 'Inscripción abierta para todas las categorías. Se juega el último fin de semana del mes.',
+        'Torneo', true, now() - interval '2 days', current_date + 7, pg_temp.admin(), now() - interval '3 days', now() - interval '2 days'),
+       ('Clases para principiantes', 'Martes y jueves de 18 a 19, con paletas incluidas.', 'Clases', true,
+        now() - interval '10 days', NULL, pg_temp.admin(), now() - interval '10 days', now() - interval '10 days'),
+       ('Nuevas luces en la cancha 4', 'Estamos terminando el recambio.', 'Club', false, NULL, NULL, pg_temp.admin(),
+        now() - interval '1 day', now() - interval '1 day');
 
 DROP EXTENSION pgcrypto;
 

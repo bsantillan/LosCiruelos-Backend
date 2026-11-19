@@ -116,14 +116,24 @@ class PartidosControllersTest {
     }
 
     @Test
-    void sonCuatroJugadores() throws Exception {
+    void sonDeUnoACuatroJugadores() throws Exception {
+        mvc.perform(json(post("/admin/reservas/partidos"), """
+                {"canchaId":1,"fechaReserva":"2026-10-14","horaInicio":"18:00","horaFin":"19:30","jugadores":[]}
+                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.jugadores").value("Un partido tiene de 1 a 4 jugadores"));
+        mvc.perform(json(post("/admin/reservas/partidos"), """
+                {"canchaId":1,"fechaReserva":"2026-10-14","horaInicio":"18:00","horaFin":"19:30",
+                 "jugadores":[{"usuarioId":1},{"nombre":"A"},{"nombre":"B"},{"nombre":"C"},{"nombre":"D"}]}
+                """))
+                .andExpect(status().isBadRequest());
+        verify(reservaService, never()).crearPartido(any(), any());
+
         mvc.perform(json(post("/admin/reservas/partidos"), """
                 {"canchaId":1,"fechaReserva":"2026-10-14","horaInicio":"18:00","horaFin":"19:30",
                  "jugadores":[{"usuarioId":1},{"nombre":"Juan"}]}
                 """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors.jugadores").value("Un partido tiene 4 jugadores"));
-        verify(reservaService, never()).crearPartido(any(), any());
+                .andExpect(status().isCreated());
     }
 
     @Test
@@ -135,21 +145,21 @@ class PartidosControllersTest {
 
     @Test
     void unPartidoSeCobraSinIndicarElJugador() throws Exception {
-        when(cobroService.registrarPagoManual(any(), any(), any(), any())).thenReturn(new PagoResponse());
-        when(cobroService.bonificar(any(), any(), any(), any())).thenReturn(new PagoResponse());
+        when(cobroService.registrarPagoManual(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
+        when(cobroService.bonificar(any(), any(), any(), any(), any())).thenReturn(new PagoResponse());
 
         mvc.perform(json(post("/admin/reservas/60/cobros/efectivo"), "{\"monto\":3750}"))
                 .andExpect(status().isOk());
-        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.MANUAL, EMAIL);
+        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.MANUAL, null, EMAIL);
 
         mvc.perform(json(post("/admin/reservas/60/cobros/presencial"), "{\"monto\":3750}"))
                 .andExpect(status().isOk());
-        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.TRANSFERENCIA_MP,
+        verify(cobroService).registrarPagoManual(60L, new BigDecimal("3750"), PaymentProvider.TRANSFERENCIA_MP, null,
                 EMAIL);
 
         mvc.perform(json(post("/admin/reservas/60/bonificacion"), "{\"motivo\":\"socio\"}"))
                 .andExpect(status().isOk());
-        verify(cobroService).bonificar(60L, null, "socio", EMAIL);
+        verify(cobroService).bonificar(60L, null, "socio", null, EMAIL);
     }
 
     @Test
@@ -200,16 +210,16 @@ class PartidosControllersTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
 
-        when(turnoFijoService.darDeBaja(8L, OpcionReembolso.TOTAL, EMAIL)).thenReturn(new TurnoFijoResponse());
+        when(turnoFijoService.darDeBaja(8L, OpcionReembolso.TOTAL, true, EMAIL)).thenReturn(new TurnoFijoResponse());
         mvc.perform(delete("/admin/turnos-fijos/8").param("reembolso", "TOTAL").principal(AUTH))
                 .andExpect(status().isOk());
-        verify(turnoFijoService).darDeBaja(8L, OpcionReembolso.TOTAL, EMAIL);
+        verify(turnoFijoService).darDeBaja(8L, OpcionReembolso.TOTAL, true, EMAIL);
 
-        when(turnoFijoService.darDeBajaFecha(8L, LocalDate.of(2026, 10, 21), null, EMAIL))
+        when(turnoFijoService.darDeBajaFecha(8L, LocalDate.of(2026, 10, 21), null, false, EMAIL))
                 .thenReturn(new ReservaResponse());
-        mvc.perform(delete("/admin/turnos-fijos/8/fechas/2026-10-21").principal(AUTH))
+        mvc.perform(delete("/admin/turnos-fijos/8/fechas/2026-10-21").param("entregada", "false").principal(AUTH))
                 .andExpect(status().isOk());
-        verify(turnoFijoService).darDeBajaFecha(8L, LocalDate.of(2026, 10, 21), null, EMAIL);
+        verify(turnoFijoService).darDeBajaFecha(8L, LocalDate.of(2026, 10, 21), null, false, EMAIL);
     }
 
     @Test

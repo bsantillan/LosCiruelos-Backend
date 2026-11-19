@@ -23,6 +23,9 @@ import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 
 class VentaTest {
 
+    private static final com.LosCiruelos.padel_club_api.common.Jornada JORNADA = com.LosCiruelos.padel_club_api.TestData
+            .configuracion().jornadaEn(com.LosCiruelos.padel_club_api.TestData.AHORA);
+
     private final Producto agua = Producto.builder().id(5L).nombre("Agua").tipo(TipoProducto.VENTA)
             .precio(new BigDecimal("1500")).build();
     private final Producto pelotas = Producto.builder().id(1L).nombre("Pelotas").tipo(TipoProducto.VENTA)
@@ -95,17 +98,29 @@ class VentaTest {
 
         @Test
         void elEmpleadoSoloAnulaLasDeHoy() {
-            venta(AHORA.minusHours(9), MedioDePago.EFECTIVO).validarQuePuedeAnularla(empleado, HOY);
+            venta(AHORA.minusHours(1), MedioDePago.EFECTIVO).validarQuePuedeAnularla(empleado, JORNADA);
 
             assertThatThrownBy(() -> venta(AHORA.minusDays(1), MedioDePago.EFECTIVO)
-                    .validarQuePuedeAnularla(empleado, HOY))
+                    .validarQuePuedeAnularla(empleado, JORNADA))
                     .isInstanceOf(PermisoDenegadoException.class)
                     .hasMessage("Solo podés anular ventas de hoy.");
         }
 
         @Test
+        void pasadaLaMedianocheElEmpleadoAnulaLasDeLaJornadaQueNoTermino() {
+            com.LosCiruelos.padel_club_api.common.Jornada madrugada = com.LosCiruelos.padel_club_api.TestData
+                    .configuracion().jornadaEn(HOY.plusDays(1).atTime(0, 30));
+
+            venta(HOY.atTime(22, 0), MedioDePago.EFECTIVO).validarQuePuedeAnularla(empleado, madrugada);
+            venta(HOY.plusDays(1).atTime(0, 10), MedioDePago.EFECTIVO).validarQuePuedeAnularla(empleado, madrugada);
+            assertThatThrownBy(() -> venta(HOY.atTime(7, 0), MedioDePago.EFECTIVO)
+                    .validarQuePuedeAnularla(empleado, madrugada))
+                    .isInstanceOf(PermisoDenegadoException.class);
+        }
+
+        @Test
         void elAdminAnulaCualquierDia() {
-            venta(AHORA.minusDays(30), MedioDePago.EFECTIVO).validarQuePuedeAnularla(admin, HOY);
+            venta(AHORA.minusDays(30), MedioDePago.EFECTIVO).validarQuePuedeAnularla(admin, JORNADA);
         }
 
         @Test
@@ -113,10 +128,10 @@ class VentaTest {
             Venta dni = venta(AHORA, MedioDePago.CUENTA_DNI);
             dni.verificar(true, 1L, AHORA);
 
-            assertThatThrownBy(() -> dni.validarQuePuedeAnularla(empleado, HOY))
+            assertThatThrownBy(() -> dni.validarQuePuedeAnularla(empleado, JORNADA))
                     .isInstanceOf(PermisoDenegadoException.class)
                     .hasMessage("La venta ya está verificada: solo el ADMIN la puede anular.");
-            dni.validarQuePuedeAnularla(admin, HOY);
+            dni.validarQuePuedeAnularla(admin, JORNADA);
         }
 
         @Test

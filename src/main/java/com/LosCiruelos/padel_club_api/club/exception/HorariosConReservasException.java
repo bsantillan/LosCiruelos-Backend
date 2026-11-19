@@ -41,6 +41,19 @@ public class HorariosConReservasException extends ReservaException {
                 + "mandá \"confirmar\": true: se cancelan con reembolso total y se avisa a cada cliente.", delDia);
     }
 
+    /** La cancha que se quiere dar de baja tiene reservas de hoy en adelante o turnos fijos activos. */
+    public static HorariosConReservasException porBajaDeCancha(FueraDeHorarioResponse ocupado) {
+        int reservas = ocupado.reservasFueraDeHorario().size();
+        int turnosFijos = ocupado.turnosFijosFueraDeHorario().size();
+        String que = reservas > 0 && turnosFijos > 0
+                ? cantidad(reservas, "reserva", "reservas") + " y " + cantidad(turnosFijos, "turno fijo", "turnos fijos")
+                : reservas > 0 ? cantidad(reservas, "reserva", "reservas")
+                        : cantidad(turnosFijos, "turno fijo", "turnos fijos");
+        return new HorariosConReservasException("La cancha tiene " + que + " de hoy en adelante. Para darla de baja "
+                + "igual, mandá confirmar=true: las reservas se cancelan con reembolso total y se avisa a cada "
+                + "cliente, y los turnos fijos se dan de baja.", ocupado);
+    }
+
     private static String cantidad(int n, String singular, String plural) {
         return n == 1 ? "1 " + singular : n + " " + plural;
     }

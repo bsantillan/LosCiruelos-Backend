@@ -209,4 +209,31 @@ class ProductoServiceTest {
                     .hasMessage("Pelotas no está disponible por el momento.");
         }
     }
+
+    // ── Eliminar ─────────────────────────────────────────────────────────
+
+    @org.junit.jupiter.api.Test
+    void unProductoQueNuncaSeUsoSeElimina() {
+        Producto agua = Producto.builder().id(7L).nombre("Agua").tipo(com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto.VENTA)
+                .precio(new java.math.BigDecimal("1500")).stock(0).activo(true).build();
+        when(productoRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(agua));
+        when(productoRepository.seUso(7L)).thenReturn(false);
+
+        servicio.eliminar(7L);
+
+        verify(productoRepository).delete(agua);
+    }
+
+    @org.junit.jupiter.api.Test
+    void unProductoUsadoNoSeEliminaSeDaDeBaja() {
+        Producto agua = Producto.builder().id(7L).nombre("Agua").tipo(com.LosCiruelos.padel_club_api.club.entity.enums.TipoProducto.VENTA)
+                .precio(new java.math.BigDecimal("1500")).stock(0).activo(true).build();
+        when(productoRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(agua));
+        when(productoRepository.seUso(7L)).thenReturn(true);
+
+        assertThatThrownBy(() -> servicio.eliminar(7L))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException.class)
+                .hasMessage("El producto ya se usó en reservas o ventas: desactivalo en lugar de eliminarlo.");
+        verify(productoRepository, never()).delete(any());
+    }
 }

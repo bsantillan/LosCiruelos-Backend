@@ -2,6 +2,7 @@ package com.LosCiruelos.padel_club_api.club.entity;
 
 import com.LosCiruelos.padel_club_api.common.Busquedas;
 import com.LosCiruelos.padel_club_api.common.Fechas;
+import com.LosCiruelos.padel_club_api.common.Jornada;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Turno;
 import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
@@ -269,6 +270,15 @@ public class Configuracion {
 
     // ── Reglas ───────────────────────────────────────────────────────────
 
+    /** El horario de {@code fecha} si el club abre (vacío si ese día de la semana no abre o está cerrado). */
+    public Optional<DiaApertura> horarioDel(LocalDate fecha) {
+        if (cierreDel(fecha).isPresent()) {
+            return Optional.empty();
+        }
+        String nombreDia = Fechas.nombreDiaCapitalizado(fecha.getDayOfWeek());
+        return dias_apertura.stream().filter(d -> d.getDia().equalsIgnoreCase(nombreDia)).findFirst();
+    }
+
     /** Horario de apertura de {@code fecha}: el de su día de la semana, salvo que ese día esté cerrado. */
     public DiaApertura diaApertura(LocalDate fecha) {
         String cerrado = motivoCierre(fecha);
@@ -280,6 +290,38 @@ public class Configuracion {
                 .filter(d -> d.getDia().equalsIgnoreCase(nombreDia))
                 .findFirst()
                 .orElseThrow(() -> new DiaSinAperturaException("El club no abre los " + nombreDia + "."));
+    }
+
+    /**
+     * La jornada en curso en {@code ahora}: la del día de hoy si el club ya abrió, si no la de ayer
+     * (pasada la medianoche sigue la jornada que todavía no terminó). Se usa el horario semanal; los
+     * días cerrados no cuentan.
+     */
+    public Jornada jornadaEn(LocalDateTime ahora) {
+        LocalDate hoy = ahora.toLocalDate();
+        return jornadaDel(ahora.isBefore(aperturaDeJornada(hoy)) ? hoy.minusDays(1) : hoy);
+    }
+
+    /** La jornada del día {@code fecha}: de su apertura a la apertura del día siguiente. */
+    public Jornada jornadaDel(LocalDate fecha) {
+        return new Jornada(fecha, aperturaDeJornada(fecha), aperturaDeJornada(fecha.plusDays(1)));
+    }
+
+    /**
+     * Cuándo empieza la jornada de {@code fecha}: la apertura de su día de la semana o, si ese día no
+     * abre, la apertura más temprana de la semana (sin horarios cargados, las 00:00).
+     */
+    private LocalDateTime aperturaDeJornada(LocalDate fecha) {
+        String nombreDia = Fechas.nombreDiaCapitalizado(fecha.getDayOfWeek());
+        LocalTime apertura = dias_apertura.stream()
+                .filter(d -> d.getDia().equalsIgnoreCase(nombreDia))
+                .map(DiaApertura::getHorario_inicio)
+                .findFirst()
+                .orElseGet(() -> dias_apertura.stream()
+                        .map(DiaApertura::getHorario_inicio)
+                        .min(Comparator.naturalOrder())
+                        .orElse(LocalTime.MIDNIGHT));
+        return fecha.atTime(apertura);
     }
 
     /** Último día que el cliente puede reservar: hoy más los días de anticipación. */

@@ -373,8 +373,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
 
     /**
      * Cierre de caja: el monto completo de los pagos que alguna vez se cobraron (estados en
-     * cobrados) con paidAt en [inicio, fin), sin bonificaciones. Lo devuelto se resta aparte,
-     * por la fecha del reembolso.
+     * cobrados) con paidAt en [inicio, fin), por medio. Lo devuelto se resta aparte, por la fecha
+     * de la devolución. Las bonificaciones van aparte (no son plata).
      */
     @Query("""
             SELECT new com.LosCiruelos.padel_club_api.reservas.repository.EntradasDeCaja(
@@ -382,10 +382,10 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
                    COALESCE(SUM(CASE WHEN p.provider = :mercadoPago AND p.orderId IS NULL THEN p.monto ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN p.provider = :mercadoPago AND p.orderId IS NOT NULL THEN p.monto ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN p.provider = :transferencia THEN p.monto ELSE 0 END), 0),
-                   COALESCE(SUM(CASE WHEN p.provider = :cuentaDni THEN p.monto ELSE 0 END), 0))
+                   COALESCE(SUM(CASE WHEN p.provider = :cuentaDni THEN p.monto ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN p.provider = :bonificacion THEN p.monto ELSE 0 END), 0))
             FROM Pago p
             WHERE p.estado IN :cobrados
-              AND p.provider <> :bonificacion
               AND p.paidAt >= :inicio AND p.paidAt < :fin
             """)
     EntradasDeCaja resumenEntradasDeCaja(
@@ -398,18 +398,21 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             @Param("cuentaDni") PaymentProvider cuentaDni,
             @Param("bonificacion") PaymentProvider bonificacion);
 
-    /** Lo devuelto (montoReembolsado; null es el total) de los pagos DEVUELTO con reembolsadoAt en [inicio, fin). */
+    /**
+     * Lo devuelto en [inicio, fin): las devoluciones DEVUELTO por la fecha en que se entregaron al
+     * cliente o Mercado Pago las confirmó (las que esperan entrega todavía no salieron de la caja).
+     */
     @Query("""
-            SELECT COALESCE(SUM(COALESCE(p.montoReembolsado, p.monto)), 0)
-            FROM Pago p
-            WHERE p.estado = :devuelto
+            SELECT COALESCE(SUM(d.monto), 0)
+            FROM Devolucion d JOIN d.pago p
+            WHERE d.estado = :devuelto
               AND p.provider <> :bonificacion
-              AND p.reembolsadoAt >= :inicio AND p.reembolsadoAt < :fin
+              AND d.entregadoAt >= :inicio AND d.entregadoAt < :fin
             """)
     BigDecimal resumenDevoluciones(
             @Param("inicio") LocalDateTime inicio,
             @Param("fin") LocalDateTime fin,
-            @Param("devuelto") EstadoPago devuelto,
+            @Param("devuelto") com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion devuelto,
             @Param("bonificacion") PaymentProvider bonificacion);
 
     @Query("""
@@ -425,4 +428,25 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             @Param("desde") LocalDate desde,
             @Param("hasta") LocalDate hasta,
             @Param("estados") Collection<EstadoReserva> estados);
+
+    /** Las reservas con el turno entre esas fechas, en cualquier estado (métricas). */
+    @EntityGraph(attributePaths = {"cancha", "cliente", "createdBy"})
+    List<Reserva> findByFechaReservaBetween(LocalDate desde, LocalDate hasta);
+
+    /** Las reservas creadas en [inicio, fin), en cualquier estado (métricas). */
+    @EntityGraph(attributePaths = {"cancha", "cliente", "createdBy"})
+    List<Reserva> findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime inicio, LocalDateTime fin);
+
+    /** Las reservas en esos estados con el turno desde esa fecha (métricas: lo que viene). */
+    @EntityGraph(attributePaths = {"cancha", "cliente"})
+    List<Reserva> findByFechaReservaGreaterThanEqualAndEstadoIn(LocalDate desde, Collection<EstadoReserva> estados);
+
+    /** La primera reserva (en esos estados) de cada cliente. */
+    @Query("""
+            SELECT new com.LosCiruelos.padel_club_api.reservas.repository.PrimeraReserva(r.cliente.id, MIN(r.fechaReserva))
+            FROM Reserva r WHERE r.estado IN :estados GROUP BY r.cliente.id
+            """)
+    List<PrimeraReserva> primerasReservas(@Param("estados") Collection<EstadoReserva> estados);
+
+    boolean existsByCanchaId(Long canchaId);
 }

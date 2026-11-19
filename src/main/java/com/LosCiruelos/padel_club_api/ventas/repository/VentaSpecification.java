@@ -23,10 +23,10 @@ public final class VentaSpecification {
         return (root, query, cb) -> {
             List<Predicate> condiciones = new ArrayList<>();
             if (filtro.desde() != null) {
-                condiciones.add(cb.greaterThanOrEqualTo(root.get("createdAt"), filtro.desde().atStartOfDay()));
+                condiciones.add(cb.greaterThanOrEqualTo(root.get("createdAt"), filtro.desde()));
             }
             if (filtro.hasta() != null) {
-                condiciones.add(cb.lessThan(root.get("createdAt"), filtro.hasta().plusDays(1).atStartOfDay()));
+                condiciones.add(cb.lessThan(root.get("createdAt"), filtro.hasta()));
             }
             if (filtro.medios() != null) {
                 condiciones.add(filtro.medios().isEmpty() ? cb.disjunction() : root.get("medio").in(filtro.medios()));

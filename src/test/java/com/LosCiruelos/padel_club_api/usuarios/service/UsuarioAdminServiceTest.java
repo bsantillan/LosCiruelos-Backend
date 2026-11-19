@@ -49,6 +49,10 @@ class UsuarioAdminServiceTest {
         usuarioService = mock(UsuarioService.class);
         refreshTokenService = mock(RefreshTokenService.class);
         verificationService = mock(VerificationService.class);
+        org.mockito.Mockito.lenient().when(usuarioService.autenticado("admin@test.com"))
+                .thenReturn(TestData.usuario(90L, Role.ADMIN));
+        org.mockito.Mockito.lenient().when(usuarioService.autenticado("empleado@test.com"))
+                .thenReturn(TestData.usuario(91L, Role.EMPLEADO));
         usuarioRepository = mock(UsuarioRepository.class);
         adminService = new UsuarioAdminService(clienteProfileService, usuarioService, usuarioRepository,
                 refreshTokenService, verificationService, new UsuarioMapper());
@@ -87,7 +91,7 @@ class UsuarioAdminServiceTest {
         when(usuarioService.crearUsuario(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(creado);
 
-        adminService.crearUsuario(crear(Role.CLIENTE, Categoria.Quinta, Posicion.Ambos));
+        adminService.crearUsuario(crear(Role.CLIENTE, Categoria.Quinta, Posicion.Ambos), "admin@test.com");
 
         ArgumentCaptor<String> password = ArgumentCaptor.forClass(String.class);
         verify(usuarioService).crearUsuario(eq("nuevo@test.com"), eq("Nuevo"), eq("Usuario"), eq("1122334455"),
@@ -101,7 +105,7 @@ class UsuarioAdminServiceTest {
     @Test
     void validacionesAlCrear() {
         when(usuarioService.findByEmail("nuevo@test.com")).thenReturn(cliente);
-        assertThatThrownBy(() -> adminService.crearUsuario(crear(Role.EMPLEADO, null, null)))
+        assertThatThrownBy(() -> adminService.crearUsuario(crear(Role.EMPLEADO, null, null), "admin@test.com"))
                 .isInstanceOf(EmailEnUsoException.class);
 
     }
@@ -113,7 +117,7 @@ class UsuarioAdminServiceTest {
         when(usuarioService.crearUsuario(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(creado);
 
-        adminService.crearUsuario(crear(Role.CLIENTE, null, null));
+        adminService.crearUsuario(crear(Role.CLIENTE, null, null), "admin@test.com");
 
         // sin categoría ni posición: las completa él (hasta entonces, perfil incompleto)
         verify(clienteProfileService).cargarDatosDeJugador(creado, null, null);
@@ -224,5 +228,19 @@ class UsuarioAdminServiceTest {
         FiltroUsuarioRequest invalido = new FiltroUsuarioRequest();
         invalido.setCategoria(Categoria.Cuarta);
         assertThatThrownBy(() -> adminService.listarUsuarios(invalido)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void elEmpleadoDaDeAltaClientesPeroNoOtrosRoles() {
+        when(usuarioService.crearUsuario(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenAnswer(inv -> TestData.usuario(5L, Role.CLIENTE));
+
+        adminService.crearUsuario(crear(Role.CLIENTE, null, null), "empleado@test.com");
+
+        assertThatThrownBy(() -> adminService.crearUsuario(crear(Role.EMPLEADO, null, null), "empleado@test.com"))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class)
+                .hasMessage("Solo podés dar de alta clientes.");
+        assertThatThrownBy(() -> adminService.crearUsuario(crear(Role.ADMIN, null, null), "empleado@test.com"))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class);
     }
 }

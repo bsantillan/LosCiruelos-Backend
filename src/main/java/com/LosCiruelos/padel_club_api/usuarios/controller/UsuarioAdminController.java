@@ -39,10 +39,13 @@ public class UsuarioAdminController {
 
     private final UsuarioAdminService usuarioAdminService;
 
+    /** ADMIN cualquier rol; EMPLEADO solo clientes (otro rol: 403). */
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
     public ResponseEntity<UsuarioAdminResponse> crearUsuario(
-            @Valid @RequestBody CrearUsuarioAdminRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(usuarioAdminService.crearUsuario(request));
+            @Valid @RequestBody CrearUsuarioAdminRequest request, Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(usuarioAdminService.crearUsuario(request, authentication.getName()));
     }
 
     @PutMapping("/{id}")

@@ -12,6 +12,18 @@ import com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider;
 @Component
 public class PagoMapper {
 
+    /** Lo que pidió el personal, para validarlo contra la reserva (null: imputación automática). */
+    public java.util.List<com.LosCiruelos.padel_club_api.pagos.entity.PagoImputacion.Pedido> aPedidos(
+            java.util.List<com.LosCiruelos.padel_club_api.pagos.dto.request.ImputacionRequest> imputaciones) {
+        if (imputaciones == null) {
+            return null;
+        }
+        return imputaciones.stream()
+                .map(i -> new com.LosCiruelos.padel_club_api.pagos.entity.PagoImputacion.Pedido(i.getConcepto(),
+                        i.getLineaId(), i.getMonto()))
+                .toList();
+    }
+
     /** Un medio de cobro de una reserva, con el endpoint para cobrar con él. */
     public com.LosCiruelos.padel_club_api.pagos.dto.response.MedioDeCobroResponse aMedioDeCobro(
             com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago medio, boolean qrConfigurado) {
@@ -33,6 +45,43 @@ public class PagoMapper {
                 Dinero.redondear(pago.getReserva().getMontoPendiente()));
     }
 
+    static com.LosCiruelos.padel_club_api.pagos.dto.response.ImputacionResponse imputacion(
+            com.LosCiruelos.padel_club_api.pagos.entity.PagoImputacion i) {
+        return new com.LosCiruelos.padel_club_api.pagos.dto.response.ImputacionResponse(i.getConcepto(),
+                i.getLinea() != null ? i.getLinea().getId() : null, i.nombre(), Dinero.redondear(i.getMonto()));
+    }
+
+    static com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionResponse devolucion(
+            com.LosCiruelos.padel_club_api.pagos.entity.Devolucion d) {
+        return new com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionResponse(d.getId(),
+                Dinero.redondear(d.getMonto()),
+                d.getLineas().stream().map(l -> new com.LosCiruelos.padel_club_api.pagos.dto.response.ImputacionResponse(
+                        l.getConcepto(), l.getLinea() != null ? l.getLinea().getId() : null, l.getNombre(),
+                        Dinero.redondear(l.getMonto()))).toList(),
+                d.getEstado(), d.getMotivo(), d.getCreatedAt(), d.getEntregadoAt(), nombre(d.getRegistradaPor()),
+                nombre(d.getEntregadoPor()), d.isRevisada(), d.getRevisadaAt(), nombre(d.getRevisadaPor()));
+    }
+
+    /** Una devolución en los listados del personal (por entregar o sin revisar). */
+    public com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionListadoResponse aDevolucionDelListado(
+            com.LosCiruelos.padel_club_api.pagos.entity.Devolucion d) {
+        Pago pago = d.getPago();
+        var reserva = pago.getReserva();
+        return new com.LosCiruelos.padel_club_api.pagos.dto.response.DevolucionListadoResponse(d.getId(),
+                reserva.getId(), reserva.getFechaReserva(), pago.getId(), reserva.getCliente().getId(),
+                nombre(reserva.getCliente()), Dinero.redondear(d.getMonto()), pago.canal(), d.getEstado(),
+                d.getMotivo(), d.getCreatedAt(), nombre(d.getRegistradaPor()), d.isRevisada());
+    }
+
+    private static String nombre(com.LosCiruelos.padel_club_api.usuarios.entity.Usuario usuario) {
+        if (usuario == null) {
+            return null;
+        }
+        String nombre = usuario.getNombre() != null ? usuario.getNombre() : "";
+        String apellido = usuario.getApellido() != null ? usuario.getApellido() : "";
+        return (nombre + " " + apellido).trim();
+    }
+
     public PagoResponse aResponse(Pago pago) {
         PagoResponse response = new PagoResponse();
         response.setId(pago.getId());
@@ -47,6 +96,11 @@ public class PagoMapper {
         response.setPaidAt(pago.getPaidAt());
         response.setMontoReembolsado(pago.getMontoReembolsado());
         response.setMotivo(pago.getMotivo());
+        response.setImputaciones(pago.getImputaciones().stream().map(PagoMapper::imputacion).toList());
+        response.setDevoluciones(pago.getDevoluciones().stream().map(PagoMapper::devolucion).toList());
+        response.setAnuladoAt(pago.getAnuladoAt());
+        response.setMotivoAnulacion(pago.getMotivoAnulacion());
+        response.setAnuladoPor(nombre(pago.getAnuladoPor()));
         if (pago.getProvider().seVerifica()) {
             response.setVerificado(pago.estaVerificado());
             response.setVerificadoAt(pago.getVerificadoAt());

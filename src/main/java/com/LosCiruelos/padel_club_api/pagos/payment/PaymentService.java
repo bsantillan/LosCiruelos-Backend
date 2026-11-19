@@ -19,6 +19,14 @@ public interface PaymentService {
     /** Consulta el estado actual de un pago en el proveedor. */
     PaymentResult consultarPago(String paymentId);
 
-    /** Devuelve {@code monto} (todo o parte) de un pago cobrado online. */
-    void reembolsar(Pago pago, BigDecimal monto);
+    /** Devuelve {@code monto} (todo o parte) de un pago cobrado online (el reembolso de la cancelación). */
+    default void reembolsar(Pago pago, BigDecimal monto) {
+        reembolsar(pago, monto, "reembolso");
+    }
+
+    /**
+     * Devuelve {@code monto} de un pago cobrado online. {@code operacion} distingue cada devolución en
+     * su clave de idempotencia (el mismo pago se puede devolver en partes).
+     */
+    void reembolsar(Pago pago, BigDecimal monto, String operacion);
 }

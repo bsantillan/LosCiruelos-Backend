@@ -1,5 +1,7 @@
 package com.LosCiruelos.padel_club_api.ventas.service;
 
+import com.LosCiruelos.padel_club_api.common.Jornada;
+import com.LosCiruelos.padel_club_api.club.service.JornadaService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -46,6 +48,7 @@ public class VentaConsultaService {
     private final VentaMapper ventaMapper;
     private final Reloj reloj;
     private final CobroQrDeVentas cobroQr;
+    private final JornadaService jornadaService;
 
     /** Los medios con que se puede cobrar una venta, en el orden en que se muestran, y si están disponibles. */
     public List<MedioDeVentaResponse> medios() {
@@ -68,7 +71,10 @@ public class VentaConsultaService {
     public ListadoVentasResponse listar(LocalDate desde, LocalDate hasta, Long productoId, String cliente,
             Long clienteId, List<MedioDePago> medios, List<EstadoVenta> estados, int pagina, Integer tamanio,
             String orden, String email) {
-        LocalDate hoy = reloj.hoy();
+        boolean esAdmin = Roles.esAdmin(usuarioService.autenticado(email));
+        // el "hoy" del EMPLEADO es la jornada en curso (pasada la medianoche, sigue la del día anterior)
+        Jornada jornada = esAdmin ? null : jornadaService.actual();
+        LocalDate hoy = esAdmin ? reloj.hoy() : jornada.fecha();
         if (desde == null && hasta == null) {
             desde = hoy;
             hasta = hoy;
@@ -76,20 +82,23 @@ public class VentaConsultaService {
         if (desde != null && hasta != null && desde.isAfter(hasta)) {
             throw new ReservaException("La fecha desde no puede ser posterior a hasta.");
         }
-        if (!Roles.esAdmin(usuarioService.autenticado(email)) && !(hoy.equals(desde) && hoy.equals(hasta))) {
+        if (!esAdmin && !(hoy.equals(desde) && hoy.equals(hasta))) {
             throw new PermisoDenegadoException("Solo podés ver las ventas de hoy.");
         }
+        // desde y hasta son jornadas (de la apertura de un día a la del siguiente), para todos
+        LocalDateTime inicio = jornada != null ? jornada.inicio() : desde != null ? jornadaService.del(desde).inicio() : null;
+        LocalDateTime fin = jornada != null ? jornada.fin() : hasta != null ? jornadaService.del(hasta).fin() : null;
         String texto = Busquedas.normalizar(cliente);
         if (texto != null && texto.replace(" ", "").length() < 3) {
             throw new ReservaException("Escribí al menos 3 letras para buscar un cliente.");
         }
-        FiltroVentas filtro = new FiltroVentas(desde, hasta, productoId, texto, clienteId,
+        FiltroVentas filtro = new FiltroVentas(inicio, fin, productoId, texto, clienteId,
                 medios != null ? Set.copyOf(medios) : null, estados != null ? Set.copyOf(estados) : null);
         Sort.Direction direccion = direccion(orden);
         PageRequest pageable = Paginacion.pagina(pagina, tamanio != null ? tamanio : TAMANIO_POR_DEFECTO,
                 TAMANIO_MAXIMO, Sort.by(direccion, "createdAt").and(Sort.by(direccion, "id")));
         return ventaMapper.aListado(ventaRepository.findAll(VentaSpecification.delListado(filtro), pageable),
-                ventaRepository.totalesDelListado(filtro));
+                ventaRepository.totalesDelListado(filtro), rango(jornada));
     }
 
     private static Sort.Direction direccion(String orden) {
@@ -108,7 +117,7 @@ public class VentaConsultaService {
     public VentaResponse obtener(Long id, String email) {
         Usuario personal = usuarioService.autenticado(email);
         return ventaRepository.findConDetalleById(id)
-                .filter(v -> Roles.esAdmin(personal) || v.esDelDia(reloj.hoy()))
+                .filter(v -> Roles.esAdmin(personal) || v.esDeLaJornada(jornadaService.actual()))
                 .map(ventaMapper::aResponse)
                 .orElseThrow(() -> new VentaNoEncontradaException(id));
     }
@@ -136,5 +145,33 @@ public class VentaConsultaService {
     /** Lo vendido de cada producto en [inicio, fin), sin las ventas anuladas ni lo devuelto. */
     public List<VentaPorProducto> porProducto(LocalDateTime inicio, LocalDateTime fin) {
         return ventaRepository.porProducto(inicio, fin, EstadoVenta.COBRADA);
+    }
+
+    /** Las ventas cobradas o anuladas de [inicio, fin), para el cierre de caja (las anuladas se restan). */
+    @Transactional(readOnly = true)
+    public List<Venta> paraLaCaja(LocalDateTime inicio, LocalDateTime fin) {
+        return ventaRepository.findParaLaCaja(inicio, fin, java.util.EnumSet.of(EstadoVenta.COBRADA, EstadoVenta.ANULADA));
+    }
+
+    /** Las devoluciones de ventas de [inicio, fin), para el cierre de caja. */
+    @Transactional(readOnly = true)
+    public List<com.LosCiruelos.padel_club_api.ventas.entity.VentaDevolucion> devolucionesParaLaCaja(
+            LocalDateTime inicio, LocalDateTime fin) {
+        return ventaRepository.findDevolucionesParaLaCaja(inicio, fin);
+    }
+
+    /**
+     * "Todo el período" de las ventas: la jornada de la primera y la de la última venta. El EMPLEADO,
+     * solo su jornada en curso (si tiene ventas).
+     */
+    private com.LosCiruelos.padel_club_api.common.RangoDeFechas rango(Jornada jornadaDelEmpleado) {
+        LocalDateTime[] extremos = jornadaDelEmpleado != null
+                ? ventaRepository.rangoDeRegistro(jornadaDelEmpleado.inicio(), jornadaDelEmpleado.fin())
+                : ventaRepository.rangoDeRegistro(null, null);
+        if (extremos == null || extremos[0] == null) {
+            return com.LosCiruelos.padel_club_api.common.RangoDeFechas.VACIO;
+        }
+        return new com.LosCiruelos.padel_club_api.common.RangoDeFechas(jornadaService.de(extremos[0]).fecha(),
+                jornadaService.de(extremos[1]).fecha());
     }
 }

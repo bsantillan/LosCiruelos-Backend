@@ -75,6 +75,32 @@ class RutasPublicasTest {
         }
 
         @Bean
+        com.LosCiruelos.padel_club_api.common.archivos.ArchivoController archivoController() {
+            return new com.LosCiruelos.padel_club_api.common.archivos.ArchivoController(
+                    new com.LosCiruelos.padel_club_api.common.archivos.AlmacenDeImagenes(
+                            System.getProperty("java.io.tmpdir") + "/archivos-rutas-publicas"));
+        }
+
+        @Bean
+        com.LosCiruelos.padel_club_api.club.controller.CanchaAdminController canchaAdminController() {
+            return new com.LosCiruelos.padel_club_api.club.controller.CanchaAdminController(
+                    mock(com.LosCiruelos.padel_club_api.club.service.CanchaAdminService.class),
+                    mock(com.LosCiruelos.padel_club_api.club.service.BajaDeCanchas.class));
+        }
+
+        @Bean
+        com.LosCiruelos.padel_club_api.club.controller.NovedadController novedadController() {
+            return new com.LosCiruelos.padel_club_api.club.controller.NovedadController(
+                    mock(com.LosCiruelos.padel_club_api.club.service.NovedadService.class));
+        }
+
+        @Bean
+        com.LosCiruelos.padel_club_api.club.controller.NovedadAdminController novedadAdminController() {
+            return new com.LosCiruelos.padel_club_api.club.controller.NovedadAdminController(
+                    mock(com.LosCiruelos.padel_club_api.club.service.NovedadService.class));
+        }
+
+        @Bean
         ClubController clubController(ConfiguracionGeneralService servicio) {
             return new ClubController(servicio);
         }
@@ -107,5 +133,27 @@ class RutasPublicasTest {
     void laConfiguracionDelAdminNo() throws Exception {
         mvc.perform(get("/admin/configuracion"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void lasImagenesSonPublicasYLaGestionDeCanchasNo() throws Exception {
+        // sin sesión: una imagen que no existe da 404 (no 401)
+        mvc.perform(get("/archivos/00000000-0000-0000-0000-000000000000.png")).andExpect(status().isNotFound());
+        mvc.perform(get("/admin/canchas")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/admin/canchas").with(org.springframework.security.test.web.servlet.request
+                .SecurityMockMvcRequestPostProcessors.user("e@test.com").roles("EMPLEADO")))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/admin/canchas").with(org.springframework.security.test.web.servlet.request
+                .SecurityMockMvcRequestPostProcessors.user("a@test.com").roles("ADMIN")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void lasNovedadesPublicadasSonPublicasYSuGestionEsDelAdmin() throws Exception {
+        mvc.perform(get("/novedades").param("limite", "6")).andExpect(status().isOk());
+        mvc.perform(get("/admin/novedades")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/admin/novedades").with(org.springframework.security.test.web.servlet.request
+                .SecurityMockMvcRequestPostProcessors.user("e@test.com").roles("EMPLEADO")))
+                .andExpect(status().isForbidden());
     }
 }

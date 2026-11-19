@@ -6,7 +6,6 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 | Tema | Detalle |
 |---|---|
-| Reembolsos | Los pagos online se devuelven solos al cancelar; si MP no acepta el reembolso en el momento, quedan `REEMBOLSO_PENDIENTE` y un job los reintenta durante 24 h. Los pagos en el club, y los que MP no pudo devolver, quedan `A_REEMBOLSAR` con su `montoReembolsado`: falta un endpoint de admin para listarlos y marcarlos como devueltos (hoy se ven en el log). |
 | Funcionalidades | ABM de canchas, agenda del día para el personal. |
 | Rate limiting | Es en memoria (sirve para una instancia). Con varias instancias hay que moverlo a Redis o al proxy. Detrás de un proxy toma la IP real de `X-Forwarded-For` (`server.forward-headers-strategy=framework`, por defecto). |
 | WhatsApp | **Bloqueante**: como el perfil completo exige el celular verificado por WhatsApp, sin el alta en Meta ningún cliente nuevo puede reservar. Falta dar de alta el número del club, verificar el negocio y cargar las 8 plantillas de [whatsapp.md](whatsapp.md). Hasta entonces los avisos van por mail. Las novedades y promociones solo se guardan como preferencia: falta el envío. Los estados de entrega de Meta (leído, no entregado) no se reciben: haría falta su webhook, que también se va a necesitar para el bot. |
@@ -45,6 +44,50 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Canchas dadas de baja en la página de inicio**: `GET /canchas?incluirInactivas=true` (público) trae también las desactivadas, con `"activa": false`. Sin el parámetro, `GET /canchas` sigue igual (solo las activas).
+- **Novedades**: nuevo `GET /novedades?limite=6` (público) con las publicadas y vigentes, y `/admin/novedades` (ADMIN) para el alta, la edición, la publicación, el borrado y la imagen. Reemplazan a los torneos, que se publican como novedad.
+- **Canchas**: `GET /canchas` trae solo las activas, con `nombre`, `tipo`, `superficie`, `iluminacion`, `activa` y `fotos[{id, url, orden}]`. Nuevo `/admin/canchas` (ADMIN) para el alta, la edición, la baja con confirmación, la reactivación, el borrado y las fotos. Las imágenes se sirven públicas en `GET /archivos/{nombre}`. Una cancha dada de baja da `404` en la disponibilidad y `409` al reservar.
+- **`rango` en los listados**: `GET /reservas/mias`, `GET /admin/reservas` y `GET /admin/ventas` suman `rango: { desde, hasta }` con la primera y la última fecha de toda la lista, sin el filtro de fechas. Ya no hacen falta los pedidos con `size=1` para armar "Todo el período".
+- **Métricas, bloque `futuro`**: pasa a `{ asegurado, porCobrar, turnos, dias }`. Lo por cobrar y los turnos van de hoy hasta hoy + la anticipación de la configuración (`dias`), no 14 días fijos. Se sacan `porCobrar14Dias` y `turnos14Dias`.
+- **Métricas del ADMIN**: nuevo `GET /admin/metricas?desde&hasta` (solo ADMIN; sin fechas, los últimos 30 días) con los bloques `ocupacion`, `ingresos`, `clientes`, `reservas`, `cancelaciones`, `deuda`, `futuro` y `productos`. Los valores comparables vienen como `{ actual, anterior, variacion }`.
+- **Cierre de caja**: nuevo `GET /admin/caja?fecha=` (ADMIN cualquier jornada, EMPLEADO la que está en curso) con `fecha`, `inicio`, `fin`, `cobrado`, `devuelto`, `efectivoEnCaja`, `bonificado`, `aEntregar` y `movimientos`. `GET /admin/reservas/resumen` pasa a ser **solo del ADMIN** (el EMPLEADO recibe `403`); sin fechas toma la jornada en curso.
+- **Eliminar un producto**: vuelve `DELETE /admin/configuracion/productos/{id}` → `204`, solo para uno que nunca se usó. Si se usó, `409` "El producto ya se usó en reservas o ventas: desactivalo en lugar de eliminarlo." La baja y la reactivación siguen igual.
+- **Bajas de turno fijo con `entregada`**: `DELETE /admin/turnos-fijos/{id}` y `DELETE /admin/turnos-fijos/{id}/fechas/{fecha}` aceptan `?entregada=` (por defecto `true`). Antes lo cobrado en el club quedaba siempre `A_REEMBOLSAR`; ahora, por defecto, se devuelve en el momento.
+- **El EMPLEADO da de alta clientes**: `POST /admin/usuarios` acepta al EMPLEADO con `rol: CLIENTE`; con otro rol, `403` "Solo podés dar de alta clientes.". Editar, desactivar y reactivar siguen siendo del ADMIN.
+- **Partidos y turnos fijos de 1 a 4 jugadores**: `jugadores` acepta de 1 a 4 (antes exactamente 4). El jugador 1 sigue siendo obligatorio y un cliente registrado. El error de validación pasa a ser "Un partido tiene de 1 a 4 jugadores".
+- **Una `PENDIENTE` vence al empezar el turno** si eso pasa antes de los 15 minutos: `expiresAt` nunca es posterior al inicio del turno.
+- **Caja por jornada**:
+  - `GET /admin/reservas/resumen`: la `caja` suma por jornada (de la apertura de `desde` a la apertura del día siguiente a `hasta`), también para el ADMIN. Antes era de 00:00 a 24:00. Lo de reservas sigue por la fecha del turno.
+  - `caja` suma `bonificado`, `inicio` y `fin`.
+  - `GET /admin/ventas`: `desde` y `hasta` también son jornadas para el ADMIN. Una venta de las 00:10 es del día anterior.
+- **El EMPLEADO devuelve, con revisión del ADMIN**:
+  - `POST …/pagos/{pagoId}/devoluciones` ya no es solo del ADMIN: el EMPLEADO devuelve los cobros que registró el personal en su jornada, con `motivo` obligatorio. Si falta, `400`; fuera de la jornada, `403`.
+  - Rutas nuevas, solo del ADMIN: `PUT /admin/reservas/{id}/devoluciones/{devolucionId}/revision` con `{ revisada }` y `GET /admin/reservas/devoluciones-sin-revisar`.
+  - `PagoResponse.devoluciones[]` suma `revisada`, `revisadaAt` y `revisadaPor`.
+  - Los ítems de `devoluciones-a-entregar` suman `estado`, `registradaPor` y `revisada`.
+- **Devoluciones en el club entregadas en el momento**:
+  - `POST …/pagos/{pagoId}/devoluciones` acepta `entregada` (por defecto `true`): una devolución de un cobro del club queda `DEVUELTO` en el acto. Antes quedaba siempre `A_REEMBOLSAR`; para eso, mandá `false`.
+  - `DELETE /admin/reservas/{id}/cancelar` acepta `?entregada=` (por defecto `true`) para lo cobrado en el club.
+  - El aviso de la cancelación dice "Se devolvieron $X en el club." cuando se entregó en el momento.
+- **Anular y devolver cobros de las reservas**:
+  - Rutas nuevas:
+    - `POST /admin/reservas/{id}/pagos/{pagoId}/anulacion` con `{ motivo }`;
+    - `POST /admin/reservas/{id}/pagos/{pagoId}/devoluciones` con `{ lineas: [{ concepto, lineaId, monto }], motivo }` (solo ADMIN, `201`);
+    - `PUT /admin/reservas/{id}/devoluciones/{devolucionId}/entrega`;
+    - `GET /admin/reservas/devoluciones-a-entregar`.
+
+    Las tres operaciones responden `ReservaResponse`.
+  - Nuevo estado de pago `ANULADO`.
+  - `PagoResponse` suma `devoluciones: [{ id, monto, lineas, estado, motivo, creadoAt, entregadoAt, usuario, entregadoPor }]`, `anuladoAt`, `motivoAnulacion` y `anuladoPor`.
+  - Un pago devuelto en parte por línea **sigue `APROBADO`** con `montoReembolsado` acumulado.
+  - La caja (`resumen.caja.devoluciones`) resta las devoluciones cuando se entregan o MP las confirma. Antes, lo `A_REEMBOLSAR` nunca se restaba.
+  - Una reserva confirmada que queda sin nada cubierto (por anular o devolver) queda `CONFIRMADA`: ya no pasa a `CANCELADA` ni a `PENDIENTE`.
+- **Imputación de los pagos por concepto**:
+  - `ReservaResponse` suma `montoCanchaPagado` y `montoCanchaPendiente`; cada producto (`productos[]`) suma `lineaId`, `montoPagado` y `montoPendiente`.
+  - `PagoResponse` suma `imputaciones: [{ concepto, lineaId, nombre, monto }]`.
+  - Los cobros del personal (`cobros/efectivo`, `transferencia`, `presencial`, `cuenta-dni`, `qr`) y `bonificacion` aceptan `imputaciones` opcional (sin ellas, se imputa solo: primero la cancha).
+  - Sacar o bajar un producto con plata cobrada, o bajar el precio de la cancha de un partido por debajo de lo cobrado, responde `409` "Gatorade tiene $2.000 cobrados: anulá o devolvé ese cobro antes de sacarlo." con `lineaId` y `montoCobrado` en el body. Reemplaza al error "El total nuevo ($X) es menor que lo ya pagado ($Y).". Lo que no tiene nada cobrado se saca aunque la reserva esté paga en parte.
+- **Jornada del EMPLEADO**: su "hoy" pasa a ser la jornada en curso (de la apertura del día a la apertura del día siguiente). Pasada la medianoche sigue viendo y operando la jornada anterior: reservas de esa fecha en adelante, el resumen de esa fecha y las ventas registradas dentro de la jornada (antes, el día calendario). Nuevo `GET /admin/jornada` → `{ fecha, inicio, fin }` para saber qué fecha mandarle en `desde`/`hasta`. Una venta registrada entre la medianoche y la apertura ahora es de la jornada anterior.
 - **Permisos del EMPLEADO en la API** (antes solo los aplicaba el front):
   - `GET /admin/reservas`: sin `desde` toma hoy; `desde` o `hasta` anteriores a hoy → `403` "Solo podés ver las reservas de hoy en adelante." (también con `pendientes=true`; los totales cambian en consecuencia).
   - `GET /admin/reservas/{id}`: una reserva de un día anterior → `404`.

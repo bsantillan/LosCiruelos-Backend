@@ -16,6 +16,14 @@ import com.LosCiruelos.padel_club_api.common.Roles;
 import com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException;
 import com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoPago;
 import com.LosCiruelos.padel_club_api.pagos.entity.Pago;
+import com.LosCiruelos.padel_club_api.pagos.entity.PagoImputacion;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.ConceptoImputacion;
+import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
+import com.LosCiruelos.padel_club_api.reservas.exception.LineaCobradaException;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.stream.Stream;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Turno;
 import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
@@ -122,6 +130,14 @@ public class Reserva {
     @Column(name = "modalidad_pago", length = 20)
     private ModalidadPago modalidadPago;
 
+    // Cuándo y quién la canceló (null en las de antes de V43; quién null: el sistema)
+    @Column(name = "cancelada_at")
+    private LocalDateTime canceladaAt;
+
+    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @JoinColumn(name = "cancelada_por_id")
+    private Usuario canceladaPor;
+
     // Cuándo se le mandó al cliente el recordatorio del turno (null: todavía no)
     @Column(name = "recordatorio_enviado_at")
     private LocalDateTime recordatorioEnviadoAt;
@@ -139,7 +155,7 @@ public class Reserva {
     @OneToMany(mappedBy = "reserva", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReservaProducto> productos = new ArrayList<>();
 
-    // Partido: los 4 jugadores (vacío en una reserva NORMAL)
+    // Partido: de 1 a 4 jugadores (vacío en una reserva NORMAL)
     @Builder.Default
     @BatchSize(size = 50)
     @OrderBy("posicion")
@@ -164,16 +180,16 @@ public class Reserva {
     }
 
     /**
-     * El EMPLEADO solo ve y opera las reservas de hoy en adelante (fecha del turno, hora del club);
-     * las de días anteriores son del ADMIN.
+     * El EMPLEADO solo ve y opera las reservas de la jornada en curso en adelante (fecha del turno;
+     * pasada la medianoche, la jornada sigue siendo la del día anterior); las anteriores son del ADMIN.
      */
-    public boolean quedaFueraDelEmpleado(Usuario usuario, LocalDate hoy) {
-        return Roles.esEmpleado(usuario) && fechaReserva.isBefore(hoy);
+    public boolean quedaFueraDelEmpleado(Usuario usuario, LocalDate fechaDeLaJornada) {
+        return Roles.esEmpleado(usuario) && fechaReserva.isBefore(fechaDeLaJornada);
     }
 
     /** @throws PermisoDenegadoException (403) si es un EMPLEADO y la reserva es de un día anterior */
-    public void exigirQueLaPuedaOperar(Usuario personal, LocalDate hoy) {
-        if (quedaFueraDelEmpleado(personal, hoy)) {
+    public void exigirQueLaPuedaOperar(Usuario personal, LocalDate fechaDeLaJornada) {
+        if (quedaFueraDelEmpleado(personal, fechaDeLaJornada)) {
             throw new PermisoDenegadoException("Solo el ADMIN puede operar reservas de días anteriores.");
         }
     }
@@ -258,6 +274,144 @@ public class Reserva {
         return montoTotal.subtract(getMontoCubierto());
     }
 
+    // ── Imputación de los pagos: qué cubre cada uno ──────────────────────
+
+    /** Las imputaciones de los pagos cobrados (lo que cubre cada uno, sin lo devuelto). */
+    private Stream<PagoImputacion> imputacionesVigentes() {
+        return pagos.stream().flatMap(p -> p.imputacionesVigentes().stream());
+    }
+
+    /** Lo cobrado (y bonificado) que cubre la cancha. */
+    @Transient
+    public BigDecimal getMontoCanchaPagado() {
+        return Dinero.sumar(imputacionesVigentes().filter(PagoImputacion::esDeLaCancha).map(PagoImputacion::getMonto));
+    }
+
+    /** Lo que falta cubrir de la cancha (nunca negativo). */
+    @Transient
+    public BigDecimal getMontoCanchaPendiente() {
+        return getMontoCancha().subtract(getMontoCanchaPagado()).max(BigDecimal.ZERO);
+    }
+
+    /** Lo cobrado (y bonificado) que cubre esa línea de producto. */
+    public BigDecimal pagadoDe(ReservaProducto linea) {
+        return Dinero.sumar(imputacionesVigentes().filter(i -> i.esDe(linea)).map(PagoImputacion::getMonto));
+    }
+
+    /** Lo que falta cubrir de esa línea (nunca negativo). */
+    public BigDecimal pendienteDe(ReservaProducto linea) {
+        return linea.getSubtotal().subtract(pagadoDe(linea)).max(BigDecimal.ZERO);
+    }
+
+    /** Las líneas de producto en orden de creación. */
+    private List<ReservaProducto> lineasEnOrden() {
+        return productos.stream()
+                .sorted(Comparator.comparing(ReservaProducto::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+    }
+
+    /**
+     * Imputación automática de {@code monto} (pagos online del cliente y cobros sin imputaciones):
+     * primero la cancha hasta completarla y después cada línea de producto en orden de creación.
+     * Si sobrara algo (datos viejos inconsistentes), va a la cancha.
+     */
+    public List<PagoImputacion> imputacionAutomatica(BigDecimal monto) {
+        List<PagoImputacion> partes = new ArrayList<>();
+        BigDecimal restante = monto;
+        BigDecimal aCancha = restante.min(getMontoCanchaPendiente());
+        restante = restante.subtract(aCancha);
+        for (ReservaProducto linea : lineasEnOrden()) {
+            BigDecimal aLinea = restante.min(pendienteDe(linea));
+            if (aLinea.signum() > 0) {
+                partes.add(PagoImputacion.aLinea(linea, aLinea));
+                restante = restante.subtract(aLinea);
+            }
+        }
+        aCancha = aCancha.add(restante);
+        if (aCancha.signum() > 0) {
+            partes.addFirst(PagoImputacion.aCancha(aCancha));
+        }
+        return partes;
+    }
+
+    /**
+     * Valida lo que el personal indicó que cubre un cobro de {@code monto} (400 si no cierra):
+     * la suma es el monto, cada parte es mayor a cero y no supera lo pendiente de su línea, la línea es
+     * de esta reserva y no se repite. Sin imputaciones (null o vacía), se imputa en forma automática.
+     */
+    public List<PagoImputacion> imputacionPedida(List<PagoImputacion.Pedido> pedidas, BigDecimal monto) {
+        if (pedidas == null || pedidas.isEmpty()) {
+            return imputacionAutomatica(monto);
+        }
+        if (pedidas.stream().anyMatch(p -> p.monto() == null || p.monto().signum() <= 0)) {
+            throw new ReservaException("El monto de cada imputación tiene que ser mayor a cero.");
+        }
+        BigDecimal suma = Dinero.sumar(pedidas.stream().map(PagoImputacion.Pedido::monto));
+        if (suma.compareTo(monto) != 0) {
+            throw new ReservaException("La suma de las imputaciones (%s) tiene que ser igual al monto (%s)."
+                    .formatted(Dinero.texto(suma), Dinero.texto(monto)));
+        }
+        List<PagoImputacion> partes = new ArrayList<>();
+        Set<Long> lineasVistas = new HashSet<>();
+        boolean canchaVista = false;
+        for (PagoImputacion.Pedido pedida : pedidas) {
+            if (pedida.concepto() == ConceptoImputacion.CANCHA) {
+                if (pedida.lineaId() != null) {
+                    throw new ReservaException("Una imputación a la cancha no lleva lineaId.");
+                }
+                if (canchaVista) {
+                    throw new ReservaException("La cancha está repetida en las imputaciones.");
+                }
+                canchaVista = true;
+                validarQueNoSuperaLoPendiente("la cancha", pedida.monto(), getMontoCanchaPendiente());
+                partes.add(PagoImputacion.aCancha(pedida.monto()));
+                continue;
+            }
+            if (pedida.lineaId() == null) {
+                throw new ReservaException("Indicá la línea (lineaId) de cada imputación a un producto.");
+            }
+            if (!lineasVistas.add(pedida.lineaId())) {
+                throw new ReservaException("La línea #" + pedida.lineaId() + " está repetida en las imputaciones.");
+            }
+            ReservaProducto linea = productos.stream()
+                    .filter(l -> pedida.lineaId().equals(l.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new ReservaException("La línea #" + pedida.lineaId() + " no es de esta reserva."));
+            validarQueNoSuperaLoPendiente(linea.getProducto().getNombre(), pedida.monto(), pendienteDe(linea));
+            partes.add(PagoImputacion.aLinea(linea, pedida.monto()));
+        }
+        return partes;
+    }
+
+    private static void validarQueNoSuperaLoPendiente(String nombre, BigDecimal monto, BigDecimal pendiente) {
+        if (monto.compareTo(pendiente) > 0) {
+            throw new ReservaException("Lo imputado a %s (%s) supera lo pendiente de esa línea (%s)."
+                    .formatted(nombre, Dinero.texto(monto), Dinero.texto(pendiente)));
+        }
+    }
+
+    /**
+     * Lo cobrado no se saca: ninguna línea (ni la cancha, con su precio nuevo {@code montoCancha})
+     * puede quedar por debajo de lo que tiene cubierto, y una línea cubierta no se puede sacar. Lo que
+     * no tiene nada cobrado se saca libremente. Nada se reimputa solo de una línea a otra.
+     *
+     * @throws LineaCobradaException (409) con la línea y lo cobrado, para anular o devolver ese cobro antes
+     */
+    public void validarQueNoSacaLoCobrado(BigDecimal montoCancha) {
+        BigDecimal cancha = getMontoCanchaPagado();
+        if (montoCancha.compareTo(cancha) < 0) {
+            throw new LineaCobradaException("La cancha", null, cancha, true);
+        }
+        Map<ReservaProducto, BigDecimal> porLinea = new LinkedHashMap<>();
+        imputacionesVigentes().filter(i -> !i.esDeLaCancha())
+                .forEach(i -> porLinea.merge(i.getLinea(), i.getMonto(), BigDecimal::add));
+        porLinea.forEach((linea, cobrado) -> {
+            if (!productos.contains(linea) || linea.getSubtotal().compareTo(cobrado) < 0) {
+                throw new LineaCobradaException(linea.getProducto().getNombre(), linea.getId(), cobrado, false);
+            }
+        });
+    }
+
     /** Tiene un pago cobrado o que MP todavía está procesando. */
     public boolean tienePagoActivo() {
         return pagos.stream().anyMatch(p -> p.getEstado() == EstadoPago.APROBADO
@@ -294,7 +448,8 @@ public class Reserva {
      * Una reserva confirmada que queda sin nada cubierto (reembolso) pasa a CANCELADA. Un partido
      * no tiene seña: sin nada pagado queda CONFIRMADA (no vence ni se cancela por eso), con algo
      * PARCIALMENTE_PAGADA y entero PAGADA (o COMPLETADA). Una reserva SIN_SENIA (la cargó el ADMIN
-     * para cobrarla en el club) sin nada pagado también queda CONFIRMADA.
+     * para cobrarla en el club) sin nada pagado también queda CONFIRMADA, igual que una que quedó
+     * CONFIRMADA al anular o devolver su cobro ({@link #recalcularTrasDeshacerUnCobro}).
      * CANCELADA, EXPIRADA y COMPLETADA no cambian.
      *
      * @return true si el estado cambió
@@ -305,7 +460,9 @@ public class Reserva {
         }
         BigDecimal cubierto = getMontoCubierto();
         EstadoReserva nuevo;
-        if (cubierto.signum() == 0 && confirmadaSinPagar()) {
+        if (cubierto.signum() == 0 && (confirmadaSinPagar() || estado == EstadoReserva.CONFIRMADA)) {
+            // una CONFIRMADA sin nada cubierto (un partido, SIN_SENIA o porque se anuló o devolvió su
+            // cobro) sigue confirmada: no se cancela ni vuelve a PENDIENTE por un cambio de total
             nuevo = EstadoReserva.CONFIRMADA;
         } else if (cubierto.signum() == 0) {
             nuevo = estado == EstadoReserva.PENDIENTE ? EstadoReserva.PENDIENTE : EstadoReserva.CANCELADA;
@@ -333,6 +490,32 @@ public class Reserva {
             estado = EstadoReserva.PAGADA;
         }
         recalcularEstado(senia, ahora);
+    }
+
+    /**
+     * Después de anular o devolver un cobro: el estado se recalcula como siempre, pero una reserva que
+     * ya estaba confirmada y queda sin nada cubierto queda CONFIRMADA: nunca vuelve a PENDIENTE ni
+     * vence (ni se cancela) por deshacer un cobro. Una COMPLETADA que queda con saldo vuelve a abrirse.
+     *
+     * @return true si el estado cambió
+     */
+    public boolean recalcularTrasDeshacerUnCobro(BigDecimal senia, LocalDateTime ahora) {
+        EstadoReserva anterior = estado;
+        if (estado == EstadoReserva.COMPLETADA && getMontoPendiente().signum() > 0) {
+            estado = EstadoReserva.PAGADA;
+        }
+        if (ESTADOS_CONFIRMADOS.contains(estado) && getMontoCubierto().signum() == 0) {
+            estado = EstadoReserva.CONFIRMADA;
+            expiresAt = null;
+        } else {
+            recalcularEstado(senia, ahora);
+        }
+        return estado != anterior;
+    }
+
+    /** Un pago de esta reserva. */
+    public java.util.Optional<Pago> pago(Long pagoId) {
+        return pagos.stream().filter(p -> p.getId() != null && p.getId().equals(pagoId)).findFirst();
     }
 
     /** Fecha y horario de la reserva (duración, superposición, si empezó o terminó). */
