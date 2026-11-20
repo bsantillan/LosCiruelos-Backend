@@ -34,7 +34,8 @@ build/
 .vscode/
 
 # imágenes subidas en desarrollo (ARCHIVOS_DIR)
-archivos/
+# (solo la carpeta de la raíz: sin la barra también ignoraba el paquete Java common/archivos)
+/archivos/
 
 # carpeta de salida del compilador de Eclipse / VS Code Java (copia el proyecto, incluidos .env y launch.json)
 bin/
