@@ -51,9 +51,10 @@ class PerfilServiceTest {
         clienteProfileRepository = mock(ClienteProfileRepository.class);
         reservaConsultaService = mock(ReservaConsultaService.class);
         refreshTokenService = mock(RefreshTokenService.class);
-        perfilService = new PerfilService(usuarioService, new ClienteProfileService(clienteProfileRepository, Reloj.delSistema()),
+        perfilService = new PerfilService(usuarioService, new ClienteProfileService(clienteProfileRepository, Reloj.delSistema(),
+                TestData.configuracionService()),
                 clienteProfileRepository,
-                reservaConsultaService, refreshTokenService, new UsuarioMapper(), TestData.reloj(AHORA));
+                reservaConsultaService, refreshTokenService, new UsuarioMapper(), TestData.configuracionService(), TestData.reloj(AHORA));
 
         cliente = usuario(1L, Role.CLIENTE);
         perfil = ClienteProfile.builder().id(1L).usuario(cliente).categoria(Categoria.Cuarta).posicion(Posicion.Drive)
@@ -197,9 +198,10 @@ class PerfilServiceTest {
             when(usuarioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
             UsuarioService real = new UsuarioService(usuarioRepository,
                     mock(org.springframework.security.crypto.password.PasswordEncoder.class), Reloj.delSistema());
-            perfiles = new PerfilService(real, new ClienteProfileService(clienteProfileRepository, Reloj.delSistema()),
+            perfiles = new PerfilService(real, new ClienteProfileService(clienteProfileRepository, Reloj.delSistema(),
+                TestData.configuracionService()),
                     clienteProfileRepository, reservaConsultaService, refreshTokenService, new UsuarioMapper(),
-                    TestData.reloj(AHORA));
+                    TestData.configuracionService(), TestData.reloj(AHORA));
         }
 
         @Test

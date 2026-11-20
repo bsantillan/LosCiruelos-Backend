@@ -19,7 +19,8 @@ import com.LosCiruelos.padel_club_api.common.Jornada;
 public class ConfiguracionMapper {
 
     public RecordatorioConfigResponse aRecordatorio(Configuracion config) {
-        return new RecordatorioConfigResponse(config.getRecordatorioActivo(), config.getMinutosRecordatorio());
+        return new RecordatorioConfigResponse(config.getRecordatorioActivo(), config.getMinutosRecordatorio(),
+                config.whatsappParaClientes());
     }
 
     public ConfiguracionResponse aResponse(Configuracion c) {

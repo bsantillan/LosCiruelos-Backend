@@ -8,7 +8,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 |---|---|
 | Funcionalidades | ABM de canchas, agenda del día para el personal. |
 | Rate limiting | Es en memoria (sirve para una instancia). Con varias instancias hay que moverlo a Redis o al proxy. Detrás de un proxy toma la IP real de `X-Forwarded-For` (`server.forward-headers-strategy=framework`, por defecto). |
-| WhatsApp | **Bloqueante**: como el perfil completo exige el celular verificado por WhatsApp, sin el alta en Meta ningún cliente nuevo puede reservar. Falta dar de alta el número del club, verificar el negocio y cargar las 8 plantillas de [whatsapp.md](whatsapp.md). Hasta entonces los avisos van por mail. Las novedades y promociones solo se guardan como preferencia: falta el envío. Los estados de entrega de Meta (leído, no entregado) no se reciben: haría falta su webhook, que también se va a necesitar para el bot. |
+| WhatsApp | Sin el alta en Meta, el ADMIN tiene que apagar el WhatsApp a los clientes (`whatsappClientes: false`) para que los clientes nuevos puedan reservar: si no, el perfil completo exige el celular verificado por WhatsApp. Falta dar de alta el número del club, verificar el negocio y cargar las 8 plantillas de [whatsapp.md](whatsapp.md). Hasta entonces los avisos van por mail. Las novedades y promociones solo se guardan como preferencia: falta el envío. Los estados de entrega de Meta (leído, no entregado) no se reciben: haría falta su webhook, que también se va a necesitar para el bot. |
 | Firma del webhook | Se valida solo si se configura `MP_WEBHOOK_SECRET`. Igual, el webhook nunca confía en el contenido: siempre consulta el pago a MP. |
 | Base de desarrollo existente | Las migraciones se unificaron en una sola V1. Una base creada antes de este cambio hay que borrarla y recrearla (`docker compose down -v` y `docker compose up -d`); si no, la app no arranca. |
 | Puerto 8080 en Windows | Con Docker Desktop iniciado, Windows puede reservar el rango 8079–8178 y la app no levanta en 8080 ("Port 8080 was already in use"). Ver con `netsh interface ipv4 show excludedportrange protocol=tcp`; usar otro puerto (`--server.port=…`) o reiniciar el servicio `winnat`. |
@@ -43,6 +43,8 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 | — | Menores | CORS por variable (`CORS_ALLOWED_ORIGINS`); `SHOW_SQL` apagado por defecto; `open-in-view=false`; un solo bean OpenAPI; caché de configuración activa; 401 para token ausente o vencido; DTOs validados en `/auth`; montos con `BigDecimal`; categoría y posición guardadas como texto; nombres de campos corregidos (`descripcion`, `montoXMediaHora`, `porcentajeSenia`) |
 
 ## Cambios de contrato para el front
+
+- **WhatsApp a los clientes**: `GET`/`PUT /admin/configuracion/avisos` suman `whatsappClientes` (en el `PUT` es opcional). `GET /perfil` suma `verificacionDeCelular`: con `false` el cliente no verifica el celular (no mostrar el código) y no puede elegir WhatsApp; `GET /perfil/notificaciones` le da `whatsappDisponible: false`. Elegir WhatsApp o pedir el código en ese caso responde `409`.
 
 - **Canchas dadas de baja en la página de inicio**: `GET /canchas?incluirInactivas=true` (público) trae también las desactivadas, con `"activa": false`. Sin el parámetro, `GET /canchas` sigue igual (solo las activas).
 - **Novedades**: nuevo `GET /novedades?limite=6` (público) con las publicadas y vigentes, y `/admin/novedades` (ADMIN) para el alta, la edición, la publicación, el borrado y la imagen. Reemplazan a los torneos, que se publican como novedad.

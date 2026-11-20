@@ -72,7 +72,7 @@ Errores: `401` credenciales inválidas, `403` email no verificado (`errors.email
 }
 ```
 `perfilCompleto`:
-- **CLIENTE**: nombre, apellido, **celular verificado**, categoría y posición. Sin perfil completo no puede reservar ni elegir sus avisos.
+- **CLIENTE**: nombre, apellido, **celular verificado**, categoría y posición. Sin perfil completo no puede reservar ni elegir sus avisos. Si el club no manda WhatsApp a los clientes (`whatsappClientes: false` en `/admin/configuracion/avisos`), alcanza con el celular **cargado**: no se verifica.
 - **ADMIN**: nombre, apellido y **celular verificado**.
 - EMPLEADO y PROFESOR: siempre `true`.
 
@@ -131,6 +131,7 @@ Requiere haber validado antes el código con `/auth/verificar-token` (tipo `PASS
 {
   "nombre": "Juan", "apellido": "Pérez", "email": "juan@mail.com", "telefono": "5491112345678",
   "telefonoVerificado": true, "canalNotificaciones": "WHATSAPP", "perfilCompleto": true,
+  "verificacionDeCelular": true,    // false: el club no manda WhatsApp a los clientes (el celular no se verifica)
   "categoria": "Cuarta", "posicion": "Drive",
   "cantDiasMiembro": 30,            // días desde termsAcceptedAt
   "cantPartidos": 5,                // reservas COMPLETADA
@@ -154,7 +155,7 @@ Datos personales. El celular se edita en "Celular y avisos" (`PUT /perfil/notifi
 - `telefono` **opcional**:
   - Si no viene (o es `null`), no se tocan el teléfono ni su verificación. Sirve también para quien no tiene celular cargado (el ADMIN inicial, los que entran con Google).
   - Si viene, se valida (`^[0-9+() -]{8,25}$` y numeración real) y se guarda normalizado al formato de WhatsApp (`5491123456789`), con o sin `0`, `15` o `+54 9`. Si es **otro número**, queda sin verificar; el mismo número escrito de otra forma (`11 2233-4455` y `5491122334455`) no pierde la verificación. Si otra cuenta activa ya lo tiene verificado, `400 errors.telefono`.
-- El celular verificado sigue siendo requisito de `perfilCompleto`.
+- El celular verificado sigue siendo requisito de `perfilCompleto`, salvo para el CLIENTE cuando el club no le manda WhatsApp (`verificacionDeCelular: false`).
 - CLIENTE: `categoria` y `posicion` obligatorias (`400 errors.posicion / errors.categoria`). La categoría se puede **cambiar una sola vez y dentro de las 24 h** desde que se cargó; si no se puede, responde `403` y no se guarda nada. El resto de los datos se puede cambiar siempre.
 - Otros roles: no pueden enviar `categoria` ni `posicion` (`400`).
 - Nombre y apellido se guardan capitalizados.
@@ -173,13 +174,14 @@ Cada usuario elige si recibe los avisos por mail o por WhatsApp. Detalle de qué
   "canalEnUso": "EMAIL",        // el que se usa: EMAIL hasta verificar el teléfono
   "telefono": "5491112345678",
   "telefonoVerificado": false,
-  "whatsappDisponible": true    // si el club tiene WhatsApp configurado
+  "whatsappDisponible": true    // si le puede llegar WhatsApp: el club lo tiene configurado y, a un CLIENTE, el ADMIN lo permite
 }
 ```
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
 | `GET /perfil/notificaciones` → `200 NotificacionesResponse` | Canal y teléfono del usuario. | |
+| | Si el club no manda WhatsApp a los clientes, un CLIENTE que elige `WHATSAPP` en `PUT /perfil/notificaciones` recibe `409` "El club no manda avisos por WhatsApp por ahora: te llegan por mail." y pedir el código responde `409` "El club no manda WhatsApp a los clientes: tu celular no necesita verificarse." | `409` |
 | `PUT /perfil/notificaciones` → `200 NotificacionesResponse` | Body `{ "canal": "EMAIL" \| "WHATSAPP", "telefono": "opcional" }`. Elegir `WHATSAPP` registra el consentimiento y, si el teléfono no está verificado, manda el código. Volver a `EMAIL` retira el consentimiento. | `400` sin teléfono o teléfono inválido |
 | `POST /perfil/telefono/codigo` → `200` | Manda (o reenvía) el código por WhatsApp. Topes: 1 por minuto y 5 cada 24 h por usuario, 5 cada 24 h por número (entre todas las cuentas), además de 3 por minuto por IP. | `400` sin teléfono · `409` ya verificado, celular verificado en otra cuenta o WhatsApp no disponible · `429` tope alcanzado (el mensaje dice cuánto falta) |
 | `POST /perfil/telefono/verificar` → `200 NotificacionesResponse` | Body `{ "codigo": "123456" }`. | `400 errors.codigo` |
@@ -188,8 +190,8 @@ Cada usuario elige si recibe los avisos por mail o por WhatsApp. Detalle de qué
 | `GET /perfil/avisos` → `200` | **ADMIN.** Qué avisos de reservas recibe: `{ "activos", "reservaConfirmada", "saldoCobrado", "reservaCancelada", "reembolsoManual" }` (todos `true` por defecto). `activos` es el interruptor general: en `false` no le llega ninguno. | `403` otros roles |
 | `PUT /perfil/avisos` → `200` | **ADMIN.** Mismo body: los cuatro avisos obligatorios; `activos` opcional (si no viene, no cambia). Apagar `activos` pausa todo y conserva la elección de cada aviso. | `400` · `403` |
 | `POST /perfil/avisos/prueba` → `200` | **ADMIN.** Manda un aviso de ejemplo por su canal: `{ "enviado": true, "canal": "WHATSAPP", "destino": "549..." }`. | `403` |
-| `GET /admin/configuracion/avisos` → `200` | **ADMIN.** Recordatorio del turno: `{ "recordatorioActivo": true, "minutosRecordatorio": 120 }`. | |
-| `PUT /admin/configuracion/avisos` → `200` | **ADMIN.** Mismo body; minutos entre 15 y 1440. | `400` |
+| `GET /admin/configuracion/avisos` → `200` | **ADMIN.** Avisos a los clientes: `{ "recordatorioActivo": true, "minutosRecordatorio": 120, "whatsappClientes": true }`. `whatsappClientes` dice si el club manda WhatsApp a los clientes. | |
+| `PUT /admin/configuracion/avisos` → `200` | **ADMIN.** Mismo body; minutos entre 15 y 1440. `whatsappClientes` es opcional (si no viene, queda como estaba). Apagado, a los clientes no les sale ningún WhatsApp: los avisos (recordatorio, cancelaciones, seña a pagar) van por mail aunque hayan elegido WhatsApp, no se les manda el código del celular y su perfil se completa con el celular cargado, sin verificar. Al personal no le cambia nada. Si se vuelve a prender, el cliente que eligió WhatsApp y tiene el celular verificado lo vuelve a recibir; el que no lo verificó tiene que verificarlo para volver a tener el perfil completo. | `400` |
 | `GET /admin/configuracion/reservas` → `200` | **ADMIN.** Hasta cuántos días adelante puede reservar el cliente: `{ "diasAnticipacion": 30 }`. | |
 | `PUT /admin/configuracion/reservas` → `200` | **ADMIN.** Mismo body; entre 1 y 365 días. También es hasta dónde se generan los partidos de los turnos fijos. | `400` |
 

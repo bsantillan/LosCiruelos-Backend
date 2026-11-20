@@ -52,9 +52,13 @@ public class ClienteProfile {
     @Column(name = "recibe_promociones", nullable = false)
     private Boolean recibePromociones = false;
 
-    /** Perfil de jugador completo: datos personales del usuario, categoría y posición. */
-    public boolean estaCompleto() {
-        return usuario.datosPersonalesCompletos() && categoria != null && posicion != null;
+    /**
+     * Perfil de jugador completo: datos personales del usuario, categoría y posición.
+     *
+     * @param whatsappParaClientes si el club manda WhatsApp a los clientes (si no, el celular no se verifica)
+     */
+    public boolean estaCompleto(boolean whatsappParaClientes) {
+        return usuario.datosPersonalesCompletos(whatsappParaClientes) && categoria != null && posicion != null;
     }
 
     /**

@@ -60,12 +60,12 @@ DELETE FROM usuarios WHERE id NOT IN (SELECT id FROM cuentas_a_conservar);
 -- ── Configuración del club ──────────────────────────────────────────────
 -- turno mínimo de 90 min a $15.000 y $5.000 cada media hora de más; seña del 50 %; devolución total
 -- hasta 24 h antes y de la seña hasta 12 h antes; recordatorio 2 h antes; se reserva hasta 30 días
--- adelante; la seña online del personal se paga dentro de las 2 h
+-- adelante; la seña online del personal se paga dentro de las 2 h; el club manda WhatsApp a los clientes
 INSERT INTO configuracion (id, monto_reserva, monto_x_media_hora, porcentaje_senia, duracion_minima_turno,
                            duracion_maxima_turno, minutos_reembolso_total, minutos_reembolso_senia,
                            recordatorio_activo, minutos_recordatorio, dias_anticipacion_reserva,
-                           minutos_pago_senia_online)
-VALUES (1, 15000, 5000, 50, 90, 180, 1440, 720, true, 120, 30, 120);
+                           minutos_pago_senia_online, whatsapp_clientes)
+VALUES (1, 15000, 5000, 50, 90, 180, 1440, 720, true, 120, 30, 120, true);
 
 INSERT INTO dias (dia, horario_inicio, horario_fin, configuracion_general_id) VALUES
     ('Lunes', '08:00', '23:00', 1), ('Martes', '08:00', '23:00', 1), ('Miércoles', '08:00', '23:00', 1),

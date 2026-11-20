@@ -1,6 +1,7 @@
 package com.LosCiruelos.padel_club_api.usuarios.service;
 
 import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 
 import org.springframework.stereotype.Service;
 
@@ -20,6 +21,8 @@ public class ClienteProfileService {
 
     private final Reloj reloj;
 
+    private final ConfiguracionService configuracionService;
+
     /**
      * Categoría y posición con las que se da de alta el cliente. El perfil ya lo tiene: se lo
      * crea {@code Usuario.asignarRol} al crear la cuenta.
@@ -34,15 +37,17 @@ public class ClienteProfileService {
 
     /**
      * Perfil completo según el rol: el CLIENTE además necesita su perfil de jugador; el ADMIN,
-     * nombre, apellido y celular verificado (le llegan los avisos del club). El resto, siempre.
+     * nombre, apellido y celular verificado (le llegan los avisos del club). El resto, siempre. El
+     * celular del CLIENTE no se verifica si el club no le manda WhatsApp.
      */
     public boolean perfilCompleto(Usuario usuario) {
+        boolean whatsappParaClientes = configuracionService.obtener().whatsappParaClientes();
         return switch (usuario.getRol()) {
             case CLIENTE -> {
                 ClienteProfile perfil = findByUsuario(usuario);
-                yield perfil != null && perfil.estaCompleto();
+                yield perfil != null && perfil.estaCompleto(whatsappParaClientes);
             }
-            case ADMIN -> usuario.datosPersonalesCompletos();
+            case ADMIN -> usuario.datosPersonalesCompletos(whatsappParaClientes);
             default -> true;
         };
     }

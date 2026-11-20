@@ -49,7 +49,7 @@ public class ConfiguracionService {
         return configuracionRepository.save(nueva);
     }
 
-    // ── Recordatorio del turno (ADMIN) ───────────────────────────────────
+    // ── Avisos a los clientes: recordatorio del turno y WhatsApp (ADMIN) ──
 
     public RecordatorioConfigResponse recordatorio() {
         return configuracionMapper.aRecordatorio(configuracionRepository.obtener());
@@ -61,6 +61,9 @@ public class ConfiguracionService {
         Configuracion config = configuracionRepository.obtener();
         config.setRecordatorioActivo(req.getRecordatorioActivo());
         config.setMinutosRecordatorio(req.getMinutosRecordatorio());
+        if (req.getWhatsappClientes() != null) {
+            config.setWhatsappClientes(req.getWhatsappClientes());
+        }
         return configuracionMapper.aRecordatorio(configuracionRepository.save(config));
     }
 

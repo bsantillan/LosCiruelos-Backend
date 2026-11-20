@@ -41,6 +41,7 @@ class AvisosServiceTest {
 
     private Usuario adminWhatsapp;
     private Usuario adminMail;
+    private com.LosCiruelos.padel_club_api.club.entity.Configuracion configuracion;
 
     @BeforeEach
     void setUp() {
@@ -53,7 +54,9 @@ class AvisosServiceTest {
         when(factory.getService()).thenReturn(email);
         when(whatsApp.estaConfigurado()).thenReturn(true);
         when(whatsApp.enviarPlantilla(anyString(), anyString(), anyList())).thenReturn(true);
-        avisos = new AvisosService(usuarioService, fabricaWhatsApp, factory);
+        configuracion = com.LosCiruelos.padel_club_api.TestData.configuracion();
+        avisos = new AvisosService(usuarioService, fabricaWhatsApp, factory,
+                com.LosCiruelos.padel_club_api.TestData.configuracionService(configuracion));
 
         adminWhatsapp = usuario(1L, Role.ADMIN);
         adminWhatsapp.setTelefono("5491122334455");
@@ -106,11 +109,11 @@ class AvisosServiceTest {
     @Test
     void sinTelefonoVerificadoOSinWhatsappConfiguradoVaPorMail() {
         Destinatario sinVerificar = new Destinatario("Ana", "ana@test.com", "5491100000000",
-                CanalNotificacion.WHATSAPP, false);
+                CanalNotificacion.WHATSAPP, false, true);
         assertThat(avisos.canalPara(sinVerificar)).isEqualTo(CanalNotificacion.EMAIL);
 
         Destinatario verificado = new Destinatario("Ana", "ana@test.com", "5491100000000",
-                CanalNotificacion.WHATSAPP, true);
+                CanalNotificacion.WHATSAPP, true, true);
         assertThat(avisos.canalPara(verificado)).isEqualTo(CanalNotificacion.WHATSAPP);
 
         when(whatsApp.estaConfigurado()).thenReturn(false);
@@ -196,5 +199,32 @@ class AvisosServiceTest {
                 eq("10/pago"));
         assertThat(parametros.getValue()).hasSize(6).endsWith("$7.500", "antes de las 12:00 del martes 13/10");
         verify(email, never()).sendAviso(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void sinWhatsappParaClientesAlClienteLeLlegaPorMailYAlAdminPorWhatsapp() {
+        configuracion.setWhatsappClientes(false);
+        Destinatario cliente = new Destinatario("Ana", "ana@test.com", "5491100000000",
+                CanalNotificacion.WHATSAPP, true, true);
+        Destinatario admin = new Destinatario("Admin", "admin@test.com", "5491122334455",
+                CanalNotificacion.WHATSAPP, true, false);
+
+        assertThat(avisos.canalPara(cliente)).isEqualTo(CanalNotificacion.EMAIL);
+        assertThat(avisos.canalPara(admin)).isEqualTo(CanalNotificacion.WHATSAPP);
+    }
+
+    @Test
+    void sinWhatsappParaClientesUnAvisoAlClienteNoGastaUnMensaje() {
+        configuracion.setWhatsappClientes(false);
+        Usuario cliente = usuario(3L, Role.CLIENTE);
+        cliente.setTelefono("5491100000000");
+        cliente.setTelefonoVerificado(true);
+        cliente.setCanalNotificaciones(CanalNotificacion.WHATSAPP);
+
+        avisos.enviar(AvisoReserva.de(TipoAviso.RECORDATORIO,
+                reserva(10L, cliente, EstadoReserva.SEÑADA, "15000"), new BigDecimal("7500"), null));
+
+        verify(whatsApp, never()).enviarPlantilla(anyString(), anyString(), anyList());
+        verify(email).sendAviso(eq(cliente.getEmail()), anyString(), anyString());
     }
 }

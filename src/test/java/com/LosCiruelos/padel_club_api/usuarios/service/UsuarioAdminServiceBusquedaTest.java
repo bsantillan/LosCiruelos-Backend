@@ -31,7 +31,8 @@ class UsuarioAdminServiceBusquedaTest {
 
     private final UsuarioRepository repo = mock(UsuarioRepository.class);
     private final UsuarioAdminService clientes = new UsuarioAdminService(mock(ClienteProfileService.class),
-            mock(UsuarioService.class), repo, mock(RefreshTokenService.class), mock(VerificationService.class), new UsuarioMapper());
+            mock(UsuarioService.class), repo, mock(RefreshTokenService.class), mock(VerificationService.class), new UsuarioMapper(),
+            com.LosCiruelos.padel_club_api.TestData.configuracionService());
 
     @Test
     void devuelveLosDatosDelClienteYSiTieneElPerfilCompleto() {
