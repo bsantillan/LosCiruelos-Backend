@@ -287,12 +287,15 @@ Las canchas **activas**, por número, con sus fotos en orden (la grilla y Reserv
 ```json
 [ { "id": 1, "numero": 1, "nombre": "Cancha central", "descripcion": "Techada, con tribuna.",
     "tipo": "TECHADA", "superficie": "Cemento", "iluminacion": true, "activa": true,
-    "fotos": [ { "id": 3, "url": "/archivos/6f1c2e0a-9b7d-4c1e-8a55-0d2f3b4c5e6f.jpg", "orden": 1 } ] } ]
+    "fotos": [ { "id": 3, "url": "/archivos/6f1c2e0a-9b7d-4c1e-8a55-0d2f3b4c5e6f.jpg",
+                 "miniaturaUrl": "/archivos/6f1c2e0a-9b7d-4c1e-8a55-0d2f3b4c5e6f-min.jpg", "orden": 1 } ] } ]
 ```
-`tipo` es `TECHADA` o `AIRE_LIBRE`; `nombre`, `descripcion` y `superficie` pueden ser `null`. `url` es relativa a la API (`GET /archivos/{nombre}`). Una cancha dada de baja no aparece acá ni en la disponibilidad (`404`), y no acepta reservas, partidos ni turnos fijos nuevos (`409` "La cancha 4 está dada de baja: no acepta reservas, partidos ni turnos fijos.").
+`tipo` es `TECHADA` o `AIRE_LIBRE`; `nombre`, `descripcion` y `superficie` pueden ser `null`. `url` es relativa a la API (`GET /archivos/{nombre}`): la foto de hasta 1600 px de lado, para verla grande. `miniaturaUrl` es la misma foto de hasta 480 px: usarla en tarjetas y listados. Una cancha dada de baja no aparece acá ni en la disponibilidad (`404`), y no acepta reservas, partidos ni turnos fijos nuevos (`409` "La cancha 4 está dada de baja: no acepta reservas, partidos ni turnos fijos.").
 
 ### `GET /archivos/{nombre}` → `200` (público)
-Una imagen subida (foto de cancha o imagen de novedad), con su `Content-Type` y `Cache-Control: public, max-age=31536000, immutable` (cada nombre es un UUID que no se reutiliza). Un nombre que no existe → `404`.
+Una imagen subida (foto de cancha o imagen de novedad), con su `Content-Type` y `Cache-Control: public, max-age=31536000, immutable` (cada nombre es un UUID que no se reutiliza). Un nombre que no existe → `404`. La miniatura de una imagen subida antes de que existieran las miniaturas (`<uuid>-min.<ext>`) responde con la original.
+
+**Cómo se guardan las imágenes**: no se guarda el archivo subido. Se valida el tipo por el contenido (JPG, PNG o WEBP, hasta 5 MB y 50 megapíxeles), se gira según la orientación de la cámara, se achica a 1600 px de lado como máximo (las más chicas no se agrandan), se recomprime como JPG (calidad 82 %; PNG si tiene partes transparentes) sin los metadatos (la ubicación GPS de una foto del celular no se publica) y se genera la miniatura de 480 px. Errores: `400` "La imagen es demasiado grande: como máximo 50 megapíxeles." o "No se pudo leer la imagen: probá con otra o guardala de nuevo como JPG.", además de los de cada endpoint.
 
 ## Novedades — `/novedades` (público) y `/admin/novedades` (rol: ADMIN)
 
@@ -302,14 +305,15 @@ Las novedades del club (torneos, clases, avisos) para la página de inicio; los 
 Las publicadas y vigentes (`visibleHasta` null o de hoy en adelante), de la más nueva a la más vieja. `limite` de 1 a 20 (por defecto 6; otro valor → `400`).
 ```json
 [ { "id": 4, "titulo": "Torneo de primavera", "descripcion": "Inscripción abierta para todas las categorías.",
-    "etiqueta": "Torneo", "imagenUrl": "/archivos/2b9c4e1a-7f3d-4a8b-9c6e-1d2f3a4b5c6d.webp", "publicadaAt": "2026-10-11T18:00:00.000-03:00",
+    "etiqueta": "Torneo", "imagenUrl": "/archivos/2b9c4e1a-7f3d-4a8b-9c6e-1d2f3a4b5c6d.jpg",
+    "imagenMiniaturaUrl": "/archivos/2b9c4e1a-7f3d-4a8b-9c6e-1d2f3a4b5c6d-min.jpg", "publicadaAt": "2026-10-11T18:00:00.000-03:00",
     "visibleHasta": "2026-10-20" } ]
 ```
 
 ### Panel del ADMIN (EMPLEADO `403`)
 Body de alta y edición (`NovedadRequest`): `{ "titulo": "Torneo de primavera", "descripcion": "…", "etiqueta": "Torneo", "visibleHasta": "2026-10-20" }`. `titulo` es obligatorio (hasta 80), `descripcion` también (hasta 300), `etiqueta` es opcional (hasta 30) y `visibleHasta` también: después de esa fecha deja de mostrarse sola.
 
-`NovedadResponse`: `{ id, titulo, descripcion, etiqueta, imagenUrl, publicada, publicadaAt, visibleHasta, estado, creadoPor, creadoAt, actualizadoAt }`. `estado` es `BORRADOR` (sin publicar), `PUBLICADA` (publicada y vigente) o `VENCIDA` (publicada, con `visibleHasta` anterior a hoy). `creadoPor` es el nombre.
+`NovedadResponse`: `{ id, titulo, descripcion, etiqueta, imagenUrl, imagenMiniaturaUrl, publicada, publicadaAt, visibleHasta, estado, creadoPor, creadoAt, actualizadoAt }`. `estado` es `BORRADOR` (sin publicar), `PUBLICADA` (publicada y vigente) o `VENCIDA` (publicada, con `visibleHasta` anterior a hoy). `creadoPor` es el nombre.
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|

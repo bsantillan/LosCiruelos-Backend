@@ -21,7 +21,8 @@ public class CanchaMapper {
         response.setIluminacion(cancha.getIluminacion());
         response.setActiva(cancha.getActiva());
         response.setFotos(cancha.getFotos().stream()
-                .map(f -> new CanchaResponse.Foto(f.getId(), AlmacenDeImagenes.url(f.getArchivo()), f.getOrden()))
+                .map(f -> new CanchaResponse.Foto(f.getId(), AlmacenDeImagenes.url(f.getArchivo()),
+                        AlmacenDeImagenes.urlMiniatura(f.getArchivo()), f.getOrden()))
                 .toList());
         return response;
     }

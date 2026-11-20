@@ -44,6 +44,8 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Imágenes optimizadas**: las fotos de cancha suman `miniaturaUrl` (`fotos[{id, url, miniaturaUrl, orden}]`) y las novedades `imagenMiniaturaUrl` (en el panel y en `GET /novedades`). La miniatura (480 px) va en tarjetas y listados; `url` / `imagenUrl` (1600 px), para verla grande. Las imágenes nuevas se guardan como JPG (o PNG si son transparentes) aunque se suban como WEBP. Errores nuevos al subir: `400` por más de 50 megapíxeles o por una imagen que no se puede leer.
+
 - **Canchas dadas de baja en la página de inicio**: `GET /canchas?incluirInactivas=true` (público) trae también las desactivadas, con `"activa": false`. Sin el parámetro, `GET /canchas` sigue igual (solo las activas).
 - **Novedades**: nuevo `GET /novedades?limite=6` (público) con las publicadas y vigentes, y `/admin/novedades` (ADMIN) para el alta, la edición, la publicación, el borrado y la imagen. Reemplazan a los torneos, que se publican como novedad.
 - **Canchas**: `GET /canchas` trae solo las activas, con `nombre`, `tipo`, `superficie`, `iluminacion`, `activa` y `fotos[{id, url, orden}]`. Nuevo `/admin/canchas` (ADMIN) para el alta, la edición, la baja con confirmación, la reactivación, el borrado y las fotos. Las imágenes se sirven públicas en `GET /archivos/{nombre}`. Una cancha dada de baja da `404` en la disponibilidad y `409` al reservar.

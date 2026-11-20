@@ -23,7 +23,10 @@ public class CanchaResponse {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Boolean eliminable;
 
-    /** @param url pública, GET /archivos/{nombre} */
-    public record Foto(Long id, String url, Integer orden) {
+    /**
+     * @param url          pública, GET /archivos/{nombre}: hasta 1600 px de lado
+     * @param miniaturaUrl la misma foto de hasta 480 px, para tarjetas y listados
+     */
+    public record Foto(Long id, String url, String miniaturaUrl, Integer orden) {
     }
 }
