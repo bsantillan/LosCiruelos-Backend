@@ -44,6 +44,8 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **WhatsApp mandados**: nuevo `GET /perfil/avisos/whatsapp?desde&hasta` (ADMIN) con cuántos WhatsApp mandó el club en el período (total, códigos, avisos, a clientes, al personal y por tipo de aviso). Sin fechas, el mes en curso.
+
 - **WhatsApp a los clientes**: `GET`/`PUT /admin/configuracion/avisos` suman `whatsappClientes` (en el `PUT` es opcional). `GET /perfil` suma `verificacionDeCelular`: con `false` el cliente no verifica el celular (no mostrar el código) y no puede elegir WhatsApp; `GET /perfil/notificaciones` le da `whatsappDisponible: false`. Elegir WhatsApp o pedir el código en ese caso responde `409`.
 
 - **Canchas dadas de baja en la página de inicio**: `GET /canchas?incluirInactivas=true` (público) trae también las desactivadas, con `"activa": false`. Sin el parámetro, `GET /canchas` sigue igual (solo las activas).

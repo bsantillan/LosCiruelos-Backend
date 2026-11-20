@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.LosCiruelos.padel_club_api.usuarios.entity.EnvioCodigoTelefono;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.VerificationToken;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.TokenType;
 import com.LosCiruelos.padel_club_api.usuarios.exception.CodigoInvalidoException;
 import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
@@ -20,6 +21,7 @@ import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.usuarios.repository.EnvioCodigoTelefonoRepository;
 import com.LosCiruelos.padel_club_api.usuarios.repository.VerificationTokenRepository;
 import com.LosCiruelos.padel_club_api.notificaciones.email.EnvioPostCommit;
+import com.LosCiruelos.padel_club_api.notificaciones.service.MensajesWhatsAppService;
 import com.LosCiruelos.padel_club_api.notificaciones.whatsapp.WhatsAppServiceFactory;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
@@ -45,6 +47,7 @@ public class TelefonoService {
     private final UsuarioRepository usuarioRepository;
     private final WhatsAppServiceFactory whatsApp;
     private final ConfiguracionService configuracionService;
+    private final MensajesWhatsAppService mensajesWhatsApp;
     private final Reloj reloj;
     private final String plantillaCodigo;
     private final Topes topes;
@@ -58,7 +61,7 @@ public class TelefonoService {
 
     public TelefonoService(VerificationTokenRepository tokenRepository, EnvioCodigoTelefonoRepository envios,
             UsuarioService usuarioService, UsuarioRepository usuarioRepository, WhatsAppServiceFactory whatsApp,
-            ConfiguracionService configuracionService, Reloj reloj,
+            ConfiguracionService configuracionService, MensajesWhatsAppService mensajesWhatsApp, Reloj reloj,
             @Value("${whatsapp.plantilla-codigo:codigo_verificacion_v2}") String plantillaCodigo,
             @Value("${telefono.codigos-por-dia-usuario:5}") int porUsuarioPorDia,
             @Value("${telefono.codigos-por-dia-numero:5}") int porNumeroPorDia,
@@ -69,6 +72,7 @@ public class TelefonoService {
         this.usuarioRepository = usuarioRepository;
         this.whatsApp = whatsApp;
         this.configuracionService = configuracionService;
+        this.mensajesWhatsApp = mensajesWhatsApp;
         this.reloj = reloj;
         this.plantillaCodigo = plantillaCodigo;
         this.topes = new Topes(porUsuarioPorDia, porNumeroPorDia, segundosEntrePedidos);
@@ -109,8 +113,11 @@ public class TelefonoService {
 
         String telefono = usuario.getTelefono();
         String codigo = token.getToken();
+        boolean paraCliente = usuario.getRol() == Role.CLIENTE;
         EnvioPostCommit.ejecutar("código de WhatsApp a " + telefono, () -> {
-            if (!whatsApp.getService().enviarCodigo(telefono, plantillaCodigo, codigo)) {
+            if (whatsApp.getService().enviarCodigo(telefono, plantillaCodigo, codigo)) {
+                mensajesWhatsApp.registrarCodigo(paraCliente);
+            } else {
                 log.warn("No llegó a enviarse el código de verificación a {}", telefono);
             }
         });

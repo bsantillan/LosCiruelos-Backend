@@ -42,6 +42,7 @@ class AvisosServiceTest {
     private Usuario adminWhatsapp;
     private Usuario adminMail;
     private com.LosCiruelos.padel_club_api.club.entity.Configuracion configuracion;
+    private MensajesWhatsAppService mensajesWhatsApp;
 
     @BeforeEach
     void setUp() {
@@ -55,8 +56,9 @@ class AvisosServiceTest {
         when(whatsApp.estaConfigurado()).thenReturn(true);
         when(whatsApp.enviarPlantilla(anyString(), anyString(), anyList())).thenReturn(true);
         configuracion = com.LosCiruelos.padel_club_api.TestData.configuracion();
+        mensajesWhatsApp = mock(MensajesWhatsAppService.class);
         avisos = new AvisosService(usuarioService, fabricaWhatsApp, factory,
-                com.LosCiruelos.padel_club_api.TestData.configuracionService(configuracion));
+                com.LosCiruelos.padel_club_api.TestData.configuracionService(configuracion), mensajesWhatsApp);
 
         adminWhatsapp = usuario(1L, Role.ADMIN);
         adminWhatsapp.setTelefono("5491122334455");
@@ -226,5 +228,25 @@ class AvisosServiceTest {
 
         verify(whatsApp, never()).enviarPlantilla(anyString(), anyString(), anyList());
         verify(email).sendAviso(eq(cliente.getEmail()), anyString(), anyString());
+    }
+
+    @Test
+    void cuentaSoloLosWhatsappQueSalieron() {
+        avisos.enviar(confirmada());
+
+        // adminWhatsapp lo recibió por WhatsApp (personal); adminMail, por mail (no cuenta)
+        verify(mensajesWhatsApp).registrarAviso(TipoAviso.RESERVA_CONFIRMADA, false);
+        org.mockito.Mockito.verifyNoMoreInteractions(mensajesWhatsApp);
+    }
+
+    @Test
+    void siElWhatsappFallaNoSeCuentaYVaPorMail() {
+        when(whatsApp.enviarPlantilla(anyString(), anyString(), anyList())).thenReturn(false);
+
+        avisos.enviar(confirmada());
+
+        verify(mensajesWhatsApp, never()).registrarAviso(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyBoolean());
+        verify(email).sendAviso(eq(adminWhatsapp.getEmail()), anyString(), anyString());
     }
 }
