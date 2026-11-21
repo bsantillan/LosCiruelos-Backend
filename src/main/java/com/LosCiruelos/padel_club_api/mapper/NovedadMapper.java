@@ -16,13 +16,15 @@ public class NovedadMapper {
 
     public NovedadResponse aResponse(Novedad n, LocalDate hoy) {
         return new NovedadResponse(n.getId(), n.getTitulo(), n.getDescripcion(), n.getEtiqueta(),
-                AlmacenDeImagenes.url(n.getImagen()), Boolean.TRUE.equals(n.getPublicada()), n.getPublicadaAt(),
+                AlmacenDeImagenes.url(n.getImagen()), AlmacenDeImagenes.urlMiniatura(n.getImagen()),
+                Boolean.TRUE.equals(n.getPublicada()), n.getPublicadaAt(),
                 n.getVisibleHasta(), n.estado(hoy), nombre(n.getCreadoPor()), n.getCreatedAt(), n.getUpdatedAt());
     }
 
     public NovedadPublicaResponse aPublica(Novedad n) {
         return new NovedadPublicaResponse(n.getId(), n.getTitulo(), n.getDescripcion(), n.getEtiqueta(),
-                AlmacenDeImagenes.url(n.getImagen()), n.getPublicadaAt(), n.getVisibleHasta());
+                AlmacenDeImagenes.url(n.getImagen()), AlmacenDeImagenes.urlMiniatura(n.getImagen()), n.getPublicadaAt(),
+                n.getVisibleHasta());
     }
 
     private static String nombre(Usuario u) {

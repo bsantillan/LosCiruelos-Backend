@@ -44,6 +44,7 @@ Estado al 15/10/2026. El relevamiento del 12/10 encontró 20 problemas más vari
 
 ## Cambios de contrato para el front
 
+- **Imágenes optimizadas**: las fotos de cancha suman `miniaturaUrl` (`fotos[{id, url, miniaturaUrl, orden}]`) y las novedades `imagenMiniaturaUrl` (en el panel y en `GET /novedades`). La miniatura (480 px) va en tarjetas y listados; `url` / `imagenUrl` (1600 px), para verla grande. Las imágenes nuevas se guardan como JPG (o PNG si son transparentes) aunque se suban como WEBP. Errores nuevos al subir: `400` por más de 50 megapíxeles o por una imagen que no se puede leer.
 - **WhatsApp mandados**: nuevo `GET /perfil/avisos/whatsapp?desde&hasta` (ADMIN) con cuántos WhatsApp mandó el club en el período (total, códigos, avisos, a clientes, al personal y por tipo de aviso). Sin fechas, el mes en curso.
 - **WhatsApp a los clientes**: `GET`/`PUT /admin/configuracion` y `GET`/`PUT /admin/configuracion/avisos` suman `whatsappClientes` (en los `PUT` es opcional). `GET /perfil` suma `verificacionDeCelular`: con `false` el cliente no verifica el celular (no mostrar el código) y no puede elegir WhatsApp; `GET /perfil/notificaciones` le da `whatsappDisponible: false`. Elegir WhatsApp o pedir el código en ese caso responde `409`.
 

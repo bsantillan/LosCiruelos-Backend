@@ -143,6 +143,18 @@
 			<artifactId>libphonenumber</artifactId>
 			<version>8.13.55</version>
 		</dependency>
+		<!-- Imágenes subidas: achicar, recomprimir y miniaturas (respeta la orientación EXIF) -->
+		<dependency>
+			<groupId>net.coobird</groupId>
+			<artifactId>thumbnailator</artifactId>
+			<version>0.4.20</version>
+		</dependency>
+		<!-- Lector de WEBP para ImageIO (el JDK no lo trae) -->
+		<dependency>
+			<groupId>com.twelvemonkeys.imageio</groupId>
+			<artifactId>imageio-webp</artifactId>
+			<version>3.12.0</version>
+		</dependency>
 	</dependencies>
 
 	<build>
