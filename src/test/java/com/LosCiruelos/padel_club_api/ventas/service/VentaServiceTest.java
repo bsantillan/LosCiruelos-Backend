@@ -261,6 +261,45 @@ class VentaServiceTest {
     }
 
     @Test
+    void elAdminBonificaUnaVentaConMotivoYElStockBajaIgual() {
+        Usuario admin = usuario(1L, Role.ADMIN);
+        when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
+        VentaRequest req = pedido(MedioDePago.BONIFICACION, 3L, item(5L, 2));
+        req.setMotivo("  Cumpleaños del cliente ");
+
+        VentaResponse r = servicio.registrar(req, admin.getEmail());
+
+        assertThat(r.medio()).isEqualTo(MedioDePago.BONIFICACION);
+        assertThat(r.estado()).isEqualTo(EstadoVenta.COBRADA);
+        assertThat(r.total()).isEqualTo(new BigDecimal("3000.00"));
+        assertThat(r.motivoBonificacion()).isEqualTo("Cumpleaños del cliente");
+        assertThat(r.verificada()).isNull();
+        assertThat(r.qr()).isNull();
+        verify(productoService).descontarVentaSuelta(Map.of(agua, 2));
+        verify(cobroQr, never()).ocuparCaja();
+
+        // sin motivo también se puede
+        assertThat(servicio.registrar(pedido(MedioDePago.BONIFICACION, null, item(5L, 1)), admin.getEmail())
+                .motivoBonificacion()).isNull();
+    }
+
+    @Test
+    void soloElAdminBonificaYElMotivoEsSoloDeLaBonificacion() {
+        assertThatThrownBy(() -> servicio.registrar(pedido(MedioDePago.BONIFICACION, null, item(5L, 1)),
+                empleado.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.PermisoDenegadoException.class)
+                .hasMessage("Solo el ADMIN puede bonificar una venta.");
+
+        VentaRequest req = pedido(MedioDePago.EFECTIVO, null, item(5L, 1));
+        req.setMotivo("Porque sí");
+        assertThatThrownBy(() -> servicio.registrar(req, empleado.getEmail()))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.ReservaException.class)
+                .hasMessage("El motivo es solo para una venta bonificada.");
+        verify(productoService, never()).descontarVentaSuelta(anyMap());
+        verify(ventaRepository, never()).save(any());
+    }
+
+    @Test
     void unaVentaConCuentaDniQuedaSinVerificar() {
         VentaResponse r = servicio.registrar(pedido(MedioDePago.CUENTA_DNI, null, item(5L, 1)), empleado.getEmail());
 

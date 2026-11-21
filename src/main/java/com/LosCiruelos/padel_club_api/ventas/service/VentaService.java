@@ -51,13 +51,23 @@ public class VentaService {
      * Registra una venta suelta. Cada ítem es un producto de venta del catálogo o uno escrito a mano
      * (nombre y precio), que queda dado de alta. Descuenta el stock de los que lo controlan. En
      * efectivo o con Cuenta DNI queda cobrada; con Mercado Pago se le asigna a la caja el QR por el
-     * total y queda ESPERANDO_PAGO (con el stock apartado) hasta que MP confirma el pago.
+     * total y queda ESPERANDO_PAGO (con el stock apartado) hasta que MP confirma el pago. Bonificada
+     * (solo ADMIN): los productos se entregan, pero no se cobra.
+     *
+     * @throws PermisoDenegadoException (403) si un EMPLEADO la quiere bonificar
      */
     @Transactional
     public VentaResponse registrar(VentaRequest req, String emailPersonal) {
         Usuario personal = usuarioService.autenticado(emailPersonal);
         Usuario cliente = req.getClienteId() != null ? cliente(req.getClienteId()) : null;
         boolean conQr = req.getMedio() == MedioDePago.MERCADO_PAGO;
+        boolean bonificada = req.getMedio() == MedioDePago.BONIFICACION;
+        if (bonificada) {
+            Roles.exigirAdmin(personal, "Solo el ADMIN puede bonificar una venta.");
+        }
+        if (!bonificada && req.getMotivo() != null && !req.getMotivo().isBlank()) {
+            throw new ReservaException("El motivo es solo para una venta bonificada.");
+        }
         if (conQr) {
             cobroQr.exigirConfigurado();
             cobroQr.ocuparCaja(); // primero la caja, después el stock
@@ -68,6 +78,8 @@ public class VentaService {
                 .medio(req.getMedio())
                 .cliente(cliente)
                 .registradoPor(personal)
+                .motivoBonificacion(bonificada && req.getMotivo() != null && !req.getMotivo().isBlank()
+                        ? req.getMotivo().trim() : null)
                 .build();
         if (conQr) {
             venta.esperarPagoConQr(cobroQr.vencimiento());

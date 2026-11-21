@@ -15,7 +15,7 @@ import com.LosCiruelos.padel_club_api.pagos.entity.enums.TipoMovimientoCaja;
  * @param devuelto       las devoluciones entregadas en la jornada (o confirmadas por Mercado Pago), por el
  *                       medio del cobro original
  * @param efectivoEnCaja cobrado.efectivo − devuelto.efectivo
- * @param bonificado     lo bonificado en la jornada (no es plata)
+ * @param bonificado     lo bonificado en la jornada, en reservas y ventas sueltas (no es plata)
  * @param aEntregar      las devoluciones de la jornada que todavía hay que darle al cliente
  * @param movimientos    todo lo que movió plata, en orden de fecha
  */

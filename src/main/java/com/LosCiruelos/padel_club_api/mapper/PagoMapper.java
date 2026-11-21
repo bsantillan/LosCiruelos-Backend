@@ -35,9 +35,11 @@ public class PagoMapper {
             case TARJETA_MP -> "/admin/reservas/{id}/cobros/tarjeta-mp";
             case CUENTA_DNI -> "/admin/reservas/{id}/cobros/cuenta-dni";
             case TARJETA -> "/admin/reservas/{id}/cobros/tarjeta";
+            case BONIFICACION -> "/admin/reservas/{id}/bonificacion";
         };
         return new com.LosCiruelos.padel_club_api.pagos.dto.response.MedioDeCobroResponse(medio, medio.etiqueta(),
-                com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(medio), medio.opcion(), disponible, medio.conQr(), disponible ? null : "El QR de la caja de Mercado Pago no está configurado.",
+                com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.grupoDe(medio), medio.opcion(),
+                medio.soloAdmin(), disponible, medio.conQr(), disponible ? null : "El QR de la caja de Mercado Pago no está configurado.",
                 "POST", ruta);
     }
 

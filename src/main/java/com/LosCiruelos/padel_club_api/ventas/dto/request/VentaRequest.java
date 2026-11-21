@@ -22,8 +22,12 @@ public class VentaRequest {
     @Size(max = 20, message = "Se pueden vender hasta 20 productos distintos")
     private List<@Valid @NotNull(message = "Indicá qué se vende") Item> items;
 
-    @NotNull(message = "Indicá cómo se cobró: EFECTIVO, MERCADO_PAGO, TRANSFERENCIA_MP o CUENTA_DNI")
+    @NotNull(message = "Indicá cómo se cobró: EFECTIVO, MERCADO_PAGO, TRANSFERENCIA_MP, TARJETA_MP, CUENTA_DNI, TARJETA o BONIFICACION")
     private MedioDePago medio;
+
+    // solo con BONIFICACION (opcional): por qué no se le cobra
+    @Size(max = 200, message = "El motivo puede tener hasta 200 caracteres")
+    private String motivo;
 
     // opcional
     private Long clienteId;

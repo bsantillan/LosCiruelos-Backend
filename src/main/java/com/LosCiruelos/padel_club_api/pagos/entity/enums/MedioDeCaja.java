@@ -25,13 +25,20 @@ public enum MedioDeCaja {
         };
     }
 
-    /** El medio de una venta suelta (y el grupo de un medio de cobro en el panel). */
+    /** El medio de una venta suelta (una bonificada no es plata: null). */
     public static MedioDeCaja de(MedioDePago medio) {
         return switch (medio) {
             case EFECTIVO -> EFECTIVO;
             case MERCADO_PAGO, TRANSFERENCIA_MP, TARJETA_MP -> MERCADO_PAGO;
             case CUENTA_DNI -> CUENTA_DNI;
             case TARJETA -> TARJETA;
+            case BONIFICACION -> null;
         };
+    }
+
+    /** El grupo en que el panel muestra un medio: el de la caja, o BONIFICACION. */
+    public static String grupoDe(MedioDePago medio) {
+        MedioDeCaja caja = de(medio);
+        return caja != null ? caja.name() : "BONIFICACION";
     }
 }

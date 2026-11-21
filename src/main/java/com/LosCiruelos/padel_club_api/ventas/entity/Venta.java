@@ -86,6 +86,10 @@ public class Venta {
     @Column(name = "motivo_anulacion", length = 200)
     private String motivoAnulacion;
 
+    // venta bonificada por el ADMIN: por qué (opcional)
+    @Column(name = "motivo_bonificacion", length = 200)
+    private String motivoBonificacion;
+
     // Venta con Mercado Pago: la order del QR de la caja y hasta cuándo se puede pagar
     @Column(name = "order_id", length = 64)
     private String orderId;
@@ -135,6 +139,11 @@ public class Venta {
 
     public boolean estaVerificada() {
         return verificadoAt != null;
+    }
+
+    /** El ADMIN no se la cobró al cliente: no es plata. */
+    public boolean estaBonificada() {
+        return medio == MedioDePago.BONIFICACION;
     }
 
     public boolean estaAnulada() {
@@ -198,6 +207,10 @@ public class Venta {
             LocalDateTime ahora) {
         if (estaAnulada()) {
             throw new EstadoInvalidoException("La venta está anulada: no se puede devolver.");
+        }
+        if (estaBonificada()) {
+            throw new EstadoInvalidoException(
+                    "La venta está bonificada: no hay plata para devolver. Si hay que deshacerla, anulala (el stock vuelve).");
         }
         exigirCobrada("devolver");
         // primero se valida todo; recién después se toca algo

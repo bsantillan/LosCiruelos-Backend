@@ -161,7 +161,31 @@ class VentaTest {
         assertThat(MedioDePago.TRANSFERENCIA_MP.seVerifica()).isTrue();
         assertThat(MedioDePago.MERCADO_PAGO.seVerifica()).isFalse();
         assertThat(MedioDePago.values()).containsExactly(MedioDePago.EFECTIVO, MedioDePago.MERCADO_PAGO,
-                MedioDePago.TRANSFERENCIA_MP, MedioDePago.TARJETA_MP, MedioDePago.CUENTA_DNI, MedioDePago.TARJETA);
+                MedioDePago.TRANSFERENCIA_MP, MedioDePago.TARJETA_MP, MedioDePago.CUENTA_DNI, MedioDePago.TARJETA,
+                MedioDePago.BONIFICACION);
+    }
+
+    @Test
+    void laBonificacionNoEsPlataYEsSoloDelAdmin() {
+        assertThat(MedioDePago.BONIFICACION.esPlata()).isFalse();
+        assertThat(MedioDePago.BONIFICACION.soloAdmin()).isTrue();
+        assertThat(MedioDePago.BONIFICACION.seVerifica()).isFalse();
+        assertThat(MedioDePago.BONIFICACION.conQr()).isFalse();
+        assertThat(java.util.Arrays.stream(MedioDePago.values()).filter(m -> m != MedioDePago.BONIFICACION))
+                .allMatch(MedioDePago::esPlata).noneMatch(MedioDePago::soloAdmin);
+        assertThat(com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(MedioDePago.BONIFICACION)).isNull();
+        assertThat(com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.grupoDe(MedioDePago.BONIFICACION))
+                .isEqualTo("BONIFICACION");
+    }
+
+    @Test
+    void unaVentaBonificadaNoSeDevuelvePeroSeAnula() {
+        Venta bonificada = Venta.builder().id(9L).createdAt(AHORA).medio(MedioDePago.BONIFICACION).build();
+        assertThat(bonificada.estaBonificada()).isTrue();
+
+        assertThatThrownBy(() -> bonificada.devolver(java.util.List.of(), "Vencida", null, AHORA))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException.class)
+                .hasMessageContaining("bonificada");
     }
 
     @Test

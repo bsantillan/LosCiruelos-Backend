@@ -55,7 +55,7 @@ public class ResumenMapper {
         Caja caja = new Caja(Dinero.redondear(total), Dinero.redondear(efectivo), Dinero.redondear(mercadoPago),
                 Dinero.redondear(cuentaDni), Dinero.redondear(tarjeta),
                 Dinero.redondear(devoluciones), Dinero.redondear(total.subtract(devoluciones)), detalle,
-                Dinero.redondear(e.bonificado()), inicioCaja, finCaja);
+                Dinero.redondear(e.bonificado().add(v.bonificado())), inicioCaja, finCaja);
 
         return new ResumenResponse(desde, hasta, jugados, porJugar, caja,
                 new Cancelaciones(cantidad(t.cancelados()), Dinero.redondear(c.retenidoCancelaciones())),

@@ -126,7 +126,7 @@ public class VentaConsultaService {
     public TotalesDeVentas totales(LocalDateTime inicio, LocalDateTime fin) {
         return ventaRepository.totales(inicio, fin, EstadoVenta.COBRADA, MedioDePago.EFECTIVO,
                 MedioDePago.MERCADO_PAGO, MedioDePago.TRANSFERENCIA_MP, MedioDePago.TARJETA_MP, MedioDePago.CUENTA_DNI,
-                MedioDePago.TARJETA);
+                MedioDePago.TARJETA, MedioDePago.BONIFICACION);
     }
 
     /** Lo devuelto de las ventas en [inicio, fin), por fecha de la devolución (la caja del resumen). */
@@ -145,7 +145,7 @@ public class VentaConsultaService {
 
     /** Lo vendido de cada producto en [inicio, fin), sin las ventas anuladas ni lo devuelto. */
     public List<VentaPorProducto> porProducto(LocalDateTime inicio, LocalDateTime fin) {
-        return ventaRepository.porProducto(inicio, fin, EstadoVenta.COBRADA);
+        return ventaRepository.porProducto(inicio, fin, EstadoVenta.COBRADA, MedioDePago.BONIFICACION);
     }
 
     /** Las ventas cobradas o anuladas de [inicio, fin), para el cierre de caja (las anuladas se restan). */

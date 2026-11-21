@@ -3,7 +3,8 @@ package com.LosCiruelos.padel_club_api.ventas.entity.enums;
 /**
  * Cómo se cobra en el club (una venta suelta o una reserva), en el orden en que se muestran. En el
  * panel se agrupan por {@code MedioDeCaja}: Efectivo, Mercado Pago (QR, transferencia o tarjeta en su
- * posnet), Cuenta DNI y Tarjeta (otro posnet).
+ * posnet), Cuenta DNI y Tarjeta (otro posnet). BONIFICACION es solo de las ventas sueltas (una reserva
+ * se bonifica con su propio endpoint) y no es plata.
  */
 public enum MedioDePago {
     EFECTIVO("Efectivo", "Efectivo", false),
@@ -16,7 +17,9 @@ public enum MedioDePago {
     // Cuenta DNI (Banco Provincia): se cobra a mano y el ADMIN lo verifica
     CUENTA_DNI("Cuenta DNI", "Cuenta DNI", false),
     // tarjeta en otro posnet (Clover u otro): la plata entra al banco de ese posnet
-    TARJETA("Tarjeta (otro posnet)", "Tarjeta", false);
+    TARJETA("Tarjeta (otro posnet)", "Tarjeta", false),
+    // solo ADMIN, solo en las ventas: no se le cobra al cliente. Los productos se entregan pero no es plata
+    BONIFICACION("Bonificación del club", "Bonificación", false);
 
     private final String etiqueta;
     private final String opcion;
@@ -44,6 +47,16 @@ public enum MedioDePago {
      */
     public boolean seVerifica() {
         return this == CUENTA_DNI || this == TRANSFERENCIA_MP;
+    }
+
+    /** Es plata que entra (todos menos la bonificación): cuenta en la caja y en lo vendido. */
+    public boolean esPlata() {
+        return this != BONIFICACION;
+    }
+
+    /** Solo lo puede usar el ADMIN (la bonificación). */
+    public boolean soloAdmin() {
+        return this == BONIFICACION;
     }
 
     /** Se cobra con el QR de la caja: solo se puede si está configurado. */
