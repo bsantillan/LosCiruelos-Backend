@@ -197,6 +197,7 @@ Se recalcula siempre a partir de los pagos `APROBADO` (plata más bonificaciones
 - **El cliente elige** (con el perfil completo) si recibe recordatorios y novedades/promociones (`PUT /perfil/suscripciones`; se guarda en su perfil de jugador); las cancelaciones se le avisan siempre. Los recordatorios y las promociones son **solo para clientes**: un jugador de un partido que no es cliente (por ejemplo, un EMPLEADO) no recibe el recordatorio.
 - **Al cliente**: recordatorio 2 h antes del turno (configurable en `PUT /admin/configuracion/avisos`) y aviso cuando **el club** le cancela una reserva. Si cancela él, no se le avisa: ya lo ve en la página.
 - **Canal**: cada usuario elige mail o WhatsApp en su perfil (o con el checkbox del registro). WhatsApp se usa solo con el teléfono verificado por código; si no, o si WhatsApp falla, va por mail. Nunca por los dos.
+- **WhatsApp a los clientes** (`Configuracion.whatsappClientes`, lo elige el ADMIN en `PUT /admin/configuracion/avisos`; prendido por defecto): apagado, a ningún CLIENTE le sale un WhatsApp. Sus avisos van por mail aunque haya elegido WhatsApp (`AvisosService.canalPara`), no puede elegir WhatsApp (`Usuario.elegirCanal`, `409`), no se le manda el código del celular (`TelefonoService`, `409`) y su perfil se completa con el celular cargado, sin verificar (`Usuario.datosPersonalesCompletos`). Así el club puede abrir las reservas sin el número aprobado por Meta, o dejar de pagar mensajes. Al personal (ADMIN, EMPLEADO, PROFESOR) no le cambia nada (`Usuario.puedeUsarWhatsapp`). Con el WhatsApp apagado, el celular no verificado no es único entre cuentas.
 - Se envían después del commit y en otro hilo: no demoran la respuesta y un error de envío no afecta a la reserva. Detalle en [whatsapp.md](whatsapp.md).
 
 ### 6 bis. Mis reservas — `GET /reservas/mias`
@@ -328,7 +329,7 @@ Cada pago tiene una `clave_idempotencia` (UUID que se genera al crearlo y no cam
 ### Login
 - Local: contraseña → email verificado (`403 email_verificado`) → cuenta habilitada (`403`).
 - Google: el `idToken` se valida contra `GOOGLE_CLIENT_ID` y Google tiene que confirmar el email. Si el email no existe, se crea un CLIENTE verificado con perfil vacío (`perfilCompleto: false`). Si existe y no estaba verificado, queda verificado.
-- `perfilCompleto`: el CLIENTE necesita nombre, apellido, **celular verificado** (código por WhatsApp), categoría y posición; el ADMIN, nombre, apellido y celular verificado; EMPLEADO y PROFESOR siempre `true`. Un CLIENTE sin perfil completo no puede reservar (`403`), tampoco si el personal reserva por él.
+- `perfilCompleto`: el CLIENTE necesita nombre, apellido, **celular verificado** (código por WhatsApp; solo cargado si el club no le manda WhatsApp), categoría y posición; el ADMIN, nombre, apellido y celular verificado; EMPLEADO y PROFESOR siempre `true`. Un CLIENTE sin perfil completo no puede reservar (`403`), tampoco si el personal reserva por él.
 - Tokens: access JWT de 15 min y refresh de 7 días, uno por usuario (iniciar sesión en otro lado cierra la anterior). `/auth/refresh` rota el refresh token y rechaza cuentas desactivadas.
 
 ### Límite de intentos

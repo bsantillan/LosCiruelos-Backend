@@ -40,9 +40,11 @@ class NotificacionesServiceTest {
     private AvisosService avisosService;
     private NotificacionesService notificaciones;
     private Usuario usuario;
+    private com.LosCiruelos.padel_club_api.club.entity.Configuracion configuracion;
 
     @BeforeEach
     void setUp() {
+        configuracion = TestData.configuracion();
         usuarioService = mock(UsuarioService.class);
         telefonoService = mock(TelefonoService.class);
         clienteProfileService = mock(ClienteProfileService.class);
@@ -53,7 +55,7 @@ class NotificacionesServiceTest {
         when(whatsApp.estaConfigurado()).thenReturn(true);
         notificaciones = new NotificacionesService(usuarioService, telefonoService, clienteProfileService,
                 avisosService, fabricaWhatsApp,
-                new NotificacionesMapper(), TestData.reloj(AHORA));
+                new NotificacionesMapper(), TestData.configuracionService(configuracion), TestData.reloj(AHORA));
 
         usuario = usuario(1L, Role.CLIENTE);
         TestData.perfilDeCliente(usuario);
@@ -169,5 +171,25 @@ class NotificacionesServiceTest {
 
         assertThat(r.enviado()).isTrue();
         assertThat(r.destino()).isEqualTo(admin.getEmail());
+    }
+
+    @Test
+    void sinWhatsappParaClientesElClienteNoPuedeElegirloNiLoVeDisponible() {
+        configuracion.setWhatsappClientes(false);
+
+        assertThat(notificaciones.obtener(usuario.getEmail()).whatsappDisponible()).isFalse();
+        assertThatThrownBy(() -> notificaciones.actualizar(usuario.getEmail(), CanalNotificacion.WHATSAPP, null))
+                .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException.class);
+        assertThat(usuario.getCanalNotificaciones()).isEqualTo(CanalNotificacion.EMAIL);
+        verify(telefonoService, never()).enviarCodigoSiCorresponde(any());
+    }
+
+    @Test
+    void sinWhatsappParaClientesElAdminLoSigueTeniendoDisponible() {
+        configuracion.setWhatsappClientes(false);
+        Usuario admin = usuario(5L, Role.ADMIN);
+        when(usuarioService.autenticado(admin.getEmail())).thenReturn(admin);
+
+        assertThat(notificaciones.obtener(admin.getEmail()).whatsappDisponible()).isTrue();
     }
 }

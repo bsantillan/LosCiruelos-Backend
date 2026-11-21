@@ -43,10 +43,21 @@ public final class TestData {
 
     /** La jornada real (con el horario de {@link #configuracion()}) en el momento del reloj. */
     public static com.LosCiruelos.padel_club_api.club.service.JornadaService jornadas(Reloj reloj) {
-        com.LosCiruelos.padel_club_api.club.service.ConfiguracionService config = org.mockito.Mockito
+        return new com.LosCiruelos.padel_club_api.club.service.JornadaService(configuracionService(), reloj);
+    }
+
+    /** Un ConfiguracionService (mock) que devuelve {@link #configuracion()}. */
+    public static com.LosCiruelos.padel_club_api.club.service.ConfiguracionService configuracionService() {
+        return configuracionService(configuracion());
+    }
+
+    /** Un ConfiguracionService (mock) que devuelve esa configuración. */
+    public static com.LosCiruelos.padel_club_api.club.service.ConfiguracionService configuracionService(
+            Configuracion config) {
+        com.LosCiruelos.padel_club_api.club.service.ConfiguracionService servicio = org.mockito.Mockito
                 .mock(com.LosCiruelos.padel_club_api.club.service.ConfiguracionService.class);
-        org.mockito.Mockito.lenient().when(config.obtener()).thenReturn(configuracion());
-        return new com.LosCiruelos.padel_club_api.club.service.JornadaService(config, reloj);
+        org.mockito.Mockito.lenient().when(servicio.obtener()).thenReturn(config);
+        return servicio;
     }
 
     /** Configuración por defecto del DataInitializer: seña 50 %, 90-180 min, $5000 cada 30 min. */

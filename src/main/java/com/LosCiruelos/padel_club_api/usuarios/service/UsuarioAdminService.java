@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.mapper.UsuarioMapper;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.CrearUsuarioAdminRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.EditarUsuarioAdminRequest;
 import com.LosCiruelos.padel_club_api.usuarios.dto.request.FiltroUsuarioRequest;
@@ -55,6 +56,7 @@ public class UsuarioAdminService {
     private final RefreshTokenService refreshTokenService;
     private final VerificationService verificationService;
     private final UsuarioMapper usuarioMapper;
+    private final ConfiguracionService configuracionService;
 
     /** El ADMIN da de alta cualquier rol; el EMPLEADO, solo clientes (403 con otro rol). */
     @Transactional
@@ -187,7 +189,9 @@ public class UsuarioAdminService {
         };
         PageRequest primeros = PageRequest.of(0, MAXIMO_RESULTADOS_BUSQUEDA,
                 Sort.by("apellido", "nombre", "id"));
-        return usuarioRepository.findAll(spec, primeros).stream().map(usuarioMapper::aBusquedaResponse).toList();
+        boolean whatsappParaClientes = configuracionService.obtener().whatsappParaClientes();
+        return usuarioRepository.findAll(spec, primeros).stream()
+                .map(usuario -> usuarioMapper.aBusquedaResponse(usuario, whatsappParaClientes)).toList();
     }
 
     /** La respuesta con el perfil de jugador, si es CLIENTE. */

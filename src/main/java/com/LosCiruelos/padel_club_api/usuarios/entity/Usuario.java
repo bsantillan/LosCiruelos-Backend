@@ -1,5 +1,6 @@
 package com.LosCiruelos.padel_club_api.usuarios.entity;
 
+import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import java.time.LocalDateTime;
 
@@ -146,17 +147,35 @@ public class Usuario {
         return adminProfile != null ? adminProfile : AdminProfile.porDefecto(this);
     }
 
-    /** Nombre, apellido y celular verificado con el código de WhatsApp (igual que el mail). */
-    public boolean datosPersonalesCompletos() {
-        return telefono != null && Boolean.TRUE.equals(telefonoVerificado) && nombre != null && apellido != null;
+    /**
+     * Si el club le puede mandar WhatsApp (avisos y el código del celular): al personal siempre; al
+     * CLIENTE, solo si el ADMIN lo permite ({@code Configuracion.whatsappParaClientes}).
+     */
+    public boolean puedeUsarWhatsapp(boolean whatsappParaClientes) {
+        return rol != Role.CLIENTE || whatsappParaClientes;
     }
 
     /**
-     * Elige el canal de los avisos. WhatsApp necesita el teléfono cargado y registra el
-     * consentimiento la primera vez; volver al mail lo retira.
+     * Nombre, apellido y celular. El celular tiene que estar verificado con el código de WhatsApp
+     * (igual que el mail), salvo que el club no le mande WhatsApp: entonces alcanza con cargarlo.
      */
-    public void elegirCanal(CanalNotificacion canal, LocalDateTime ahora) {
+    public boolean datosPersonalesCompletos(boolean whatsappParaClientes) {
+        boolean celularListo = telefono != null
+                && (Boolean.TRUE.equals(telefonoVerificado) || !puedeUsarWhatsapp(whatsappParaClientes));
+        return celularListo && nombre != null && apellido != null;
+    }
+
+    /**
+     * Elige el canal de los avisos. WhatsApp necesita el teléfono cargado y que el club se lo
+     * pueda mandar, y registra el consentimiento la primera vez; volver al mail lo retira.
+     *
+     * @throws EstadoInvalidoException (409) si el club no manda WhatsApp a los clientes
+     */
+    public void elegirCanal(CanalNotificacion canal, LocalDateTime ahora, boolean whatsappParaClientes) {
         if (canal == CanalNotificacion.WHATSAPP) {
+            if (!puedeUsarWhatsapp(whatsappParaClientes)) {
+                throw new EstadoInvalidoException("El club no manda avisos por WhatsApp por ahora: te llegan por mail.");
+            }
             if (telefono == null) {
                 throw new ReservaException("Cargá tu teléfono para recibir avisos por WhatsApp.");
             }

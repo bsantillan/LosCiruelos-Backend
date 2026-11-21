@@ -66,4 +66,25 @@ class ConfiguracionServiceTest {
         assertThat(r.diasAnticipacion()).isEqualTo(45);
         assertThat(config.getDiasAnticipacionReserva()).isEqualTo(45); // se guarda al terminar la transacción
     }
+
+    @Test
+    void elAdminApagaElWhatsappParaLosClientesYSinElCampoQuedaComoEstaba() {
+        RecordatorioConfigRequest req = new RecordatorioConfigRequest();
+        req.setRecordatorioActivo(true);
+        req.setMinutosRecordatorio(120);
+        req.setWhatsappClientes(false);
+
+        assertThat(configuracionService.actualizarRecordatorio(req).whatsappClientes()).isFalse();
+
+        Configuracion apagado = TestData.configuracion();
+        apagado.setWhatsappClientes(false);
+        when(configuracionRepository.obtener()).thenReturn(apagado);
+        req.setWhatsappClientes(null);
+        assertThat(configuracionService.actualizarRecordatorio(req).whatsappClientes()).isFalse();
+    }
+
+    @Test
+    void porDefectoElClubMandaWhatsappALosClientes() {
+        assertThat(configuracionService.recordatorio().whatsappClientes()).isTrue();
+    }
 }

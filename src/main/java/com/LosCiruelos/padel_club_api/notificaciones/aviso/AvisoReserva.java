@@ -8,6 +8,7 @@ import java.util.List;
 import com.LosCiruelos.padel_club_api.reservas.entity.Reserva;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
+import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.common.Dinero;
 import com.LosCiruelos.padel_club_api.common.Fechas;
 
@@ -35,14 +36,24 @@ public record AvisoReserva(
         String detalle,
         String link) {
 
-    /** Datos de contacto de quien recibe el aviso. */
+    /**
+     * Datos de contacto de quien recibe el aviso.
+     *
+     * @param cliente si es un CLIENTE: solo le llega WhatsApp si el club se lo manda
+     */
     public record Destinatario(String nombre, String email, String telefono, CanalNotificacion canal,
-            boolean telefonoVerificado) {
+            boolean telefonoVerificado, boolean cliente) {
 
         public static Destinatario de(Usuario usuario) {
             String nombre = usuario.getNombre() != null ? usuario.getNombre() : "";
             return new Destinatario(nombre, usuario.getEmail(), usuario.getTelefono(),
-                    usuario.getCanalNotificaciones(), Boolean.TRUE.equals(usuario.getTelefonoVerificado()));
+                    usuario.getCanalNotificaciones(), Boolean.TRUE.equals(usuario.getTelefonoVerificado()),
+                    usuario.getRol() == Role.CLIENTE);
+        }
+
+        /** Como {@code Usuario.puedeUsarWhatsapp}: al personal siempre; al CLIENTE, si el club lo permite. */
+        public boolean puedeUsarWhatsapp(boolean whatsappParaClientes) {
+            return !cliente || whatsappParaClientes;
         }
     }
 
