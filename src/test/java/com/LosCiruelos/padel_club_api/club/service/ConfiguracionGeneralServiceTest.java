@@ -163,6 +163,18 @@ class ConfiguracionGeneralServiceTest {
         }
 
         @Test
+        void elWhatsappALosClientesSeCambiaSoloSiVieneEnElPedido() {
+            var req = pedido();
+            req.setWhatsappClientes(false);
+            assertThat(servicio.actualizar(req, EMAIL).whatsappClientes()).isFalse();
+            assertThat(config.whatsappParaClientes()).isFalse();
+
+            // sin el campo (un front viejo) queda como estaba
+            assertThat(servicio.actualizar(pedido(), EMAIL).whatsappClientes()).isFalse();
+            assertThat(config.whatsappParaClientes()).isFalse();
+        }
+
+        @Test
         void lasReglasDeLaConfiguracionSeValidan() {
             ConfiguracionRequest req = pedido();
             req.setMinutosReembolsoTotal(60);

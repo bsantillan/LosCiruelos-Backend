@@ -503,6 +503,7 @@ Toda la configuración junta. Lo que responde el `GET` es exactamente el body de
   "duracionMinimaTurno": 90, "duracionMaximaTurno": 180,
   "minutosReembolsoTotal": 1440, "minutosReembolsoSenia": 720,
   "recordatorioActivo": true, "minutosRecordatorio": 120,
+  "whatsappClientes": true,          // si el club manda WhatsApp a los clientes (opcional en el PUT)
   "diasAnticipacion": 30,
   "minutosPagoSeniaOnline": 120,
   "horarios": [
@@ -527,7 +528,7 @@ Toda la configuración junta. Lo que responde el `GET` es exactamente el body de
 | Método y ruta | Descripción | Errores |
 |---|---|---|
 | `GET /admin/configuracion` → `200` | Toda la configuración; `horarios` de lunes a domingo. | `403` EMPLEADO o CLIENTE |
-| `PUT /admin/configuracion` → `200` | Reemplaza toda la configuración (todos los campos son obligatorios, salvo `confirmar`) y responde la nueva. Rige para lo que se reserve o se cobre desde ahora: las reservas que ya existen conservan su precio y su seña. La configuración está en caché y se invalida al guardar. **Antes de guardar se revisa qué queda afuera del horario nuevo** (ver abajo). | `400` validación (`errors.campo`, `errors['horarios[0].apertura']`…), "La duración de los turnos tiene que ser un múltiplo de 30 minutos.", "La duración mínima del turno no puede superar la máxima.", "La anticipación para devolver todo no puede ser menor que la de devolver la seña.", "Día inválido: Feriado. Usá Lunes a Domingo.", "El lunes está repetido.", "El sábado, la apertura tiene que ser antes del cierre.", "El martes abre menos que el turno mínimo (90 minutos)." · `403` EMPLEADO o CLIENTE · `409` el horario nuevo deja afuera reservas o turnos fijos y no vino `"confirmar": true` |
+| `PUT /admin/configuracion` → `200` | Reemplaza toda la configuración (todos los campos son obligatorios, salvo `confirmar`, `minutosPagoSeniaOnline` y `whatsappClientes`: si no vienen, quedan como estaban) y responde la nueva. Rige para lo que se reserve o se cobre desde ahora: las reservas que ya existen conservan su precio y su seña. La configuración está en caché y se invalida al guardar. **Antes de guardar se revisa qué queda afuera del horario nuevo** (ver abajo). | `400` validación (`errors.campo`, `errors['horarios[0].apertura']`…), "La duración de los turnos tiene que ser un múltiplo de 30 minutos.", "La duración mínima del turno no puede superar la máxima.", "La anticipación para devolver todo no puede ser menor que la de devolver la seña.", "Día inválido: Feriado. Usá Lunes a Domingo.", "El lunes está repetido.", "El sábado, la apertura tiene que ser antes del cierre.", "El martes abre menos que el turno mínimo (90 minutos)." · `403` EMPLEADO o CLIENTE · `409` el horario nuevo deja afuera reservas o turnos fijos y no vino `"confirmar": true` |
 
 **Reservas y turnos fijos fuera del horario nuevo.** Antes de guardar, se buscan:
 - reservas que todavía no empezaron y no están `CANCELADA` ni `EXPIRADA` (también partidos y partidos de turnos fijos) cuyo turno no entra en el horario nuevo de su día, o cuyo día deja de abrir;

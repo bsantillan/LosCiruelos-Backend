@@ -27,7 +27,8 @@ public class ConfiguracionMapper {
         return new ConfiguracionResponse(Dinero.redondear(c.getMontoReserva()), Dinero.redondear(c.getMontoXMediaHora()),
                 Dinero.redondear(c.getPorcentajeSenia()), c.getDuracionMinimaTurno(), c.getDuracionMaximaTurno(),
                 c.getMinutosReembolsoTotal(), c.getMinutosReembolsoSenia(), c.getRecordatorioActivo(),
-                c.getMinutosRecordatorio(), c.getDiasAnticipacionReserva(), c.getMinutosPagoSeniaOnline(), horarios(c),
+                c.getMinutosRecordatorio(), c.whatsappParaClientes(), c.getDiasAnticipacionReserva(),
+                c.getMinutosPagoSeniaOnline(), horarios(c),
                 null);
     }
 
@@ -35,7 +36,8 @@ public class ConfiguracionMapper {
     public ConfiguracionResponse conCancelaciones(ConfiguracionResponse r, CancelacionesResponse cancelaciones) {
         return new ConfiguracionResponse(r.montoReserva(), r.montoXMediaHora(), r.porcentajeSenia(),
                 r.duracionMinimaTurno(), r.duracionMaximaTurno(), r.minutosReembolsoTotal(), r.minutosReembolsoSenia(),
-                r.recordatorioActivo(), r.minutosRecordatorio(), r.diasAnticipacion(), r.minutosPagoSeniaOnline(),
+                r.recordatorioActivo(), r.minutosRecordatorio(), r.whatsappClientes(), r.diasAnticipacion(),
+                r.minutosPagoSeniaOnline(),
                 r.horarios(), cancelaciones);
     }
 

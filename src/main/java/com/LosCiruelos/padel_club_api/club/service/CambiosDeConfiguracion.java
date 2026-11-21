@@ -63,6 +63,9 @@ public class CambiosDeConfiguracion {
         config.cambiarPoliticaCancelacion(req.getMinutosReembolsoTotal(), req.getMinutosReembolsoSenia());
         config.setRecordatorioActivo(req.getRecordatorioActivo());
         config.setMinutosRecordatorio(req.getMinutosRecordatorio());
+        if (req.getWhatsappClientes() != null) {
+            config.setWhatsappClientes(req.getWhatsappClientes());
+        }
         config.setDiasAnticipacionReserva(req.getDiasAnticipacion());
         if (req.getMinutosPagoSeniaOnline() != null) {
             config.setMinutosPagoSeniaOnline(req.getMinutosPagoSeniaOnline());
