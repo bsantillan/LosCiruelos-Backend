@@ -118,6 +118,7 @@ class ControllersTest {
     private ProductoService productoService;
     private StockService stockService;
     private NotificacionesService notificacionesService;
+    private com.LosCiruelos.padel_club_api.notificaciones.service.MensajesWhatsAppService mensajesWhatsAppService;
     private ConfiguracionService configuracionService;
     private com.LosCiruelos.padel_club_api.club.service.ConfiguracionGeneralService configuracionGeneralService;
     private ReservaConsultaService reservaConsultaService;
@@ -145,6 +146,7 @@ class ControllersTest {
         productoService = mock(ProductoService.class);
         stockService = mock(StockService.class);
         notificacionesService = mock(NotificacionesService.class);
+        mensajesWhatsAppService = mock(com.LosCiruelos.padel_club_api.notificaciones.service.MensajesWhatsAppService.class);
         configuracionService = mock(ConfiguracionService.class);
         configuracionGeneralService = mock(com.LosCiruelos.padel_club_api.club.service.ConfiguracionGeneralService.class);
         reservaConsultaService = mock(ReservaConsultaService.class);
@@ -168,7 +170,7 @@ class ControllersTest {
                 new ProductoAdminController(productoService, stockService),
                 new ConfiguracionAdminController(configuracionService, configuracionGeneralService),
                 new com.LosCiruelos.padel_club_api.club.controller.ClubController(configuracionGeneralService),
-                new NotificacionesController(notificacionesService),
+                new NotificacionesController(notificacionesService, mensajesWhatsAppService),
                 new ReservaAdminController(reservaService, reservaConsultaService, cancelacionService, cobroService),
                 new VentaAdminController(ventaService, ventaConsultaService, ventaQrService))
                 .setControllerAdvice(new GlobalExceptionHandler(TestData.reloj(TestData.AHORA)))
@@ -990,6 +992,17 @@ class ControllersTest {
                     .andExpect(jsonPath("$.errors.codigo").exists());
             mvc.perform(json(post("/perfil/telefono/codigo"), "")).andExpect(status().isOk());
             verify(notificacionesService).enviarCodigo(EMAIL);
+        }
+
+        @Test
+        void whatsappMandadosConYSinFechas() throws Exception {
+            mvc.perform(get("/perfil/avisos/whatsapp")).andExpect(status().isOk());
+            verify(mensajesWhatsAppService).resumen(null, null);
+            mvc.perform(get("/perfil/avisos/whatsapp").param("desde", "2026-10-01").param("hasta", "2026-10-31"))
+                    .andExpect(status().isOk());
+            verify(mensajesWhatsAppService).resumen(java.time.LocalDate.of(2026, 10, 1),
+                    java.time.LocalDate.of(2026, 10, 31));
+            mvc.perform(get("/perfil/avisos/whatsapp").param("desde", "ayer")).andExpect(status().isBadRequest());
         }
 
         @Test

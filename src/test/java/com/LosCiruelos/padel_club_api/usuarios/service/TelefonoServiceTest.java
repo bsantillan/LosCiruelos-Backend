@@ -45,11 +45,13 @@ class TelefonoServiceTest {
     private Usuario usuario;
     private com.LosCiruelos.padel_club_api.club.entity.Configuracion configuracion;
     private com.LosCiruelos.padel_club_api.club.service.ConfiguracionService configuracionService;
+    private com.LosCiruelos.padel_club_api.notificaciones.service.MensajesWhatsAppService mensajesWhatsApp;
 
     @BeforeEach
     void setUp() {
         configuracion = TestData.configuracion();
         configuracionService = TestData.configuracionService(configuracion);
+        mensajesWhatsApp = mock(com.LosCiruelos.padel_club_api.notificaciones.service.MensajesWhatsAppService.class);
         tokenRepository = mock(VerificationTokenRepository.class);
         usuarioService = mock(UsuarioService.class);
         whatsApp = mock(WhatsAppService.class);
@@ -61,7 +63,7 @@ class TelefonoServiceTest {
         envios = mock(EnvioCodigoTelefonoRepository.class);
         when(envios.findFirstByUsuarioIdOrderByEnviadoAtDesc(any())).thenReturn(Optional.empty());
         telefonos = new TelefonoService(tokenRepository, envios, usuarioService, usuarioRepository, fabricaWhatsApp,
-                configuracionService, TestData.reloj(AHORA), "codigo_verificacion_v2", 5, 5, 60);
+                configuracionService, mensajesWhatsApp, TestData.reloj(AHORA), "codigo_verificacion_v2", 5, 5, 60);
 
         usuario = usuario(1L, Role.CLIENTE);
         usuario.setTelefono("5491122334455");
@@ -244,5 +246,18 @@ class TelefonoServiceTest {
         telefonos.enviarCodigo(admin);
 
         verify(tokenRepository).save(any(VerificationToken.class));
+    }
+
+    @Test
+    void cuentaElCodigoQueSalioYNoElQueFallo() {
+        telefonos.enviarCodigo(usuario);
+        verify(mensajesWhatsApp).registrarCodigo(true);
+
+        Usuario otro = usuario(3L, Role.ADMIN);
+        otro.setTelefono("5491166778899");
+        otro.setTelefonoVerificado(false);
+        when(whatsApp.enviarCodigo(anyString(), anyString(), anyString())).thenReturn(false);
+        telefonos.enviarCodigo(otro);
+        verify(mensajesWhatsApp, never()).registrarCodigo(false);
     }
 }

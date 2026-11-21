@@ -34,6 +34,7 @@ public class AvisosService {
     private final WhatsAppServiceFactory whatsApp;
     private final EmailServiceFactory emailServiceFactory;
     private final ConfiguracionService configuracionService;
+    private final MensajesWhatsAppService mensajesWhatsApp;
 
     // los links de los avisos al cliente (pagar la seña) van a la pantalla del front
     @Value("${app.frontend-url:http://localhost:5173}")
@@ -84,6 +85,7 @@ public class AvisosService {
     public CanalNotificacion entregar(Destinatario destinatario, AvisoReserva aviso) {
         try {
             if (canalPara(destinatario) == CanalNotificacion.WHATSAPP && porWhatsApp(destinatario, aviso)) {
+                mensajesWhatsApp.registrarAviso(aviso.tipo(), destinatario.cliente());
                 return CanalNotificacion.WHATSAPP;
             }
             emailServiceFactory.getService().sendAviso(destinatario.email(), aviso.tipo().asunto(), aviso.textoMail());

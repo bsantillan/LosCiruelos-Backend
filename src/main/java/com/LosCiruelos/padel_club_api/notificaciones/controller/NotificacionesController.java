@@ -1,5 +1,8 @@
 package com.LosCiruelos.padel_club_api.notificaciones.controller;
 
+import java.time.LocalDate;
+
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -7,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.AvisosAdminRequest;
@@ -14,9 +18,11 @@ import com.LosCiruelos.padel_club_api.notificaciones.dto.request.CodigoTelefonoR
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.NotificacionesRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.request.SuscripcionesRequest;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.AvisosAdminResponse;
+import com.LosCiruelos.padel_club_api.notificaciones.dto.response.MensajesWhatsAppResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.NotificacionesResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.PruebaAvisoResponse;
 import com.LosCiruelos.padel_club_api.notificaciones.dto.response.SuscripcionesResponse;
+import com.LosCiruelos.padel_club_api.notificaciones.service.MensajesWhatsAppService;
 import com.LosCiruelos.padel_club_api.notificaciones.service.NotificacionesService;
 
 import jakarta.validation.Valid;
@@ -31,6 +37,7 @@ import lombok.RequiredArgsConstructor;
 public class NotificacionesController {
 
     private final NotificacionesService notificacionesService;
+    private final MensajesWhatsAppService mensajesWhatsAppService;
 
     // ── Perfil (cualquier rol) ───────────────────────────────────────────
 
@@ -92,5 +99,14 @@ public class NotificacionesController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PruebaAvisoResponse> probar(Authentication authentication) {
         return ResponseEntity.ok(notificacionesService.probarAviso(authentication.getName()));
+    }
+
+    /** Cuántos WhatsApp mandó el club entre desde y hasta (sin fechas: el mes en curso). */
+    @GetMapping("/perfil/avisos/whatsapp")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<MensajesWhatsAppResponse> mensajesWhatsApp(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return ResponseEntity.ok(mensajesWhatsAppService.resumen(desde, hasta));
     }
 }
