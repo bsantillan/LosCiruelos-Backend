@@ -21,14 +21,14 @@ class ClienteProfileTest {
     void estaCompletoConDatosPersonalesCategoriaYPosicion() {
         ClienteProfile perfil = ClienteProfile.builder().usuario(cliente).categoria(Categoria.Cuarta)
                 .posicion(Posicion.Drive).build();
-        assertThat(perfil.estaCompleto()).isTrue();
+        assertThat(perfil.estaCompleto(true)).isTrue();
 
         perfil.setPosicion(null);
-        assertThat(perfil.estaCompleto()).isFalse();
+        assertThat(perfil.estaCompleto(true)).isFalse();
 
         perfil.setPosicion(Posicion.Drive);
         cliente.setTelefonoVerificado(false);
-        assertThat(perfil.estaCompleto()).isFalse();
+        assertThat(perfil.estaCompleto(true)).isFalse();
     }
 
     @Test
@@ -81,5 +81,15 @@ class ClienteProfileTest {
 
         assertThat(cliente.recibeRecordatorios()).isFalse();
         assertThat(cliente.recibePromociones()).isTrue();
+    }
+
+    @Test
+    void sinWhatsappParaClientesElCelularNoNecesitaEstarVerificado() {
+        ClienteProfile perfil = ClienteProfile.builder().usuario(cliente).categoria(Categoria.Cuarta)
+                .posicion(Posicion.Drive).build();
+        cliente.setTelefonoVerificado(false);
+
+        assertThat(perfil.estaCompleto(true)).isFalse();
+        assertThat(perfil.estaCompleto(false)).isTrue();
     }
 }

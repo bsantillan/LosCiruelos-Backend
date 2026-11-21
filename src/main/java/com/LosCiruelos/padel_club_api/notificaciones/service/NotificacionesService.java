@@ -22,6 +22,7 @@ import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
 import com.LosCiruelos.padel_club_api.notificaciones.whatsapp.WhatsAppServiceFactory;
 import com.LosCiruelos.padel_club_api.mapper.NotificacionesMapper;
 import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.usuarios.service.ClienteProfileService;
 import com.LosCiruelos.padel_club_api.usuarios.service.TelefonoService;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
@@ -42,6 +43,7 @@ public class NotificacionesService {
     private final AvisosService avisosService;
     private final WhatsAppServiceFactory whatsApp;
     private final NotificacionesMapper notificacionesMapper;
+    private final ConfiguracionService configuracionService;
     private final Reloj reloj;
 
     // ── Canal y teléfono (cualquier rol) ─────────────────────────────────
@@ -54,7 +56,8 @@ public class NotificacionesService {
     /**
      * Elige el canal y, opcionalmente, carga o cambia el teléfono. Elegir WhatsApp registra el
      * consentimiento y, si el teléfono no está verificado, le manda el código: hasta que lo
-     * ingrese, los avisos siguen yendo por mail.
+     * ingrese, los avisos siguen yendo por mail. Un CLIENTE no puede elegir WhatsApp si el club no
+     * se lo manda (409).
      */
     @Transactional
     public NotificacionesResponse actualizar(String email, CanalNotificacion canal, String telefono) {
@@ -62,7 +65,8 @@ public class NotificacionesService {
         if (telefono != null && !telefono.isBlank()) {
             usuarioService.cambiarTelefono(usuario, telefono);
         }
-        usuario.elegirCanal(canal, reloj.ahora()); // el usuario se guarda al terminar la transacción
+        // el usuario se guarda al terminar la transacción
+        usuario.elegirCanal(canal, reloj.ahora(), whatsappParaClientes());
         if (canal == CanalNotificacion.WHATSAPP) {
             telefonoService.enviarCodigoSiCorresponde(usuario);
         }
@@ -126,7 +130,8 @@ public class NotificacionesService {
         Usuario admin = usuario(email);
         Destinatario destinatario = Destinatario.de(admin);
         AvisoReserva ejemplo = new AvisoReserva(TipoAviso.RESERVA_CONFIRMADA, 0L,
-                new Destinatario("PRUEBA (cliente de ejemplo)", admin.getEmail(), null, CanalNotificacion.EMAIL, false),
+                new Destinatario("PRUEBA (cliente de ejemplo)", admin.getEmail(), null, CanalNotificacion.EMAIL, false,
+                        true),
                 1, reloj.hoy(), LocalTime.of(18, 0), LocalTime.of(19, 30),
                 new BigDecimal("15000"), new BigDecimal("7500"), null, null);
         CanalNotificacion canal = avisosService.entregar(destinatario, ejemplo);
@@ -137,8 +142,14 @@ public class NotificacionesService {
     // ── helpers ──────────────────────────────────────────────────────────
 
     private NotificacionesResponse aResponse(Usuario usuario) {
+        boolean whatsappDisponible = whatsApp.getService().estaConfigurado()
+                && usuario.puedeUsarWhatsapp(whatsappParaClientes());
         return notificacionesMapper.aResponse(usuario, avisosService.canalPara(Destinatario.de(usuario)),
-                whatsApp.getService().estaConfigurado());
+                whatsappDisponible);
+    }
+
+    private boolean whatsappParaClientes() {
+        return configuracionService.obtener().whatsappParaClientes();
     }
 
     private Usuario usuario(String email) {

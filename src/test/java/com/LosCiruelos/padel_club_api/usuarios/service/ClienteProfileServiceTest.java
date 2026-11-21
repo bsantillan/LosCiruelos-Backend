@@ -20,7 +20,8 @@ import com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileReposito
 class ClienteProfileServiceTest {
 
     private final ClienteProfileRepository repo = mock(ClienteProfileRepository.class);
-    private final ClienteProfileService perfiles = new ClienteProfileService(repo, Reloj.delSistema());
+    private final ClienteProfileService perfiles = new ClienteProfileService(repo, Reloj.delSistema(),
+            com.LosCiruelos.padel_club_api.TestData.configuracionService());
 
     @Test
     void elClienteNecesitaElCelularVerificadoParaTenerElPerfilCompleto() {
@@ -33,7 +34,7 @@ class ClienteProfileServiceTest {
 
         cliente.setTelefonoVerificado(false);
         assertThat(perfiles.perfilCompleto(cliente)).isFalse();
-        assertThat(perfil.estaCompleto()).isFalse();
+        assertThat(perfil.estaCompleto(true)).isFalse();
     }
 
     @Test

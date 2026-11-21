@@ -55,7 +55,7 @@ class UsuarioAdminServiceTest {
                 .thenReturn(TestData.usuario(91L, Role.EMPLEADO));
         usuarioRepository = mock(UsuarioRepository.class);
         adminService = new UsuarioAdminService(clienteProfileService, usuarioService, usuarioRepository,
-                refreshTokenService, verificationService, new UsuarioMapper());
+                refreshTokenService, verificationService, new UsuarioMapper(), TestData.configuracionService());
 
         cliente = usuario(1L, Role.CLIENTE);
         when(usuarioService.findByIdOrThrow(1L)).thenReturn(cliente);

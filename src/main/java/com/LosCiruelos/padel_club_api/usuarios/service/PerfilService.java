@@ -19,6 +19,7 @@ import com.LosCiruelos.padel_club_api.reservas.entity.enums.EstadoReserva;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.common.exception.ValidationException;
 import com.LosCiruelos.padel_club_api.common.Reloj;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.reservas.service.ReservaConsultaService;
 
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class PerfilService {
     private final ReservaConsultaService reservaConsultaService;
     private final RefreshTokenService refreshTokenService;
     private final UsuarioMapper usuarioMapper;
+    private final ConfiguracionService configuracionService;
     private final Reloj reloj;
 
     @Transactional(readOnly = true)
@@ -96,8 +98,9 @@ public class PerfilService {
                 reservaConsultaService.ultimaReservaCompletada(usuario)
                         .map(r -> Math.toIntExact(ChronoUnit.DAYS.between(r.getFechaReserva(), reloj.hoy())))
                         .orElse(null));
-        return usuarioMapper.aPerfil(usuario, perfil, clienteProfileService.perfilCompleto(usuario), partidos,
-                reloj.ahora());
+        boolean verificacionDeCelular = usuario.puedeUsarWhatsapp(configuracionService.obtener().whatsappParaClientes());
+        return usuarioMapper.aPerfil(usuario, perfil, clienteProfileService.perfilCompleto(usuario),
+                verificacionDeCelular, partidos, reloj.ahora());
     }
 
     private Usuario usuario(String email) {

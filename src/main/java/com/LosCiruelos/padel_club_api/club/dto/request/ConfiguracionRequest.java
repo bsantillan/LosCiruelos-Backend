@@ -68,6 +68,9 @@ public class ConfiguracionRequest {
     @Max(value = 1440, message = "Máximo 1440 minutos (24 h)")
     private Integer minutosRecordatorio;
 
+    // ── Si el club manda WhatsApp a los clientes (opcional: null no lo cambia) ──
+    private Boolean whatsappClientes;
+
     // ── Anticipación máxima para reservar ──
     @NotNull(message = "Es obligatorio")
     @Min(value = 1, message = "Mínimo 1 día")

@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
+import com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException;
 import com.LosCiruelos.padel_club_api.common.exception.ReservaException;
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.TipoAviso;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
@@ -20,8 +21,8 @@ class UsuarioTest {
         Usuario usuario = usuario(1L, Role.CLIENTE);
         usuario.setTelefono("5491122334455");
 
-        usuario.elegirCanal(CanalNotificacion.WHATSAPP, AHORA);
-        usuario.elegirCanal(CanalNotificacion.WHATSAPP, AHORA.plusDays(1));
+        usuario.elegirCanal(CanalNotificacion.WHATSAPP, AHORA, true);
+        usuario.elegirCanal(CanalNotificacion.WHATSAPP, AHORA.plusDays(1), true);
 
         assertThat(usuario.getCanalNotificaciones()).isEqualTo(CanalNotificacion.WHATSAPP);
         assertThat(usuario.getAceptaWhatsappAt()).isEqualTo(AHORA);
@@ -32,7 +33,7 @@ class UsuarioTest {
         Usuario usuario = usuario(1L, Role.CLIENTE);
         usuario.setTelefono(null);
 
-        assertThatThrownBy(() -> usuario.elegirCanal(CanalNotificacion.WHATSAPP, AHORA))
+        assertThatThrownBy(() -> usuario.elegirCanal(CanalNotificacion.WHATSAPP, AHORA, true))
                 .isInstanceOf(ReservaException.class)
                 .hasMessage("Cargá tu teléfono para recibir avisos por WhatsApp.");
         assertThat(usuario.getCanalNotificaciones()).isEqualTo(CanalNotificacion.EMAIL);
@@ -42,9 +43,9 @@ class UsuarioTest {
     void volverAlMailRetiraElConsentimiento() {
         Usuario usuario = usuario(1L, Role.CLIENTE);
         usuario.setTelefono("5491122334455");
-        usuario.elegirCanal(CanalNotificacion.WHATSAPP, AHORA);
+        usuario.elegirCanal(CanalNotificacion.WHATSAPP, AHORA, true);
 
-        usuario.elegirCanal(CanalNotificacion.EMAIL, AHORA);
+        usuario.elegirCanal(CanalNotificacion.EMAIL, AHORA, true);
 
         assertThat(usuario.getCanalNotificaciones()).isEqualTo(CanalNotificacion.EMAIL);
         assertThat(usuario.getAceptaWhatsappAt()).isNull();
@@ -92,5 +93,37 @@ class UsuarioTest {
 
         assertThat(empleado.recibeRecordatorios()).isFalse();
         assertThat(empleado.recibePromociones()).isFalse();
+    }
+
+    @Test
+    void sinWhatsappParaClientesElClienteNoPuedeElegirloPeroElPersonalSi() {
+        Usuario cliente = usuario(1L, Role.CLIENTE);
+        cliente.setTelefono("5491122334455");
+        Usuario admin = usuario(2L, Role.ADMIN);
+        admin.setTelefono("5491166778899");
+
+        assertThatThrownBy(() -> cliente.elegirCanal(CanalNotificacion.WHATSAPP, AHORA, false))
+                .isInstanceOf(EstadoInvalidoException.class)
+                .hasMessage("El club no manda avisos por WhatsApp por ahora: te llegan por mail.");
+        assertThat(cliente.getCanalNotificaciones()).isEqualTo(CanalNotificacion.EMAIL);
+        cliente.elegirCanal(CanalNotificacion.EMAIL, AHORA, false); // el mail siempre se puede elegir
+
+        admin.elegirCanal(CanalNotificacion.WHATSAPP, AHORA, false);
+        assertThat(admin.getCanalNotificaciones()).isEqualTo(CanalNotificacion.WHATSAPP);
+    }
+
+    @Test
+    void sinWhatsappParaClientesAlClienteLeAlcanzaConCargarElCelular() {
+        Usuario cliente = usuario(1L, Role.CLIENTE);
+        cliente.setTelefonoVerificado(false);
+        Usuario admin = usuario(2L, Role.ADMIN);
+        admin.setTelefonoVerificado(false);
+
+        assertThat(cliente.datosPersonalesCompletos(true)).isFalse();
+        assertThat(cliente.datosPersonalesCompletos(false)).isTrue();
+        assertThat(admin.datosPersonalesCompletos(false)).isFalse(); // el personal sí lo verifica
+
+        cliente.setTelefono(null);
+        assertThat(cliente.datosPersonalesCompletos(false)).isFalse();
     }
 }

@@ -33,9 +33,12 @@ public class UsuarioMapper {
         return response;
     }
 
-    /** @param perfil null si el usuario no es CLIENTE */
+    /**
+     * @param perfil                null si el usuario no es CLIENTE
+     * @param verificacionDeCelular si el celular se verifica con el código de WhatsApp
+     */
     public PerfilResponse aPerfil(Usuario usuario, ClienteProfile perfil, boolean perfilCompleto,
-            PartidosDelJugador partidos, LocalDateTime ahora) {
+            boolean verificacionDeCelular, PartidosDelJugador partidos, LocalDateTime ahora) {
         PerfilResponse response = new PerfilResponse();
         response.setNombre(usuario.getNombre());
         response.setApellido(usuario.getApellido());
@@ -44,6 +47,7 @@ public class UsuarioMapper {
         response.setTelefonoVerificado(usuario.getTelefonoVerificado());
         response.setCanalNotificaciones(usuario.getCanalNotificaciones());
         response.setPerfilCompleto(perfilCompleto);
+        response.setVerificacionDeCelular(verificacionDeCelular);
         response.setCantDiasMiembro((int) ChronoUnit.DAYS.between(usuario.getTermsAcceptedAt(), ahora));
         response.setCantPartidos(partidos.jugados());
         response.setCantPartidosEsteMes(partidos.esteMes());
@@ -78,11 +82,12 @@ public class UsuarioMapper {
         return response;
     }
 
-    public ClienteBusquedaResponse aBusquedaResponse(Usuario usuario) {
+    /** @param whatsappParaClientes si el club manda WhatsApp a los clientes (si no, el celular no se verifica) */
+    public ClienteBusquedaResponse aBusquedaResponse(Usuario usuario, boolean whatsappParaClientes) {
         ClienteProfile perfil = usuario.getClienteProfile();
         return new ClienteBusquedaResponse(usuario.getId(), usuario.getNombre(), usuario.getApellido(),
                 usuario.getEmail(), usuario.getTelefono(), Boolean.TRUE.equals(usuario.getTelefonoVerificado()),
                 perfil != null ? perfil.getCategoria() : null, perfil != null ? perfil.getPosicion() : null,
-                perfil != null && perfil.estaCompleto(), Boolean.TRUE.equals(usuario.getEnabled()));
+                perfil != null && perfil.estaCompleto(whatsappParaClientes), Boolean.TRUE.equals(usuario.getEnabled()));
     }
 }

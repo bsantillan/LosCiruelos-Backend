@@ -59,7 +59,12 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         usuarioService = mock(UsuarioService.class);
-        clienteProfileService = mock(ClienteProfileService.class);
+        // perfilCompleto es real (lee la configuración del club); el resto lo responde el mock
+        clienteProfileService = mock(ClienteProfileService.class, org.mockito.Mockito.withSettings()
+                .useConstructor(mock(com.LosCiruelos.padel_club_api.usuarios.repository.ClienteProfileRepository.class),
+                        com.LosCiruelos.padel_club_api.common.Reloj.delSistema(),
+                        com.LosCiruelos.padel_club_api.TestData.configuracionService())
+                .defaultAnswer(org.mockito.Answers.RETURNS_DEFAULTS));
         passwordEncoder = mock(PasswordEncoder.class);
         jwtUtil = mock(JWTUtil.class);
         refreshTokenService = mock(RefreshTokenService.class);

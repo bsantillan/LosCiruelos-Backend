@@ -95,6 +95,12 @@ public class Configuracion {
     @Column(nullable = false, name = "minutos_pago_senia_online")
     private Integer minutosPagoSeniaOnline = 120;
 
+    // Si el club manda mensajes de WhatsApp a los clientes (avisos y el código del celular).
+    // Apagado: los avisos les van por mail y su celular no se verifica
+    @Builder.Default
+    @Column(nullable = false, name = "whatsapp_clientes")
+    private Boolean whatsappClientes = true;
+
     @Builder.Default
     @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(nullable = false, name = "configuracion_general_id")
@@ -105,6 +111,11 @@ public class Configuracion {
     @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(nullable = false, name = "configuracion_id")
     private Set<DiaCerrado> cierres = new HashSet<>();
+
+    /** Si el club manda mensajes de WhatsApp a los clientes (lo elige el ADMIN). */
+    public boolean whatsappParaClientes() {
+        return Boolean.TRUE.equals(whatsappClientes);
+    }
 
     /** Los turnos se arman en bloques de 30 minutos desde la apertura. */
     public static final int MINUTOS_POR_BLOQUE = 30;

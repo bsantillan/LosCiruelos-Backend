@@ -43,9 +43,13 @@ class TelefonoServiceTest {
     private TelefonoService telefonos;
     private EnvioCodigoTelefonoRepository envios;
     private Usuario usuario;
+    private com.LosCiruelos.padel_club_api.club.entity.Configuracion configuracion;
+    private com.LosCiruelos.padel_club_api.club.service.ConfiguracionService configuracionService;
 
     @BeforeEach
     void setUp() {
+        configuracion = TestData.configuracion();
+        configuracionService = TestData.configuracionService(configuracion);
         tokenRepository = mock(VerificationTokenRepository.class);
         usuarioService = mock(UsuarioService.class);
         whatsApp = mock(WhatsAppService.class);
@@ -57,7 +61,7 @@ class TelefonoServiceTest {
         envios = mock(EnvioCodigoTelefonoRepository.class);
         when(envios.findFirstByUsuarioIdOrderByEnviadoAtDesc(any())).thenReturn(Optional.empty());
         telefonos = new TelefonoService(tokenRepository, envios, usuarioService, usuarioRepository, fabricaWhatsApp,
-                TestData.reloj(AHORA), "codigo_verificacion_v2", 5, 5, 60);
+                configuracionService, TestData.reloj(AHORA), "codigo_verificacion_v2", 5, 5, 60);
 
         usuario = usuario(1L, Role.CLIENTE);
         usuario.setTelefono("5491122334455");
@@ -215,5 +219,30 @@ class TelefonoServiceTest {
         when(tokenRepository.findByUsuarioAndType(eq(usuario), eq(TokenType.VERIFY_PHONE))).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> telefonos.verificar(usuario, "123456")).isInstanceOf(CodigoInvalidoException.class);
+    }
+
+    @Test
+    void sinWhatsappParaClientesAlClienteNoSeLeMandaElCodigo() {
+        configuracion.setWhatsappClientes(false);
+
+        assertThatThrownBy(() -> telefonos.enviarCodigo(usuario))
+                .isInstanceOf(EstadoInvalidoException.class)
+                .hasMessage("El club no manda WhatsApp a los clientes: tu celular no necesita verificarse.");
+        telefonos.enviarCodigoSiCorresponde(usuario); // no falla ni manda nada
+
+        verify(whatsApp, never()).enviarCodigo(anyString(), anyString(), anyString());
+        verify(tokenRepository, never()).save(any(VerificationToken.class));
+    }
+
+    @Test
+    void sinWhatsappParaClientesElAdminSigueRecibiendoElCodigo() {
+        configuracion.setWhatsappClientes(false);
+        Usuario admin = usuario(2L, Role.ADMIN);
+        admin.setTelefono("5491166778899");
+        admin.setTelefonoVerificado(false);
+
+        telefonos.enviarCodigo(admin);
+
+        verify(tokenRepository).save(any(VerificationToken.class));
     }
 }

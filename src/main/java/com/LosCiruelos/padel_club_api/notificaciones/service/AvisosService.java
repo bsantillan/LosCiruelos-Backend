@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.LosCiruelos.padel_club_api.notificaciones.aviso.AvisoReserva;
+import com.LosCiruelos.padel_club_api.club.service.ConfiguracionService;
 import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.CanalNotificacion;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
@@ -20,7 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Entrega los avisos por el canal que eligió cada destinatario: WhatsApp si lo eligió, tiene el
- * teléfono verificado y WhatsApp está configurado; si no, mail. Nunca por los dos: solo si
+ * teléfono verificado, WhatsApp está configurado y (si es CLIENTE) el club manda WhatsApp a los
+ * clientes; si no, mail. Nunca por los dos: solo si
  * WhatsApp falla se manda el mail como respaldo.
  */
 @Slf4j
@@ -31,6 +33,7 @@ public class AvisosService {
     private final UsuarioService usuarioService;
     private final WhatsAppServiceFactory whatsApp;
     private final EmailServiceFactory emailServiceFactory;
+    private final ConfiguracionService configuracionService;
 
     // los links de los avisos al cliente (pagar la seña) van a la pantalla del front
     @Value("${app.frontend-url:http://localhost:5173}")
@@ -63,6 +66,7 @@ public class AvisosService {
     public CanalNotificacion canalPara(Destinatario destinatario) {
         boolean puedeWhatsapp = destinatario.canal() == CanalNotificacion.WHATSAPP
                 && destinatario.telefonoVerificado() && destinatario.telefono() != null
+                && destinatario.puedeUsarWhatsapp(configuracionService.obtener().whatsappParaClientes())
                 && whatsApp.getService().estaConfigurado();
         return puedeWhatsapp ? CanalNotificacion.WHATSAPP : CanalNotificacion.EMAIL;
     }

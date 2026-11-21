@@ -18,8 +18,11 @@ public class PerfilResponse {
     private Boolean telefonoVerificado;
     // canal elegido para los avisos (EMAIL o WHATSAPP)
     private CanalNotificacion canalNotificaciones;
-    // CLIENTE y ADMIN: datos cargados y celular verificado (el CLIENTE además categoría y posición)
+    // CLIENTE y ADMIN: datos cargados y celular verificado, si corresponde (el CLIENTE además categoría y posición)
     private Boolean perfilCompleto;
+    // si el celular se verifica con el código de WhatsApp; false si el club no manda WhatsApp a los
+    // clientes (alcanza con cargarlo)
+    private Boolean verificacionDeCelular;
     private Categoria categoria;
     private Posicion posicion;
     private Integer cantDiasMiembro;
