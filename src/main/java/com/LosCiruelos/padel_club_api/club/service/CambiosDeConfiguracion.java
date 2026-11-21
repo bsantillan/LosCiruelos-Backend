@@ -66,6 +66,9 @@ public class CambiosDeConfiguracion {
         if (req.getWhatsappClientes() != null) {
             config.setWhatsappClientes(req.getWhatsappClientes());
         }
+        if (req.getReservasOnline() != null) {
+            config.cambiarReservasOnline(req.getReservasOnline(), req.getMensajeReservasPausadas());
+        }
         config.setDiasAnticipacionReserva(req.getDiasAnticipacion());
         if (req.getMinutosPagoSeniaOnline() != null) {
             config.setMinutosPagoSeniaOnline(req.getMinutosPagoSeniaOnline());

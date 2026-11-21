@@ -175,6 +175,31 @@ class ConfiguracionGeneralServiceTest {
         }
 
         @Test
+        void lasReservasOnlineSePausanConSuMensajeYSoloSiVieneEnElPedido() {
+            assertThat(servicio.reservasOnline()).isEqualTo(
+                    new com.LosCiruelos.padel_club_api.club.dto.response.ReservasOnlineResponse(true, null));
+
+            var req = pedido();
+            req.setReservasOnline(false);
+            req.setMensajeReservasPausadas("  Cambiamos los precios  ");
+            var r = servicio.actualizar(req, EMAIL);
+            assertThat(r.reservasOnline()).isFalse();
+            assertThat(r.mensajeReservasPausadas()).isEqualTo("Cambiamos los precios");
+            assertThat(servicio.reservasOnline()).isEqualTo(
+                    new com.LosCiruelos.padel_club_api.club.dto.response.ReservasOnlineResponse(false, "Cambiamos los precios"));
+
+            // sin el campo (un front viejo) queda como estaba
+            assertThat(servicio.actualizar(pedido(), EMAIL).reservasOnline()).isFalse();
+
+            // al habilitarlas, el mensaje no se muestra
+            var habilitar = pedido();
+            habilitar.setReservasOnline(true);
+            habilitar.setMensajeReservasPausadas("Cambiamos los precios");
+            assertThat(servicio.actualizar(habilitar, EMAIL).reservasOnline()).isTrue();
+            assertThat(servicio.reservasOnline().mensaje()).isNull();
+        }
+
+        @Test
         void lasReglasDeLaConfiguracionSeValidan() {
             ConfiguracionRequest req = pedido();
             req.setMinutosReembolsoTotal(60);

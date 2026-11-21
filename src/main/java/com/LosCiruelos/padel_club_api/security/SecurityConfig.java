@@ -62,7 +62,7 @@ public class SecurityConfig {
                         // Un visitante sin cuenta puede ver canchas, horarios libres y precios (no reservar).
                         // La disponibilidad solo informa horarios: no expone datos de las reservas ni de clientes
                         .requestMatchers(HttpMethod.GET, "/canchas", "/canchas/*/disponibilidad",
-                                "/productos", "/productos/disponibilidad", "/club/horarios")
+                                "/productos", "/productos/disponibilidad", "/club/horarios", "/club/reservas-online")
                         .permitAll()
 
                         // Stock de productos: el personal puede verlo y ajustarlo; el resto es del ADMIN

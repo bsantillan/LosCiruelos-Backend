@@ -71,6 +71,8 @@ class RutasPublicasTest {
             when(servicio.horarios()).thenReturn(new HorariosClubResponse(List.of(
                     new ConfiguracionResponse.Horario("Lunes", LocalTime.of(8, 0), LocalTime.of(23, 0))), List.of(), 90,
                     180));
+            when(servicio.reservasOnline()).thenReturn(
+                    new com.LosCiruelos.padel_club_api.club.dto.response.ReservasOnlineResponse(true, null));
             return servicio;
         }
 
@@ -119,6 +121,13 @@ class RutasPublicasTest {
     @BeforeEach
     void setUp() {
         mvc = MockMvcBuilders.webAppContextSetup(contexto).apply(springSecurity()).build();
+    }
+
+    @Test
+    void siSePuedeReservarOnlineEsPublico() throws Exception {
+        mvc.perform(get("/club/reservas-online"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.habilitadas").value(true));
     }
 
     @Test

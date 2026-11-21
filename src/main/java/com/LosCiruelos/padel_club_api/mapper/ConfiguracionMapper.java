@@ -9,6 +9,7 @@ import com.LosCiruelos.padel_club_api.club.dto.response.HorariosClubResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.JornadaResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.RecordatorioConfigResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ReservasConfigResponse;
+import com.LosCiruelos.padel_club_api.club.dto.response.ReservasOnlineResponse;
 import com.LosCiruelos.padel_club_api.club.entity.Configuracion;
 import com.LosCiruelos.padel_club_api.club.entity.DiaCerrado;
 import com.LosCiruelos.padel_club_api.common.Dinero;
@@ -28,7 +29,7 @@ public class ConfiguracionMapper {
                 Dinero.redondear(c.getPorcentajeSenia()), c.getDuracionMinimaTurno(), c.getDuracionMaximaTurno(),
                 c.getMinutosReembolsoTotal(), c.getMinutosReembolsoSenia(), c.getRecordatorioActivo(),
                 c.getMinutosRecordatorio(), c.whatsappParaClientes(), c.getDiasAnticipacionReserva(),
-                c.getMinutosPagoSeniaOnline(), horarios(c),
+                c.getMinutosPagoSeniaOnline(), c.reservasOnlineHabilitadas(), c.getMensajeReservasPausadas(), horarios(c),
                 null);
     }
 
@@ -37,7 +38,7 @@ public class ConfiguracionMapper {
         return new ConfiguracionResponse(r.montoReserva(), r.montoXMediaHora(), r.porcentajeSenia(),
                 r.duracionMinimaTurno(), r.duracionMaximaTurno(), r.minutosReembolsoTotal(), r.minutosReembolsoSenia(),
                 r.recordatorioActivo(), r.minutosRecordatorio(), r.whatsappClientes(), r.diasAnticipacion(),
-                r.minutosPagoSeniaOnline(),
+                r.minutosPagoSeniaOnline(), r.reservasOnline(), r.mensajeReservasPausadas(),
                 r.horarios(), cancelaciones);
     }
 
@@ -57,6 +58,11 @@ public class ConfiguracionMapper {
         return c.diasEnOrden().stream()
                 .map(d -> new ConfiguracionResponse.Horario(d.getDia(), d.getHorario_inicio(), d.getHorario_fin()))
                 .toList();
+    }
+
+    public ReservasOnlineResponse aReservasOnline(Configuracion config) {
+        boolean habilitadas = config.reservasOnlineHabilitadas();
+        return new ReservasOnlineResponse(habilitadas, habilitadas ? null : config.getMensajeReservasPausadas());
     }
 
     public ReservasConfigResponse aReservas(Configuracion config) {

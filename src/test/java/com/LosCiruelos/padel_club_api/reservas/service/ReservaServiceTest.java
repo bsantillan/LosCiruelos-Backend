@@ -445,6 +445,25 @@ class ReservaServiceTest {
         }
 
         @Test
+        void conLasReservasOnlinePausadasElClienteNoReservaPeroElPersonalSi() {
+            sinOtrasReservas();
+            config.cambiarReservasOnline(false, "  Estamos actualizando los precios, volvemos el lunes. ");
+
+            assertThatThrownBy(() -> reservaService.crearParaMi(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail()))
+                    .isInstanceOf(com.LosCiruelos.padel_club_api.common.exception.EstadoInvalidoException.class)
+                    .hasMessage("Las reservas online están pausadas: Estamos actualizando los precios, volvemos el lunes.");
+            assertThat(reservaService.crearParaCliente(pedidoParaCliente(1L), admin.getEmail()).getEstado()).isNotNull();
+
+            config.cambiarReservasOnline(false, " ");
+            assertThatThrownBy(() -> reservaService.crearParaMi(pedido(MANIANA, "18:00", "19:30"), cliente.getEmail()))
+                    .hasMessage("Las reservas online están pausadas. Para reservar, comunicate con el club.");
+
+            config.cambiarReservasOnline(true, null);
+            assertThat(reservaService.crearParaMi(pedido(MANIANA, "20:00", "21:30"), cliente.getEmail()).getEstado())
+                    .isEqualTo(EstadoReserva.PENDIENTE);
+        }
+
+        @Test
         void elPersonalReservaMasAllaDeLaAnticipacion() {
             sinOtrasReservas();
             CrearReservaAdminRequest lejana = pedidoParaCliente(1L);

@@ -71,6 +71,12 @@ public class ConfiguracionRequest {
     // ── Si el club manda WhatsApp a los clientes (opcional: null no lo cambia) ──
     private Boolean whatsappClientes;
 
+    // ── Si los clientes reservan desde la web (opcional: null no lo cambia) y el mensaje mientras están pausadas ──
+    private Boolean reservasOnline;
+
+    @Size(max = 200, message = "El mensaje puede tener hasta 200 caracteres")
+    private String mensajeReservasPausadas;
+
     // ── Anticipación máxima para reservar ──
     @NotNull(message = "Es obligatorio")
     @Min(value = 1, message = "Mínimo 1 día")

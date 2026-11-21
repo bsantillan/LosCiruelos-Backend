@@ -101,6 +101,15 @@ public class Configuracion {
     @Column(nullable = false, name = "whatsapp_clientes")
     private Boolean whatsappClientes = true;
 
+    // si los clientes reservan desde la web (el ADMIN las pausa, por ejemplo, mientras cambia los precios)
+    @Builder.Default
+    @Column(nullable = false, name = "reservas_online")
+    private Boolean reservasOnline = true;
+
+    // lo que ven los clientes mientras las reservas online están pausadas (opcional)
+    @Column(name = "mensaje_reservas_pausadas", length = 200)
+    private String mensajeReservasPausadas;
+
     @Builder.Default
     @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(nullable = false, name = "configuracion_general_id")
@@ -347,6 +356,30 @@ public class Configuracion {
     public LocalDateTime vencimientoSeniaOnline(LocalDateTime ahora, LocalDateTime inicioDelTurno) {
         LocalDateTime plazo = ahora.plusMinutes(minutosPagoSeniaOnline);
         return plazo.isBefore(inicioDelTurno) ? plazo : inicioDelTurno;
+    }
+
+    /** Si los clientes pueden reservar desde la web (el personal reserva siempre desde el panel). */
+    public boolean reservasOnlineHabilitadas() {
+        return !Boolean.FALSE.equals(reservasOnline);
+    }
+
+    /** El ADMIN habilita o pausa las reservas online, con el mensaje para los clientes (vacío: sin mensaje). */
+    public void cambiarReservasOnline(boolean habilitadas, String mensaje) {
+        reservasOnline = habilitadas;
+        mensajeReservasPausadas = mensaje == null || mensaje.isBlank() ? null : mensaje.trim();
+    }
+
+    /**
+     * El cliente solo reserva con las reservas online habilitadas.
+     *
+     * @throws EstadoInvalidoException (409) si el ADMIN las pausó, con su mensaje
+     */
+    public void exigirReservasOnline() {
+        if (!reservasOnlineHabilitadas()) {
+            throw new EstadoInvalidoException(mensajeReservasPausadas != null
+                    ? "Las reservas online están pausadas: " + mensajeReservasPausadas
+                    : "Las reservas online están pausadas. Para reservar, comunicate con el club.");
+        }
     }
 
     /** El cliente no puede reservar más allá de los días de anticipación. */
