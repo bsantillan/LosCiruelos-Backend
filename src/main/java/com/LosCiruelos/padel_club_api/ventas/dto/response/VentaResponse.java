@@ -15,11 +15,13 @@ import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
  * @param anuladaPor    nombre de quien la anuló (null si no está anulada, igual que anuladaAt y motivoAnulacion)
  * @param montoDevuelto lo que ya se le devolvió al cliente (suma de las devoluciones)
  * @param qr            venta con Mercado Pago: la order del QR de la caja y hasta cuándo se puede pagar (null en los otros medios)
+ * @param motivoBonificacion venta bonificada por el ADMIN: por qué (null si no lo escribió o no está bonificada)
  */
 public record VentaResponse(Long id, LocalDateTime fecha, BigDecimal total, MedioDePago medio, Long clienteId,
         String clienteNombre, String registradaPor, List<Item> items, Boolean verificada,
         LocalDateTime verificadaAt, EstadoVenta estado, LocalDateTime anuladaAt, String anuladaPor,
-        String motivoAnulacion, BigDecimal montoDevuelto, List<Devolucion> devoluciones, Qr qr) {
+        String motivoAnulacion, BigDecimal montoDevuelto, List<Devolucion> devoluciones, Qr qr,
+        String motivoBonificacion) {
 
     public record Qr(String orderId, LocalDateTime venceAt) {
     }

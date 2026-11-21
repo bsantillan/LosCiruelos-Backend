@@ -63,7 +63,7 @@ class ReservaConsultaServiceResumenTest {
         when(usuarioService.autenticado(ADMIN)).thenReturn(usuario(1L, Role.ADMIN));
         when(usuarioService.autenticado(EMPLEADO)).thenReturn(usuario(2L, Role.EMPLEADO));
         ventas = mock(VentaConsultaService.class);
-        when(ventas.totales(any(), any())).thenReturn(new TotalesDeVentas(0L, $("0"), $("0"), $("0"), $("0"), $("0"), $("0")));
+        when(ventas.totales(any(), any())).thenReturn(new TotalesDeVentas(0L, $("0"), $("0"), $("0"), $("0"), $("0"), $("0"), $("0")));
         when(ventas.devoluciones(any(), any())).thenReturn($("0"));
         resumen = new ReservaConsultaService(usuarioService, repo, mock(ReservaMapper.class), new ResumenMapper(),
                 ventas, TestData.reloj(AHORA), com.LosCiruelos.padel_club_api.TestData.jornadas(com.LosCiruelos.padel_club_api.TestData.reloj(com.LosCiruelos.padel_club_api.TestData.AHORA)));
@@ -127,7 +127,7 @@ class ReservaConsultaServiceResumenTest {
         when(repo.resumenProductos(DESDE, HASTA, Reserva.ESTADOS_QUE_SE_JUEGAN)).thenReturn(List.of(
                 new ProductoVendido(1L, "Pelotas", TipoProducto.VENTA, 40L, $("200000"))));
         when(ventas.totales(TestData.configuracion().jornadaDel(DESDE).inicio(), TestData.configuracion().jornadaDel(HASTA).fin()))
-                .thenReturn(new TotalesDeVentas(3L, $("6000"), $("5000"), $("3000"), $("0"), $("1000"), $("0")));
+                .thenReturn(new TotalesDeVentas(3L, $("6000"), $("5000"), $("3000"), $("0"), $("1000"), $("0"), $("0")));
         when(ventas.devoluciones(TestData.configuracion().jornadaDel(DESDE).inicio(), TestData.configuracion().jornadaDel(HASTA).fin())).thenReturn($("2000"));
         when(ventas.porProducto(TestData.configuracion().jornadaDel(DESDE).inicio(), TestData.configuracion().jornadaDel(HASTA).fin())).thenReturn(List.of(
                 new VentaPorProducto(1L, "Pelotas", TipoProducto.VENTA, 1L, $("5000")),

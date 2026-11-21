@@ -326,7 +326,7 @@ class ControllersTest {
             when(pagoConsultaService.mediosDeCobro()).thenReturn(List.of(
                     new com.LosCiruelos.padel_club_api.pagos.dto.response.MedioDeCobroResponse(
                             com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago.TRANSFERENCIA_MP,
-                            "Mercado Pago (transferencia)", com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago.TRANSFERENCIA_MP), com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago.TRANSFERENCIA_MP.opcion(), true, false, null, "POST",
+                            "Mercado Pago (transferencia)", com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.grupoDe(com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago.TRANSFERENCIA_MP), com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago.TRANSFERENCIA_MP.opcion(), false, true, false, null, "POST",
                             "/admin/reservas/{id}/cobros/transferencia")));
 
             // no se confunde con GET /admin/reservas/{id}
@@ -1354,7 +1354,7 @@ class ControllersTest {
             when(ventaService.registrar(any(), eq(EMAIL))).thenReturn(new VentaResponse(4L, TestData.AHORA,
                     new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of(), null, null,
                     com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null, null, null,
-                    new java.math.BigDecimal("0.00"), List.of(), null));
+                    new java.math.BigDecimal("0.00"), List.of(), null, null));
 
             mvc.perform(json(post("/admin/ventas"), """
                     {"medio":"EFECTIVO","items":[{"productoId":5,"cantidad":2},{"nombre":"Gatorade","precio":2500,"cantidad":1}]}
@@ -1384,7 +1384,7 @@ class ControllersTest {
             when(ventaService.verificar(8L, true, EMAIL)).thenReturn(new VentaResponse(8L, TestData.AHORA,
                     new java.math.BigDecimal("3000.00"), MedioDePago.CUENTA_DNI, null, null, "Ana Pérez", List.of(),
                     true, TestData.AHORA, com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null,
-                    null, null, new java.math.BigDecimal("0.00"), List.of(), null));
+                    null, null, new java.math.BigDecimal("0.00"), List.of(), null, null));
 
             mvc.perform(json(put("/admin/ventas/8/verificacion"), "{\"verificada\":true}"))
                     .andExpect(status().isOk())
@@ -1395,7 +1395,7 @@ class ControllersTest {
             return new VentaResponse(8L, TestData.AHORA, new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, 3L,
                     "Juan Gómez", "Ana Pérez", List.of(), null, null,
                     com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.ANULADA, TestData.AHORA, "Ana Pérez",
-                    "Error de carga", new java.math.BigDecimal("0.00"), List.of(), null);
+                    "Error de carga", new java.math.BigDecimal("0.00"), List.of(), null, null);
         }
 
         @Test
@@ -1439,7 +1439,7 @@ class ControllersTest {
             when(ventaService.devolver(eq(8L), any(), eq(EMAIL))).thenReturn(new VentaResponse(8L, TestData.AHORA,
                     new java.math.BigDecimal("3000.00"), MedioDePago.EFECTIVO, null, null, "Ana Pérez", List.of(), null,
                     null, com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.COBRADA, null, null, null, new java.math.BigDecimal("1500.00"),
-                    List.of(devolucion), null));
+                    List.of(devolucion), null, null));
             mvc.perform(json(post("/admin/ventas/8/devoluciones"),
                     "{\"motivo\":\"Vencido\",\"items\":[{\"productoId\":5,\"cantidad\":1,\"vuelveAlStock\":false}]}"))
                     .andExpect(status().isCreated())
@@ -1455,9 +1455,9 @@ class ControllersTest {
         void losMediosDeCobroNoSeConfundenConUnaVenta() throws Exception {
             when(ventaConsultaService.medios()).thenReturn(List.of(
                     new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.EFECTIVO,
-                            "Efectivo", com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(MedioDePago.EFECTIVO), MedioDePago.EFECTIVO.opcion(), true, false, null),
+                            "Efectivo", com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.grupoDe(MedioDePago.EFECTIVO), MedioDePago.EFECTIVO.opcion(), false, true, false, null),
                     new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.MERCADO_PAGO,
-                            "Mercado Pago (QR de la caja)", com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(MedioDePago.MERCADO_PAGO), MedioDePago.MERCADO_PAGO.opcion(), false, true,
+                            "Mercado Pago (QR de la caja)", com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.grupoDe(MedioDePago.MERCADO_PAGO), MedioDePago.MERCADO_PAGO.opcion(), false, false, true,
                             "El QR de la caja de Mercado Pago no está configurado.")));
 
             // antes caía en GET /admin/ventas/{id} y respondía 400
@@ -1478,7 +1478,7 @@ class ControllersTest {
                     new java.math.BigDecimal("3000.00"), MedioDePago.MERCADO_PAGO, null, null, "Ana Pérez", List.of(),
                     null, null, com.LosCiruelos.padel_club_api.ventas.entity.enums.EstadoVenta.NO_COBRADA, null, null,
                     null, new java.math.BigDecimal("0.00"), List.of(),
-                    new VentaResponse.Qr("ORD1", TestData.AHORA.plusMinutes(10))));
+                    new VentaResponse.Qr("ORD1", TestData.AHORA.plusMinutes(10)), null));
 
             mvc.perform(delete("/admin/ventas/8/qr").principal(AUTH))
                     .andExpect(status().isOk())

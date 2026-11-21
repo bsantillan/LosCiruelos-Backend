@@ -182,7 +182,7 @@ Ventas sueltas (sin reserva), cobradas en el momento.
 | id | bigint identity | PK |
 | created_at | timestamp(6) | cuándo se vendió (cuenta en la caja de ese día) |
 | total | numeric(10,2) | ≥ 0; suma de los ítems |
-| medio | varchar(20) | CHECK: EFECTIVO, MERCADO_PAGO, CUENTA_DNI (V28) |
+| medio | varchar(20) | CHECK `ck_ventas_medio`: EFECTIVO, MERCADO_PAGO, TRANSFERENCIA_MP, TARJETA_MP, CUENTA_DNI, TARJETA y BONIFICACION (V2: venta bonificada por el ADMIN, no es plata) |
 | cliente_id | bigint | FK → usuarios, opcional |
 | registrado_por_id | bigint | FK → usuarios (ADMIN o EMPLEADO) |
 | verificado_at, verificado_por_id | timestamp, bigint | venta con Cuenta DNI: cuándo y qué ADMIN comprobó que entró a la cuenta (V28); null: sin verificar |
@@ -190,6 +190,7 @@ Ventas sueltas (sin reserva), cobradas en el momento.
 | order_id, vence_at | varchar(64), timestamp | venta con Mercado Pago: la order del QR de la caja y hasta cuándo se puede pagar (V32). CHECK `ck_ventas_qr`: solo con `medio = 'MERCADO_PAGO'`; `ck_ventas_esperando_pago`: una ESPERANDO_PAGO tiene `vence_at`. Único parcial `uk_ventas_order_id` |
 | clave_idempotencia | uuid | única; identifica a la venta ante Mercado Pago (V32; las anteriores recibieron una al migrar) |
 | anulada_at, anulada_por_id, motivo_anulacion | timestamp, bigint (FK → usuarios), varchar(200) | cuándo, quién y por qué se anuló (V30). CHECK `ck_ventas_anulada`: las tres obligatorias en una ANULADA y null en las demás |
+| motivo_bonificacion | varchar(200) | venta bonificada: por qué (opcional, V2). CHECK `ck_ventas_motivo_bonificacion`: solo con `medio = 'BONIFICACION'` |
 
 Índice `idx_ventas_created_at (created_at)`.
 

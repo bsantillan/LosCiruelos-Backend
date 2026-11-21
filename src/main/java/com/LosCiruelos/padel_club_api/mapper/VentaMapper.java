@@ -33,7 +33,8 @@ public class VentaMapper {
                 venta.getAnuladaPor() != null ? nombre(venta.getAnuladaPor()) : null, venta.getMotivoAnulacion(),
                 Dinero.redondear(venta.montoDevuelto()),
                 venta.getDevoluciones().stream().map(VentaMapper::devolucion).toList(),
-                venta.seCobroConQr() ? new VentaResponse.Qr(venta.getOrderId(), venta.getVenceAt()) : null);
+                venta.seCobroConQr() ? new VentaResponse.Qr(venta.getOrderId(), venta.getVenceAt()) : null,
+                venta.getMotivoBonificacion());
     }
 
     /** Una página del listado con los totales del filtro: el neto de cada medio es lo cobrado menos lo devuelto. */
@@ -45,8 +46,11 @@ public class VentaMapper {
         for (MedioDePago medio : MedioDePago.values()) {
             BigDecimal c = t.cobradoPorMedio().getOrDefault(medio, BigDecimal.ZERO);
             BigDecimal d = t.devueltoPorMedio().getOrDefault(medio, BigDecimal.ZERO);
-            cobrado = cobrado.add(c);
-            devuelto = devuelto.add(d);
+            // lo bonificado va en porMedio (BONIFICACION) pero no es plata: no suma al total
+            if (medio.esPlata()) {
+                cobrado = cobrado.add(c);
+                devuelto = devuelto.add(d);
+            }
             porMedio.put(medio, Dinero.redondear(c.subtract(d)));
         }
         return new ListadoVentasResponse(pagina.getContent().stream().map(this::aResponse).toList(),
@@ -65,7 +69,8 @@ public class VentaMapper {
     public MedioDeVentaResponse aMedio(MedioDePago medio, boolean qrConfigurado) {
         boolean disponible = !medio.conQr() || qrConfigurado;
         return new MedioDeVentaResponse(medio, medio.etiqueta(),
-                com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(medio), medio.opcion(), disponible,
+                com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.grupoDe(medio), medio.opcion(),
+                medio.soloAdmin(), disponible,
                 medio.conQr(),
                 disponible ? null : "El QR de la caja de Mercado Pago no está configurado.");
     }

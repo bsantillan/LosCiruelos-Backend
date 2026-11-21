@@ -44,7 +44,8 @@ public record ResumenResponse(
      * @param tarjeta            lo cobrado con tarjeta en otro posnet (Clover u otro); la del posnet de
      *                           Mercado Pago va en {@code mercadoPago}
      * @param detalleMercadoPago {@code mercadoPago} abierto en QR, online, transferencia y tarjeta
-     * @param bonificado         lo bonificado por el ADMIN en esas jornadas (no es plata: no suma al total)
+     * @param bonificado         lo bonificado por el ADMIN en esas jornadas, en reservas y ventas sueltas
+     *                           (no es plata: no suma al total)
      */
     public record Caja(BigDecimal total, BigDecimal efectivo, BigDecimal mercadoPago, BigDecimal cuentaDni,
             BigDecimal tarjeta, BigDecimal devoluciones, BigDecimal neto,

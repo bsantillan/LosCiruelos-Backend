@@ -87,6 +87,12 @@ public class CajaService {
                     null, nombre(d.getEntregadoPor() != null ? d.getEntregadoPor() : d.getRegistradaPor())));
         }
         for (Venta venta : ventaConsultaService.paraLaCaja(jornada.inicio(), jornada.fin())) {
+            if (venta.estaBonificada()) {
+                if (!venta.estaAnulada()) {
+                    bonificado = bonificado.add(venta.getTotal());
+                }
+                continue;
+            }
             MedioDeCaja medio = MedioDeCaja.de(venta.getMedio());
             String detalle = "Venta #" + venta.getId() + (venta.getCliente() != null ? " · " + nombre(venta.getCliente()) : "");
             movimientos.add(new Movimiento(venta.getCreatedAt(), TipoMovimientoCaja.VENTA, medio, venta.getTotal(),
