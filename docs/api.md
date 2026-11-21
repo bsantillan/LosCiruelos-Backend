@@ -279,6 +279,9 @@ Sin sesión. Los días que abre el club, de lunes a domingo, con su horario, los
 ```
 Es el horario **actual**: para un día pasado puede no coincidir con el que había entonces (y una reserva vieja puede quedar fuera de la grilla).
 
+### `GET /club/reservas-online` → `200`
+Sin sesión. Si los clientes pueden reservar desde la web: `{ "habilitadas": false, "mensaje": "Estamos actualizando los precios, volvemos el lunes." }`. El ADMIN las pausa en `PUT /admin/configuracion` (`reservasOnline`). `mensaje` es lo que escribió para los clientes (`null` si no escribió nada o si están habilitadas). El sitio lo consulta antes de mostrar el asistente de reserva; pausadas, `POST /reservas` da `409`.
+
 ---
 
 ## Canchas — `/canchas` (público)
@@ -404,7 +407,7 @@ Todas las rutas de `/reservas` son **solo del CLIENTE** (el personal recibe `403
 
 | Método y ruta | Descripción | Errores |
 |---|---|---|
-| `POST /reservas` → `201` | Crea una reserva `PENDIENTE` para el cliente autenticado, que vence si no se paga a los 15 min **o al empezar el turno, lo que pase primero** (`expiresAt = min(creación + 15 min, inicio del turno)`): el job la pasa a `EXPIRADA` y libera el turno y el stock. Si tiene un pago `EN_PROCESO`, se espera a Mercado Pago. Body abajo. | `400` horario o datos inválidos, o fecha más allá de la anticipación ("Podés reservar hasta el sábado 14/11 (30 días de anticipación).") · `403` perfil incompleto · `404` cancha · `409` turno ocupado, sin stock o reserva con pago en curso |
+| `POST /reservas` → `201` | Con las reservas online pausadas por el ADMIN, `409` "Las reservas online están pausadas: <mensaje>" (o "… Para reservar, comunicate con el club." sin mensaje). Crea una reserva `PENDIENTE` para el cliente autenticado, que vence si no se paga a los 15 min **o al empezar el turno, lo que pase primero** (`expiresAt = min(creación + 15 min, inicio del turno)`): el job la pasa a `EXPIRADA` y libera el turno y el stock. Si tiene un pago `EN_PROCESO`, se espera a Mercado Pago. Body abajo. | `400` horario o datos inválidos, o fecha más allá de la anticipación ("Podés reservar hasta el sábado 14/11 (30 días de anticipación).") · `403` perfil incompleto · `404` cancha · `409` turno ocupado, sin stock o reserva con pago en curso |
 | `GET /reservas/mias` → `200` | Reservas del usuario autenticado, **paginadas y filtradas** (ver abajo). | `400` parámetros inválidos |
 | `GET /reservas/{id}` → `200` | Detalle con los pagos: una reserva propia o un partido en el que juega. Sirve para consultar el resultado de un pago en proceso. | `404` |
 | `DELETE /reservas/{id}/cancelar` → `200 ReservaResponse` | Cancela la reserva y hace los reembolsos según la política (ver abajo). Devuelve la reserva con los pagos actualizados. El personal cancela con `DELETE /admin/reservas/{id}/cancelar`. | `403` partido (lo cancela el ADMIN) · `404` · `409` turno empezado/terminado, reserva finalizada o pago en proceso. Si Mercado Pago no acepta el reembolso, **se cancela igual** (`200`) y el pago queda `REEMBOLSO_PENDIENTE` |
@@ -509,6 +512,8 @@ Toda la configuración junta. Lo que responde el `GET` es exactamente el body de
   "minutosReembolsoTotal": 1440, "minutosReembolsoSenia": 720,
   "recordatorioActivo": true, "minutosRecordatorio": 120,
   "whatsappClientes": true,          // si el club manda WhatsApp a los clientes (opcional en el PUT)
+  "reservasOnline": true,            // si los clientes reservan desde la web (opcional en el PUT)
+  "mensajeReservasPausadas": null,   // lo que ven los clientes mientras están pausadas (hasta 200; vacío: sin mensaje)
   "diasAnticipacion": 30,
   "minutosPagoSeniaOnline": 120,
   "horarios": [
@@ -533,7 +538,7 @@ Toda la configuración junta. Lo que responde el `GET` es exactamente el body de
 | Método y ruta | Descripción | Errores |
 |---|---|---|
 | `GET /admin/configuracion` → `200` | Toda la configuración; `horarios` de lunes a domingo. | `403` EMPLEADO o CLIENTE |
-| `PUT /admin/configuracion` → `200` | Reemplaza toda la configuración (todos los campos son obligatorios, salvo `confirmar`, `minutosPagoSeniaOnline` y `whatsappClientes`: si no vienen, quedan como estaban) y responde la nueva. Rige para lo que se reserve o se cobre desde ahora: las reservas que ya existen conservan su precio y su seña. La configuración está en caché y se invalida al guardar. **Antes de guardar se revisa qué queda afuera del horario nuevo** (ver abajo). | `400` validación (`errors.campo`, `errors['horarios[0].apertura']`…), "La duración de los turnos tiene que ser un múltiplo de 30 minutos.", "La duración mínima del turno no puede superar la máxima.", "La anticipación para devolver todo no puede ser menor que la de devolver la seña.", "Día inválido: Feriado. Usá Lunes a Domingo.", "El lunes está repetido.", "El sábado, la apertura tiene que ser antes del cierre.", "El martes abre menos que el turno mínimo (90 minutos)." · `403` EMPLEADO o CLIENTE · `409` el horario nuevo deja afuera reservas o turnos fijos y no vino `"confirmar": true` |
+| `PUT /admin/configuracion` → `200` | Reemplaza toda la configuración (todos los campos son obligatorios, salvo `confirmar`, `minutosPagoSeniaOnline`, `whatsappClientes`, `reservasOnline` y `mensajeReservasPausadas`: si no vienen, quedan como estaban; el mensaje se guarda junto con `reservasOnline`) y responde la nueva. Rige para lo que se reserve o se cobre desde ahora: las reservas que ya existen conservan su precio y su seña. La configuración está en caché y se invalida al guardar. **Antes de guardar se revisa qué queda afuera del horario nuevo** (ver abajo). | `400` validación (`errors.campo`, `errors['horarios[0].apertura']`…), "La duración de los turnos tiene que ser un múltiplo de 30 minutos.", "La duración mínima del turno no puede superar la máxima.", "La anticipación para devolver todo no puede ser menor que la de devolver la seña.", "Día inválido: Feriado. Usá Lunes a Domingo.", "El lunes está repetido.", "El sábado, la apertura tiene que ser antes del cierre.", "El martes abre menos que el turno mínimo (90 minutos)." · `403` EMPLEADO o CLIENTE · `409` el horario nuevo deja afuera reservas o turnos fijos y no vino `"confirmar": true` |
 
 **Reservas y turnos fijos fuera del horario nuevo.** Antes de guardar, se buscan:
 - reservas que todavía no empezaron y no están `CANCELADA` ni `EXPIRADA` (también partidos y partidos de turnos fijos) cuyo turno no entra en el horario nuevo de su día, o cuyo día deja de abrir;

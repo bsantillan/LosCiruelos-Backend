@@ -11,6 +11,7 @@ import com.LosCiruelos.padel_club_api.club.dto.response.CancelacionesResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.CierreResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.ConfiguracionResponse;
 import com.LosCiruelos.padel_club_api.club.dto.response.HorariosClubResponse;
+import com.LosCiruelos.padel_club_api.club.dto.response.ReservasOnlineResponse;
 import com.LosCiruelos.padel_club_api.club.repository.ConfiguracionRepository;
 import com.LosCiruelos.padel_club_api.common.Reloj;
 import com.LosCiruelos.padel_club_api.mapper.ConfiguracionMapper;
@@ -41,6 +42,11 @@ public class ConfiguracionGeneralService {
     /** Días y horarios de apertura, próximos días cerrados y duración de los turnos (público; de la caché). */
     public HorariosClubResponse horarios() {
         return configuracionMapper.aHorarios(configuracionService.obtener(), reloj.hoy());
+    }
+
+    /** Si los clientes pueden reservar desde la web y, si están pausadas, el mensaje del ADMIN. */
+    public ReservasOnlineResponse reservasOnline() {
+        return configuracionMapper.aReservasOnline(configuracionService.obtener());
     }
 
     /**

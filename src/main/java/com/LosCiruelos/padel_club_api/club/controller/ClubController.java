@@ -23,4 +23,10 @@ public class ClubController {
     public ResponseEntity<HorariosClubResponse> horarios() {
         return ResponseEntity.ok(configuracionGeneralService.horarios());
     }
+
+    /** Si los clientes pueden reservar desde la web (el ADMIN las puede pausar) y el mensaje para ellos. */
+    @GetMapping("/reservas-online")
+    public ResponseEntity<com.LosCiruelos.padel_club_api.club.dto.response.ReservasOnlineResponse> reservasOnline() {
+        return ResponseEntity.ok(configuracionGeneralService.reservasOnline());
+    }
 }

@@ -120,8 +120,11 @@ public class ReservaService {
     public ReservaResponse crearParaMi(CrearReservaRequest req, String email) {
         Usuario cliente = usuarioService.autenticado(email);
         validarPerfilCompleto(cliente, "Debés completar tu perfil antes de reservar.");
+        Configuracion config = configuracionService.obtener();
+        // el ADMIN puede pausar las reservas online; el personal sigue reservando desde el panel
+        config.exigirReservasOnline();
         // solo el cliente tiene tope: el personal puede cargar reservas más lejanas
-        configuracionService.obtener().validarAnticipacion(req.getFechaReserva(), reloj.hoy());
+        config.validarAnticipacion(req.getFechaReserva(), reloj.hoy());
         // el cliente pide solo lo que se ofrece al reservar; el resto lo agrega el personal
         stockService.exigirQueSeOfrezcan(StockService.pedido(req.getProductos()));
         return crear(req, cliente, cliente, null);

@@ -77,7 +77,7 @@ Perfil del ADMIN: qué avisos de reservas recibe (V8 como `avisos_admin`, V19 la
 Perfil del EMPLEADO y del PROFESOR: por ahora solo `usuario_id` (PK y FK a usuarios).
 
 ### `configuracion` (`Configuracion`)
-Una sola fila (id = 1): `minutos_reembolso_total int` (1440) y `minutos_reembolso_senia int` (720) para la política de cancelación, `recordatorio_activo boolean` (true) y `minutos_recordatorio int` (120, entre 15 y 1440) para el recordatorio del turno, `dias_anticipacion_reserva int` (30, entre 1 y 365; V21) para hasta cuándo reserva el cliente y se generan los partidos de los turnos fijos, `monto_reserva numeric(10,2)`, `monto_x_media_hora numeric(10,2)`, `porcentaje_senia numeric(5,2)`, `duracion_minima_turno int`, `duracion_maxima_turno int`.
+Una sola fila (id = 1): `minutos_reembolso_total int` (1440) y `minutos_reembolso_senia int` (720) para la política de cancelación, `recordatorio_activo boolean` (true) y `minutos_recordatorio int` (120, entre 15 y 1440) para el recordatorio del turno, `dias_anticipacion_reserva int` (30, entre 1 y 365; V21) para hasta cuándo reserva el cliente y se generan los partidos de los turnos fijos, `monto_reserva numeric(10,2)`, `monto_x_media_hora numeric(10,2)`, `porcentaje_senia numeric(5,2)`, `duracion_minima_turno int`, `duracion_maxima_turno int`, `reservas_online boolean` (true; V3) para que el ADMIN pause las reservas de los clientes desde la web y `mensaje_reservas_pausadas varchar(200)` (V3) con lo que ven mientras tanto.
 
 ### `dias` (`DiaApertura`)
 `id bigint identity`, `dia varchar(10)` ("Lunes" … "Domingo"), `horario_inicio time`, `horario_fin time`, `configuracion_general_id` FK → configuracion.
