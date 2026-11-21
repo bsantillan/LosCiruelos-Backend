@@ -43,4 +43,17 @@ class PagoCanalTest {
                 .isInstanceOf(EstadoInvalidoException.class)
                 .hasMessage("Solo se verifican los pagos con Cuenta DNI o por transferencia.");
     }
+
+    @Test
+    void lasTarjetasTienenSuCanalYLaDeMercadoPagoEntraEnSuCuenta() {
+        assertThat(pago(PaymentProvider.TARJETA_MP, null).canal()).isEqualTo(CanalDePago.TARJETA_MP);
+        assertThat(pago(PaymentProvider.TARJETA, null).canal()).isEqualTo(CanalDePago.TARJETA);
+
+        var caja = com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.class;
+        assertThat(com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(PaymentProvider.TARJETA_MP))
+                .isEqualTo(com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.MERCADO_PAGO);
+        assertThat(com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(PaymentProvider.TARJETA))
+                .isEqualTo(com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.TARJETA);
+        assertThat(caja.getEnumConstants()).hasSize(4);
+    }
 }

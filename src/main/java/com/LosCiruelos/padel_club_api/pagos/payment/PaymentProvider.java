@@ -8,9 +8,16 @@ public enum PaymentProvider {
     // Cuenta DNI (Banco Provincia): no tiene API, lo carga el personal y lo verifica el ADMIN contra la cuenta
     CUENTA_DNI,
     // transferencia a la cuenta de Mercado Pago del club (alias o CVU): la carga el personal y la verifica el ADMIN
-    TRANSFERENCIA_MP;
+    TRANSFERENCIA_MP,
+    // tarjeta en el posnet de Mercado Pago (Point): la carga el personal; la plata entra a la cuenta de MP
+    TARJETA_MP,
+    // tarjeta en otro posnet (Clover u otro): la carga el personal
+    TARJETA;
 
-    /** Se cobra a mano y el ADMIN lo verifica contra la cuenta del club. */
+    /**
+     * Se cobra a mano y el ADMIN lo verifica contra la cuenta del club. Las tarjetas no: el posnet
+     * aprueba el cobro en el momento.
+     */
     public boolean seVerifica() {
         return this == CUENTA_DNI || this == TRANSFERENCIA_MP;
     }

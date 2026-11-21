@@ -4,17 +4,17 @@ import java.math.BigDecimal;
 
 /**
  * Ventas sueltas cobradas en un período: cuántas y lo cobrado en efectivo, con Mercado Pago (con el QR
- * de la caja y por transferencia) y con Cuenta DNI.
+ * de la caja, por transferencia y con tarjeta en su posnet), con Cuenta DNI y con tarjeta en otro posnet.
  */
 public record TotalesDeVentas(Long cantidad, BigDecimal efectivo, BigDecimal mercadoPagoQr, BigDecimal transferencia,
-        BigDecimal cuentaDni) {
+        BigDecimal tarjetaMp, BigDecimal cuentaDni, BigDecimal tarjeta) {
 
-    /** Todo lo de Mercado Pago: QR y transferencia. */
+    /** Todo lo de Mercado Pago: QR, transferencia y tarjeta en su posnet. */
     public BigDecimal mercadoPago() {
-        return mercadoPagoQr.add(transferencia);
+        return mercadoPagoQr.add(transferencia).add(tarjetaMp);
     }
 
     public BigDecimal total() {
-        return efectivo.add(mercadoPago()).add(cuentaDni);
+        return efectivo.add(mercadoPago()).add(cuentaDni).add(tarjeta);
     }
 }

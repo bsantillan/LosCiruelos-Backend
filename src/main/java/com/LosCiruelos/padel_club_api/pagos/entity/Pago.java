@@ -445,13 +445,15 @@ public class Pago {
         return verificadoAt != null;
     }
 
-    /** Por dónde entró: los de Mercado Pago se separan en online, QR de la caja y transferencia. */
+    /** Por dónde entró: los de Mercado Pago se separan en online, QR de la caja, transferencia y tarjeta. */
     public CanalDePago canal() {
         return switch (provider) {
             case MANUAL -> CanalDePago.EFECTIVO;
             case MERCADO_PAGO -> esCobroQr() ? CanalDePago.MERCADO_PAGO_QR : CanalDePago.MERCADO_PAGO_ONLINE;
             case TRANSFERENCIA_MP -> CanalDePago.TRANSFERENCIA_MP;
+            case TARJETA_MP -> CanalDePago.TARJETA_MP;
             case CUENTA_DNI -> CanalDePago.CUENTA_DNI;
+            case TARJETA -> CanalDePago.TARJETA;
             case BONIFICACION -> CanalDePago.BONIFICACION;
         };
     }

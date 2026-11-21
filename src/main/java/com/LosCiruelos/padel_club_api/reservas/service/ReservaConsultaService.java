@@ -277,7 +277,8 @@ public class ReservaConsultaService {
         LocalDateTime inicio = jornadaService.del(desde).inicio();
         LocalDateTime fin = jornadaService.del(hasta).fin();
         EntradasDeCaja e = reservaRepository.resumenEntradasDeCaja(inicio, fin, Pago.ESTADOS_COBRADOS, PaymentProvider.MANUAL,
-                PaymentProvider.MERCADO_PAGO, PaymentProvider.TRANSFERENCIA_MP, PaymentProvider.CUENTA_DNI, PaymentProvider.BONIFICACION);
+                PaymentProvider.MERCADO_PAGO, PaymentProvider.TRANSFERENCIA_MP, PaymentProvider.TARJETA_MP,
+                PaymentProvider.CUENTA_DNI, PaymentProvider.TARJETA, PaymentProvider.BONIFICACION);
         BigDecimal devoluciones = reservaRepository.resumenDevoluciones(inicio, fin,
                 com.LosCiruelos.padel_club_api.pagos.entity.enums.EstadoDevolucion.DEVUELTO,
                 PaymentProvider.BONIFICACION);

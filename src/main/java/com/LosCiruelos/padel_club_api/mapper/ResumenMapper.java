@@ -46,12 +46,14 @@ public class ResumenMapper {
         BigDecimal mercadoPago = e.mercadoPago().add(v.mercadoPago());
         DetalleMercadoPago detalle = new DetalleMercadoPago(Dinero.redondear(mercadoPago),
                 Dinero.redondear(e.mercadoPagoQr().add(v.mercadoPagoQr())), Dinero.redondear(e.mercadoPagoOnline()),
-                Dinero.redondear(e.transferencia().add(v.transferencia())));
+                Dinero.redondear(e.transferencia().add(v.transferencia())),
+                Dinero.redondear(e.tarjetaMp().add(v.tarjetaMp())));
         BigDecimal cuentaDni = e.cuentaDni().add(v.cuentaDni());
-        BigDecimal total = efectivo.add(mercadoPago).add(cuentaDni);
+        BigDecimal tarjeta = e.tarjeta().add(v.tarjeta());
+        BigDecimal total = efectivo.add(mercadoPago).add(cuentaDni).add(tarjeta);
         BigDecimal devoluciones = devolucionesDeReservas.add(devolucionesDeVentas);
         Caja caja = new Caja(Dinero.redondear(total), Dinero.redondear(efectivo), Dinero.redondear(mercadoPago),
-                Dinero.redondear(cuentaDni),
+                Dinero.redondear(cuentaDni), Dinero.redondear(tarjeta),
                 Dinero.redondear(devoluciones), Dinero.redondear(total.subtract(devoluciones)), detalle,
                 Dinero.redondear(e.bonificado()), inicioCaja, finCaja);
 

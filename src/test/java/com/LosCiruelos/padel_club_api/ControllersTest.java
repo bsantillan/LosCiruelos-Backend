@@ -310,6 +310,10 @@ class ControllersTest {
             when(cobroService.registrarPagoManual(any(), any(), any(), any(), anyString())).thenReturn(new PagoResponse());
             mvc.perform(json(post("/admin/reservas/4/cobros/efectivo"), "{\"monto\":7500}")).andExpect(status().isOk());
             mvc.perform(json(post("/admin/reservas/4/cobros/transferencia"), "{\"monto\":7500}")).andExpect(status().isOk());
+            mvc.perform(json(post("/admin/reservas/4/cobros/tarjeta-mp"), "{\"monto\":7500}")).andExpect(status().isOk());
+            mvc.perform(json(post("/admin/reservas/4/cobros/tarjeta"), "{\"monto\":7500}")).andExpect(status().isOk());
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.TARJETA_MP, null, EMAIL);
+            verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.TARJETA, null, EMAIL);
             // /presencial queda como alias deprecado de la transferencia
             mvc.perform(json(post("/admin/reservas/4/cobros/presencial"), "{\"monto\":7500}")).andExpect(status().isOk());
             verify(cobroService).registrarPagoManual(4L, new BigDecimal("7500"), PaymentProvider.MANUAL, null, EMAIL);
@@ -322,7 +326,7 @@ class ControllersTest {
             when(pagoConsultaService.mediosDeCobro()).thenReturn(List.of(
                     new com.LosCiruelos.padel_club_api.pagos.dto.response.MedioDeCobroResponse(
                             com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago.TRANSFERENCIA_MP,
-                            "Mercado Pago (transferencia)", true, false, null, "POST",
+                            "Mercado Pago (transferencia)", com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago.TRANSFERENCIA_MP), com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago.TRANSFERENCIA_MP.opcion(), true, false, null, "POST",
                             "/admin/reservas/{id}/cobros/transferencia")));
 
             // no se confunde con GET /admin/reservas/{id}
@@ -1077,7 +1081,7 @@ class ControllersTest {
                             new BigDecimal("45000.00")),
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Caja(
                             new BigDecimal("230000.00"), new BigDecimal("90000.00"), new BigDecimal("100000.00"),
-                            new BigDecimal("40000.00"), new BigDecimal("7500.00"), new BigDecimal("222500.00"), new com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago(new BigDecimal("100000.00"), new BigDecimal("20000.00"), new BigDecimal("70000.00"), new BigDecimal("10000.00")), new BigDecimal("5000.00"),
+                            new BigDecimal("40000.00"), new BigDecimal("0.00"), new BigDecimal("7500.00"), new BigDecimal("222500.00"), new com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago(new BigDecimal("100000.00"), new BigDecimal("20000.00"), new BigDecimal("70000.00"), new BigDecimal("10000.00"), new BigDecimal("0.00")), new BigDecimal("5000.00"),
                             java.time.LocalDate.of(2026, 10, 1).atTime(8, 0), java.time.LocalDate.of(2026, 11, 2).atTime(8, 0)),
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ResumenResponse.Cancelaciones(3,
                             new BigDecimal("7500.00")),
@@ -1172,7 +1176,7 @@ class ControllersTest {
             return new com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse(List.of(r), 0, 20, 57, 3,
                     new com.LosCiruelos.padel_club_api.reservas.dto.response.ListadoReservasResponse.Totales(57,
                             new BigDecimal("855000.00"), new BigDecimal("690000.00"), new BigDecimal("410000.00"),
-                            new BigDecimal("250000.00"), new BigDecimal("30000.00"), new BigDecimal("15000.00"),
+                            new BigDecimal("250000.00"), new BigDecimal("30000.00"), new BigDecimal("0.00"), new BigDecimal("15000.00"),
                             new BigDecimal("165000.00"), null),
                     new com.LosCiruelos.padel_club_api.common.RangoDeFechas(java.time.LocalDate.of(2026, 3, 2),
                             java.time.LocalDate.of(2026, 11, 20)));
@@ -1451,9 +1455,9 @@ class ControllersTest {
         void losMediosDeCobroNoSeConfundenConUnaVenta() throws Exception {
             when(ventaConsultaService.medios()).thenReturn(List.of(
                     new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.EFECTIVO,
-                            "Efectivo", true, false, null),
+                            "Efectivo", com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(MedioDePago.EFECTIVO), MedioDePago.EFECTIVO.opcion(), true, false, null),
                     new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.MERCADO_PAGO,
-                            "Mercado Pago (QR de la caja)", false, true,
+                            "Mercado Pago (QR de la caja)", com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(MedioDePago.MERCADO_PAGO), MedioDePago.MERCADO_PAGO.opcion(), false, true,
                             "El QR de la caja de Mercado Pago no está configurado.")));
 
             // antes caía en GET /admin/ventas/{id} y respondía 400

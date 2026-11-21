@@ -57,7 +57,9 @@ public interface VentaRepository extends JpaRepository<Venta, Long>, JpaSpecific
                    COALESCE(SUM(CASE WHEN v.medio = :efectivo THEN v.total ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN v.medio = :mercadoPago THEN v.total ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN v.medio = :transferencia THEN v.total ELSE 0 END), 0),
-                   COALESCE(SUM(CASE WHEN v.medio = :cuentaDni THEN v.total ELSE 0 END), 0))
+                   COALESCE(SUM(CASE WHEN v.medio = :tarjetaMp THEN v.total ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN v.medio = :cuentaDni THEN v.total ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN v.medio = :tarjeta THEN v.total ELSE 0 END), 0))
             FROM Venta v
             WHERE v.createdAt >= :inicio AND v.createdAt < :fin AND v.estado = :cobrada
             """)
@@ -68,7 +70,9 @@ public interface VentaRepository extends JpaRepository<Venta, Long>, JpaSpecific
             @Param("efectivo") MedioDePago efectivo,
             @Param("mercadoPago") MedioDePago mercadoPago,
             @Param("transferencia") MedioDePago transferencia,
-            @Param("cuentaDni") MedioDePago cuentaDni);
+            @Param("tarjetaMp") MedioDePago tarjetaMp,
+            @Param("cuentaDni") MedioDePago cuentaDni,
+            @Param("tarjeta") MedioDePago tarjeta);
 
     /** Lo devuelto de las ventas en [inicio, fin) (por fecha de la devolución, no de la venta). */
     @Query("SELECT COALESCE(SUM(d.monto), 0) FROM VentaDevolucion d WHERE d.createdAt >= :inicio AND d.createdAt < :fin")

@@ -65,6 +65,22 @@ public class CobroAdminController {
                 PaymentProvider.TRANSFERENCIA_MP, body.getImputaciones(), authentication.getName()));
     }
 
+    /** Tarjeta (débito o crédito) en el posnet de Mercado Pago: la plata entra a la cuenta de MP. */
+    @PostMapping("/cobros/tarjeta-mp")
+    public ResponseEntity<PagoResponse> cobrarTarjetaMercadoPago(@PathVariable Long reservaId,
+            @Valid @RequestBody PagoManualRequest body, Authentication authentication) {
+        return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
+                PaymentProvider.TARJETA_MP, body.getImputaciones(), authentication.getName()));
+    }
+
+    /** Tarjeta (débito o crédito) en otro posnet (Clover u otro). */
+    @PostMapping("/cobros/tarjeta")
+    public ResponseEntity<PagoResponse> cobrarTarjeta(@PathVariable Long reservaId,
+            @Valid @RequestBody PagoManualRequest body, Authentication authentication) {
+        return ResponseEntity.ok(cobroService.registrarPagoManual(reservaId, body.getMonto(),
+                PaymentProvider.TARJETA, body.getImputaciones(), authentication.getName()));
+    }
+
     /** @deprecated usar {@code POST …/cobros/transferencia}: registra lo mismo (una transferencia). */
     @Deprecated
     @PostMapping("/cobros/presencial")
