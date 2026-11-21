@@ -23,7 +23,9 @@ public record CajaResponse(LocalDate fecha, LocalDateTime inicio, LocalDateTime 
         PorMedio devuelto, BigDecimal efectivoEnCaja, BigDecimal bonificado, AEntregar aEntregar,
         List<Movimiento> movimientos) {
 
-    public record PorMedio(BigDecimal efectivo, BigDecimal mercadoPago, BigDecimal cuentaDni, BigDecimal total) {
+    /** @param tarjeta las tarjetas de otro posnet (las del posnet de Mercado Pago van en mercadoPago) */
+    public record PorMedio(BigDecimal efectivo, BigDecimal mercadoPago, BigDecimal cuentaDni, BigDecimal tarjeta,
+            BigDecimal total) {
     }
 
     public record AEntregar(long cantidad, BigDecimal monto) {

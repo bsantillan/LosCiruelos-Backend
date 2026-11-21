@@ -84,7 +84,7 @@ public record MetricasResponse(
      * (netas de devoluciones).
      *
      * @param online          lo cobrado por Mercado Pago online (el cliente desde la web) de esas reservas
-     * @param enElClub        lo cobrado en el club (efectivo, QR, transferencia, Cuenta DNI) de esas reservas
+     * @param enElClub        lo cobrado en el club (efectivo, QR, transferencia, tarjeta, Cuenta DNI) de esas reservas
      * @param ticketPromedio  (cancha + productos) por reserva confirmada
      * @param porHoraOcupada  lo facturado de cancha por hora ocupada
      */

@@ -26,6 +26,7 @@ import com.LosCiruelos.padel_club_api.usuarios.entity.Usuario;
 import com.LosCiruelos.padel_club_api.usuarios.entity.enums.Role;
 import com.LosCiruelos.padel_club_api.usuarios.service.UsuarioService;
 import com.LosCiruelos.padel_club_api.ventas.entity.Venta;
+import com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja;
 import com.LosCiruelos.padel_club_api.ventas.entity.enums.MedioDePago;
 import com.LosCiruelos.padel_club_api.ventas.repository.VentaRepository;
 
@@ -102,15 +103,15 @@ class VentaConsultaServiceTest {
     @Test
     void losMediosDeCobroEnOrdenYMercadoPagoSoloConElQrConfigurado() {
         when(cobroQr.estaConfigurado()).thenReturn(true);
-        assertThat(servicio.medios()).containsExactly(
-                new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.EFECTIVO,
-                        "Efectivo", true, false, null),
-                new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.MERCADO_PAGO,
-                        "Mercado Pago (QR de la caja)", true, true, null),
-                new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.TRANSFERENCIA_MP,
-                        "Mercado Pago (transferencia)", true, false, null),
-                new com.LosCiruelos.padel_club_api.ventas.dto.response.MedioDeVentaResponse(MedioDePago.CUENTA_DNI,
-                        "Cuenta DNI", true, false, null));
+        assertThat(servicio.medios()).extracting(m -> m.medio(), m -> m.grupo(), m -> m.opcion(), m -> m.disponible(),
+                m -> m.conQr()).containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(MedioDePago.EFECTIVO, MedioDeCaja.EFECTIVO, "Efectivo", true, false),
+                        org.assertj.core.groups.Tuple.tuple(MedioDePago.MERCADO_PAGO, MedioDeCaja.MERCADO_PAGO, "QR de la caja", true, true),
+                        org.assertj.core.groups.Tuple.tuple(MedioDePago.TRANSFERENCIA_MP, MedioDeCaja.MERCADO_PAGO, "Transferencia", true, false),
+                        org.assertj.core.groups.Tuple.tuple(MedioDePago.TARJETA_MP, MedioDeCaja.MERCADO_PAGO, "Tarjeta en el posnet", true, false),
+                        org.assertj.core.groups.Tuple.tuple(MedioDePago.CUENTA_DNI, MedioDeCaja.CUENTA_DNI, "Cuenta DNI", true, false),
+                        org.assertj.core.groups.Tuple.tuple(MedioDePago.TARJETA, MedioDeCaja.TARJETA, "Tarjeta", true, false));
+        assertThat(servicio.medios().get(3).etiqueta()).isEqualTo("Mercado Pago (tarjeta en el posnet)");
 
         when(cobroQr.estaConfigurado()).thenReturn(false);
         assertThat(servicio.medios().get(1)).satisfies(m -> {

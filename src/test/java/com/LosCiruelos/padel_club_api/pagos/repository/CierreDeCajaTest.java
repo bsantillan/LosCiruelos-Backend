@@ -141,9 +141,9 @@ class CierreDeCajaTest {
         assertThat(r.fin()).isEqualTo(HOY.plusDays(1).atTime(8, 0));
         // efectivo 5.000 + venta 1.200 (el de 2.000 anulado no cuenta; el de las 7:50 es de ayer)
         assertThat(r.cobrado()).isEqualTo(new CajaResponse.PorMedio(new BigDecimal("6200.00"),
-                new BigDecimal("3000.00"), new BigDecimal("4000.00"), new BigDecimal("13200.00")));
+                new BigDecimal("3000.00"), new BigDecimal("4000.00"), new BigDecimal("0.00"), new BigDecimal("13200.00")));
         assertThat(r.devuelto()).isEqualTo(new CajaResponse.PorMedio(new BigDecimal("1500.00"),
-                new BigDecimal("0.00"), new BigDecimal("0.00"), new BigDecimal("1500.00")));
+                new BigDecimal("0.00"), new BigDecimal("0.00"), new BigDecimal("0.00"), new BigDecimal("1500.00")));
         assertThat(r.efectivoEnCaja()).isEqualTo(new BigDecimal("4700.00"));
         assertThat(r.bonificado()).isEqualTo(new BigDecimal("1000.00"));
         assertThat(r.aEntregar()).isEqualTo(new CajaResponse.AEntregar(1, new BigDecimal("500.00")));
@@ -179,5 +179,23 @@ class CierreDeCajaTest {
         CajaResponse lunes = caja(TestData.AHORA).cierre(HOY.minusDays(1), admin.getEmail());
         assertThat(lunes.cobrado().efectivo()).isEqualTo(new BigDecimal("7000.00"));
         assertThat(lunes.fin()).isEqualTo(HOY.atTime(8, 0));
+    }
+
+    @Test
+    void lasTarjetasSeCierranAparteDelEfectivo() {
+        pago(PaymentProvider.TARJETA_MP, "2500", HOY.atTime(10, 0));
+        pago(PaymentProvider.TARJETA, "1800", HOY.atTime(10, 10));
+        em.flush();
+
+        CajaResponse r = caja(TestData.AHORA).cierre(null, empleado.getEmail());
+
+        // la tarjeta del posnet de MP se suma a Mercado Pago (3.000 + 2.500); la de otro posnet va aparte
+        assertThat(r.cobrado().mercadoPago()).isEqualTo(new BigDecimal("5500.00"));
+        assertThat(r.cobrado().tarjeta()).isEqualTo(new BigDecimal("1800.00"));
+        assertThat(r.cobrado().total()).isEqualTo(new BigDecimal("17500.00"));
+        // el efectivo en caja no cambia: las tarjetas no son plata en el cajón
+        assertThat(r.efectivoEnCaja()).isEqualTo(new BigDecimal("4700.00"));
+        assertThat(r.movimientos()).filteredOn(m -> m.medio() == com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.TARJETA)
+                .hasSize(1);
     }
 }

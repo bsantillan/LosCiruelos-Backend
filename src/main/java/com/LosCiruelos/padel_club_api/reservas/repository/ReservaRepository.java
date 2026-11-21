@@ -382,7 +382,9 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
                    COALESCE(SUM(CASE WHEN p.provider = :mercadoPago AND p.orderId IS NULL THEN p.monto ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN p.provider = :mercadoPago AND p.orderId IS NOT NULL THEN p.monto ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN p.provider = :transferencia THEN p.monto ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN p.provider = :tarjetaMp THEN p.monto ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN p.provider = :cuentaDni THEN p.monto ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN p.provider = :tarjeta THEN p.monto ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN p.provider = :bonificacion THEN p.monto ELSE 0 END), 0))
             FROM Pago p
             WHERE p.estado IN :cobrados
@@ -395,7 +397,9 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
             @Param("efectivo") PaymentProvider efectivo,
             @Param("mercadoPago") PaymentProvider mercadoPago,
             @Param("transferencia") PaymentProvider transferencia,
+            @Param("tarjetaMp") PaymentProvider tarjetaMp,
             @Param("cuentaDni") PaymentProvider cuentaDni,
+            @Param("tarjeta") PaymentProvider tarjeta,
             @Param("bonificacion") PaymentProvider bonificacion);
 
     /**

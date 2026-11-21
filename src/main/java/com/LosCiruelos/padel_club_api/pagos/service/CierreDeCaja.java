@@ -40,8 +40,9 @@ final class CierreDeCaja {
         BigDecimal efectivo = suma(movimientos, cuales, MedioDeCaja.EFECTIVO, enPositivo);
         BigDecimal mercadoPago = suma(movimientos, cuales, MedioDeCaja.MERCADO_PAGO, enPositivo);
         BigDecimal cuentaDni = suma(movimientos, cuales, MedioDeCaja.CUENTA_DNI, enPositivo);
-        return new CajaResponse.PorMedio(efectivo, mercadoPago, cuentaDni,
-                Dinero.redondear(efectivo.add(mercadoPago).add(cuentaDni)));
+        BigDecimal tarjeta = suma(movimientos, cuales, MedioDeCaja.TARJETA, enPositivo);
+        return new CajaResponse.PorMedio(efectivo, mercadoPago, cuentaDni, tarjeta,
+                Dinero.redondear(efectivo.add(mercadoPago).add(cuentaDni).add(tarjeta)));
     }
 
     private static BigDecimal suma(List<Movimiento> movimientos, Predicate<Movimiento> cuales, MedioDeCaja medio,

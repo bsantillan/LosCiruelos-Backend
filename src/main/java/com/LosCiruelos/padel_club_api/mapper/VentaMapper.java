@@ -54,15 +54,19 @@ public class VentaMapper {
                 new ListadoVentasResponse.Totales(t.cobradas(), t.anuladas(), Dinero.redondear(cobrado.subtract(devuelto)),
                         Dinero.redondear(devuelto), porMedio, new com.LosCiruelos.padel_club_api.pagos.dto.response
                                 .DetalleMercadoPago(porMedio.get(MedioDePago.MERCADO_PAGO)
-                                        .add(porMedio.get(MedioDePago.TRANSFERENCIA_MP)),
+                                        .add(porMedio.get(MedioDePago.TRANSFERENCIA_MP))
+                                        .add(porMedio.get(MedioDePago.TARJETA_MP)),
                                         porMedio.get(MedioDePago.MERCADO_PAGO), Dinero.redondear(BigDecimal.ZERO),
-                                        porMedio.get(MedioDePago.TRANSFERENCIA_MP))), rango);
+                                        porMedio.get(MedioDePago.TRANSFERENCIA_MP), porMedio.get(MedioDePago.TARJETA_MP))),
+                rango);
     }
 
     /** @param qrConfigurado si el QR de la caja está configurado (los medios con QR dependen de eso) */
     public MedioDeVentaResponse aMedio(MedioDePago medio, boolean qrConfigurado) {
         boolean disponible = !medio.conQr() || qrConfigurado;
-        return new MedioDeVentaResponse(medio, medio.etiqueta(), disponible, medio.conQr(),
+        return new MedioDeVentaResponse(medio, medio.etiqueta(),
+                com.LosCiruelos.padel_club_api.pagos.entity.enums.MedioDeCaja.de(medio), medio.opcion(), disponible,
+                medio.conQr(),
                 disponible ? null : "El QR de la caja de Mercado Pago no está configurado.");
     }
 

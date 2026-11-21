@@ -161,7 +161,16 @@ class VentaTest {
         assertThat(MedioDePago.TRANSFERENCIA_MP.seVerifica()).isTrue();
         assertThat(MedioDePago.MERCADO_PAGO.seVerifica()).isFalse();
         assertThat(MedioDePago.values()).containsExactly(MedioDePago.EFECTIVO, MedioDePago.MERCADO_PAGO,
-                MedioDePago.TRANSFERENCIA_MP, MedioDePago.CUENTA_DNI);
+                MedioDePago.TRANSFERENCIA_MP, MedioDePago.TARJETA_MP, MedioDePago.CUENTA_DNI, MedioDePago.TARJETA);
+    }
+
+    @Test
+    void lasTarjetasNoSeVerifican() {
+        // el posnet aprueba el cobro en el momento: no hay nada que controlar contra la cuenta
+        assertThat(MedioDePago.TARJETA_MP.seVerifica()).isFalse();
+        assertThat(MedioDePago.TARJETA.seVerifica()).isFalse();
+        assertThat(com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider.TARJETA_MP.seVerifica()).isFalse();
+        assertThat(com.LosCiruelos.padel_club_api.pagos.payment.PaymentProvider.TARJETA.seVerifica()).isFalse();
     }
 
     @Nested

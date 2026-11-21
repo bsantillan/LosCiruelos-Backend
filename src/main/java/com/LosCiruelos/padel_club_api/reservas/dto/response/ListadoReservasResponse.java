@@ -20,8 +20,9 @@ public record ListadoReservasResponse(List<ReservaResponse> contenido, int pagin
      * @param montoBonificado    lo que el ADMIN bonificó (no es plata ni cuenta como cobrado)
      * @param montoPendiente     lo que deben las reservas SEÑADA y PARCIALMENTE_PAGADA
      */
+    /** @param cobradoTarjeta con tarjeta en otro posnet (la del posnet de Mercado Pago va en cobradoMercadoPago) */
     public record Totales(long reservas, BigDecimal montoTotal, BigDecimal montoCobrado, BigDecimal cobradoEfectivo,
-            BigDecimal cobradoMercadoPago, BigDecimal cobradoCuentaDni, BigDecimal montoBonificado,
+            BigDecimal cobradoMercadoPago, BigDecimal cobradoCuentaDni, BigDecimal cobradoTarjeta, BigDecimal montoBonificado,
             BigDecimal montoPendiente, com.LosCiruelos.padel_club_api.pagos.dto.response.DetalleMercadoPago
                     detalleMercadoPago) {
     }
